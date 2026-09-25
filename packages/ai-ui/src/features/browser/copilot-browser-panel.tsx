@@ -1,12 +1,14 @@
-// The "screen" beside the chat (PLAN-user-browser.md §2.6): the person's own
-// browser — one, wherever they work — its state, a Start when there is
-// none, and the live view with takeover when it runs. Opened from
+// The "screen" beside the chat (PLAN-user-browser.md §2.6): the agent's
+// window in its Space's browser (the copilot's: the personal Space's) — its
+// state, a Start when there is none, and the live view with takeover when it
+// runs. Opened from
 // the monitor button in the copilot header (card), or hosted inside the
 // desk's browser pane, whose top bar carries the title and close (pane).
 import { useTranslation } from "@engenty/i18n/ui";
 import { Button, cn } from "@engenty/ui-core";
 import { Globe, Pause, Play } from "lucide-react";
 import { createPortal } from "react-dom";
+import { useBrowserTarget } from "./browser-target.js";
 import {
   useUserBrowserMutations,
   useUserBrowserStatusQuery,
@@ -29,8 +31,12 @@ export function CopilotBrowserPanel({
   variant?: "card" | "pane";
 }) {
   const { t } = useTranslation("ai-ui");
-  const status = useUserBrowserStatusQuery(30_000);
-  const { start, stop } = useUserBrowserMutations();
+  const target = useBrowserTarget();
+  if (!target) {
+    throw new Error("CopilotBrowserPanel needs a BrowserTargetProvider");
+  }
+  const status = useUserBrowserStatusQuery(target, 30_000);
+  const { start, stop } = useUserBrowserMutations(target);
   const state = status.data?.state ?? "absent";
   const busy = start.isPending || stop.isPending;
   const running = state === "running";
@@ -114,6 +120,7 @@ export function CopilotBrowserPanel({
           className="min-h-0 flex-1"
           onStop={viewOwnsToolbar ? () => stop.mutate() : undefined}
           stopPending={busy}
+          target={target}
         />
       ) : (
         <div className="flex flex-col gap-3 text-sm">

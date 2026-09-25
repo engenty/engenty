@@ -1,7 +1,8 @@
 # Mastra Memory — what we use, what we don't, what to adopt
 
-Status: WIP · updated 2026-08-19 · basis: `@mastra/memory` 1.26.2 /
-`@mastra/core` 1.59.0 (installed, `.d.ts`-verified)
+Status: WIP · updated 2026-09-24 · written against `@mastra/memory` 1.26.2 /
+`@mastra/core` 1.59.0; installed today: `@mastra/memory` 1.30.0 /
+`@mastra/core` 1.67.0 (`apps/ai/package.json`)
 
 ## Current state
 
@@ -39,7 +40,7 @@ workingMemory: {
 - Costs: Observer work can update the profile during observation cycles.
 
 The schema stays deliberately small; durable, reviewable facts remain
-`memory_save` records rather than profile fields.
+`memory_note` records rather than profile fields.
 
 ## 3. Observational Memory (OM) — ADOPTED FOR CHAT
 
@@ -69,7 +70,12 @@ together, and can blur unfinished work between simultaneous conversations.
 `ENGENTY_AI_OBSERVATIONAL_MEMORY=false` disables both layers. Task-job threads
 remain outside this rollout.
 
-## 4. Semantic recall — PROBABLY SKIP in favor of OM
+## 4. Semantic recall — BUILT, OFF BY DEFAULT
+
+Shipped behind a flag: `ENGENTY_AI_SEMANTIC_RECALL=true` plus a configured
+workspace vector store turns it on, thread-scoped only
+(`apps/ai/src/ai/memory/semantic-recall.ts`). The reasoning below is why it
+stays off by default.
 
 Vector RAG over past messages (`semanticRecall: { topK, messageRange, scope }` +
 `vector: PgVector` + embedder). We have pgvector wired for workspace/RAG search
@@ -102,4 +108,4 @@ want them; an aborting output processor also prevents persistence.
 | 2 | Working memory (resource scope, schema form) | S | populate existing adapter field; UI read-only view |
 | 3 | `ToolCallFilter` + `TokenLimiter` processors | S | none |
 | 4 | Observational Memory (thread scope) | M–L | OM methods on adapter delegating to pg memory domain |
-| 5 | Semantic recall | — | skip; OM retrieval covers it |
+| 5 | Semantic recall | — | built behind `ENGENTY_AI_SEMANTIC_RECALL`, off by default |

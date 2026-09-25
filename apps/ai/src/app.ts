@@ -6,6 +6,8 @@ import {
   gatewayApiKeyEnvName,
   installGatewayAwareDefaultProvider,
   MODEL_GATEWAY_IDS,
+  roleModelRef,
+  startPlatformBindingsSync,
 } from "@engenty/ai-core";
 import { isEngentyCorsOriginAllowed } from "@engenty/environment";
 import {
@@ -89,6 +91,7 @@ import { type AiScopeResolver, createCoreAiScopeResolver } from "./api/http.js";
 import { registerInstructionRoutes } from "./api/instruction-routes.js";
 import { registerMcpAppRoutes } from "./api/mcp-app-routes.js";
 import { registerModelBindingRoutes } from "./api/model-binding-routes.js";
+import { registerModelDefaultsRoutes } from "./api/model-defaults-routes.js";
 import {
   createVoxtralElevenLabsProvider,
   readElevenLabsApiKeyFromEnv,
@@ -149,9 +152,11 @@ import {
   applyBindingPackForProvider,
   seedModelBindingsIfMissing,
 } from "./model-binding-seed.js";
+import { applyModelDefaultsIfFresh } from "./model-defaults.js";
 import { getModelGateway } from "./model-gateways/index.js";
 import { startNotificationDelivery } from "./notifications/inbox.js";
 import { resolveRunNotifications } from "./notifications/run-notifications.js";
+import { readStoreBindings } from "./platform-bindings-store.js";
 import {
   bootOnlyAiSettingKeys,
   hydrateAiPlatformSettings,
@@ -606,7 +611,7 @@ export async function createApp(options: CreateAppOptions = {}) {
           },
           scope
         );
-        return config.memoryModelId ?? config.chatModelId ?? null;
+        return config.fastTextModelId ?? config.chatModelId ?? null;
       },
       scopeResolver,
       store: threadStore,
@@ -771,6 +776,9 @@ export async function createApp(options: CreateAppOptions = {}) {
           ticketSecret: cascadeTicketSecret,
         })
       : null,
+    // The `realtime` binding is the platform default; workspace voice
+    // settings override it per session.
+    defaultRealtimeModel: async () => roleModelRef("realtime"),
     openAiApiKey: options.openAiRealtimeApiKey,
     openAiFetch: options.openAiRealtimeFetch,
     // Explicit null (tests) disables tenant prefs; undefined falls back to
@@ -830,8 +838,6 @@ export async function createApp(options: CreateAppOptions = {}) {
   });
   registerUsageRoutes(app, {
     getUsageStore: () => aiUsageStore ?? null,
-    getGatewayModelStore: () =>
-      isGatewayModelStore(aiUsageStore) ? aiUsageStore : null,
     scopeResolver,
   });
   registerRegistryRoutes(app, {
@@ -932,6 +938,12 @@ export async function createApp(options: CreateAppOptions = {}) {
       isGatewayModelStore(aiUsageStore) ? aiUsageStore : null,
     scopeResolver,
   });
+  registerModelDefaultsRoutes(app, {
+    getGatewayModelStore: () =>
+      isGatewayModelStore(aiUsageStore) ? aiUsageStore : null,
+    getUsageStore: () => aiUsageStore ?? null,
+    scopeResolver,
+  });
   registerGatewayModelRoutes(app, {
     getGatewayModelStore: () =>
       isGatewayModelStore(aiUsageStore) ? aiUsageStore : null,
@@ -968,10 +980,11 @@ export async function createApp(options: CreateAppOptions = {}) {
           gateways: keyed,
           trigger: "manual",
         })
-          .then((sync) => {
+          .then(async (sync) => {
             logger.info("gateway catalog synced after settings reload", {
               byGateway: sync.by_gateway,
             });
+            await applyModelDefaultsIfFresh(aiUsageStore);
           })
           .catch((err) => {
             logger.warn("gateway catalog sync after settings reload failed", {
@@ -1019,14 +1032,24 @@ export async function createApp(options: CreateAppOptions = {}) {
       });
     }
     try {
+      // Before the binding seed: that one is insert-only, so the committed
+      // bindings must land first or the stock pack would claim every role.
+      await applyModelDefaultsIfFresh(aiUsageStore);
+    } catch (err) {
+      logger.warn("Committed model defaults apply failed", {
+        message: err instanceof Error ? err.message : String(err),
+      });
+    }
+    try {
       await seedModelBindingsIfMissing(aiUsageStore);
     } catch (err) {
-      // Non-fatal: resolution falls back to the authored defaults, which is
-      // exactly what the seed would have written.
+      // An unseeded role stays unbound and fails loudly when asked for.
       logger.warn("Model binding seed failed", {
         message: err instanceof Error ? err.message : String(err),
       });
     }
+    // Every resolver reads the bindings from this process snapshot.
+    await startPlatformBindingsSync(() => readStoreBindings(aiUsageStore));
     await startGatewayModelSyncScheduler(aiUsageStore);
   }
 

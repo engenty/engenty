@@ -19,6 +19,7 @@
 // those compose with this, letting an agent report EARLY. They do not replace
 // the guarantee that a fire says something at the end.)
 import { createLogger } from "@engenty/telemetry";
+import type { RoutineOutcomeStore } from "../../dal/routines/routine-outcome-store.js";
 import type {
   RoutineRow,
   RoutineStore,
@@ -28,7 +29,10 @@ import {
   EngentyCoreClient,
   getEngentyCoreBaseUrlFromEnv,
 } from "../core-http-client.js";
-import { createThreadStoreFromEnv } from "../index.js";
+import {
+  createRoutineOutcomeStoreFromEnv,
+  createThreadStoreFromEnv,
+} from "../index.js";
 import { resolveTaskJobServiceScope } from "../jobs/task-job-scope.js";
 import { scopeAccessToken } from "../sessions/types.js";
 import { speakOnDesk } from "../threads/speak-on-desk.js";
@@ -38,6 +42,8 @@ import type {
   RunOutcome,
   RunReportingLevel,
 } from "../workflows/run-outcome.js";
+import { dispatchSettleOutcomes } from "./outcomes/dispatch.js";
+import type { OutcomeEnvelope } from "./outcomes/envelope.js";
 
 const logger = createLogger({ name: "routine-report" });
 
@@ -53,10 +59,14 @@ export interface ReportRoutineRunInput {
   awaitingReview?: boolean;
   /** The flow's own verdict on the work, when it declared one. */
   outcome?: RunOutcome;
+  /** Outcome bindings; omitted loads from env. Null skips the bindings path. */
+  outcomes?: RoutineOutcomeStore | null;
   /** Why it failed, when it did — the run's own words. */
   reason?: string | null;
   /** The run's reporting level; overrides the routine's knob when present. */
   reporting?: RunReportingLevel;
+  /** The fire's audit row (`ai.workflow_run.id`). Outcome deliveries key on this. */
+  requestId?: string;
   /**
    * Who the routine's agent reports to in its Space (the agent mount's
    * `reports_to`), or null. Defaults to a core lookup as the AI service.
@@ -356,6 +366,50 @@ export async function reportRoutineRun(
     });
     if (!routine) {
       return;
+    }
+    const outcomeStore =
+      input.outcomes === undefined
+        ? createRoutineOutcomeStoreFromEnv()
+        : input.outcomes;
+    const bindings = outcomeStore
+      ? await outcomeStore.list({
+          routineId: routine.id,
+          tenantId: routine.tenant_id,
+        })
+      : [];
+    if (bindings.length > 0) {
+      const fireId = input.requestId ?? input.runId;
+      const messages = await store.listMessagesOrdered({
+        tenantId: input.tenantId,
+        threadId: input.threadId,
+        ...(input.since ? { after: input.since } : {}),
+      });
+      const lastWord = lastAssistantText(messages);
+      const envelope: OutcomeEnvelope = {
+        agent_id: routine.agent_id,
+        artifact: input.artifact ?? null,
+        awaiting_review: input.awaitingReview === true,
+        body: input.summary?.trim() || proseFromLastWord(lastWord),
+        outcome: input.outcome ?? null,
+        reason: input.reason ?? null,
+        routine_id: routine.id,
+        routine_name: routine.name,
+        run_id: fireId,
+        space_id: routine.space_id,
+        status: input.status,
+        summary: input.summary?.trim() || null,
+      };
+      const { needsLegacyDeskFloor } = await dispatchSettleOutcomes({
+        bindings,
+        envelope,
+        requestId: fireId,
+        routine,
+        threadStore: store,
+      });
+      if (!needsLegacyDeskFloor) {
+        return;
+      }
+      // Failure floor with no high-priority binding: the desk post below.
     }
     const level = resolveReportingLevel({
       routineReport: routine.report,

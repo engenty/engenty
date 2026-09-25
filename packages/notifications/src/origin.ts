@@ -93,9 +93,31 @@ export function coalesceKeyFor(input: {
   return `${input.actorRef ?? "unknown"}:${input.operationId}:${input.spaceId ?? "global"}`;
 }
 
-/** `inbox_sync_run` → `inbox sync run`: readable without a manifest lookup. */
-export function humanizeOperationId(operationId: string): string {
-  return operationId.replace(/[_.]+/g, " ").trim();
+/**
+ * `inbox_sync_run` → `inbox sync run`: readable without a manifest lookup.
+ * With the owning module, its prefix goes (`connections.execute_action` →
+ * `execute action`) — the module is already the row's context.
+ */
+export function humanizeOperationId(
+  operationId: string,
+  moduleId?: string | null
+): string {
+  let id = operationId;
+  if (moduleId) {
+    for (const sep of [".", "_", ":"]) {
+      const prefix = `${moduleId.replace(/-/g, "_")}${sep}`;
+      const alt = `${moduleId}${sep}`;
+      if (id.startsWith(alt) && id.length > alt.length) {
+        id = id.slice(alt.length);
+        break;
+      }
+      if (id.startsWith(prefix) && id.length > prefix.length) {
+        id = id.slice(prefix.length);
+        break;
+      }
+    }
+  }
+  return id.replace(/[_.:-]+/g, " ").trim();
 }
 
 /**

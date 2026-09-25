@@ -56,15 +56,30 @@ export const notifyTool = createTool({
     }
     const spaceId =
       ctx.space && !isUnresolvedSpaceGate(ctx.space) ? ctx.space.spaceId : null;
+    const escalation = input.kind === "escalation";
+    // The conversation the agent raised this from, so the row opens its desk
+    // — only its OWN thread (a delegated child's user-facing thread is the
+    // parent's desk, not this agent's).
+    const threadId =
+      ctx.userFacingThreadId &&
+      ctx.userFacingThreadId === ctx.orchestratorThreadId
+        ? ctx.userFacingThreadId
+        : null;
+    const deskAgentId = ctx.agentTypeKey ?? null;
     try {
       const record = await emitInboxNotification({
         actor: { id: ctx.agentId ?? ctx.agentTypeKey ?? null, kind: "agent" },
         audience: { key: input.stream_key, kind: "stream" },
         initiatorUserId: ctx.userId ?? null,
-        kind:
-          input.kind === "escalation" ? "stream_escalation" : "stream_update",
+        // The title names who raised it; the agent's own words are the body.
+        body: input.summary,
+        kind: escalation ? "stream_escalation" : "stream_update",
         metadata: {
           ...(ctx.runId ? { run_id: ctx.runId } : {}),
+          ...(ctx.taskId ? { task_id: ctx.taskId } : {}),
+          ...(threadId && deskAgentId
+            ? { thread_agent_id: deskAgentId, thread_id: threadId }
+            : {}),
           stream_key: input.stream_key,
         },
         ...(input.details ? { payload: input.details } : {}),
@@ -72,8 +87,12 @@ export const notifyTool = createTool({
         source: "engenties",
         spaceId,
         ...(input.subject ? { subject: input.subject } : {}),
-        summary: input.summary,
+        // Said whole when the agent has no name to show.
+        summary: escalation
+          ? "An agent needs your attention"
+          : "An agent posted an update",
         tenantId,
+        title: { key: escalation ? "stream_escalation" : "stream_update" },
       });
       if (!record) {
         return {

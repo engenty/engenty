@@ -26,3 +26,23 @@ export function parseComputerNetworkTier(
   }
   return null;
 }
+
+/** Most hosts one Space may add (`spaces_computer_egress_hosts_size_check`). */
+export const COMPUTER_EGRESS_HOSTS_MAX = 100;
+
+const EGRESS_HOST_PATTERN =
+  /^(\*\.)?([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]{0,62}$/;
+
+/**
+ * One host a Space's computer may reach beyond the shared registry allowlist:
+ * an exact host (`api.example.com`) or every subdomain of one
+ * (`*.example.com`, which does not include `example.com` itself). Lowercased;
+ * null when it is neither — no ports, schemes, paths or bare TLDs.
+ */
+export function parseComputerEgressHost(raw: unknown): string | null {
+  if (typeof raw !== "string") {
+    return null;
+  }
+  const host = raw.trim().toLowerCase().replace(/\.$/, "");
+  return host.length <= 253 && EGRESS_HOST_PATTERN.test(host) ? host : null;
+}

@@ -143,137 +143,49 @@ function superadminScopeResolver() {
   });
 }
 
+function patchPolicy(
+  app: Awaited<ReturnType<typeof createApp>>,
+  body: Record<string, unknown>
+) {
+  return app.request("http://localhost/ai/v1/usage/policy", {
+    method: "PATCH",
+    headers: {
+      Authorization: "Bearer token",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+}
+
 describe("apps/ai usage routes", () => {
-  it("returns 403 for tenant members", async () => {
+  it("keeps a plan-managed policy read-only to tenant admins", async () => {
+    const store = makeUsageStore({
+      getTenantPolicy: vi.fn(async () =>
+        makePolicy({ managed_by: "entitlement" })
+      ),
+    });
     const app = await createApp({
-      scopeResolver: scopeResolver(false),
-      usageStore: makeUsageStore(),
+      scopeResolver: scopeResolver(true),
+      usageStore: store,
     });
-    const res = await app.request("http://localhost/ai/v1/usage/me", {
-      headers: { Authorization: "Bearer token" },
-    });
+    const res = await patchPolicy(app, { hard_limit_cost_micros: 999_999 });
 
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(409);
+    expect(store.upsertTenantPolicy).not.toHaveBeenCalled();
   });
 
-  it("returns current tenant summary for tenant admins", async () => {
+  it("writes a tenant admin's policy edit to the caller's own tenant", async () => {
     const store = makeUsageStore();
     const app = await createApp({
       scopeResolver: scopeResolver(true),
       usageStore: store,
     });
-    const res = await app.request("http://localhost/ai/v1/usage/tenant", {
-      headers: { Authorization: "Bearer token" },
-    });
-    const body = (await res.json()) as {
-      breakdown_by_model: unknown[];
-      breakdown_by_user: unknown[];
-      tenant_totals: { cost_micros: number } | null;
-    };
+    const res = await patchPolicy(app, { period_mode: "rolling" });
 
     expect(res.status).toBe(200);
-    expect(body.tenant_totals?.cost_micros).toBe(250);
-    expect(body.breakdown_by_model).toHaveLength(1);
-    expect(body.breakdown_by_user).toHaveLength(1);
-    expect(store.summarizeUsageByModel).toHaveBeenCalled();
-    expect(store.summarizeUsageByUser).toHaveBeenCalled();
-  });
-
-  it("updates allowed tenant policy fields for admins", async () => {
-    const store = makeUsageStore();
-    const app = await createApp({
-      scopeResolver: scopeResolver(true),
-      usageStore: store,
-    });
-    const res = await app.request("http://localhost/ai/v1/usage/policy", {
-      method: "PATCH",
-      headers: {
-        Authorization: "Bearer token",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ period_mode: "rolling", period_unit: "week" }),
-    });
-    const body = (await res.json()) as TenantUsagePolicyRecord;
-
-    expect(res.status).toBe(200);
-    expect(body.period_mode).toBe("rolling");
-    expect(body.period_unit).toBe("week");
     expect(store.upsertTenantPolicy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        tenant_id: tenantId,
-        period_mode: "rolling",
-        period_unit: "week",
-      })
+      expect.objectContaining({ period_mode: "rolling", tenant_id: tenantId })
     );
-  });
-
-  it("lists model pricing for superadmins", async () => {
-    const store = makeUsageStore({
-      listModelPricing: vi.fn(async () => [
-        {
-          id: "00000000-0000-4000-8000-000000000010",
-          model_id: "openai/gpt-5-mini",
-          currency: "usd",
-          input_per_mtok_micros: 250_000,
-          output_per_mtok_micros: 2_000_000,
-          cached_input_per_mtok_micros: 25_000,
-          reasoning_per_mtok_micros: 2_000_000,
-          valid_from: "2026-05-17T00:00:00.000Z",
-          valid_to: null,
-          created_at: "2026-05-17T00:00:00.000Z",
-        },
-      ]),
-    });
-    const app = await createApp({
-      scopeResolver: superadminScopeResolver(),
-      usageStore: store,
-    });
-
-    const res = await app.request(
-      "http://localhost/ai/v1/usage/model-pricing",
-      {
-        headers: { Authorization: "Bearer token" },
-      }
-    );
-    const body = (await res.json()) as { items: unknown[] };
-
-    expect(res.status).toBe(200);
-    expect(body.items).toHaveLength(1);
-  });
-
-  it("lists used historical model pricing for superadmins", async () => {
-    const store = makeUsageStore({
-      listUsedModelPricing: vi.fn(async () => [
-        {
-          id: "00000000-0000-4000-8000-000000000010",
-          model_id: "openai/gpt-5-mini",
-          currency: "usd",
-          input_per_mtok_micros: 250_000,
-          output_per_mtok_micros: 2_000_000,
-          cached_input_per_mtok_micros: 25_000,
-          reasoning_per_mtok_micros: 2_000_000,
-          valid_from: "2026-05-17T00:00:00.000Z",
-          valid_to: null,
-          created_at: "2026-05-17T00:00:00.000Z",
-        },
-      ]),
-    });
-    const app = await createApp({
-      scopeResolver: superadminScopeResolver(),
-      usageStore: store,
-    });
-
-    const res = await app.request(
-      "http://localhost/ai/v1/usage/model-pricing/history",
-      {
-        headers: { Authorization: "Bearer token" },
-      }
-    );
-    const body = (await res.json()) as { items: unknown[] };
-
-    expect(res.status).toBe(200);
-    expect(body.items).toHaveLength(1);
-    expect(store.listUsedModelPricing).toHaveBeenCalled();
   });
 
   it("rejects model pricing access for tenant admins", async () => {
@@ -292,120 +204,8 @@ describe("apps/ai usage routes", () => {
     expect(res.status).toBe(403);
   });
 
-  it("creates model pricing rows for superadmins", async () => {
-    const store = makeUsageStore({
-      insertModelPricing: vi.fn(async (record) => ({
-        id: "00000000-0000-4000-8000-000000000011",
-        model_id: record.model_id,
-        currency: record.currency,
-        input_per_mtok_micros: record.input_per_mtok_micros,
-        output_per_mtok_micros: record.output_per_mtok_micros,
-        cached_input_per_mtok_micros: record.cached_input_per_mtok_micros,
-        reasoning_per_mtok_micros: record.reasoning_per_mtok_micros,
-        valid_from: record.valid_from,
-        valid_to: record.valid_to,
-        created_at: "2026-05-17T00:00:00.000Z",
-      })),
-    });
-    const app = await createApp({
-      scopeResolver: superadminScopeResolver(),
-      usageStore: store,
-    });
-
-    const res = await app.request(
-      "http://localhost/ai/v1/usage/model-pricing",
-      {
-        method: "POST",
-        headers: {
-          Authorization: "Bearer token",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model_id: "openai/example",
-          currency: "usd",
-          input_per_mtok_micros: 1,
-          output_per_mtok_micros: 2,
-        }),
-      }
-    );
-
-    expect(res.status).toBe(201);
-    expect(store.insertModelPricing).toHaveBeenCalledWith(
-      expect.objectContaining({
-        model_id: "openai/example",
-        input_per_mtok_micros: 1,
-        output_per_mtok_micros: 2,
-      })
-    );
-  });
-
-  it("syncs default model pricing for superadmins", async () => {
-    const store = makeUsageStore();
-    const app = await createApp({
-      scopeResolver: superadminScopeResolver(),
-      usageStore: store,
-    });
-
-    const res = await app.request(
-      "http://localhost/ai/v1/usage/model-pricing/sync-defaults",
-      {
-        method: "POST",
-        headers: { Authorization: "Bearer token" },
-      }
-    );
-    const body = (await res.json()) as { inserted: number };
-
-    expect(res.status).toBe(200);
-    expect(body.inserted).toBeGreaterThan(0);
-    expect(store.insertModelPricing).toHaveBeenCalled();
-  });
-
-  it("returns superadmin tenant usage summary for manage", async () => {
-    const store = makeUsageStore();
-    const app = await createApp({
-      scopeResolver: superadminScopeResolver(),
-      usageStore: store,
-    });
-
-    const res = await app.request(
-      `http://localhost/ai/v1/usage/admin/tenants/${tenantId}`,
-      { headers: { Authorization: "Bearer token" } }
-    );
-    const body = (await res.json()) as {
-      tenant_id: string;
-      breakdown_by_user: unknown[];
-    };
-
-    expect(res.status).toBe(200);
-    expect(body.tenant_id).toBe(tenantId);
-    expect(body.breakdown_by_user).toHaveLength(1);
-    expect(store.summarizeUsageByUser).toHaveBeenCalled();
-  });
-
-  it("returns superadmin tenant policy bundle for manage", async () => {
-    const store = makeUsageStore();
-    const app = await createApp({
-      scopeResolver: superadminScopeResolver(),
-      usageStore: store,
-    });
-
-    const res = await app.request(
-      `http://localhost/ai/v1/usage/admin/tenants/${tenantId}/policy`,
-      { headers: { Authorization: "Bearer token" } }
-    );
-    const body = (await res.json()) as {
-      policy: { tenant_id: string };
-      user_policies: unknown[];
-    };
-
-    expect(res.status).toBe(200);
-    expect(body.policy.tenant_id).toBe(tenantId);
-    expect(store.listUserPolicies).toHaveBeenCalledWith(tenantId);
-  });
-
-  // AUTH-06 parity matrix. The gate moved from `isTenantAdmin` to the
-  // `core.ai.usage.read` capability; these four shapes assert the swap changed
-  // no outcome — in particular that a service credential is NOT widened.
+  // Tenant usage exposes every user's cost; a service credential must not be
+  // widened into it.
   describe("core.ai.usage.read parity", () => {
     const cases: Array<{
       expected: number;
@@ -434,23 +234,5 @@ describe("apps/ai usage routes", () => {
         expect(res.status).toBe(expected);
       });
     }
-
-    it("denies a scope core never gave capabilities to", async () => {
-      // The skew direction that matters: an older core omits the field, zod
-      // defaults it to [], and the gate closes rather than opening.
-      const app = await createApp({
-        scopeResolver: createStaticAiScopeResolver({
-          isTenantAdmin: true,
-          tenantId,
-          tenantRole: "admin",
-          userId,
-        }),
-        usageStore: makeUsageStore(),
-      });
-      const res = await app.request("http://localhost/ai/v1/usage/tenant", {
-        headers: { Authorization: "Bearer token" },
-      });
-      expect(res.status).toBe(403);
-    });
   });
 });

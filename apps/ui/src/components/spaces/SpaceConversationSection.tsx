@@ -11,8 +11,10 @@ import {
   type ChatSpaceAudience,
   chatVisibilityOf,
   useAgentLiveActivityMap,
+  useChatPrefetch,
 } from "@engenty/ai-ui";
 import { useTranslation } from "@engenty/i18n/ui";
+import { useSpaceAttention } from "@engenty/notifications-ui";
 import {
   Collapsible,
   CollapsibleContent,
@@ -35,6 +37,7 @@ import type {
   SpaceConversationSectionModel,
 } from "@/lib/space-conversation-sections";
 import { spaceAgentsPath, spaceRoomPath } from "@/lib/space-routes";
+import { useRouteSpace } from "@/lib/use-route-space";
 import type { SpaceRosterAgent } from "@/lib/use-space-roster-agents";
 import { useSpaceSectionOpen } from "@/lib/use-space-section-open";
 import { SpaceAgentHireTrigger } from "./SpaceAgentHireTrigger";
@@ -81,6 +84,26 @@ export function SpaceConversationRow({
   // One run feed for the whole list — every row asks the same query, so the
   // sidebar polls once however many desks it carries.
   const liveByAgent = useAgentLiveActivityMap();
+  const spaceId = useRouteSpace(null)?.id ?? null;
+  const prefetch = useChatPrefetch();
+  // Pointing at a row warms its chat, so the click opens a cached transcript.
+  const warm = () => {
+    switch (item.kind) {
+      case "desk":
+        prefetch.agentDesk({ agentId: item.agent.id, spaceId });
+        return;
+      case "room":
+        prefetch.thread(item.room.session.id);
+        return;
+      case "dm":
+        prefetch.thread(item.dm.session.id);
+        return;
+      default:
+        return;
+    }
+  };
+  // Same for Wichtig: one list query, every desk row reads its agent's rows.
+  const attention = useSpaceAttention();
   const menu = (
     <SpaceConversationNavMenu
       isPinned={isPinned}
@@ -88,54 +111,69 @@ export function SpaceConversationRow({
       sectionId={sectionId}
     />
   );
-  switch (item.kind) {
-    case "desk":
-      return (
-        <SpaceAgentNavRow
-          active={
-            isSpaceAgentNavActive(location.pathname, item.agent.id, spaceKey) &&
-            !openEngagement
-          }
-          activity={item.activity}
-          agent={item.agent}
-          destination={resolveSpaceAgentDestination(item.agent.id, spaceKey)}
-          live={liveByAgent.get(item.agent.id) ?? null}
-          menu={menu}
-          visibility={chatVisibilityOf("desk", null, audience)}
-        />
-      );
-    case "room":
-      return (
-        <SpaceRoomNavRow
-          active={
-            location.pathname === spaceRoomPath(spaceKey, item.room.session.id)
-          }
-          menu={menu}
-          room={item.room}
-          rosterById={rosterById}
-          spaceAudience={audience}
-          spaceKey={spaceKey}
-        />
-      );
-    case "dm":
-      return (
-        <SpaceDmNavRow
-          active={
-            isSpaceAgentNavActive(
-              location.pathname,
-              item.dm.agent_id,
-              spaceKey
-            ) && openEngagement === conversationEngagement(item.dm.session.id)
-          }
-          agent={item.agent}
-          dm={item.dm}
-          menu={menu}
-          spaceKey={spaceKey}
-        />
-      );
-    default:
-      return null;
+  const row = (() => {
+    switch (item.kind) {
+      case "desk":
+        return (
+          <SpaceAgentNavRow
+            active={
+              isSpaceAgentNavActive(
+                location.pathname,
+                item.agent.id,
+                spaceKey
+              ) && !openEngagement
+            }
+            activity={item.activity}
+            agent={item.agent}
+            attentionCount={attention.byAgent.get(item.agent.id)?.length ?? 0}
+            destination={resolveSpaceAgentDestination(item.agent.id, spaceKey)}
+            live={liveByAgent.get(item.agent.id) ?? null}
+            menu={menu}
+            visibility={chatVisibilityOf("desk", null, audience)}
+          />
+        );
+      case "room":
+        return (
+          <SpaceRoomNavRow
+            active={
+              location.pathname ===
+              spaceRoomPath(spaceKey, item.room.session.id)
+            }
+            menu={menu}
+            room={item.room}
+            rosterById={rosterById}
+            spaceAudience={audience}
+            spaceKey={spaceKey}
+          />
+        );
+      case "dm":
+        return (
+          <SpaceDmNavRow
+            active={
+              isSpaceAgentNavActive(
+                location.pathname,
+                item.dm.agent_id,
+                spaceKey
+              ) && openEngagement === conversationEngagement(item.dm.session.id)
+            }
+            agent={item.agent}
+            dm={item.dm}
+            menu={menu}
+            spaceKey={spaceKey}
+          />
+        );
+      default:
+        return null;
+    }
+  })();
+  if (!row) {
+    return null;
   }
+  return (
+    <div className="contents" onFocusCapture={warm} onPointerEnter={warm}>
+      {row}
+    </div>
+  );
 }
 
 export function SpaceConversationSection({

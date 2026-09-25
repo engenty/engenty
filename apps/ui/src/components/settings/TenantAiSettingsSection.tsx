@@ -1,5 +1,4 @@
-import { DEFAULT_AI_CHAT_MODEL_ID } from "@engenty/ai-core/browser";
-import { useAiSettingsQuery } from "@engenty/ai-ui";
+import { useEffectiveAiSettingsQuery } from "@engenty/ai-ui";
 import { useTranslation } from "@engenty/i18n/ui";
 import { SettingsFormSection, Skeleton } from "@engenty/ui-core";
 import type { LucideIcon } from "lucide-react";
@@ -96,14 +95,14 @@ function AiOverviewRow({
 
 export function TenantAiSettingsSection() {
   const { t } = useTranslation("common");
-  const settingsQuery = useAiSettingsQuery();
+  const effectiveQuery = useEffectiveAiSettingsQuery();
   const usageQuery = useAiUsageMeQuery();
 
-  const chatModelId =
-    settingsQuery.data?.chat_model_id?.trim() || DEFAULT_AI_CHAT_MODEL_ID;
-  const modelsDescription = t("settings.ai.modelsOverview", {
-    model: shortModelId(chatModelId),
-  });
+  // The server resolves tenant pin → role binding; an unbound role errors.
+  const chatModelId = effectiveQuery.data?.models.chat?.value;
+  const modelsDescription = chatModelId
+    ? t("settings.ai.modelsOverview", { model: shortModelId(chatModelId) })
+    : t("settings.ai.modelsOverviewUnbound");
 
   const usage = usageQuery.data;
   const costLabel = formatCostMicros(
@@ -137,7 +136,7 @@ export function TenantAiSettingsSection() {
           description={modelsDescription}
           Icon={SparklesIcon}
           label={t("settings.aiModels.menuLabel")}
-          loading={settingsQuery.isLoading && !settingsQuery.data}
+          loading={effectiveQuery.isLoading && !effectiveQuery.data}
           to="/settings/ai"
         />
         <AiOverviewRow

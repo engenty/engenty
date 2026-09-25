@@ -50,7 +50,6 @@ function parseRootCommentsMode(raw: unknown): KbEffectiveCommentsMode {
 }
 
 export const DEFAULT_KB_SETTINGS: KbSettings = {
-  embedding_model: "openai/text-embedding-3-small",
   search_vector_min_similarity: 0.45,
   search_verifier_min_query_terms: 3,
   search_verifier_max_candidates: 6,

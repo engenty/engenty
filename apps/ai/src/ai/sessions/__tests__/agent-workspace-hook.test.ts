@@ -67,9 +67,8 @@ function resolvedSpace(
   return {
     agentIds: new Set(surface.agents),
     allConnectorPrefixes: new Set(),
-    browser: null,
+    browser: { autostart: false, unattended: false },
     connectorPrefixes: new Set(),
-    mountedConnectionIds: new Set(surface.connections),
     moduleIds,
     readOnlyModuleIds,
     spaceId: surface.spaceId,

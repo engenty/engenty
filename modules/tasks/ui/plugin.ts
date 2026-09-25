@@ -1,4 +1,4 @@
-import { useInboxUnseenCountQuery } from "@engenty/ai-ui/embed";
+import { useInboxAttentionCountQuery } from "@engenty/ai-ui/embed";
 import { registerNotificationRenderer } from "@engenty/notifications-ui";
 import type { EngentyPluginContext } from "@engenty/ui-plugin-sdk";
 import { ListTodo } from "lucide-react";
@@ -185,9 +185,9 @@ export default function plugin(engenty: EngentyPluginContext) {
     to: tasksPaths.root,
     // Within engenty category (matches settings order; promoted to top rail)
     order: 11,
-    // Unseen inbox count on the app-bar icon (the shell calls this hook from
-    // an always-mounted per-item component).
-    useBadgeCount: () => useInboxUnseenCountQuery().data?.total,
+    // Open attention count on the app-bar icon (the shell calls this hook
+    // from an always-mounted per-item component).
+    useBadgeCount: () => useInboxAttentionCountQuery().data?.total,
   });
 
   // On the app rail beside the tools carried between spaces — hence the

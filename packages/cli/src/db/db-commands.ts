@@ -1,5 +1,6 @@
 import type { Command } from "commander";
 import { runCliAction } from "../cli-errors.js";
+import { ensureLocalServiceCredential } from "../setup/local-service-credential-step.js";
 import { requireWorkspaceRoot, runWorkspaceScript } from "../workspace.js";
 import {
   applyLocalDbMigrations,
@@ -107,8 +108,11 @@ export function registerDbCommands(program: Command): void {
     )
     .action(
       runCliAction(() => {
-        requireWorkspaceRoot("db reset");
+        const root = requireWorkspaceRoot("db reset");
         resetLocalDb();
+        // The reset dropped core.service_credential: re-mint the AI service's
+        // credential so .env.local's ENGENTY_AI_SERVICE_SECRET names a live row.
+        ensureLocalServiceCredential({ workspaceRoot: root });
       })
     );
 

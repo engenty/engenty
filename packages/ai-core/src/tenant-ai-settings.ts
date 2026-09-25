@@ -12,6 +12,7 @@ import type { RealtimeVoiceTenantPrefs } from "./realtime/provider.js";
 export {
   AGENT_APPROVAL_MODES,
   type AgentApprovalMode,
+  DEFAULT_AGENT_APPROVAL_MODES,
   parseAgentApprovalMode,
 } from "@engenty/plugin-sdk";
 
@@ -97,25 +98,18 @@ export interface TenantAiSettings {
   agent_approval?: AgentApprovalTenantPrefs | null;
   caps?: AiCapsConfig | null;
   chat_model_id?: string | null;
-  /** Fast single-shot classification (inbox lanes, attachment triage). */
+  /** Pick-one-of-N questions (effort routing, inbox categories, guardrails). */
   classifier_model_id?: string | null;
-  /** Routing / supervisor model (stored as `coordinator_model_id` for legacy compat). */
-  coordinator_model_id?: string | null;
   doc_converter?: DocConverterTenantPrefs | null;
+  /** Short prose without tools (titles, summaries, starters, memory). */
+  fast_text_model_id?: string | null;
   /**
    * Opt-in model-generated starter chips on specialist start pages.
    * Default off — a routing-tier call per page open is a real bill.
    */
   generated_starters?: boolean | null;
-  /** Observational memory observer + reflector. */
-  memory_model_id?: string | null;
-  /** Most-capable tier: planning, decomposition, sandboxed code execution. */
-  planning_coding_model_id?: string | null;
   /** Realtime voice provider + voice preferences. */
   realtime_voice?: RealtimeVoiceTenantPrefs | null;
-  /** Search / retrieval / deep-research tier. */
-  research_model_id?: string | null;
-  safeguard_model_id?: string | null;
   /**
    * IANA timezone the workspace works in, e.g. "Europe/Vienna".
    *
@@ -263,19 +257,12 @@ export function parseTenantAiSettings(raw: unknown): TenantAiSettings {
     return {};
   }
   const o = raw as Record<string, unknown>;
-  const routingModelId =
-    parseGatewayModelId(o.routing_model_id) ??
-    parseGatewayModelId(o.coordinator_model_id);
   return {
     chat_model_id: parseGatewayModelId(o.chat_model_id),
-    coordinator_model_id: routingModelId,
-    research_model_id: parseGatewayModelId(o.research_model_id),
-    planning_coding_model_id: parseGatewayModelId(o.planning_coding_model_id),
     classifier_model_id: parseGatewayModelId(o.classifier_model_id),
-    memory_model_id: parseGatewayModelId(o.memory_model_id),
+    fast_text_model_id: parseGatewayModelId(o.fast_text_model_id),
     doc_converter: parseDocConverterPrefs(o.doc_converter),
     realtime_voice: parseRealtimeVoicePrefs(o.realtime_voice),
-    safeguard_model_id: parseGatewayModelId(o.safeguard_model_id),
     caps: parseCaps(o.caps),
     agent_approval: parseAgentApprovalPrefs(o.agent_approval),
     generated_starters: o.generated_starters === true,

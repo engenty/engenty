@@ -533,6 +533,7 @@ export interface WorkspaceTenant {
 }
 
 export interface ResolvedAppearance {
+  chatStyle?: string;
   colorBackground?: string;
   colorBlind?: string;
   colorPrimary?: string;
@@ -540,7 +541,8 @@ export interface ResolvedAppearance {
   contrast?: string;
   font: string;
   fontSize: string;
-  language: string;
+  /** Unset when nobody chose one — the browser's language stands. */
+  language?: string;
   layoutMode?: string;
   sidebarColor?: string;
   sidebarMode?: string;

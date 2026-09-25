@@ -13,6 +13,7 @@ import { Agent } from "@mastra/core/agent";
 import { simulateReadableStream } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import { describe, expect, it, vi } from "vitest";
+import { bindTestModelsPerTest } from "../../../__tests__/helpers/test-model-bindings.js";
 import type { ThreadStore } from "../../../dal/threads/thread-store.js";
 import type {
   ThreadMessageRow,
@@ -204,6 +205,8 @@ function drive(agent: Agent, threadId: string, runId: string) {
 }
 
 const target = (threadId: string) => ({ resourceId: userId, threadId });
+
+bindTestModelsPerTest();
 
 describe("G1 — Mastra thread signals through our storage and driver", () => {
   it("sendMessage during an active run becomes input of that run", async () => {

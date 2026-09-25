@@ -1,3 +1,4 @@
+import { applyChatStyle } from "@engenty/ai-ui";
 import { useTranslation } from "@engenty/i18n/ui";
 import { useTheme } from "next-themes";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -54,7 +55,8 @@ export function useAppearanceSettings() {
       settings.colorPrimary !== lastSaved.colorPrimary ||
       settings.colorSecondary !== lastSaved.colorSecondary ||
       settings.colorBackground !== lastSaved.colorBackground ||
-      settings.contrast !== lastSaved.contrast,
+      settings.contrast !== lastSaved.contrast ||
+      settings.chatStyle !== lastSaved.chatStyle,
     [settings, lastSaved]
   );
 
@@ -62,6 +64,7 @@ export function useAppearanceSettings() {
     (s: AppearanceSettings) => {
       applyFont(s.font);
       applyFontSize(s.fontSize);
+      applyChatStyle(s.chatStyle);
       if (s.language && !i18n.language?.startsWith(s.language)) {
         void i18n.changeLanguage(s.language);
       }
@@ -91,6 +94,7 @@ export function useAppearanceSettings() {
   const applyPreviewVisual = useCallback((s: AppearanceSettings) => {
     applyFont(s.font);
     applyFontSize(s.fontSize);
+    applyChatStyle(s.chatStyle);
     // Intentionally NOT setTheme(s.themeMode): light/dark is user-owned.
     applySidebarColor(s.sidebarColor);
     applyCustomColors(

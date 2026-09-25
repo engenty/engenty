@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { bindingsFromList, setPlatformBindings } from "@engenty/ai-core";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AgentConfig } from "../../ai/registry/types.js";
 import {
   generateAgentDeskStarters,
@@ -50,7 +51,16 @@ function dependencies(
 }
 
 describe("generateAgentDeskStarters", () => {
+  beforeEach(() => {
+    setPlatformBindings(
+      bindingsFromList([
+        { gateway: "vercel", modelId: "test/fast", role: "fast_text" },
+      ])
+    );
+  });
+
   afterEach(() => {
+    setPlatformBindings(undefined);
     vi.unstubAllEnvs();
     resetGeneratedStartersCacheForTests();
   });

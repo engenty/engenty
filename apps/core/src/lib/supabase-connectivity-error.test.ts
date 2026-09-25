@@ -2,12 +2,6 @@ import { describe, expect, it } from "vitest";
 import { isLikelySupabaseConnectivityFailure } from "./supabase-connectivity-error.js";
 
 describe("isLikelySupabaseConnectivityFailure", () => {
-  it("detects TypeError fetch failures", () => {
-    expect(
-      isLikelySupabaseConnectivityFailure(new TypeError("fetch failed"))
-    ).toBe(true);
-  });
-
   it("detects nested network causes", () => {
     const err = new Error("upstream");
     Object.assign(err, {

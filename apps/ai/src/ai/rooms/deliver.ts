@@ -19,7 +19,10 @@ import type { EngentyToolsRunContext } from "../../../ai/tools/engenty-tools/lib
 import type { AgentRunStore } from "../../dal/threads/agent-run-store.js";
 import type { ThreadStore } from "../../dal/threads/index.js";
 import type { ThreadRow } from "../../dal/threads/types.js";
-import { emitInboxNotification } from "../../notifications/inbox.js";
+import {
+  emitInboxNotification,
+  resolveNotifications,
+} from "../../notifications/inbox.js";
 import { runDelegatedConversation } from "../conversation/delegate-run.js";
 import { buildHeadlessWorkspace } from "../jobs/headless-workspace.js";
 import { resolveTaskJobServiceScope } from "../jobs/task-job-scope.js";
@@ -474,14 +477,23 @@ async function pauseRoom(input: {
       kind: "room_paused",
       metadata: {
         agent_turns: input.state.agentTurns,
+        room_thread_id: input.room.id,
         thread_id: input.room.id,
       },
+      body: "Say something in the room to continue.",
       priority: "high",
       source: "agents",
       ...(input.room.space_id ? { spaceId: input.room.space_id } : {}),
       subject: { id: input.room.id, type: "thread" },
-      summary: `${input.room.title ?? "A room"} paused after ${input.state.agentTurns} agent turns — say something to continue.`,
+      summary: `${input.room.title ?? "A room"} paused after ${input.state.agentTurns} agent turns`,
       tenantId: input.room.tenant_id,
+      title: {
+        key: "room_paused",
+        params: {
+          count: input.state.agentTurns,
+          name: input.room.title ?? "Room",
+        },
+      },
       userId,
     });
   }
@@ -515,6 +527,16 @@ export async function noteHumanTurnInRoom(input: {
       threadId: input.threadId,
       userId: input.scope.userId,
     });
+    // The pause the person just lifted is answered: its "paused" row (one
+    // per person in the room) closes for everyone.
+    if (state.paused) {
+      await resolveNotifications({
+        outcome: "resumed",
+        subjectId: room.id,
+        subjectType: "thread",
+        tenantId: input.scope.tenantId,
+      });
+    }
   } catch (error) {
     logger.warn("room budget reset skipped", {
       message: error instanceof Error ? error.message : String(error),

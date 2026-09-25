@@ -33,10 +33,7 @@ import {
   ROOM_PURPOSE_KEY,
 } from "../rooms/room-turns.js";
 import { speakerUserIdFromMastraMessage } from "../sessions/speaker-turn-processor.js";
-import {
-  TOOL_APPROVAL_GRANTS_METADATA_KEY,
-  TOOL_APPROVAL_GRANTS_ONCE_METADATA_KEY,
-} from "../sessions/tool-approval-grants.js";
+import { TOOL_APPROVAL_GRANTS_ONCE_METADATA_KEY } from "../sessions/tool-approval-grants.js";
 import type { AiScopeCredential } from "../sessions/types.js";
 import { scopeAttributionUserId } from "../sessions/types.js";
 import {
@@ -78,7 +75,6 @@ const MASTRA_THREAD_METADATA_KEYS = new Set([
 const EXTERNALLY_OWNED_METADATA_KEYS = [
   ACTIVE_ARTIFACT_METADATA_KEY,
   AG_UI_OPEN_INTERRUPT_METADATA_KEY,
-  TOOL_APPROVAL_GRANTS_METADATA_KEY,
   TOOL_APPROVAL_GRANTS_ONCE_METADATA_KEY,
   // A room's turn budget is merged by the room (rooms/deliver.ts) while the
   // run that spends it is still streaming; live on 2026-09-07 six turns read

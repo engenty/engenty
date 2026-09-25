@@ -54,20 +54,24 @@ export function decideRoutineApproval(
 
 /** Why the card was required — the refusal names it when nobody can answer. */
 export function routineApprovalRefusalNote(input: {
+  change?: boolean;
   coordinatorIds: readonly string[];
+  external?: boolean;
   hasGrants: boolean;
   routineName: string;
 }): string {
   const why = input.hasGrants
     ? "it grants operations a fire may run without asking"
-    : "this Space asks a person before an agent creates a routine";
+    : input.external
+      ? "this Space asks a person before a routine sends its results outside the app"
+      : "this Space asks a person before an agent creates a routine";
   const who =
     input.coordinatorIds.length > 0
       ? `Hand it to a coordinator (${input.coordinatorIds.join(", ")}) with message_agent, or`
       : "Say so in your reply, so a person can";
   return (
-    `'${input.routineName}' was not created: ${why}, and this run has nobody to ask. ` +
-    `${who} create it from a chat where someone can approve the card.`
+    `'${input.routineName}' was not ${input.change ? "changed" : "created"}: ${why}, and this run has nobody to ask. ` +
+    `${who} ${input.change ? "change" : "create"} it from a chat where someone can approve the card.`
   );
 }
 
@@ -87,10 +91,41 @@ function wakeLine(input: RoutineCardInput): string {
   }
 }
 
+/** A destination as the card shows it — the binding a person approves. */
+export interface RoutineCardDestination {
+  config?: Record<string, unknown>;
+  mode: "always" | "agent";
+  provider_id: string;
+}
+
+/** Standing config a person should read, never a secret. */
+function destinationLabel(destination: RoutineCardDestination): string {
+  const config = Object.entries(destination.config ?? {})
+    .filter(([key]) => key !== "secret")
+    .map(([key, value]) => `${key}: ${String(value)}`);
+  const when =
+    destination.mode === "always" ? "every run" : "when the run decides";
+  return [`\`${destination.provider_id}\` (${when})`, ...config].join(" · ");
+}
+
+function destinationLines(input: RoutineCardInput): string[] {
+  const destinations = input.destinations ?? [];
+  return [
+    `**Destinations:** ${
+      destinations.length > 0
+        ? destinations.map(destinationLabel).join("; ")
+        : "none"
+    }`,
+    `**Reports (fallback without destinations):** ${input.report}`,
+  ];
+}
+
 export interface RoutineCardInput {
   agentId: string;
   approvalGrants: readonly string[];
   cron?: string | null;
+  /** Where a settled run delivers (`ai.routine_outcomes`). */
+  destinations?: readonly RoutineCardDestination[];
   kind: "schedule" | "event" | "manual" | "agent";
   name: string;
   outcome?: string | null;
@@ -111,7 +146,7 @@ export function routineDecisionArtifact(input: RoutineCardInput) {
     "",
     wakeLine(input),
     input.outcome ? `**Done means:** ${input.outcome}` : null,
-    `**Reports:** ${input.report}`,
+    ...destinationLines(input),
     input.approvalGrants.length > 0
       ? `**May run without asking:** ${input.approvalGrants.join(", ")}`
       : null,

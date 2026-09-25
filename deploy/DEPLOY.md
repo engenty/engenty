@@ -357,7 +357,7 @@ gateway — so a container that ignores its proxy env has no route out at all.
 
 | Network | Who is on it | Way out |
 |---|---|---|
-| `engenty-egress` | space computers and run sandboxes with tier `egress`, `engenty-egress-proxy` | the proxy only — **allowlist** (`deploy/egress-proxy/filter`, default-deny) |
+| `engenty-egress` | space computers and run sandboxes with tier `egress`, `engenty-egress-proxy` | the proxy only — **allowlist**: `deploy/egress-proxy/filter` for every sandbox (default-deny), plus each Space's own hosts from **Space settings → Security → Allowed hosts** for that Space's computer |
 | `engenty-browser-egress` | `engenty-browser-<tenant>-<space>-<user>` containers, `engenty-browser-proxy` | the proxy only — **blocklist** (`deploy/browser-proxy/filter`: our own containers, private ranges, metadata), every host logged at `LogLevel Connect` |
 | `engenty-browser-view` | user browsers (attached after start) and `engenty-ai` | none; CDP on :9222 only |
 

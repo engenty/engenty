@@ -40,7 +40,7 @@ export function registerThreadChapterRoutes(
   app: Hono<{ Bindings: HonoBindings; Variables: HonoVariables }>,
   opts: {
     aiService: AiService;
-    /** The model chapters are written with — the memory model where one is set. */
+    /** The model chapters are written with — the fast-text model where one is set. */
     resolveModelId?: (scope: AiSessionScope) => Promise<string | null>;
     scopeResolver: AiScopeResolver;
     store: ThreadStore;

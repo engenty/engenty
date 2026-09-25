@@ -85,6 +85,10 @@ export const ENGENTY_COPILOT_TOOL_IDS = [
   // The gate stays where it was: only a base-tool hire in a known space goes
   // live; anything wider suspends on ONE in-chat Approve card.
   "agent_propose",
+  // The counterpart: deleting a hired specialist (with its routines and own
+  // workflows), or taking a module agent out of the Space. Always a card, in
+  // every approval mode.
+  "agent_remove",
   "chatThreadSearch",
   // Actions, all three verbs. `workflows_list` turns a name into an id (and
   // shows what already exists); `invoke_workflow` runs a PUBLISHED one — the
@@ -142,6 +146,7 @@ export const ENGENTY_COPILOT_SKILL_TOOL_IDS: Record<string, string[]> = {
   // reason this lane exists; the routine and action verbs are what finish it.
   "hire-agent": [
     "agent_propose",
+    "agent_remove",
     "agent_status",
     "routines_create",
     "routines_update",
@@ -180,6 +185,8 @@ export const ENGENTY_COPILOT_SKILL_TOOL_IDS: Record<string, string[]> = {
   ],
   // Adding an app + its account to the Space.
   "space-setup": ["space_setup"],
+  // First setup: the Space's Chief of Staff, then its apps and account.
+  "getting-started": ["agent_propose", "agent_status", "space_setup"],
   // Reading and driving the live DOM. `show_ui_guide`, `focusField` and
   // `openDialog` stay always-on: AGENTS.md rule 4 uses them to teach and to
   // move the user to a control, with no skill in front.

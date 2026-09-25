@@ -4,8 +4,6 @@ import { z } from "zod";
 
 const logger = createLogger({ name: "web-ingest:html-extract-llm" });
 
-const DEFAULT_LLM_MODEL = "openai/gpt-5-mini";
-
 /** Max HTML characters sent to the model (head + tail for very large pages). */
 const LLM_HTML_BUDGET = 100_000;
 
@@ -34,8 +32,8 @@ export type HtmlExtractPatternSuggestion = z.infer<
 
 export interface SuggestHtmlExtractPatternsFromHtmlOptions {
   html: string;
-  /** AI Gateway model id (e.g. openai/gpt-5-mini). */
-  model?: string;
+  /** AI Gateway model id. */
+  model: string;
   /** Optional URL for model context. */
   pageUrl?: string;
 }
@@ -65,7 +63,7 @@ export async function suggestHtmlExtractPatternsFromHtml(
     );
   }
 
-  const model = options.model ?? DEFAULT_LLM_MODEL;
+  const model = options.model;
   const snippet = truncateForLlm(options.html);
   const urlLine = options.pageUrl
     ? `Page URL (context): ${options.pageUrl}\n\n`

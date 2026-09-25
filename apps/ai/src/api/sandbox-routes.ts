@@ -19,7 +19,8 @@ import {
   UserBrowserLimitError,
 } from "../ai/sandbox/space-browser.js";
 import { getSpaceComputerQueueDepths } from "../ai/sandbox/space-computer.js";
-import { scopeAccessToken } from "../ai/sessions/types.js";
+import { resolvePersonalSpaceId } from "../ai/sessions/run-space.js";
+import { type AiSessionScope, scopeAccessToken } from "../ai/sessions/types.js";
 import { AI_BASE_PATH } from "../config/constants.js";
 import type { AgentRunStore } from "../dal/threads/agent-run-store.js";
 import type { ThreadStore } from "../dal/threads/index.js";
@@ -30,6 +31,9 @@ import {
   handleRouteError,
   resolveScope,
 } from "./http.js";
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const killSandboxesBodySchema = z.object({
   sandbox_ids: z.array(z.string().min(1).max(256)).optional(),
@@ -100,11 +104,23 @@ export function registerSandboxRoutes(
     }
   });
 
-  // The caller's OWN browser (PLAN-user-browser.md §2.2): every route below
-  // keys the container on `scope.userId`, so a user can only ever read,
-  // start, stop or sign out the browser that acts in their name. The tenant
-  // comes from the scope too, so the id cannot cross tenants. No body: the
-  // browser is the person's, in every space.
+  // A Space's browser (PLAN-space-owned-connections.md): every route below
+  // names the Space in `?space_id=` — absent means the caller's personal
+  // Space, the copilot's — and core's surface endpoint, gated by Space
+  // access, is the membership check, so a caller only ever reads, starts,
+  // stops or views the browser of a Space they can enter. The tenant comes
+  // from the scope, so the id cannot cross tenants.
+  const readSpaceId = async (
+    c: Context<{ Bindings: HonoBindings; Variables: HonoVariables }>,
+    scope: AiSessionScope
+  ): Promise<string | null> => {
+    const named = c.req.query("space_id")?.trim();
+    if (named) {
+      return UUID_PATTERN.test(named) ? named : null;
+    }
+    return await resolvePersonalSpaceId(scope);
+  };
+
   const readBrowserIdentity = async (
     c: Context<{ Bindings: HonoBindings; Variables: HonoVariables }>
   ) => {
@@ -112,11 +128,33 @@ export function registerSandboxRoutes(
     if (!scope.ok) {
       return { ok: false as const, response: scope.response };
     }
+    const spaceId = await readSpaceId(c, scope.scope);
+    if (!spaceId) {
+      return {
+        ok: false as const,
+        response: c.json({ error: "agent_sandboxes.spaceRequired" }, 400),
+      };
+    }
+    const accessToken = scopeAccessToken(scope.scope)?.trim();
+    const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
+    if (!(accessToken && coreBaseUrl)) {
+      return {
+        ok: false as const,
+        response: c.json({ error: "agent_sandboxes.coreUnavailable" }, 503),
+      };
+    }
+    try {
+      await new EngentyCoreClient({ accessToken, coreBaseUrl }).getSpaceSurface(
+        spaceId
+      );
+    } catch {
+      return {
+        ok: false as const,
+        response: c.json({ error: "agent_sandboxes.spaceForbidden" }, 403),
+      };
+    }
     return {
-      identity: {
-        tenantId: scope.scope.tenantId,
-        userId: scope.scope.userId,
-      },
+      identity: { spaceId, tenantId: scope.scope.tenantId },
       ok: true as const,
     };
   };
@@ -184,12 +222,16 @@ export function registerSandboxRoutes(
     }
   });
 
-  // A 60 s ticket for ONE live-view connection to the caller's own browser
-  // (§2.5). Owner-only by construction: the identity is the scope's user.
+  // A 60 s ticket for ONE live-view connection to one agent's window in a
+  // Space's browser (§2.5): `?space_id=…&agent_id=…`, Space members only.
   app.post(`${base}/browser/ticket`, async (c) => {
     const identity = await readBrowserIdentity(c);
     if (!identity.ok) {
       return identity.response;
+    }
+    const agentId = c.req.query("agent_id")?.trim();
+    if (!agentId) {
+      return c.json({ error: "agent_sandboxes.agentRequired" }, 400);
     }
     if (!opts.browserTicketSecret) {
       return c.json({ error: "agent_sandboxes.browserViewUnavailable" }, 501);
@@ -201,9 +243,10 @@ export function registerSandboxRoutes(
       }
       const ticket = mintBrowserTicket(
         {
+          agent_id: agentId,
           sandbox_id: status.sandboxId,
+          space_id: identity.identity.spaceId,
           tenant_id: identity.identity.tenantId,
-          user_id: identity.identity.userId,
         },
         opts.browserTicketSecret
       );
@@ -222,15 +265,23 @@ export function registerSandboxRoutes(
     }
   });
 
-  // The caller's standing consents for their browser — core's row, reached
-  // through the one service the browser UI already talks to. Owner-only on
-  // core's side; apps/ai forwards the caller's own token.
+  // The Space's standing consents for its browser — core's row, reached
+  // through the one service the browser UI already talks to. Core decides
+  // who may read (members) and set (owners); apps/ai forwards the caller's
+  // own token.
   const coreClientFor = async (
     c: Context<{ Bindings: HonoBindings; Variables: HonoVariables }>
   ) => {
     const scope = await resolveScope(c, opts.scopeResolver);
     if (!scope.ok) {
       return { ok: false as const, response: scope.response };
+    }
+    const spaceId = await readSpaceId(c, scope.scope);
+    if (!spaceId) {
+      return {
+        ok: false as const,
+        response: c.json({ error: "agent_sandboxes.spaceRequired" }, 400),
+      };
     }
     const accessToken = scopeAccessToken(scope.scope)?.trim();
     const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
@@ -243,6 +294,7 @@ export function registerSandboxRoutes(
     return {
       client: new EngentyCoreClient({ accessToken, coreBaseUrl }),
       ok: true as const,
+      spaceId,
     };
   };
 
@@ -252,11 +304,11 @@ export function registerSandboxRoutes(
       return core.response;
     }
     try {
-      return c.json(await core.client.getMyBrowserGrant());
+      return c.json(await core.client.getSpaceBrowserGrant(core.spaceId));
     } catch (err) {
       return handleRouteError(
         c,
-        "getMyBrowserGrant failed",
+        "getSpaceBrowserGrant failed",
         "agent_sandboxes.browserGrantFailed",
         err
       );
@@ -275,11 +327,13 @@ export function registerSandboxRoutes(
       return c.json({ error: "agent_sandboxes.invalidBody" }, 400);
     }
     try {
-      return c.json(await core.client.putMyBrowserGrant(body.data));
+      return c.json(
+        await core.client.putSpaceBrowserGrant(core.spaceId, body.data)
+      );
     } catch (err) {
       return handleRouteError(
         c,
-        "putMyBrowserGrant failed",
+        "putSpaceBrowserGrant failed",
         "agent_sandboxes.browserGrantFailed",
         err
       );

@@ -7,13 +7,18 @@
 //
 // The host supplies the title and whatever navigation frames it (a dialog
 // header, a back link).
+import { useTranslation } from "@engenty/i18n/ui";
 import { Button, Switch } from "@engenty/ui-core";
 import { Edit, Loader2, Play, Trash2 } from "lucide-react";
 import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
+import { useDeveloperModeEnabled } from "../../components/ag-ui-inspector/ag-ui-inspector-hooks.js";
 import { buildAgentDetailPath } from "../agents-workspace/agent-workspace-paths.js";
 import { RoutineCanvas } from "./routine-canvas.js";
+import { RoutineOutcomeList } from "./routine-outcome-list.js";
+import { RoutineOutcomesDialog } from "./routine-outcomes-dialog.js";
 import { RoutineTriggerList } from "./routine-trigger-list.js";
+import { RoutineTriggersDialog } from "./routine-triggers-dialog.js";
 import type { RoutineDto, RoutineRunDto } from "./routines-api.js";
 import {
   usePatchRoutineStateMutation,
@@ -28,7 +33,7 @@ export interface RoutineDetailBodyProps {
   onDeleteCustom?: (id: string) => void;
   onEditCustom?: (routine: RoutineDto) => void;
   /** Open the Action's canvas where the HOST wants it (in place, in a Space). */
-  onOpenAction?: (workflowId: string) => void;
+  onOpenAction: (workflowId: string) => void;
   routine: RoutineDto;
 }
 
@@ -119,10 +124,15 @@ export function RoutineDetailBody({
   onOpenAction,
   routine,
 }: RoutineDetailBodyProps) {
+  const { t } = useTranslation("ai-ui");
   const isDe = locale.startsWith("de");
+  // The agent page lives in the /admin/engenty debugging area.
+  const developerMode = useDeveloperModeEnabled();
   const runMutation = useRunRoutineNowMutation();
   const runsQuery = useRoutineRunsQuery(routine.id, runMutation.isPending);
   const isCustom = routine.source === "custom";
+  const [triggersOpen, setTriggersOpen] = useState(false);
+  const [outcomesOpen, setOutcomesOpen] = useState(false);
 
   // A fire that changed nothing must not read as "started": the routine is
   // off, it is inside its quiet hours, or its previous run is still active.
@@ -218,24 +228,61 @@ export function RoutineDetailBody({
       {/* What wakes it comes first — the canvas below shows the same sources
           as nodes, this is the readable inventory. */}
       <div className="space-y-2">
-        <SectionHeading>{isDe ? "Auslöser" : "Trigger"}</SectionHeading>
+        <div className="flex items-center justify-between gap-2">
+          <SectionHeading>{isDe ? "Auslöser" : "Trigger"}</SectionHeading>
+          {isCustom ? (
+            <Button
+              onClick={() => setTriggersOpen(true)}
+              size="sm"
+              type="button"
+              variant="ghost"
+            >
+              {isDe ? "Bearbeiten" : "Edit"}
+            </Button>
+          ) : null}
+        </div>
         <RoutineTriggerList locale={locale} routine={routine} />
       </div>
 
       {/* What runs, and what has to be true at the end. */}
       <div className="space-y-2">
-        <SectionHeading>Action</SectionHeading>
+        <SectionHeading>
+          {routine.prompt
+            ? t("routines.detail.prompt")
+            : t("routines.detail.workflow")}
+        </SectionHeading>
         <div className="ui-card-panel p-3.5">
           {routine.prompt ? (
             // A prompt routine IS its prompt — the one-node workflow behind
-            // it is a storage detail, not something to draw.
-            <p className="whitespace-pre-wrap text-sm leading-relaxed">
-              {routine.prompt}
-            </p>
+            // it is a storage detail, not something to draw. The canvas
+            // outcome node is skipped too, so the promise renders here.
+            <div className="space-y-3">
+              {/* A long prompt scrolls inside the card; the promise below
+                  stays in view. */}
+              <p className="max-h-72 overflow-y-auto whitespace-pre-wrap break-words pr-1 text-sm leading-relaxed">
+                {routine.prompt}
+              </p>
+              {routine.outcome ? (
+                <div className="space-y-1 border-border-soft border-t pt-3">
+                  <span className="font-medium text-[10px] text-muted-foreground uppercase tracking-wider">
+                    {t("routines.form.outcome")}
+                  </span>
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed">
+                    {routine.outcome}
+                  </p>
+                </div>
+              ) : null}
+            </div>
           ) : (
             <RoutineCanvas
               locale={locale}
               onOpenAction={onOpenAction}
+              onOpenOutcomes={
+                isCustom ? () => setOutcomesOpen(true) : undefined
+              }
+              onOpenTriggers={
+                isCustom ? () => setTriggersOpen(true) : undefined
+              }
               routine={routine}
             />
           )}
@@ -249,6 +296,27 @@ export function RoutineDetailBody({
         ) : null}
       </div>
 
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <SectionHeading>{t("routines.outcomes.title")}</SectionHeading>
+          {isCustom ? (
+            <Button
+              onClick={() => setOutcomesOpen(true)}
+              size="sm"
+              type="button"
+              variant="ghost"
+            >
+              {isDe ? "Bearbeiten" : "Edit"}
+            </Button>
+          ) : null}
+        </div>
+        <RoutineOutcomeList
+          locale={locale}
+          onEdit={isCustom ? () => setOutcomesOpen(true) : undefined}
+          routine={routine}
+        />
+      </div>
+
       {hideAgent ? null : (
         <div className="space-y-2">
           <SectionHeading>
@@ -258,12 +326,14 @@ export function RoutineDetailBody({
             <span className="min-w-0 font-medium font-mono text-foreground">
               {routine.agent_id}
             </span>
-            <Link
-              className="inline-flex items-center gap-1 text-primary text-xs hover:underline"
-              to={buildAgentDetailPath(routine.agent_id)}
-            >
-              {isDe ? "Agent verwalten" : "Manage agent"}
-            </Link>
+            {developerMode ? (
+              <Link
+                className="inline-flex items-center gap-1 text-primary text-xs hover:underline"
+                to={buildAgentDetailPath(routine.agent_id)}
+              >
+                {isDe ? "Agent verwalten" : "Manage agent"}
+              </Link>
+            ) : null}
           </div>
           <p className="text-muted-foreground text-xs leading-normal">
             {isDe
@@ -295,6 +365,23 @@ export function RoutineDetailBody({
           </ul>
         )}
       </div>
+
+      {isCustom ? (
+        <>
+          <RoutineTriggersDialog
+            locale={locale}
+            onOpenChange={setTriggersOpen}
+            open={triggersOpen}
+            routine={routine}
+          />
+          <RoutineOutcomesDialog
+            locale={locale}
+            onOpenChange={setOutcomesOpen}
+            open={outcomesOpen}
+            routine={routine}
+          />
+        </>
+      ) : null}
     </div>
   );
 }

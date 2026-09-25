@@ -3,12 +3,7 @@ import type {
   CopilotLayoutSnapshotV1,
 } from "@engenty/app-shell";
 import { isEngentyDevelopmentEnvironment } from "@engenty/environment";
-import {
-  COPILOT_RIVER_PATH,
-  isCopilotRiverPathname,
-} from "../../../copilot/copilot-river-paths.js";
-import type { CopilotCompactContextOption } from "../composer/copilot-compact-context-option";
-import type { CopilotRouteContext } from "../session/copilot-route-context.js";
+import { isCopilotRiverPathname } from "../../../copilot/copilot-river-paths.js";
 
 export type CopilotFloatingSnapTarget = "button" | "sidebar" | null;
 
@@ -153,193 +148,6 @@ export function openCopilotShell(
   return "work";
 }
 
-function humanizeToken(value: string): string {
-  return value
-    .replace(/[-_]/g, " ")
-    .replace(/\b\w/g, (match) => match.toUpperCase());
-}
-
-/** True if pathname looks like /mdl/:slug/:entityId (entity detail page). */
-function isEntityDetailPath(pathname: string | undefined): boolean {
-  if (!pathname) {
-    return false;
-  }
-  const segments = pathname.split("/").filter(Boolean);
-  if (segments.length < 3) {
-    return false;
-  }
-  const last = segments.at(-1) ?? "";
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-    last
-  );
-}
-
-function stripEntityScope(
-  scope: Record<string, unknown> | null | undefined
-): Record<string, unknown> | undefined {
-  if (!scope) {
-    return;
-  }
-
-  const {
-    entityId: _entityId,
-    entity_title: _entityTitle,
-    contact_snapshot: _contactSnapshot,
-    routeKey: _routeKey,
-    copilotRequestedActionId: _copilotRequestedActionId,
-    copilotRequestedAgentId: _copilotRequestedAgentId,
-    ...nextScope
-  } = scope;
-
-  return Object.keys(nextScope).length > 0 ? nextScope : undefined;
-}
-
-function globalScope(
-  scope: Record<string, unknown> | null | undefined
-): Record<string, unknown> | undefined {
-  if (!scope || typeof scope.ui_language !== "string") {
-    return;
-  }
-
-  return { ui_language: scope.ui_language };
-}
-
-/** User-facing hint for the technical moduleId/routeKey sent to the API (shown when no context menu). */
-export function formatCopilotRouteStatusLabel(
-  moduleId: string | undefined,
-  routeKey: string | undefined
-): string | undefined {
-  const m = typeof moduleId === "string" ? moduleId.trim() : "";
-  const r = typeof routeKey === "string" ? routeKey.trim() : "";
-  if (!(m && r)) {
-    return;
-  }
-  if (m === "engenty-copilot" && r === "chat") {
-    return "Global chat";
-  }
-  const humanize = (s: string) =>
-    s
-      .split(/[-_.]/)
-      .filter(Boolean)
-      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-      .join(" ");
-  return `${humanize(m)} · ${humanize(r)}`;
-}
-
-export function buildCompactContextOptions({
-  copilotContext,
-  module,
-  routeKey,
-  scope,
-  title,
-}: {
-  copilotContext?: CopilotRouteContext;
-  module: string;
-  routeKey: string;
-  scope: Record<string, unknown> | null;
-  title?: string;
-}): CopilotCompactContextOption[] {
-  const pathname = copilotContext?.pathname;
-  const baseContext: CopilotRouteContext = copilotContext ?? {
-    moduleId: module,
-    pathname,
-    routeKey,
-    scope: scope ?? undefined,
-  };
-  const pathSegmentsForCurrent = pathname?.split("/").filter(Boolean) ?? [];
-  const moduleSlugForCurrent =
-    pathSegmentsForCurrent[0] === "module" && pathSegmentsForCurrent[1]
-      ? pathSegmentsForCurrent[1]
-      : null;
-  const onEntityDetail = isEntityDetailPath(pathname);
-
-  let currentLabel: string;
-  if (pathname?.endsWith("/settings")) {
-    currentLabel = `${title ?? humanizeToken(module)} settings`;
-  } else if (onEntityDetail) {
-    const entityTitle =
-      typeof scope?.entity_title === "string"
-        ? scope.entity_title.trim()
-        : typeof scope?.project_title === "string"
-          ? scope.project_title.trim()
-          : "";
-    if (entityTitle) {
-      currentLabel = entityTitle;
-    } else if (moduleSlugForCurrent === "projects" && title === "Projects") {
-      currentLabel = "Project";
-    } else if (moduleSlugForCurrent === "contacts" && title === "Contacts") {
-      currentLabel = "Contact";
-    } else {
-      currentLabel = title ?? humanizeToken(routeKey);
-    }
-  } else if (title && routeKey !== "chat") {
-    currentLabel = `${title} / ${humanizeToken(routeKey)}`;
-  } else {
-    currentLabel = title ?? humanizeToken(routeKey);
-  }
-  const options: CopilotCompactContextOption[] = [
-    {
-      id: "current",
-      label: currentLabel,
-      routeContext: baseContext,
-    },
-  ];
-
-  const pathSegments = pathname?.split("/").filter(Boolean) ?? [];
-  const moduleSlug =
-    pathSegments[0] === "module" && pathSegments[1] ? pathSegments[1] : null;
-  const moduleRootPath = moduleSlug ? `/mdl/${moduleSlug}` : null;
-  const settingsPath = moduleRootPath ? `${moduleRootPath}/settings` : null;
-
-  if (settingsPath && pathname !== settingsPath) {
-    options.push({
-      id: "settings",
-      label: title ? `${title} settings` : "Settings",
-      routeContext: {
-        ...baseContext,
-        pathname: settingsPath,
-        routeKey: "settings",
-        scope: stripEntityScope(baseContext.scope ?? scope),
-      },
-    });
-  }
-
-  if (moduleRootPath && pathname !== moduleRootPath) {
-    const listLabel = moduleSlug
-      ? `${humanizeToken(moduleSlug)} · List`
-      : humanizeToken(module);
-    options.push({
-      id: "module-root",
-      label: listLabel,
-      routeContext: {
-        ...baseContext,
-        moduleId: "engenty-copilot",
-        pathname: moduleRootPath,
-        routeKey: "chat",
-        scope: moduleSlug
-          ? {
-              ...stripEntityScope(baseContext.scope ?? scope),
-              currentModule: moduleSlug,
-            }
-          : stripEntityScope(baseContext.scope ?? scope),
-      },
-    });
-  }
-
-  options.push({
-    id: "global",
-    label: "Global",
-    routeContext: {
-      moduleId: "engenty-copilot",
-      pathname: COPILOT_RIVER_PATH,
-      routeKey: "chat",
-      scope: globalScope(baseContext.scope ?? scope),
-    },
-  });
-
-  return options;
-}
-
 /**
  * Whether the blob is on screen.
  *
@@ -352,6 +160,14 @@ export function buildCompactContextOptions({
  * `chromeHidden` still hides the FLOATING blob, which has no bar to sit on and
  * would cover the chat page's own composer.
  */
+/** Transcript / hired-Engenty lane — not the FAB — only when the companion is showing. */
+export function isCopilotCompanionSurfaceActive(input: {
+  chromeHidden?: boolean;
+  open: boolean;
+}): boolean {
+  return Boolean(input.open && !input.chromeHidden);
+}
+
 export function shouldShowCopilotFab(input: {
   chromeHidden?: boolean;
   collapseToCircle: boolean;

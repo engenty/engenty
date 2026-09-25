@@ -63,19 +63,6 @@
         "secret": true
       },
       {
-        "description": "Default model routed through the AI Gateway (e.g. openai/gpt-5.6-luna).",
-        "defaultValue": "openai/gpt-5.6-luna",
-        "feature": "ai",
-        "group": "AI",
-        "key": "AI_GATEWAY_DEFAULT_MODEL",
-        "obtain": {
-          "kind": "manual"
-        },
-        "required": "optional",
-        "scopes": ["root"],
-        "secret": false
-      },
-      {
         "description": "Enable apps/ai to refresh the Gateway model catalog from Vercel AI Gateway on a schedule.",
         "defaultValue": "true",
         "feature": "ai",
@@ -114,6 +101,24 @@
             "2. Create a key and copy it"
           ],
           "url": "https://docs.opper.ai"
+        },
+        "required": "optional",
+        "scopes": ["root", "deploy"],
+        "secret": true
+      },
+      {
+        "description": "SpaceX AI (xAI) API key — reaches Grok models directly as a model gateway (chat models).",
+        "feature": "ai",
+        "group": "AI",
+        "key": "XAI_API_KEY",
+        "configurable": "platform",
+        "obtain": {
+          "kind": "provider",
+          "instructions": [
+            "1. Open https://console.x.ai → API keys",
+            "2. Create a key and copy it"
+          ],
+          "url": "https://console.x.ai"
         },
         "required": "optional",
         "scopes": ["root", "deploy"],

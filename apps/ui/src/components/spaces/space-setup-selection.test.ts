@@ -109,11 +109,11 @@ describe("pendingRemovals", () => {
       pendingRemovals(selection, [
         { resourceKey: "tasks", resourceType: "module" },
         { resourceKey: "offers", resourceType: "module" },
-        { resourceKey: "slack", resourceType: "connection" },
+        { resourceKey: "slack", resourceType: "plugin" },
       ])
     ).toEqual([
       { resourceKey: "offers", resourceType: "module" },
-      { resourceKey: "slack", resourceType: "connection" },
+      { resourceKey: "slack", resourceType: "plugin" },
     ]);
   });
 
@@ -165,7 +165,7 @@ describe("selectionToPayload", () => {
     // The mirror CHECK in the database rejects them, so this would 400 the save.
     const payload = selectionToPayload(
       selectionFromDeclarations([
-        { resourceKey: "google-gmail", resourceType: "connection" },
+        { resourceKey: "google-gmail", resourceType: "plugin" },
       ])
     );
     expect(payload[0]).not.toHaveProperty("agent_access");

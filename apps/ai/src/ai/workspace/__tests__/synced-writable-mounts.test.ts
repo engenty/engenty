@@ -1,7 +1,12 @@
+import path from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { buildSyncedWritableMounts } from "../loader.js";
-import { resolveLocalMountBasePath } from "../local-workspace-paths.js";
+import {
+  resolveEngentyHostRoot,
+  resolveLocalMountBasePath,
+} from "../local-workspace-paths.js";
 
 const tenantId = "tenant-1";
 
@@ -118,23 +123,64 @@ describe("space-rooted synced mounts", () => {
   });
 
   it("keeps the tenant commons staging path unchanged", () => {
-    // Segment check, not substring: the base temp dir is `engenty-workspaces`,
-    // which contains "spaces" and would make a naive assertion pass for the
-    // wrong reason.
+    // Segments below the root, not a substring: the root itself is the
+    // spaces dir, which would make a naive assertion pass for the wrong reason.
+    const below = (p: string) =>
+      path.relative(resolveEngentyHostRoot(), p).split(path.sep);
     const tenantPath = resolveLocalMountBasePath(
       tenantId,
       "ai/workspace/commons/"
     );
-    expect(tenantPath.split("/")).not.toContain("spaces");
-    expect(tenantPath.endsWith("tenants/tenant-1/ai/workspace/commons")).toBe(
-      true
-    );
+    expect(below(tenantPath)).toEqual([
+      "tenants",
+      "tenant-1",
+      "ai",
+      "workspace",
+      "commons",
+    ]);
     expect(
-      resolveLocalMountBasePath(
-        tenantId,
-        "ai/workspace/commons/",
-        SPACE_A
-      ).split("/")
+      below(
+        resolveLocalMountBasePath(tenantId, "ai/workspace/commons/", SPACE_A)
+      )
     ).toContain("spaces");
+  });
+});
+
+describe("space computer binds", () => {
+  // Staff table for one agent in a Space: its own `/home`, the tenant and
+  // space commons.
+  const staffTable = (agentId: string) => [
+    {
+      fileStorageRelativePath: `ai/workspace/agents/${agentId}/`,
+      mountPath: "/home",
+    },
+    { fileStorageRelativePath: "ai/workspace/commons/", mountPath: "/shared" },
+    {
+      fileStorageRelativePath: "ai/workspace/commons/",
+      mountPath: "/space",
+      spaceId: "space-a",
+    },
+  ];
+
+  it("binds the same sources whichever agent creates the container", () => {
+    // Docker fixes a container's binds at creation, so a bind that differed
+    // per agent would hand every later agent the first one's `/home`.
+    const a = buildSyncedWritableMounts(
+      staffTable("agent-a"),
+      tenantId,
+      "space"
+    );
+    const b = buildSyncedWritableMounts(
+      staffTable("agent-b"),
+      tenantId,
+      "space"
+    );
+    expect(a.extraMounts).toEqual(b.extraMounts);
+    expect(a.extraMounts.map((mount) => mount.containerPath)).not.toContain(
+      "/home"
+    );
+    // Not staged either, so file tools reach the agent's own `/home` in
+    // storage rather than a local dir the provider never syncs.
+    expect(a.stagingByMountPath.has("/home")).toBe(false);
   });
 });

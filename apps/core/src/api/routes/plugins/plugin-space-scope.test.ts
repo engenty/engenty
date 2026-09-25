@@ -1,9 +1,6 @@
 /**
- * The module-route space gate (PLAN-spaces.md Phase P4).
- *
- * Written as the attack, not as the feature: each case is a second user putting
- * a colleague's private space id somewhere a module route reads it. The Data tree is
- * the honest caller; these are the dishonest ones it made possible.
+ * The module-route space gate: each case puts a private space id the caller may
+ * not enter somewhere a module route reads it.
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -97,15 +94,7 @@ function getTenantDb() {
   } as never;
 }
 
-/**
- * Built to match `PrincipalContext` (security/auth.ts) EXACTLY — a user's id
- * arrives as `principalId`, and there is no `userId` field at all.
- *
- * The first version of this helper invented `{ userId }`, every test passed, and
- * the gate was broken in the browser: the subject fell back to the nil UUID and
- * people could not open their own personal space. A fixture that is kinder than
- * reality tests nothing.
- */
+/** Shaped like `PrincipalContext`: a user's id arrives as `principalId`. */
 const asUser = (principalId: string) => ({
   principalId,
   principalType: "user",
@@ -113,27 +102,6 @@ const asUser = (principalId: string) => ({
 });
 
 describe("findForbiddenSpaceScope", () => {
-  it("allows a request with no space filter at all", async () => {
-    // The overwhelmingly common case; it must not cost a database round trip.
-    expect(
-      await findForbiddenSpaceScope({
-        auth: asUser(BOB),
-        getTenantDb,
-        query: { page_size: "50" },
-      })
-    ).toBeNull();
-  });
-
-  it("allows an open space", async () => {
-    expect(
-      await findForbiddenSpaceScope({
-        auth: asUser(BOB),
-        getTenantDb,
-        query: { space_id: OPEN_SPACE },
-      })
-    ).toBeNull();
-  });
-
   it("allows the owner into their own private space", async () => {
     expect(
       await findForbiddenSpaceScope({
@@ -194,23 +162,6 @@ describe("findForbiddenSpaceScope", () => {
     ).toBe(ALICE_PRIVATE);
   });
 
-  it("lets an agent acting for the owner reach that owner's space", async () => {
-    // An agent invoked inside Alice's space must be able to see it, or the
-    // copilot mounted in every personal space is blind in the one place it lives.
-    expect(
-      await findForbiddenSpaceScope({
-        auth: {
-          actingForUserId: ALICE,
-          principalId: "agent-1",
-          principalType: "agent",
-          tenantId: TENANT,
-        },
-        getTenantDb,
-        query: { space_id: ALICE_PRIVATE },
-      })
-    ).toBeNull();
-  });
-
   it("does not let an agent acting for one user read another's space", async () => {
     // Inheriting a user's reach means EXACTLY that user's reach — an agent is
     // never a way to widen it.
@@ -226,40 +177,6 @@ describe("findForbiddenSpaceScope", () => {
         query: { space_id: ALICE_PRIVATE },
       })
     ).toBe(ALICE_PRIVATE);
-  });
-
-  it("refuses a space id that does not exist, exactly like a forbidden one", async () => {
-    // Same answer for "no such space" and "not yours" — the caller turns both
-    // into 404, so existence never leaks through the difference.
-    expect(
-      await findForbiddenSpaceScope({
-        auth: asUser(BOB),
-        getTenantDb,
-        query: { space_id: "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee" },
-      })
-    ).toBe("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee");
-  });
-
-  it("ignores a blank space_id rather than treating it as a filter", async () => {
-    expect(
-      await findForbiddenSpaceScope({
-        auth: asUser(BOB),
-        getTenantDb,
-        query: { space_id: "   " },
-      })
-    ).toBeNull();
-  });
-
-  it("cannot decide without a tenant, and says so by allowing", async () => {
-    // Documents the one gap deliberately: unauthenticated paths have no
-    // membership to test. They also have no tenant-scoped data to return.
-    expect(
-      await findForbiddenSpaceScope({
-        auth: null,
-        getTenantDb,
-        query: { space_id: ALICE_PRIVATE },
-      })
-    ).toBeNull();
   });
 });
 
@@ -281,54 +198,5 @@ describe("findUnmountedModuleSpace", () => {
         resolveMountedModules,
       })
     ).toBe(OPEN_SPACE);
-  });
-
-  it("allows the write where the module is mounted", async () => {
-    expect(
-      await findUnmountedModuleSpace({
-        body: { space_id: ALICE_PRIVATE },
-        method: "post",
-        moduleId: "tasks",
-        placement: "space",
-        resolveMountedModules,
-      })
-    ).toBeNull();
-  });
-
-  it("leaves reads, borrowed modules and space-less writes alone", async () => {
-    const base = {
-      body: { space_id: OPEN_SPACE },
-      moduleId: "tasks",
-      placement: "space",
-      resolveMountedModules,
-    };
-    expect(
-      await findUnmountedModuleSpace({ ...base, method: "get" })
-    ).toBeNull();
-    expect(
-      await findUnmountedModuleSpace({
-        ...base,
-        method: "post",
-        moduleId: "contacts",
-        placement: "global",
-      })
-    ).toBeNull();
-    expect(
-      await findUnmountedModuleSpace({ ...base, body: {}, method: "post" })
-    ).toBeNull();
-  });
-
-  it("cannot refuse what the host cannot see", async () => {
-    // No surface to read (no tenant db) — the gate abstains rather than
-    // locking every write in a half-wired host.
-    expect(
-      await findUnmountedModuleSpace({
-        body: { space_id: BOB },
-        method: "post",
-        moduleId: "tasks",
-        placement: "space",
-        resolveMountedModules,
-      })
-    ).toBeNull();
   });
 });

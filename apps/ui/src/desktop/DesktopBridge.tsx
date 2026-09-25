@@ -1,9 +1,10 @@
 import { COPILOT_RIVER_PATH } from "@engenty/ai-ui";
 import type { NavigationSection } from "@engenty/app-shell";
+import { getEngentyI18nApi } from "@engenty/i18n/ui";
 import {
   notificationDisplayText,
   registerClientChannel,
-  useUnseenCountQuery,
+  useAttentionCount,
 } from "@engenty/notifications-ui";
 import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
@@ -21,7 +22,7 @@ export interface DesktopBridgeProps {
 
 /**
  * Bridges the running (authenticated) app to the desktop shell:
- * - mirrors the unseen notification count onto the Dock badge
+ * - mirrors the bell's attention count onto the Dock badge
  * - registers the `desktop` client channel: a native notification when new
  *   records arrive while the window is unfocused (arrival detection and the
  *   realtime refresh live with the bell, once per shell)
@@ -52,6 +53,14 @@ function safeDispose(dispose: () => void): void {
   }
 }
 
+/** The shell's i18n instance, when it is up: native banners in the UI language. */
+function translateTitle(key: string, options: Record<string, unknown>): string {
+  const api = getEngentyI18nApi();
+  return api
+    ? api.t(key, { ns: "common", ...options })
+    : String(options.defaultValue ?? key);
+}
+
 // Registered once per process: the bell's arrival watcher hands new records
 // to every client channel; this one turns them into native notifications
 // while the window is not focused.
@@ -72,7 +81,7 @@ registerClientChannel({
         return;
       }
       for (const record of records.slice(0, 3)) {
-        sendNotification(notificationDisplayText(record));
+        sendNotification(notificationDisplayText(record, translateTitle));
       }
       if (records.length > 3) {
         sendNotification({
@@ -95,20 +104,22 @@ function DesktopBridgeInner({ sections }: DesktopBridgeProps) {
   // undefined). A ref reads the latest navigate without re-subscribing.
   const navigateRef = useRef(navigate);
   navigateRef.current = navigate;
-  // Dock badge: the tenant-wide unseen count the bell shows. The query polls
-  // while hidden inside the desktop shell, so a tray/dock window stays live.
-  const countQuery = useUnseenCountQuery();
-  const unseen = countQuery.data?.total ?? 0;
+  // Dock badge: the tenant-wide attention count the bell shows. The query
+  // polls while hidden inside the desktop shell, so a tray/dock window stays
+  // live.
+  const attention = useAttentionCount("tenant");
   useEffect(() => {
     void (async () => {
       try {
         const { getCurrentWindow } = await import("@tauri-apps/api/window");
-        await getCurrentWindow().setBadgeCount(unseen > 0 ? unseen : undefined);
+        await getCurrentWindow().setBadgeCount(
+          attention > 0 ? attention : undefined
+        );
       } catch (error) {
         console.warn("[desktop] failed to set badge count", error);
       }
     })();
-  }, [unseen]);
+  }, [attention]);
 
   // Native Go menu mirrors the sidebar navigation (labels + routes).
   useEffect(() => {

@@ -10,11 +10,7 @@ import type { Hono } from "hono";
 import { z } from "zod";
 import { type AiSessionScope, scopeCoversCapability } from "../ai/sessions.js";
 import { AI_BASE_PATH } from "../config/constants.js";
-import {
-  restoreAiUsageModelPricingDefaults,
-  seedAiUsageModelPricing,
-} from "../dal/usage/index.js";
-import type { AiGatewayModelStore } from "../gateway-models.js";
+import { seedAiUsageModelPricing } from "../dal/usage/index.js";
 import { AI_CAPABILITIES } from "./capabilities.js";
 import { type AiScopeResolver, resolveScope } from "./http.js";
 
@@ -178,8 +174,6 @@ export function registerUsageRoutes(
   app: Hono<{ Bindings: HonoBindings; Variables: HonoVariables }>,
   opts: {
     getUsageStore: () => AiUsageStore | null;
-    /** Optional: when present, restore also applies availability flags from seed data. */
-    getGatewayModelStore?: () => AiGatewayModelStore | null;
     scopeResolver: AiScopeResolver;
   }
 ): void {
@@ -417,25 +411,6 @@ export function registerUsageRoutes(
       return store.response;
     }
     return c.json(await seedAiUsageModelPricing(store.store));
-  });
-
-  app.post(`${base}/model-pricing/restore-defaults`, async (c) => {
-    const scope = await resolveScope(c, opts.scopeResolver);
-    if (!scope.ok) {
-      return scope.response;
-    }
-    const adminError = requireSuperAdmin(c, scope.scope);
-    if (adminError) {
-      return adminError;
-    }
-    const store = requireUsageStore(c, opts.getUsageStore());
-    if (!store.ok) {
-      return store.response;
-    }
-    const gatewayStore = opts.getGatewayModelStore?.() ?? null;
-    return c.json(
-      await restoreAiUsageModelPricingDefaults(store.store, gatewayStore)
-    );
   });
 
   const adminBase = `${base}/admin/tenants`;

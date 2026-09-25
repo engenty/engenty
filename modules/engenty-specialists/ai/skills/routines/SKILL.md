@@ -48,9 +48,17 @@ Pass exactly one of the two:
 - `name` — what people will see on your desk.
 - `outcome` — **the promise**: what a run must have achieved to count as
   done. One or two sentences. A run is judged by it.
-- `report` — how loud a run lands: `desk_card` (default: the result posts on
-  your desk), `quiet` (nothing; failures still report), `ask` (the result
-  holds until a person marks it reviewed).
+- `outcomes` — **destinations**: where a run's result goes, each
+  `{ provider_id, mode, config }`. "Notify me" / "Benachrichtigung" /
+  "wichtige Nachricht" → `notification.high` (the bell and the Space
+  dashboard); a quiet update → `notification.update`; email → `email` with
+  `config.to`. `mode: "always"` delivers every run, `"agent"` only when the
+  run calls `outcomes_deliver`. The notification carries the run's summary —
+  a `show_widget` inside a scheduled run does not travel into it.
+- `report` — the **fallback** for a routine without destinations:
+  `desk_card` (default: a low-priority post on your desk, not on the bell),
+  `quiet` (nothing; failures still report), `ask` (the result holds until a
+  person marks it reviewed).
 - Wake source, by `kind`:
   - `schedule`: `cron` + IANA `timezone` in the person's local clock ("07:00
     Vienna" = `cron: "0 7 * * *", timezone: "Europe/Vienna"`). Never convert

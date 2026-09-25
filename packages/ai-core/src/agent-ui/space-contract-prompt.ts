@@ -9,6 +9,7 @@ export const SPACE_CONTRACT_PROMPT = `## Space contract
 - Tenant is the organization and authorization boundary. Active Space is where this run works.
 - A Space selects the apps, agents, connections, skills, and module data available to this run. It is context and a boundary, not a driver, queue, or scheduler.
 - Runtime \`current_space\` and \`space_mounted_modules\` are authoritative for this run.
+- This runtime context and the AG-UI context are rebuilt for every turn: they say where the person stands NOW, not where the conversation began. A conversation follows the person across Spaces — when earlier turns worked in another Space, the person moved; tool results from those turns (mounted agents and apps, hires, space_setup) describe that Space, not \`current_space\`. Do not re-verify the location with UI snapshots.
 - \`engenty_tools_modules\`, \`engenty_tools_search\`, and \`engenty_tools_discover\` return catalog contracts, not records.
 - State record facts only after \`engenty_tool_execute\` returns \`ok: true\` with readable \`data\` for that operation.
 - If execute returns an error, an empty result, or no readable result, report exactly that. Never invent names, IDs, rows, amounts, statuses, email addresses, or URLs.

@@ -39,6 +39,7 @@ export function EngentyAI({
   queryClient,
   resolveKbArticleHref,
   serviceBaseUrl,
+  getStateSnapshot,
   stateSnapshot,
   tenantId,
   threadsRealtimeClient,
@@ -60,6 +61,12 @@ export function EngentyAI({
   // current render commits while still firing before the next paint.
   const pendingNotifyRef = useRef(new Set<string>());
   const normalizedServiceBaseUrl = serviceBaseUrl?.trim() ?? "";
+  const stateSnapshotRef = useRef(stateSnapshot);
+  stateSnapshotRef.current = stateSnapshot;
+  const getStateSnapshotStable = useCallback(
+    () => getStateSnapshot?.() ?? stateSnapshotRef.current,
+    [getStateSnapshot]
+  );
   const resolvedFrontendTools = useMemo<FrontendToolDefinition[]>(
     () => resolveAppsAiFrontendTools(frontendTools),
     [frontendTools]
@@ -157,7 +164,7 @@ export function EngentyAI({
       resolveHost,
       resolveKbArticleHref,
       serviceBaseUrl: normalizedServiceBaseUrl,
-      stateSnapshot,
+      getStateSnapshot: getStateSnapshotStable,
       subscribeHost,
       tenantId,
       threadsRealtimeClient,
@@ -175,7 +182,7 @@ export function EngentyAI({
       resolveHost,
       resolveKbArticleHref,
       resolvedFrontendTools,
-      stateSnapshot,
+      getStateSnapshotStable,
       subscribeHost,
       tenantId,
       threadsRealtimeClient,

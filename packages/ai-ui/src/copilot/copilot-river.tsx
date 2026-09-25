@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslation } from "@engenty/i18n/ui";
+import { useQueryClient } from "@engenty/query-client";
 // The river: one person, their copilot, one conversation.
 //
 // The copilot follows the person through the app, so its thread is a fact
@@ -18,6 +20,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
@@ -29,6 +32,7 @@ import type { CopilotRouteContext } from "../components/presentation.js";
 import { requestAiServiceJson } from "../lib/runtime/ai-service-client.js";
 import { useEngentyThreadsContext } from "../threads/engenty-threads-provider.js";
 import { useEngentyThreads } from "../threads/index.js";
+import { startThreadTranscriptStore } from "../threads/thread-transcript-store.js";
 import { CopilotVoiceProvider } from "./copilot-voice-provider.js";
 import { useCopilotInitialMessages } from "./use-copilot-initial-messages.js";
 
@@ -60,16 +64,44 @@ export function useCopilotRiver(): CopilotRiverContextValue {
 }
 
 /** The river's id for this person: get-or-create, idempotent, same id each time. */
-export async function openCopilotRiver(): Promise<string> {
+export async function openCopilotRiver(uiLanguage?: string): Promise<string> {
   const result = await requestAiServiceJson<{ session: { id: string } }>(
     "/ai/threads/dm",
     {
-      body: JSON.stringify({ agent_id: ACTIVE_COPILOT_AGENT_ID }),
+      body: JSON.stringify({
+        agent_id: ACTIVE_COPILOT_AGENT_ID,
+        // The first open writes the copilot's welcome in this language
+        // (a BCP 47 tag; the server translates the welcome into it).
+        ...(uiLanguage ? { ui_language: uiLanguage } : {}),
+      }),
       headers: { "content-type": "application/json" },
       method: "POST",
     }
   );
   return result.session.id;
+}
+
+// The river's id is stable per person, so the last one opened is remembered:
+// the transcript starts loading on mount instead of after the get-or-create
+// round trip, which still runs and wins if the id ever differs.
+function riverIdStorageKey(tenantId: string, userId: string): string {
+  return `engenty:copilot-river:${tenantId}:${userId}`;
+}
+
+function readRememberedRiverId(tenantId: string, userId: string) {
+  try {
+    return localStorage.getItem(riverIdStorageKey(tenantId, userId));
+  } catch {
+    return null;
+  }
+}
+
+function rememberRiverId(tenantId: string, userId: string, id: string) {
+  try {
+    localStorage.setItem(riverIdStorageKey(tenantId, userId), id);
+  } catch {
+    // Storage blocked: the river still opens, just one round trip later.
+  }
 }
 
 export interface CopilotRiverProviderProps {
@@ -120,20 +152,41 @@ export function CopilotRiverProvider(props: CopilotRiverProviderProps) {
   const { children, navigate, pathname, routeContext, tenantId, userId } =
     props;
   const threadsCtx = useEngentyThreadsContext();
+  const queryClient = useQueryClient();
+  // Recent transcripts from this browser, for this person: mounted here
+  // because the river is the one provider that lives as long as the session.
+  useEffect(() => {
+    if (!(tenantId && userId)) {
+      return;
+    }
+    return startThreadTranscriptStore(queryClient, `${tenantId}|${userId}`);
+  }, [queryClient, tenantId, userId]);
   const [threadId, setThreadId] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(true);
+  const { i18n } = useTranslation();
+  // Read at open time only; the river never reopens when the language changes.
+  const uiLanguageRef = useRef(i18n.resolvedLanguage ?? i18n.language);
+  uiLanguageRef.current = i18n.resolvedLanguage ?? i18n.language;
 
   useEffect(() => {
     if (!(tenantId && userId)) {
       return;
     }
     let cancelled = false;
-    setIsPending(true);
-    openCopilotRiver()
+    const remembered = readRememberedRiverId(tenantId, userId);
+    if (remembered) {
+      setThreadId(remembered);
+      threadsCtx.setActiveThreadId(ENGENTY_COPILOT_HOST_KEY, remembered);
+      setIsPending(false);
+    } else {
+      setIsPending(true);
+    }
+    openCopilotRiver(uiLanguageRef.current)
       .then((id) => {
         if (cancelled) {
           return;
         }
+        rememberRiverId(tenantId, userId, id);
         setThreadId(id);
         // The rest of the copilot chrome still asks the threads provider which
         // thread is active; the answer is always this one.

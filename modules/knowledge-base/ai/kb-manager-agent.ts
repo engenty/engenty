@@ -2,7 +2,7 @@ import type {
   AgentConfig,
   InstructionDocumentDefinition,
 } from "@engenty/ai-core";
-import { DEFAULT_AI_CHAT_MODEL_ID, readAgentTextAsset } from "@engenty/ai-core";
+import { readAgentTextAsset } from "@engenty/ai-core";
 
 export const KB_MANAGER_AGENT_ID = "knowledge-base.manager";
 
@@ -55,7 +55,6 @@ export const kbManagerAgentConfig: AgentConfig = {
   engenty: "oval",
   id: KB_MANAGER_AGENT_ID,
   instructions: readKbManagerAgentsMarkdown(),
-  model: DEFAULT_AI_CHAT_MODEL_ID,
   name: "Knowledge Base Specialist",
   skillIds: KB_MANAGER_SKILL_IDS,
   source: "module",

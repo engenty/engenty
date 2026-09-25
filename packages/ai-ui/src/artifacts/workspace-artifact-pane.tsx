@@ -13,15 +13,18 @@ import { useWorkspaceContext } from "@engenty/ui-plugin-sdk";
 import { Layers } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useLiveInboxDashboard } from "../a2ui/live-inbox-dashboard.js";
 import { useEngentyAIContext } from "../agent-provider/engenty-ai-provider.js";
 import { useOptionalCopilotRiver } from "../copilot/copilot-river.js";
 import type { ArtifactStoreTarget } from "./artifact-move-menu.js";
 import { ArtifactPane } from "./artifact-pane.js";
 import {
   activateArtifact,
+  closeA2uiSurfacePaneTab,
   closeObjectPaneTab,
   closeWorkFilePaneTab,
   getArtifactPaneOpen,
+  isA2uiSurfacePaneTabKey,
   isObjectPaneTabKey,
   isTransientPaneTabKey,
   isWorkFilePaneTabKey,
@@ -131,12 +134,15 @@ export function WorkspaceArtifactPane({
     activeId,
     fileTabs,
     objectTabs,
+    surfaceTabs,
     paneExpanded,
     paneOpen,
     activate,
     setPaneExpanded,
     setPaneOpen,
   } = useArtifacts(hostKey);
+
+  useLiveInboxDashboard(hostKey);
 
   const primaryQuery = useArtifactsListQuery(
     primaryScope.type,
@@ -370,6 +376,14 @@ export function WorkspaceArtifactPane({
             );
             return;
           }
+          if (isA2uiSurfacePaneTabKey(id)) {
+            closeA2uiSurfacePaneTab(
+              hostKey,
+              id,
+              artifacts.map((a) => a.id)
+            );
+            return;
+          }
           // A chooser-opened artifact only leaves this pane; the list sync
           // moves focus on. Closing one of the pane's own artifacts archives it.
           if (pickedIds.includes(id)) {
@@ -408,6 +422,7 @@ export function WorkspaceArtifactPane({
         storePending={storeMutation.isPending}
         storeSpaceTarget={storeSpaceTarget}
         storeTaskTarget={storeTaskTarget}
+        surfaceTabs={surfaceTabs}
       />
     </WorkspaceEndPaneItem>,
     target
@@ -435,7 +450,7 @@ export function ArtifactPaneToggle({
 }) {
   const { t } = useTranslation("ai-ui");
   const threadId = useOptionalCopilotRiver()?.threadId?.trim() || null;
-  const { fileTabs, objectTabs, openPane, paneOpen, unseenCount } =
+  const { fileTabs, objectTabs, surfaceTabs, openPane, paneOpen, unseenCount } =
     useArtifacts(hostKey);
 
   const primaryScope: ArtifactPaneScope = scope ?? {
@@ -466,6 +481,7 @@ export function ArtifactPaneToggle({
     artifacts.length > 0 ||
     objectTabs.length > 0 ||
     fileTabs.length > 0 ||
+    surfaceTabs.length > 0 ||
     (libraryQuery.data?.length ?? 0) > 0;
   const badgeLabel =
     unseenCount > 99 ? "99+" : unseenCount > 0 ? String(unseenCount) : null;

@@ -2,17 +2,13 @@
  * AI settings persistence via tenant-settings KV.
  * Key: ai.config (JSON) for per-purpose model defaults + caps.
  *
- * A null/absent field means "inherit" (platform default). The effective value +
+ * A null/absent field means "inherit" (the platform role binding). The effective value +
  * provenance for display comes from GET /ai/v1/settings/effective; this module
  * only reads/writes the tenant-pinned layer.
  */
 
 import type { AiCapsConfig } from "@engenty/ai-core/browser";
-import {
-  DEFAULT_AI_CHAT_MODEL_ID,
-  DEFAULT_AI_CLASSIFIER_MODEL_ID,
-  parseTenantAiSettings,
-} from "@engenty/ai-core/browser";
+import { parseTenantAiSettings } from "@engenty/ai-core/browser";
 import { request } from "./request";
 
 export type {
@@ -39,29 +35,21 @@ export interface AiConfig {
    * Fast single-shot classification (inbox lanes / attachment triage).
    */
   classifier_model_id?: string | null;
-  /** Routing / supervisor model (`coordinator_model_id` in stored JSON for legacy compat). */
-  coordinator_model_id?: string | null;
   /** Knowledge-base document → markdown conversion preferences. */
   doc_converter?:
     | import("@engenty/ai-core/browser").DocConverterTenantPrefs
     | null;
+  /** Short prose without tools: observational memory, titles, digests. */
+  fast_text_model_id?: string | null;
   /**
    * Opt-in model-generated starter chips on specialist start pages.
    * Default off.
    */
   generated_starters?: boolean | null;
-  /** Observational memory observer + reflector. */
-  memory_model_id?: string | null;
-  /** Most-capable tier: planning, decomposition, sandboxed code execution. */
-  planning_coding_model_id?: string | null;
   /** Realtime voice provider + voice preferences. */
   realtime_voice?:
     | import("@engenty/ai-core/browser").RealtimeVoiceTenantPrefs
     | null;
-  /** Search / retrieval / deep-research tier. */
-  research_model_id?: string | null;
-  /** Guardrail-processor safeguard model. */
-  safeguard_model_id?: string | null;
   /**
    * IANA zone the workspace works in. Rides into every sandbox as `TZ`, so an
    * agent reading its own clock answers in local time instead of the
@@ -69,12 +57,6 @@ export interface AiConfig {
    */
   timezone?: string | null;
 }
-
-export const DEFAULT_CHAT_MODEL = DEFAULT_AI_CHAT_MODEL_ID;
-/** @deprecated Use {@link DEFAULT_ROUTING_MODEL}. */
-export const DEFAULT_COORDINATOR_MODEL = DEFAULT_AI_CHAT_MODEL_ID;
-export const DEFAULT_ROUTING_MODEL = DEFAULT_AI_CHAT_MODEL_ID;
-export const DEFAULT_CLASSIFIER_MODEL = DEFAULT_AI_CLASSIFIER_MODEL_ID;
 
 /** API may return wrapped { ok, data: { name, type, value } } or legacy { name, type, value }. */
 type TenantSettingApiResponse =
@@ -102,11 +84,8 @@ export async function getAiConfig(signal?: AbortSignal): Promise<AiConfig> {
     const parsed = parseTenantAiSettings(raw);
     return {
       chat_model_id: parsed.chat_model_id ?? null,
-      coordinator_model_id: parsed.coordinator_model_id ?? null,
-      research_model_id: parsed.research_model_id ?? null,
-      planning_coding_model_id: parsed.planning_coding_model_id ?? null,
-      safeguard_model_id: parsed.safeguard_model_id ?? null,
       classifier_model_id: parsed.classifier_model_id ?? null,
+      fast_text_model_id: parsed.fast_text_model_id ?? null,
       doc_converter: parsed.doc_converter ?? null,
       realtime_voice: parsed.realtime_voice ?? null,
       caps: parsed.caps ?? null,
@@ -125,11 +104,8 @@ export async function saveAiConfig(config: AiConfig): Promise<void> {
       type: "json",
       value_jsonb: {
         chat_model_id: config.chat_model_id ?? null,
-        coordinator_model_id: config.coordinator_model_id ?? null,
-        research_model_id: config.research_model_id ?? null,
-        planning_coding_model_id: config.planning_coding_model_id ?? null,
-        safeguard_model_id: config.safeguard_model_id ?? null,
         classifier_model_id: config.classifier_model_id ?? null,
+        fast_text_model_id: config.fast_text_model_id ?? null,
         doc_converter: config.doc_converter ?? null,
         realtime_voice: config.realtime_voice ?? null,
         caps: config.caps ?? null,

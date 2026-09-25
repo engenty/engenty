@@ -10,6 +10,7 @@ import {
   useEffect,
   useLayoutEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -26,6 +27,9 @@ import { useEngentyAIContext } from "./engenty-ai-provider.js";
 import type { AgentHost, EngentyAgentProps, HostConfig } from "./types.js";
 
 const AgentHostContext = createContext<AgentHost | null>(null);
+const AgentTurnContextSetterContext = createContext<
+  AgentHost["setTurnContext"] | null
+>(null);
 
 function normalizeHostConfigValue(value: unknown): unknown {
   if (Array.isArray(value)) {
@@ -163,6 +167,32 @@ function mergeChildHostConfig(
 
 export function EngentyAgent(props: EngentyAgentProps) {
   const ai = useEngentyAIContext();
+  // The page writes the live path here. Reading it at submit time keeps a
+  // space switch from rebuilding this host — it sits above the whole app.
+  const turnContextRef = useRef({
+    pathname: props.pathname ?? props.routeContext.pathname ?? "",
+    routeContext: props.routeContext,
+  });
+  const seenPropsPath = useRef<string | null>(null);
+  const seenPropsRoute = useRef(props.routeContext);
+  const propsPath = props.pathname ?? props.routeContext.pathname ?? "";
+  if (
+    seenPropsPath.current !== propsPath ||
+    seenPropsRoute.current !== props.routeContext
+  ) {
+    seenPropsPath.current = propsPath;
+    seenPropsRoute.current = props.routeContext;
+    turnContextRef.current = {
+      pathname: propsPath,
+      routeContext: props.routeContext,
+    };
+  }
+  const setTurnContext = useCallback(
+    (next: { pathname: string; routeContext: HostConfig["routeContext"] }) => {
+      turnContextRef.current = next;
+    },
+    []
+  );
   const propHostConfig = useMemo(
     () => createHostConfig(props),
     [
@@ -278,12 +308,13 @@ export function EngentyAgent(props: EngentyAgentProps) {
       "",
     queryClient: ai.queryClient,
     routeContext: effectiveHostConfig.routeContext,
+    turnContextRef,
     serviceBaseUrl: ai.serviceBaseUrl,
     threadDetailQueryKey,
     threadId: effectiveHostConfig.threadId,
     threadsListQueryKey,
     stableSessionKey: effectiveHostConfig.stableSessionKey,
-    stateSnapshot: ai.stateSnapshot,
+    getStateSnapshot: ai.getStateSnapshot,
     transportBlocker: ai.transportBlocker,
     authoritativeUrlThreadId: effectiveHostConfig.authoritativeUrlThreadId,
     realtimeClient: ai.threadsRealtimeClient ?? null,
@@ -340,6 +371,7 @@ export function EngentyAgent(props: EngentyAgentProps) {
       reset: session.reset,
       resumeInterrupt: session.resumeInterrupt,
       resumeActiveRun: session.resumeActiveRun,
+      setTurnContext,
       threadId: session.activeThreadId,
       threadResetKey: session.threadResetKey,
       state: session.state,
@@ -371,6 +403,7 @@ export function EngentyAgent(props: EngentyAgentProps) {
       session.reset,
       session.resumeInterrupt,
       session.resumeActiveRun,
+      setTurnContext,
       session.threadResetKey,
       session.state,
       session.status,
@@ -390,10 +423,20 @@ export function EngentyAgent(props: EngentyAgentProps) {
   }, [ai, host, registeredHostKey]);
 
   return (
-    <AgentHostContext.Provider value={host}>
-      {props.children}
-    </AgentHostContext.Provider>
+    <AgentTurnContextSetterContext.Provider value={setTurnContext}>
+      <AgentHostContext.Provider value={host}>
+        {props.children}
+      </AgentHostContext.Provider>
+    </AgentTurnContextSetterContext.Provider>
   );
+}
+
+export function useSetTurnContext(): AgentHost["setTurnContext"] {
+  const setter = useContext(AgentTurnContextSetterContext);
+  if (!setter) {
+    throw new Error("useSetTurnContext must be used within EngentyAgent");
+  }
+  return setter;
 }
 
 // Null-safe variant — returns null instead of throwing when outside an EngentyAgent boundary.

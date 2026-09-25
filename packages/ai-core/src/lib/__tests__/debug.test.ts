@@ -2,8 +2,9 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { DEFAULT_AI_CHAT_MODEL_ID } from "../../config/chat-model-id.js";
 import { logAiGenerationResult, logAiLoopTrace } from "../debug.js";
+
+const MODEL_ID = "openai/gpt-5-mini";
 
 describe("ai debug helpers", () => {
   const originalAiDebug = process.env.AI_DEBUG;
@@ -55,7 +56,7 @@ describe("ai debug helpers", () => {
     };
 
     logAiGenerationResult(logger, {
-      modelId: DEFAULT_AI_CHAT_MODEL_ID,
+      modelId: MODEL_ID,
       prompt: "Hello",
       result: {
         text: '{"ok":true}',
@@ -66,7 +67,7 @@ describe("ai debug helpers", () => {
     expect(logger.info).toHaveBeenCalledWith(
       "AI generation result",
       expect.objectContaining({
-        model_id: DEFAULT_AI_CHAT_MODEL_ID,
+        model_id: MODEL_ID,
         prompt: "Hello",
         steps: [{ text: "step one" }],
         text: '{"ok":true}',
@@ -94,7 +95,7 @@ describe("ai debug helpers", () => {
     logAiLoopTrace(logger, {
       agentId: "dashboard_widget_generator",
       maxSteps: 2,
-      modelId: DEFAULT_AI_CHAT_MODEL_ID,
+      modelId: MODEL_ID,
       systemPrompt: longText,
       toolNames: [],
       userMessage: "Build widget",
@@ -142,7 +143,7 @@ describe("ai debug helpers", () => {
     logAiLoopTrace(logger, {
       agentId: "dashboard_widget_generator",
       maxSteps: 5,
-      modelId: DEFAULT_AI_CHAT_MODEL_ID,
+      modelId: MODEL_ID,
       systemPrompt: "system",
       toolNames: ["engentyApiCatalog", "engentyApi"],
       userMessage: "Build widget",
@@ -208,7 +209,7 @@ describe("ai debug helpers", () => {
     };
 
     logAiGenerationResult(logger, {
-      modelId: DEFAULT_AI_CHAT_MODEL_ID,
+      modelId: MODEL_ID,
       prompt: "Hello",
       result: {
         text: '{"ok":true}',
@@ -235,7 +236,7 @@ describe("ai debug helpers", () => {
     logAiLoopTrace(logger, {
       agentId: "dashboard_widget_generator",
       maxSteps: 2,
-      modelId: DEFAULT_AI_CHAT_MODEL_ID,
+      modelId: MODEL_ID,
       systemPrompt: "system",
       toolNames: [],
       userMessage: "Build widget",

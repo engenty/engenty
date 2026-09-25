@@ -5,11 +5,12 @@
     "model.low": "anthropic/claude-haiku-4.5",
     "model.medium": "anthropic/claude-sonnet-5",
     "model.high": "anthropic/claude-sonnet-5",
-    "router": "anthropic/claude-haiku-4.5",
-    "classifier": "anthropic/claude-haiku-4.5",
-    "safeguard": "anthropic/claude-haiku-4.5",
-    "planning_coding": "anthropic/claude-sonnet-5",
-    "research": "anthropic/claude-sonnet-5",
-    "memory": "anthropic/claude-sonnet-5"
+    "classifier": "typesafe-ai/jev",
+    "fast_text": "anthropic/claude-haiku-4.5",
+    "image": "vercel:google/gemini-2.5-flash-image",
+    "embedding": "vercel:openai/text-embedding-3-small",
+    "video": "vercel:google/veo-3.0-fast-generate-001",
+    "realtime": "vercel:openai/gpt-realtime-2",
+    "transcription": "vercel:openai/whisper-1"
   }
 }

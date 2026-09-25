@@ -2,12 +2,6 @@ import { describe, expect, it } from "vitest";
 import { shouldDeferPluginBoot } from "./plugin-create-cli-path.js";
 
 describe("shouldDeferPluginBoot", () => {
-  it("returns true for bare engenty and global flags", () => {
-    expect(shouldDeferPluginBoot(["node", "engenty"])).toBe(true);
-    expect(shouldDeferPluginBoot(["node", "engenty", "--help"])).toBe(true);
-    expect(shouldDeferPluginBoot(["node", "engenty", "-h"])).toBe(true);
-  });
-
   it("returns true for all plugins subcommands (manifest + HTTP API)", () => {
     expect(shouldDeferPluginBoot(["node", "engenty", "plugins"])).toBe(true);
     expect(

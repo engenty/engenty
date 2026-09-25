@@ -13,20 +13,19 @@ usable account.
 
 ## Spaces
 
-- `inbox_list_accounts` in a Space returns **only mounted mailboxes**.
-- If an account exists for the tenant but is absent here, tell the user to
-  **mount it in Space setup**. Do not run `connections_request_connect` to
-  reconnect an account that is merely unmounted.
+- `inbox_list_accounts` in a Space returns **only that Space's mailboxes** — a
+  mailbox belongs to the Space it was connected in.
+- An account connected in another Space is not usable here; connecting it in
+  this Space (`connections_request_connect`) is the way to bring it in.
 
 ## Workflow
 
 1. **Check what exists:** `inbox_list_accounts`. Each account row has
-   `connection_id`, `connector_id`, `display_name`/`external_account`, `sharing`
-   (`personal`/`org`), and a `sync_state` (`sync_enabled`, `backfill_days`,
+   `connection_id`, `connector_id`, `display_name`/`external_account`,
+   `space_id` (the owning Space), and a `sync_state` (`sync_enabled`, `backfill_days`,
    `last_synced_at`, `last_error`).
    - Usable account present → skip to step 4 (sync health).
-   - Empty in a Space → the mailbox may exist for the tenant and only need a
-     Space mount. Ask about mounting before offering a new connect card.
+   - Empty in a Space → this Space has no mailbox yet; offer the connect card.
 2. **Offer the connect card:** no account → ask which provider if unclear (with
    `requestDecision` when your tools include it — one choice per provider — and
    in plain prose otherwise; never invent a tool for this), then
@@ -57,8 +56,8 @@ usable account.
 
 - Never ask the user for passwords, OAuth codes, or tokens — the connect card
   handles authentication entirely.
-- Personal accounts: only the owner can change their sync settings; the
-  operation enforces this — surface its error rather than pre-arguing.
+- Any member of the mailbox's Space may change its sync settings; the operation
+  enforces this — surface its error rather than pre-arguing.
 - Do not set `backfill_days` to a large value on your own initiative.
 
 ## Starter prompts

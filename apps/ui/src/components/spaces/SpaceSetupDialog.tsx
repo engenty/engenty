@@ -42,7 +42,6 @@ import {
   applyRecommendedModules,
   initialWizardSelection,
   nextWizardStep,
-  optionalCount,
   previousWizardStep,
   type SpaceCreateStep,
   templateDefaultVisibility,
@@ -252,13 +251,11 @@ export function SpaceSetupDialog({
       );
     }
   };
-  const optionalIsEmpty =
-    optionalCount(selection, baseline, "connection") === 0 &&
-    ![...selection.values()].some(
-      (entry) =>
-        entry.resourceType === "skill" &&
-        !isModuleSkill({ id: entry.resourceKey }, catalogModuleIds)
-    );
+  const optionalIsEmpty = ![...selection.values()].some(
+    (entry) =>
+      entry.resourceType === "skill" &&
+      !isModuleSkill({ id: entry.resourceKey }, catalogModuleIds)
+  );
   const error =
     save.error instanceof Error
       ? save.error.message

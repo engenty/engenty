@@ -1,13 +1,17 @@
 // Routines API — the management surface for jobs on a mounted specialist.
 //
-// GET    /ai/v1/routines                       — list (+ triggers, next_due_at)
-// POST   /ai/v1/routines                       — create (with initial triggers)
-// GET    /ai/v1/routines/:id                   — one routine (+ triggers)
-// PATCH  /ai/v1/routines/:id                   — update behaviour (name, outcome…)
+// GET    /ai/v1/routines                       — list (+ triggers, outcomes, next_due_at)
+// POST   /ai/v1/routines                       — create (with initial triggers / outcomes)
+// GET    /ai/v1/routines/:id                   — one routine (+ triggers, outcomes)
+// PATCH  /ai/v1/routines/:id                   — update behaviour; `outcomes[]` replaces bindings
 // DELETE /ai/v1/routines/:id                   — delete (custom routines only)
 // POST   /ai/v1/routines/:id/triggers          — add a wake source
 // PATCH  /ai/v1/routines/:id/triggers/:tid     — change a wake source
 // DELETE /ai/v1/routines/:id/triggers/:tid     — remove one (never the last)
+// POST   /ai/v1/routines/:id/outcomes          — add a destination
+// PATCH  /ai/v1/routines/:id/outcomes/:oid     — change a destination
+// DELETE /ai/v1/routines/:id/outcomes/:oid     — remove a destination
+// GET    /ai/v1/outcome-providers              — registered destination catalog
 // POST   /ai/v1/routines/:id/run               — run now (bypasses quiet hours)
 // GET    /ai/v1/routines/:id/runs              — this routine's run history
 // POST   /ai/v1/routines/reconcile             — full reconcile (admin)
@@ -29,6 +33,7 @@ import {
   getEngentyCoreBaseUrlFromEnv,
 } from "../ai/core-http-client.js";
 import {
+  createRoutineOutcomeStoreFromEnv,
   createRoutineStoreFromEnv,
   createRoutineTriggerStoreFromEnv,
   createWorkflowRunStoreFromEnv,
@@ -37,6 +42,12 @@ import {
 import { dispatchRoutineEvent } from "../ai/routines/dispatch-event.js";
 import { mapEventInput } from "../ai/routines/event-input.js";
 import { fireRoutine } from "../ai/routines/fire-routine.js";
+import {
+  assertOutcomeBinding,
+  outcomeSchema,
+  outcomesByRoutine,
+  replaceRoutineOutcomes,
+} from "../ai/routines/outcomes/bindings.js";
 import { isOwnerMissingResult } from "../ai/routines/owner-paused.js";
 import {
   assertRoutineEligibleAgent,
@@ -58,6 +69,7 @@ import {
 } from "../ai/workflows/prompt-workflow.js";
 import { validateGraphAction } from "../ai/workflows/validate-graph.js";
 import { AI_BASE_PATH } from "../config/constants.js";
+import type { RoutineOutcomeRow } from "../dal/routines/routine-outcome-store.js";
 import type { RoutineRow } from "../dal/routines/routine-store.js";
 import type {
   RoutineTriggerRow,
@@ -70,6 +82,7 @@ import {
 } from "../scheduler/heartbeat-sync.js";
 import type { AiScopeResolver } from "./http.js";
 import { handleRouteError, resolveScope } from "./http.js";
+import { registerRoutineOutcomeRoutes } from "./routine-outcome-api.js";
 
 const logger = createLogger({ name: "routine-routes" });
 
@@ -137,6 +150,8 @@ const routineBaseSchema = z.object({
   prompt: z.string().trim().min(1).max(PROMPT_ROUTINE_MAX_CHARS).optional(),
   quiet_hours: z.string().max(100).nullable().optional(),
   report: z.enum(["quiet", "desk_card", "ask"]).optional(),
+  /** Destinations. Omitted on PATCH leaves them; present replaces the list. */
+  outcomes: z.array(outcomeSchema).max(16).optional(),
   /** The bound workflow (`ai.workflow.id`). A routine names one — always. */
   workflow_id: z.string().uuid().optional(),
 });
@@ -209,8 +224,9 @@ export function registerRoutineRoutes(
     const flowGraphs = createWorkflowStoreFromEnv();
     const requests = createWorkflowRunStoreFromEnv();
     const triggers = createRoutineTriggerStoreFromEnv();
-    return routines && flowGraphs && requests && triggers
-      ? { flowGraphs, requests, routines, triggers }
+    const outcomes = createRoutineOutcomeStoreFromEnv();
+    return routines && flowGraphs && requests && triggers && outcomes
+      ? { flowGraphs, outcomes, requests, routines, triggers }
       : null;
   };
 
@@ -318,10 +334,11 @@ export function registerRoutineRoutes(
     );
   }
 
-  /** The wire shape: routine + its triggers + the earliest next fire. */
+  /** The wire shape: routine + its triggers + destinations + the earliest next fire. */
   async function presentRoutine(
     routine: RoutineRow,
-    triggers: RoutineTriggerRow[]
+    triggers: RoutineTriggerRow[],
+    outcomeRows?: RoutineOutcomeRow[]
   ): Promise<Record<string, unknown>> {
     const withDue = await withNextDue(triggers);
     const nextDue = withDue
@@ -334,9 +351,17 @@ export function registerRoutineRoutes(
       id: routine.workflow_id,
       tenantId: routine.tenant_id,
     });
+    const outcomes =
+      outcomeRows ??
+      (await stores()?.outcomes.list({
+        routineId: routine.id,
+        tenantId: routine.tenant_id,
+      })) ??
+      [];
     return {
       ...routine,
       next_due_at: nextDue ?? null,
+      outcomes,
       prompt: promptOfWorkflowGraph(current?.version.graph),
       triggers: withDue,
     };
@@ -394,9 +419,17 @@ export function registerRoutineRoutes(
         deps.triggers,
         resolved.scope.tenantId
       );
+      const groupedOutcomes = await outcomesByRoutine(
+        deps.outcomes,
+        resolved.scope.tenantId
+      );
       const routines = await Promise.all(
         rows.map((routine) =>
-          presentRoutine(routine, grouped.get(routine.id) ?? [])
+          presentRoutine(
+            routine,
+            grouped.get(routine.id) ?? [],
+            groupedOutcomes.get(routine.id) ?? []
+          )
         )
       );
       return c.json({ routines });
@@ -429,6 +462,9 @@ export function registerRoutineRoutes(
       ];
       for (const trigger of triggerBodies) {
         assertWakeSource(trigger);
+      }
+      for (const outcome of body.outcomes ?? []) {
+        await assertOutcomeBinding(outcome, moduleLoader);
       }
       await validateOwner(resolved.scope.tenantId, body.agent_id, "custom");
       // A prompt becomes its own published one-node workflow; either way the
@@ -482,6 +518,16 @@ export function registerRoutineRoutes(
             timezone: trigger.timezone ?? null,
           })
         );
+      }
+
+      if (body.outcomes?.length) {
+        await replaceRoutineOutcomes({
+          bodies: body.outcomes,
+          moduleLoader,
+          outcomes: deps.outcomes,
+          routineId: created.id,
+          tenantId: created.tenant_id,
+        });
       }
 
       // Duplicate check AFTER the write so the comparison runs against real
@@ -664,6 +710,15 @@ export function registerRoutineRoutes(
       // The master switch and the name live on the routine but are stamped
       // onto every derived schedule — re-sync them all.
       const synced = await syncRoutineTriggers(updated, deps.triggers);
+      if (body.outcomes) {
+        await replaceRoutineOutcomes({
+          bodies: body.outcomes,
+          moduleLoader,
+          outcomes: deps.outcomes,
+          routineId: updated.id,
+          tenantId: updated.tenant_id,
+        });
+      }
       return c.json({ routine: await presentRoutine(updated, synced) });
     } catch (err) {
       if (err instanceof RoutineValidationError) {
@@ -902,6 +957,32 @@ export function registerRoutineRoutes(
         err
       );
     }
+  });
+
+  registerRoutineOutcomeRoutes(app, {
+    moduleLoader,
+    outcomes: () => stores()?.outcomes ?? null,
+    present: async ({ outcomes, routineId, tenantId }) => {
+      const deps = stores();
+      if (!deps) {
+        throw new Error("routine storage is not configured.");
+      }
+      const routine = await deps.routines.get({ id: routineId, tenantId });
+      if (!routine) {
+        throw new RoutineValidationError(
+          "routines.notFound",
+          "routine not found",
+          404
+        );
+      }
+      const triggers = await deps.triggers.list({
+        routineId,
+        tenantId,
+      });
+      return await presentRoutine(routine, triggers, outcomes);
+    },
+    routines: () => stores()?.routines ?? null,
+    scopeResolver,
   });
 
   app.post(`${base}/:id/run`, async (c) => {

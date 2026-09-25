@@ -1,10 +1,8 @@
 /**
- * Which skills and connections belong with the modules the user chose.
+ * Which skills belong with the modules the user chose.
  *
  * Module skills stamp `engenty_modules` at seed time; name prefixes cover
- * custom skills that never got the tag (`kb-*` for Knowledge Base). File
- * connectors (Drive, local folder, OneDrive, S3) belong with Knowledge Base
- * — not every connector in the tenant, and not Gmail just because a KB is on.
+ * custom skills that never got the tag (`kb-*` for Knowledge Base).
  *
  * A live ranking call can replace the maps later; the wizard must not wait
  * on one to show a list.
@@ -20,26 +18,6 @@ export const FILE_CONNECTOR_IDS = new Set([
   "s3",
 ]);
 
-export const FILE_SPACE_MODULES = new Set(["files", "knowledge-base"]);
-
-/**
- * Baseline modules (Files, Plan, …) stay mounted for every space. Matching
- * against them would recommend Drive on a space that only added Inbox.
- * Capabilities follow the apps the user actually chose.
- */
-export function capabilityModuleIds(
-  selection: Iterable<{ resourceKey: string; resourceType: string }>,
-  lockedKeys: ReadonlySet<string>
-): Set<string> {
-  const ids = mountedModuleIds(selection);
-  for (const key of lockedKeys) {
-    if (key.startsWith("module:")) {
-      ids.delete(key.slice("module:".length));
-    }
-  }
-  return ids;
-}
-
 const MODULE_SKILL_PREFIXES: Record<string, readonly string[]> = {
   contacts: ["contacts"],
   files: ["files"],
@@ -53,26 +31,10 @@ const MODULE_SKILL_PREFIXES: Record<string, readonly string[]> = {
   "team-chat": ["team-chat"],
 };
 
-const INBOX_CONNECTOR_HINTS = [
-  "gmail",
-  "mail",
-  "outlook",
-  "imap",
-  "smtp",
-  "microsoft-mail",
-];
-
 export interface CapabilitySkill {
   id: string;
   modules?: readonly string[] | null;
   source?: string | null;
-}
-
-export interface CapabilityConnection {
-  connectorId?: string | null;
-  hasFiles?: boolean;
-  id: string;
-  name: string;
 }
 
 export function mountedModuleIds(
@@ -171,34 +133,4 @@ export function syncSpaceSkills(
     );
   }
   return next;
-}
-
-function connectionMatchesModules(
-  connection: CapabilityConnection,
-  moduleIds: ReadonlySet<string>
-): boolean {
-  if (
-    [...FILE_SPACE_MODULES].some((moduleId) => moduleIds.has(moduleId)) &&
-    (connection.hasFiles ||
-      FILE_CONNECTOR_IDS.has(connection.connectorId ?? ""))
-  ) {
-    return true;
-  }
-  if (!moduleIds.has("inbox")) {
-    return false;
-  }
-  const haystack =
-    `${connection.connectorId ?? ""} ${connection.name}`.toLocaleLowerCase();
-  return INBOX_CONNECTOR_HINTS.some((hint) => haystack.includes(hint));
-}
-
-export function relatedConnectionIds(
-  moduleIds: ReadonlySet<string>,
-  connections: readonly CapabilityConnection[]
-): Set<string> {
-  return new Set(
-    connections
-      .filter((connection) => connectionMatchesModules(connection, moduleIds))
-      .map((connection) => connection.id)
-  );
 }

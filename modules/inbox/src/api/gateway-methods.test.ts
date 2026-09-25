@@ -5,7 +5,7 @@ import type {
 import { describe, expect, it, vi } from "vitest";
 import { registerInboxGatewayMethods } from "./gateway-methods.js";
 
-/** The mailboxes core says the space has placed; each test sets it. */
+/** The mailboxes the space owns; each test sets it. */
 const placed = vi.hoisted(() => ({ current: new Set<string>() }));
 vi.mock("@engenty/connections-sdk", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@engenty/connections-sdk")>()),
@@ -24,7 +24,8 @@ function makeMockApi() {
 
 const TENANT = "11111111-1111-4111-8111-111111111111";
 const CONNECTION = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
-const OWNER = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const SPACE = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const MAILBOX = { id: CONNECTION, space_id: SPACE };
 
 /** The bind operation, with the seams a single run touches. */
 function bindOperation(options: { existingState?: unknown; stream?: boolean }) {
@@ -38,9 +39,7 @@ function bindOperation(options: { existingState?: unknown; stream?: boolean }) {
           autonomous_mode: "full",
           connector_id: "google-gmail",
           id: CONNECTION,
-          owner_user_id: OWNER,
-          all_spaces: false,
-          sharing: "personal",
+          space_id: SPACE,
           status: "active",
         },
       ]),
@@ -72,7 +71,13 @@ function bindOperation(options: { existingState?: unknown; stream?: boolean }) {
   return { mountOperation, operation, pullStream, upsertSettings };
 }
 
-const auth = { tenantId: TENANT } as never;
+// A run bound to the mailbox's Space (agents/services take the named Space).
+const auth = {
+  principalId: "agent-1",
+  principalType: "agent",
+  spaceId: SPACE,
+  tenantId: TENANT,
+} as never;
 
 describe("inbox_account_bind", () => {
   it("creates the sync state, enables it, and pulls once", async () => {
@@ -83,11 +88,11 @@ describe("inbox_account_bind", () => {
     } as never)) as { bound: boolean };
 
     expect(result.bound).toBe(true);
-    expect(upsertSettings).toHaveBeenCalledWith(CONNECTION, {
-      // A personal mailbox stays scoped to its owner.
-      owner_user_id: OWNER,
-      sync_enabled: true,
-    });
+    // The state row is stamped with the mailbox's Space.
+    expect(upsertSettings).toHaveBeenCalledWith(
+      expect.objectContaining(MAILBOX),
+      { sync_enabled: true }
+    );
     expect(pullStream).toHaveBeenCalled();
   });
 
@@ -99,9 +104,10 @@ describe("inbox_account_bind", () => {
     await operation.handler({ connection_id: CONNECTION }, { auth } as never);
 
     // Re-adding the app must not undo a deliberate pause.
-    expect(upsertSettings).toHaveBeenCalledWith(CONNECTION, {
-      owner_user_id: OWNER,
-    });
+    expect(upsertSettings).toHaveBeenCalledWith(
+      expect.objectContaining(MAILBOX),
+      {}
+    );
   });
 
   it("refuses a connector that carries no mail", async () => {
@@ -140,8 +146,7 @@ describe("registerInboxGatewayMethods spacePolicy", () => {
       connectionInputKey: "connection_id",
       kind: "account_mounted",
     });
-    // E1 — a thread read is narrowed to the mailboxes this space placed, so
-    // the declared contract is the account mount, not "any row this user owns".
+    // A thread read is narrowed to the caller's Spaces' mailboxes.
     expect(
       serverOperations.find((op) => op.operationId === "inbox_thread_get")
         ?.spacePolicy
@@ -150,7 +155,7 @@ describe("registerInboxGatewayMethods spacePolicy", () => {
 });
 
 describe("inbox_space_mount", () => {
-  it("binds every mailbox the space has placed and is ready", async () => {
+  it("binds every mailbox the space owns and is ready", async () => {
     placed.current = new Set([CONNECTION]);
     const { mountOperation, pullStream, upsertSettings } = bindOperation({});
 
@@ -159,17 +164,17 @@ describe("inbox_space_mount", () => {
     } as never)) as { bound: unknown[]; needs: string[]; ready: boolean };
 
     // The wizard door ends at "the mail is here" too — same binding as
-    // inbox_account_bind, for each placed mailbox.
-    expect(upsertSettings).toHaveBeenCalledWith(CONNECTION, {
-      owner_user_id: OWNER,
-      sync_enabled: true,
-    });
+    // inbox_account_bind, for each mailbox the space owns.
+    expect(upsertSettings).toHaveBeenCalledWith(
+      expect.objectContaining(MAILBOX),
+      { sync_enabled: true }
+    );
     expect(pullStream).toHaveBeenCalled();
     expect(result).toMatchObject({ needs: [], ready: true });
     expect(result.bound).toHaveLength(1);
   });
 
-  it("says the space still needs a mailbox when none is placed", async () => {
+  it("says the space still needs a mailbox when it owns none", async () => {
     placed.current = new Set();
     const { mountOperation, upsertSettings } = bindOperation({});
 
@@ -177,7 +182,7 @@ describe("inbox_space_mount", () => {
       auth,
     } as never);
 
-    // A tenant mailbox that this space did not place is not this space's.
+    // A tenant mailbox that another space owns is not this space's.
     expect(upsertSettings).not.toHaveBeenCalled();
     expect(result).toEqual({ bound: [], needs: ["mailbox"], ready: false });
   });

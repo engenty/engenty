@@ -13,7 +13,6 @@
 import {
   AGENT_ENGENTY_KINDS,
   type AgentEngentyKind,
-  DEFAULT_AI_CHAT_MODEL_ID,
   FIRST_ENGENTY_SKILL_ID,
   FIRST_ENGENTY_TEMPLATE_ID,
   FIRST_ENGENTY_TOOL_IDS,
@@ -92,7 +91,6 @@ export function buildSpaceAgentHireInput(
   engenty: AgentEngentyKind;
   id: string;
   instructions: string;
-  model: string;
   name: string;
   reportsTo?: string;
   skillIds: string[];
@@ -107,7 +105,6 @@ export function buildSpaceAgentHireInput(
     engenty: draft.engenty,
     id: hireAgentId(draft),
     instructions: hireInstructions(draft),
-    model: DEFAULT_AI_CHAT_MODEL_ID,
     name,
     ...(draft.reportsTo ? { reportsTo: draft.reportsTo } : {}),
     skillIds: draft.template ? [...draft.template.skillIds] : [],

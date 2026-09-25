@@ -19,6 +19,7 @@ import {
   spaceRoomPathname,
 } from "@engenty/ai-core/browser";
 import { useTranslation } from "@engenty/i18n/ui";
+import { useQuery } from "@engenty/query-client";
 import { cn } from "@engenty/ui-core";
 import { useWorkspaceContext } from "@engenty/ui-plugin-sdk";
 import { CircleAlert, Loader2 } from "lucide-react";
@@ -29,7 +30,10 @@ import {
   DelegatedArtifactRow,
   readDelegatedArtifactIds,
 } from "../../../artifacts/delegated-artifact-row.js";
-import { spaceAgentDeskPath } from "../../../features/agent-form/hire-spaces.js";
+import {
+  listHireSpaces,
+  spaceAgentDeskPath,
+} from "../../../features/agent-form/hire-spaces.js";
 import { AgentNamePill } from "../agent-name-pill.js";
 import type { ToolCallCardProps } from "./tool-call-card.types";
 
@@ -43,6 +47,7 @@ interface MessageAgentOutput {
   ok?: unknown;
   opened?: unknown;
   room_host_agent_id?: unknown;
+  space_id?: unknown;
 }
 
 interface RoomMember {
@@ -92,6 +97,17 @@ export function AgentMessageToolCallCard({
 }: ToolCallCardProps) {
   const { t } = useTranslation("ai-ui");
   const { currentSpace } = useWorkspaceContext();
+  const outSpaceId = readString(readRecord(output)?.space_id);
+  // The thread's Space when it is not the page's — the copilot's own page
+  // stands in none, and a link without a Space fell back to the sub-run view.
+  const needsSpaceLookup = Boolean(
+    outSpaceId && outSpaceId !== currentSpace?.id
+  );
+  const spacesQuery = useQuery({
+    enabled: needsSpaceLookup,
+    queryFn: ({ signal }) => listHireSpaces(signal),
+    queryKey: ["spaces", "list"],
+  });
   // Re-render when the agent catalog lands, so a row drawn before it stops
   // showing the id.
   useAgentDisplayNamesVersion();
@@ -125,13 +141,16 @@ export function AgentMessageToolCallCard({
   // pair thread; the person is here, so the deliverable is offered here.
   const artifactIds = failed ? [] : readDelegatedArtifactIds(output);
 
+  const spaceKey = needsSpaceLookup
+    ? (spacesQuery.data?.find((space) => space.id === outSpaceId)?.key ?? null)
+    : (currentSpace?.key ?? null);
   // A room is its own page; a pair thread lives on the colleague's desk.
   const href =
-    currentSpace?.key && childThreadId
+    spaceKey && childThreadId
       ? members
-        ? spaceRoomPathname(currentSpace.key, childThreadId)
+        ? spaceRoomPathname(spaceKey, childThreadId)
         : deskAgentId
-          ? `${spaceAgentDeskPath(currentSpace.key, deskAgentId)}?engagement=${encodeURIComponent(conversationEngagement(childThreadId))}`
+          ? `${spaceAgentDeskPath(spaceKey, deskAgentId)}?engagement=${encodeURIComponent(conversationEngagement(childThreadId))}`
           : (fullPageHref ?? null)
       : (fullPageHref ?? null);
 

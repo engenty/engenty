@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  accountUses,
+  connectorIdsWithSpaceAccounts,
   inferSourceKind,
   installedPluginIds,
   isRecommendedPlugin,
@@ -39,30 +39,28 @@ describe("marketplace-model", () => {
     expect(inferSourceKind("https://example.com/docs")).toBe(null);
   });
 
-  it("unions plugin mounts, space accounts, and agent grants as installed", () => {
+  it("unions plugin mounts and space accounts as installed", () => {
     expect(
       installedPluginIds({
-        grantedConnectorIds: new Set(["slack"]),
         pluginMountIds: new Set(["google-gmail"]),
-        spaceConnectionConnectorIds: new Set(["github"]),
+        spaceAccountConnectorIds: new Set(["github"]),
       })
-    ).toEqual(new Set(["google-gmail", "github", "slack"]));
+    ).toEqual(new Set(["google-gmail", "github"]));
   });
 
-  it("names where an account is used without a policy matrix", () => {
+  it("names connectors that have an account in the Space", () => {
+    const account = {
+      display_name: null,
+      external_account: "me@x",
+      id: "a",
+      space_id: "s1",
+    };
     expect(
-      accountUses({
-        account: {
-          all_spaces: true,
-          display_name: "me",
-          external_account: "me@x",
-          id: "a",
-          owner_user_id: "u",
-        },
-        grantedToAgent: true,
-        mountedOnSpace: true,
-      })
-    ).toEqual(["allSpaces", "thisSpace", "thisAgent"]);
+      connectorIdsWithSpaceAccounts([
+        { connections: [account], id: "google-gmail" },
+        { connections: [], id: "slack" },
+      ])
+    ).toEqual(new Set(["google-gmail"]));
   });
 
   it("filters plugins by name, id, or description", () => {

@@ -27,7 +27,11 @@ export async function runBackfill(
     Math.max(input.limit ?? DEFAULT_BACKFILL_LIMIT, 1),
     MAX_BACKFILL
   );
+  // Resolved up front: rows embedded by another model count as stale, so a
+  // rebound embedding role is picked up by an ordinary (non-force) backfill.
+  const embedder = await deps.resolveEmbedder();
   const { pending } = await scanIndexState(deps.source, deps.store, tenantId, {
+    embeddingModel: embedder.modelId,
     force: input.force,
     ...(input.metadata ? { metadata: input.metadata } : {}),
   });
@@ -81,7 +85,6 @@ export async function runBackfill(
 
   if (prepared.length > 0) {
     try {
-      const embedder = await deps.resolveEmbedder(tenantId);
       const texts = prepared.flatMap((entry) =>
         entry.chunks.map((chunk) => chunk.text)
       );

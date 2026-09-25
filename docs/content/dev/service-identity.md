@@ -59,22 +59,29 @@ the row every `.env.local` names and apps/ai boots with `invalid_client`
 checking `ENGENTY_AI_SERVICE_SECRET` against the database and, when the row
 is missing, revoked or the secret no longer matches, mints a **platform**
 credential (`tenant_id NULL`, name `ai-service (local)`, the locked-down AI
-set) and rewrites the variable. `pnpm engenty service-token ensure-local`
+set) and rewrites the variable. A live row that lacks part of the current AI
+set is replaced the same way. `pnpm engenty service-token ensure-local`
 runs the same check by hand; it refuses any `SUPABASE_URL` that is not
 loopback. One local stack serves every worktree, so after a reset run it once
 and copy the value into each checkout's `.env.local`.
 
-Grant only what the service calls. For the AI service that is module
-invocation, the Plan module facets (`module.tasks.*` — `module.read` does
-**not** cover `module.tasks.read`; the matcher has no
-infix wildcards), plus, if remote channels are in use,
-`core.users.impersonate` — the capability `POST /api/auth/actor-token`
-checks before it will mint a user-scoped actor token:
+Grant only what the service calls. For the AI service that is
+`AI_SERVICE_CAPABILITIES` (`@engenty/plugin-sdk`): module invocation, the Plan
+module facets (`module.tasks.*`), the connections facets
+(`module.connections.*` — a routine calling Gmail or Slack is checked against
+them), and `core.agents.manage` (an agent's `core.agents` identity is
+provisioned on its first run). `module.read` does **not** cover
+`module.tasks.read` or `module.connections.read`; the matcher has no infix
+wildcards. If remote channels are in use, add `core.users.impersonate` — the
+capability `POST /api/auth/actor-token` checks before it will mint a
+user-scoped actor token:
 
 ```bash
 pnpm engenty service-token create --name ai-service \
   --capability module.read,module.write,module.execute \
   --capability module.tasks.read,module.tasks.write \
+  --capability module.connections.read,module.connections.write \
+  --capability core.agents.manage \
   --capability core.users.impersonate
 ```
 

@@ -1,11 +1,12 @@
 /** @vitest-environment happy-dom */
 import { act, cleanup, render } from "@testing-library/react";
-import { type ReactNode, useCallback, useEffect } from "react";
+import { memo, type ReactNode, useCallback, useEffect } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   EngentyAgent,
   useAgentHost,
   useAgentHostConfig,
+  useSetTurnContext,
 } from "./engenty-agent.js";
 import { EngentyAI, useEngentyAIContext } from "./engenty-ai-provider.js";
 import { ENGENTY_COPILOT_HOST_KEY } from "./host-keys.js";
@@ -558,5 +559,57 @@ describe("EngentyAgent generic contract", () => {
     });
 
     expect(hostRef.current?.config.routeContext.scope).toEqual(scope);
+  });
+
+  it("stamps live path through setTurnContext without rebuilding the host", () => {
+    const hostRenders = { count: 0 };
+    const setterRenders = { count: 0 };
+
+    const HostProbe = memo(function HostProbe() {
+      hostRenders.count += 1;
+      useAgentHost(MAIN_COPILOT_HOST_KEY);
+      return null;
+    });
+
+    const SetterProbe = memo(function SetterProbe() {
+      setterRenders.count += 1;
+      const setTurnContext = useSetTurnContext();
+      return (
+        <button
+          onClick={() =>
+            setTurnContext({
+              pathname: "/s/matthias",
+              routeContext: {
+                ...routeContext,
+                pathname: "/s/matthias",
+              },
+            })
+          }
+          type="button"
+        >
+          stamp
+        </button>
+      );
+    });
+
+    const view = render(
+      <AgentHarness threadId={null}>
+        <HostProbe />
+        <SetterProbe />
+      </AgentHarness>
+    );
+
+    const hostAfterMount = hostRenders.count;
+    const setterAfterMount = setterRenders.count;
+
+    act(() => {
+      view.getByRole("button", { name: "stamp" }).click();
+    });
+
+    expect(hostRenders.count).toBe(hostAfterMount);
+    expect(setterRenders.count).toBe(setterAfterMount);
+    expect(
+      session.capturedOptions.at(-1)?.turnContextRef?.current.pathname
+    ).toBe("/s/matthias");
   });
 });

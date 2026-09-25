@@ -16,6 +16,7 @@
  * nothing to answer, and it writes into that conversation, not to the Space.
  */
 import { useTranslation } from "@engenty/i18n/ui";
+import { useSpaceAttention } from "@engenty/notifications-ui";
 import { Button, cn, uiPageScrollClassName } from "@engenty/ui-core";
 import {
   type PageBreadcrumb,
@@ -28,6 +29,7 @@ import { Pencil } from "lucide-react";
 import { useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
 import { SpaceHomeArtifacts } from "@/components/space-home/SpaceHomeArtifacts";
+import { SpaceHomeAttention } from "@/components/space-home/SpaceHomeAttention";
 import { SpaceHomeAudience } from "@/components/space-home/SpaceHomeAudience";
 import { SpaceHomeCard } from "@/components/space-home/SpaceHomeCard";
 import { SpaceHomeExtensions } from "@/components/space-home/SpaceHomeExtensions";
@@ -38,6 +40,7 @@ import { SpaceHomeQuietLine } from "@/components/space-home/SpaceHomeQuietLine";
 import { SpaceHomeSectionHeading } from "@/components/space-home/SpaceHomeSectionHeading";
 import { SpaceHomeTopbarActions } from "@/components/space-home/SpaceHomeTopbarActions";
 import { SpaceHomeWorkflows } from "@/components/space-home/SpaceHomeWorkflows";
+import type { SpaceHomeCard as SpaceHomeCardModel } from "@/lib/space-home-cards";
 import { spaceTabModuleId } from "@/lib/space-nav";
 import { MODULE_ROUTE_PREFIX } from "@/lib/space-route-mirrors";
 import { spaceSettingsPath } from "@/lib/space-routes";
@@ -102,6 +105,11 @@ export function SpaceWorkHome() {
     [agents]
   );
   const home = useSpaceHome(space?.id ?? null);
+  const attention = useSpaceAttention();
+  const deskAttention = (card: SpaceHomeCardModel) =>
+    card.item.kind === "desk"
+      ? (attention.byAgent.get(card.item.agent.id)?.length ?? 0)
+      : 0;
   useEnsureHireWelcome({
     agents,
     ready: Boolean(space?.id) && !rosterPending && !home.isPending,
@@ -213,6 +221,11 @@ export function SpaceWorkHome() {
             )}
           >
             <div className="flex min-w-0 flex-1 flex-col">
+              {/* What waits for a person comes before every conversation. */}
+              <SpaceHomeAttention
+                items={attention.items}
+                rosterById={rosterById}
+              />
               {!rosterPending && agents.length === 0 ? (
                 <SpaceHomeHireEmptyCard space={space} />
               ) : null}
@@ -228,6 +241,7 @@ export function SpaceWorkHome() {
                   <div className="flex flex-col gap-2.5">
                     {pinnedCards.map((card) => (
                       <SpaceHomeCard
+                        attentionCount={deskAttention(card)}
                         card={card}
                         key={card.item.key}
                         rosterById={rosterById}
@@ -247,6 +261,7 @@ export function SpaceWorkHome() {
                   <div className="flex flex-col gap-2.5">
                     {otherCards.map((card) => (
                       <SpaceHomeCard
+                        attentionCount={deskAttention(card)}
                         card={card}
                         key={card.item.key}
                         rosterById={rosterById}

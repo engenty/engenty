@@ -39,7 +39,7 @@ describe("resolveTaskCompletionPolicy", () => {
     expect(policy).toBe("complete");
   });
 
-  it("most restrictive layer wins: manual space beats auto tenant", async () => {
+  it("a set space mode replaces the tenant mode: manual space beats auto tenant", async () => {
     const policy = await resolveTaskCompletionPolicy(
       deps({
         loadSpaceMode: () => Promise.resolve("manual"),
@@ -95,8 +95,8 @@ describe("resolveTaskCompletionPolicy", () => {
     expect(policy).toBe("complete");
   });
 
-  it("an agent override cannot loosen past the tenant default", async () => {
-    // Tenant unset = default manual; a per-agent pass-all does not override it.
+  it("the agent's own mode decides, also looser than the tenant default", async () => {
+    // Tenant unset = default manual; the mode is bound to the agent.
     const policy = await resolveTaskCompletionPolicy(
       deps({
         loadTenantPrefs: () =>
@@ -104,12 +104,12 @@ describe("resolveTaskCompletionPolicy", () => {
       }),
       { ...input, agentTypeKey: "custom.researcher" }
     );
-    expect(policy).toBe("review");
+    expect(policy).toBe("complete");
   });
 });
 
 describe("resolveEffectiveAgentApprovalMode", () => {
-  it("folds the agent layer in, most restrictive wins", async () => {
+  it("the agent layer wins over the tenant mode", async () => {
     const mode = await resolveEffectiveAgentApprovalMode(
       deps({
         loadTenantPrefs: () =>

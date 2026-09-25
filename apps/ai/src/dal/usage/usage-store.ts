@@ -11,11 +11,15 @@ import type {
   GatewayModelAvailabilityFlags,
   GatewayModelAvailabilityPurpose,
   GatewayModelRecord,
+  GatewayModelSyncChange,
   GatewayModelSyncRunRecord,
   GatewayModelSyncSettingsRecord,
   GatewayModelUpsertInput,
+  GatewayModelUpsertOptions,
+  GatewayModelUpsertResult,
   ModelBindingRecord,
 } from "../../gateway-models.js";
+import { gatewayModelCatalogFingerprint } from "../../gateway-models.js";
 import { type DbSource, normalizeDbSource } from "../../infra/tenant-db.js";
 
 const AI_SCHEMA = "ai";
@@ -71,13 +75,25 @@ function mapPricing(row: Record<string, unknown>): ModelPricingRecord {
   };
 }
 
+function mapGatewayModelSyncChange(
+  value: unknown
+): GatewayModelRecord["last_sync_change"] {
+  if (value === "new" || value === "changed" || value === "unchanged") {
+    return value;
+  }
+  return null;
+}
+
 function mapGatewayModel(row: Record<string, unknown>): GatewayModelRecord {
   return {
-    available_for_chat: asBoolean(row.available_for_chat),
+    available_for_agent: asBoolean(row.available_for_agent),
     available_for_embedding: asBoolean(row.available_for_embedding),
     available_for_image: asBoolean(row.available_for_image),
     available_for_rerank: asBoolean(row.available_for_rerank),
-    available_for_routing: asBoolean(row.available_for_routing),
+    available_for_classification: asBoolean(row.available_for_classification),
+    available_for_realtime: asBoolean(row.available_for_realtime),
+    available_for_text: asBoolean(row.available_for_text),
+    available_for_transcription: asBoolean(row.available_for_transcription),
     available_for_video: asBoolean(row.available_for_video),
     cached_input_per_mtok_micros: asNullableNumber(
       row.cached_input_per_mtok_micros
@@ -93,6 +109,8 @@ function mapGatewayModel(row: Record<string, unknown>): GatewayModelRecord {
     gateway: String(row.gateway),
     input_per_mtok_micros: asNullableNumber(row.input_per_mtok_micros),
     last_seen_at: String(row.last_seen_at),
+    last_sync_change: mapGatewayModelSyncChange(row.last_sync_change),
+    last_sync_run_id: asNullableString(row.last_sync_run_id),
     last_synced_at: String(row.last_synced_at),
     max_output_tokens: asNullableNumber(row.max_output_tokens),
     model_id: String(row.model_id),
@@ -110,6 +128,7 @@ function mapGatewayModel(row: Record<string, unknown>): GatewayModelRecord {
       row.raw_json && typeof row.raw_json === "object"
         ? (row.raw_json as Record<string, unknown>)
         : {},
+    regions: asRequiredStringArray(row.regions),
     released_at: asNullableString(row.released_at),
     source_url: String(row.source_url),
     tags: asRequiredStringArray(row.tags),
@@ -130,10 +149,16 @@ function availabilityColumnForPurpose(
   purpose: GatewayModelAvailabilityPurpose
 ): keyof GatewayModelAvailabilityFlags {
   switch (purpose) {
-    case "chat":
-      return "available_for_chat";
-    case "routing":
-      return "available_for_routing";
+    case "agent":
+      return "available_for_agent";
+    case "classification":
+      return "available_for_classification";
+    case "text":
+      return "available_for_text";
+    case "transcription":
+      return "available_for_transcription";
+    case "realtime":
+      return "available_for_realtime";
     case "embedding":
       return "available_for_embedding";
     case "image":
@@ -168,15 +193,37 @@ export function chunkGatewayModelBatch<T>(
   return chunks;
 }
 
-const GATEWAY_MODEL_AVAILABILITY_SELECT = [
+const GATEWAY_MODEL_EXISTING_SELECT = [
   "gateway",
   "model_id",
-  "available_for_chat",
-  "available_for_routing",
+  "available_for_agent",
+  "available_for_classification",
   "available_for_embedding",
   "available_for_image",
   "available_for_video",
   "available_for_rerank",
+  "available_for_text",
+  "available_for_transcription",
+  "available_for_realtime",
+  "cached_input_per_mtok_micros",
+  "capabilities",
+  "context_tokens",
+  "description",
+  "display_name",
+  "input_per_mtok_micros",
+  "max_output_tokens",
+  "no_training_supported",
+  "output_per_mtok_micros",
+  "price_tier",
+  "provider",
+  "providers",
+  "regions",
+  "released_at",
+  "tags",
+  "type",
+  "use_cases",
+  "web_search_per_query_micros",
+  "zdr_supported",
 ].join(",");
 
 /** Catalog rows are identified by (gateway, model_id), so the cache key is too. */
@@ -193,27 +240,60 @@ function mapGatewayModelAvailabilityRow(
       model_id: String(row.model_id),
     }),
     {
-      available_for_chat: asBoolean(row.available_for_chat),
+      available_for_agent: asBoolean(row.available_for_agent),
       available_for_embedding: asBoolean(row.available_for_embedding),
       available_for_image: asBoolean(row.available_for_image),
       available_for_rerank: asBoolean(row.available_for_rerank),
-      available_for_routing: asBoolean(row.available_for_routing),
+      available_for_classification: asBoolean(row.available_for_classification),
+      available_for_realtime: asBoolean(row.available_for_realtime),
+      available_for_text: asBoolean(row.available_for_text),
+      available_for_transcription: asBoolean(row.available_for_transcription),
       available_for_video: asBoolean(row.available_for_video),
     },
   ];
 }
 
-function preserveExistingAvailability(
+const INACTIVE_AVAILABILITY: GatewayModelAvailabilityFlags = {
+  available_for_agent: false,
+  available_for_classification: false,
+  available_for_embedding: false,
+  available_for_image: false,
+  available_for_realtime: false,
+  available_for_rerank: false,
+  available_for_text: false,
+  available_for_transcription: false,
+  available_for_video: false,
+};
+
+/**
+ * Keep operator-set activation on existing rows. New rows from a gateway sync
+ * stay inactive — activate them in Manage. Defaults restore (no syncRunId)
+ * keeps the flags from the committed file.
+ */
+function applyAvailabilityOnUpsert(
   model: GatewayModelUpsertInput,
-  existing: GatewayModelAvailabilityFlags | undefined
+  existing: GatewayModelAvailabilityFlags | undefined,
+  opts: GatewayModelUpsertOptions
 ): GatewayModelUpsertInput {
-  if (!existing) {
-    return model;
+  if (existing) {
+    return { ...model, ...existing };
   }
-  return {
-    ...model,
-    ...existing,
-  };
+  if (opts.syncRunId) {
+    return { ...model, ...INACTIVE_AVAILABILITY };
+  }
+  return model;
+}
+
+function classifyGatewayModelSyncChange(
+  incoming: GatewayModelUpsertInput,
+  existingFingerprint: string | undefined
+): GatewayModelSyncChange {
+  if (existingFingerprint == null) {
+    return "new";
+  }
+  return gatewayModelCatalogFingerprint(incoming) === existingFingerprint
+    ? "unchanged"
+    : "changed";
 }
 
 function mapGatewayModelSyncRun(
@@ -653,20 +733,21 @@ export function createAiUsageStore(
       );
     },
 
-    async upsertGatewayModels(models) {
+    async upsertGatewayModels(models, opts: GatewayModelUpsertOptions = {}) {
       if (models.length === 0) {
-        return 0;
+        return { changed: 0, inserted: 0, total: 0 };
       }
       const existingAvailability = new Map<
         string,
         GatewayModelAvailabilityFlags
       >();
+      const existingFingerprints = new Map<string, string>();
       for (const modelIdBatch of chunkGatewayModelBatch(
         models.map((model) => model.model_id)
       )) {
         const { data: existingRows, error: existingError } =
           await gatewayModels()
-            .select(GATEWAY_MODEL_AVAILABILITY_SELECT)
+            .select(GATEWAY_MODEL_EXISTING_SELECT)
             .in("model_id", modelIdBatch);
         if (existingError) {
           throw new Error(
@@ -678,29 +759,62 @@ export function createAiUsageStore(
           unknown
         >[]) {
           const [key, flags] = mapGatewayModelAvailabilityRow(row);
+          // The select is by model_id only; skip rows belonging to another
+          // gateway so we do not stamp the wrong availability onto a twin.
+          if (!models.some((model) => gatewayModelKey(model) === key)) {
+            continue;
+          }
           existingAvailability.set(key, flags);
+          existingFingerprints.set(
+            key,
+            gatewayModelCatalogFingerprint(mapGatewayModel(row))
+          );
         }
       }
 
-      let upserted = 0;
+      const nowIso = (opts.now ?? new Date()).toISOString();
+      const result: GatewayModelUpsertResult = {
+        changed: 0,
+        inserted: 0,
+        total: 0,
+      };
       for (const modelBatch of chunkGatewayModelBatch(models)) {
-        const { data, error } = await gatewayModels()
-          .upsert(
-            modelBatch.map((model) =>
-              preserveExistingAvailability(
-                model,
-                existingAvailability.get(gatewayModelKey(model))
-              )
+        const payload = modelBatch.map((model) => {
+          const key = gatewayModelKey(model);
+          const change = classifyGatewayModelSyncChange(
+            model,
+            existingFingerprints.get(key)
+          );
+          if (change === "new") {
+            result.inserted += 1;
+          } else if (change === "changed") {
+            result.changed += 1;
+          }
+          const stamped: GatewayModelUpsertInput = {
+            ...applyAvailabilityOnUpsert(
+              model,
+              existingAvailability.get(key),
+              opts
             ),
-            { onConflict: "gateway,model_id" }
-          )
+            ...(opts.syncRunId
+              ? {
+                  last_sync_change: change,
+                  last_sync_run_id: opts.syncRunId,
+                }
+              : {}),
+            ...(change === "unchanged" ? {} : { updated_at: nowIso }),
+          };
+          return stamped;
+        });
+        const { data, error } = await gatewayModels()
+          .upsert(payload, { onConflict: "gateway,model_id" })
           .select("model_id");
         if (error) {
           throw new Error(`gateway model upsert: ${error.message}`);
         }
-        upserted += data?.length ?? 0;
+        result.total += data?.length ?? 0;
       }
-      return upserted;
+      return result;
     },
 
     async updateGatewayModelAvailability(modelId, patch, gateway) {

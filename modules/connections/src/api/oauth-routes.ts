@@ -6,13 +6,12 @@ import {
   exchangeAuthorizationCode,
   getConnectorDefinition,
   hasOAuth2ClientCredentials,
-  mountConnectionInSpace,
   scopesForGroups,
 } from "@engenty/connections-sdk";
 import type { PluginServerApi } from "@engenty/plugin-sdk";
 import { createLogger } from "@engenty/telemetry";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ConnectionsSettingsResolver } from "../lib/settings-resolver.js";
+import { mayEnterSpace, type ResolveSpaceAccess } from "../lib/space-access.js";
 
 const logger = createLogger({ name: "connections-oauth" });
 
@@ -50,7 +49,8 @@ function unpackFlowRedirect(packed: string | null): {
 
 export interface ConnectionsConnectedEvent {
   connectorId: string;
-  sharing: "personal" | "org";
+  /** The Space the account now belongs to. */
+  spaceId: string;
   tenantId: string;
 }
 
@@ -89,13 +89,6 @@ function uiRedirect(target: string | null): string {
 export function registerConnectionsOAuthRoutes(
   api: PluginServerApi,
   repos: {
-    /**
-     * Tenant-locked Supabase handle, for the one write that is not a
-     * connections table: auto-mounting the new account into the space the
-     * connect started from (CN.4 Flow A). The repo cannot do it — mounts live
-     * in `core`.
-     */
-    getDb: (tenantId: string) => SupabaseClient;
     /** Tenant-locked repo factory — every tenant-shaped read/write. */
     getRepo: (auth: { tenantId: string }) => ConnectionsRepo;
     /** Service-client repo for the callback's tenant-RESOLUTION read only: an
@@ -104,10 +97,12 @@ export function registerConnectionsOAuthRoutes(
     serviceRepo: ConnectionsRepo;
   },
   settings: ConnectionsSettingsResolver,
+  /** Whether the caller may connect an account into a Space. */
+  resolveSpaceAccess: ResolveSpaceAccess,
   options: ConnectionsOAuthRouteOptions = {}
 ): void {
-  const { getDb, getRepo, serviceRepo } = repos;
-  // GET /api/connections/:connectorId/connect?sharing=personal|org&redirect_to=/settings/connections
+  const { getRepo, serviceRepo } = repos;
+  // GET /api/connections/:connectorId/connect?space_id=<uuid>&redirect_to=/settings/connections
   api.registerHttpRoute({
     method: "get",
     path: "/api/connections/:connectorId/connect",
@@ -132,16 +127,18 @@ export function registerConnectionsOAuthRoutes(
       }
       const query = ctx.query as {
         redirect_to?: string;
-        sharing?: string;
         space_id?: string;
       };
-      // `sharing` is unused for access; new flows stamp personal.
-      const sharing = "personal" as const;
-      // CN.4 Flow A — the space the user pressed "Add account" in, so the
-      // callback can mount what it just connected. Carried on the flow row
-      // rather than the redirect URL: the redirect is attacker-visible and the
-      // flow row is not, and a mount is a grant.
-      const spaceId = query?.space_id?.trim() || null;
+      // The Space the account will belong to. Carried on the flow row rather
+      // than the redirect URL: the redirect is attacker-visible and the flow
+      // row is not, and the Space decides who may use the account.
+      const spaceId = query?.space_id?.trim();
+      if (!spaceId) {
+        return hono.json({ error: "connections.spaceRequired" }, 400);
+      }
+      if (!(await mayEnterSpace(resolveSpaceAccess, ctx.auth, spaceId))) {
+        return hono.json({ error: "space_not_found" }, 404);
+      }
       // Request the full scope union up front; the per-action policy matrix
       // governs actual use. (Per-group incremental auth = reconnect flow.)
       const scopes = scopesForGroups(
@@ -174,7 +171,6 @@ export function registerConnectionsOAuthRoutes(
             pkce.codeVerifier
           ),
           requested_scopes: scopes,
-          sharing,
           space_id: spaceId,
           tenant_id: ctx.auth.tenantId,
           user_id: ctx.auth.principalId,
@@ -293,10 +289,11 @@ export function registerConnectionsOAuthRoutes(
             });
           }
         }
-        const connection = await getRepo({
+        await getRepo({
           tenantId: flow.tenant_id,
         }).upsertConnectionWithTokens({
           accessToken: tokens.accessToken,
+          connectedBy: flow.user_id,
           connectorId: connector.id,
           expiresAt: tokens.expiresAt,
           externalAccount,
@@ -304,38 +301,18 @@ export function registerConnectionsOAuthRoutes(
             tokens.grantedScopes.length > 0
               ? tokens.grantedScopes
               : flow.requested_scopes,
-          ownerUserId: flow.user_id,
           refreshToken: tokens.refreshToken,
-          sharing: flow.sharing,
+          spaceId: flow.space_id,
           tenantId: flow.tenant_id,
         });
         ctx.recordAuditEvent?.({
-          detail: { connector: connector.id, sharing: flow.sharing },
+          detail: { connector: connector.id, space_id: flow.space_id },
           type: "connection.connected",
         });
-        // CN.4 Flow A — land back in the space with the account already
-        // usable. Best-effort: the connection exists either way, and failing
-        // the callback here would report a connect failure that did not happen.
-        if (flow.space_id) {
-          try {
-            await mountConnectionInSpace(getDb(flow.tenant_id), {
-              connectionId: connection.id,
-              spaceId: flow.space_id,
-              tenantId: flow.tenant_id,
-            });
-          } catch (error) {
-            logger.warn("space auto-mount failed after connect", {
-              connection: connection.id,
-              connector: connector.id,
-              error: error instanceof Error ? error.message : String(error),
-              space: flow.space_id,
-            });
-          }
-        }
         try {
           await options.onConnected?.({
             connectorId: connector.id,
-            sharing: flow.sharing,
+            spaceId: flow.space_id,
             tenantId: flow.tenant_id,
           });
         } catch (error) {

@@ -2,7 +2,6 @@
 
 import { type ReactNode, useEffect, useMemo, useRef } from "react";
 import {
-  RealtimeVoiceButton,
   RealtimeVoiceCallStrip,
   type RealtimeVoiceUiLabels,
 } from "../../components/realtime-voice/realtime-voice.js";
@@ -18,7 +17,6 @@ import {
 export interface UseOpenAiRealtimeVoiceComposerControlsOptions {
   auth?: "apps-ai" | "none";
   baseUrl?: string;
-  controlsDisabled?: boolean;
   enabled?: boolean;
   executeTool?: (
     request: OpenAiRealtimeVoiceToolCallRequest
@@ -39,7 +37,6 @@ export interface UseOpenAiRealtimeVoiceComposerControlsOptions {
 }
 
 export interface OpenAiRealtimeVoiceComposerControls {
-  composerLeadingControl: ReactNode;
   composerOverride: ReactNode | undefined;
   session: OpenAiRealtimeVoiceSessionState;
   transcriptMessages: OpenAiRealtimeVoiceTranscriptMessage[];
@@ -48,7 +45,6 @@ export interface OpenAiRealtimeVoiceComposerControls {
 export function useOpenAiRealtimeVoiceComposerControls({
   baseUrl,
   auth,
-  controlsDisabled = false,
   enabled = false,
   executeTool,
   instructions,
@@ -72,30 +68,6 @@ export function useOpenAiRealtimeVoiceComposerControls({
     tools,
     visitorId,
   });
-
-  const composerLeadingControl = useMemo(() => {
-    if (!(enabled && !session.isActive && session.status !== "error")) {
-      return null;
-    }
-
-    return (
-      <RealtimeVoiceButton
-        disabled={controlsDisabled}
-        labels={labels}
-        onStart={() => {
-          void session.start();
-        }}
-        status={session.status}
-      />
-    );
-  }, [
-    controlsDisabled,
-    enabled,
-    labels,
-    session.isActive,
-    session.start,
-    session.status,
-  ]);
 
   const composerOverride = useMemo(() => {
     if (!(session.isActive || session.status === "error")) {
@@ -161,12 +133,11 @@ export function useOpenAiRealtimeVoiceComposerControls({
 
   return useMemo(
     () => ({
-      composerLeadingControl,
       composerOverride,
       session,
       transcriptMessages,
     }),
-    [composerLeadingControl, composerOverride, session, transcriptMessages]
+    [composerOverride, session, transcriptMessages]
   );
 }
 

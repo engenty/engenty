@@ -8,7 +8,7 @@ import { Collapsible, CollapsibleContent } from "@engenty/ui-core";
 import { Plug, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { connectionMetaById } from "@/components/spaces/space-mount-catalog";
+import { spaceAccounts } from "@/components/spaces/space-mount-catalog";
 import { pluginsFromConnectors } from "@/components/spaces/space-plugin-catalog";
 import { SpaceSectionAddButton } from "@/components/spaces/space-section-heading";
 import {
@@ -39,14 +39,18 @@ export function SpaceHomeExtensions({
   spaceKey: string;
 }) {
   const { t } = useTranslation("common");
-  const mountsQuery = useSpaceMountsQuery(spaceId);
-  const connectorsQuery = useSpaceConnectorCatalogQuery();
-  const skillsQuery = useSpaceSkillCatalogQuery();
   const [connectOpen, setConnectOpen] = useState(false);
   const [connectTab, setConnectTab] = useState<SpaceConnectTab>("plugins");
-  const metaById = useMemo(
-    () => connectionMetaById(connectorsQuery.data ?? []),
-    [connectorsQuery.data]
+  const [open, setOpen] = useSpaceSectionOpen(
+    SPACE_SECTION_OPEN_KEYS.homeExtensions,
+    spaceKey
+  );
+  const mountsQuery = useSpaceMountsQuery(open ? spaceId : null);
+  const connectorsQuery = useSpaceConnectorCatalogQuery();
+  const skillsQuery = useSpaceSkillCatalogQuery();
+  const accounts = useMemo(
+    () => spaceAccounts(connectorsQuery.data ?? [], spaceId),
+    [connectorsQuery.data, spaceId]
   );
   const pluginNames = useMemo(() => {
     const names = new Map<string, string>();
@@ -67,17 +71,13 @@ export function SpaceHomeExtensions({
   }, [skillsQuery.data]);
   const rows = useMemo(
     () =>
-      selectSpaceHomeExtensionRows(mountsQuery.data ?? [], metaById, {
+      selectSpaceHomeExtensionRows(mountsQuery.data ?? [], accounts, {
         plugins: pluginNames,
         skills: skillNames,
       }),
-    [metaById, mountsQuery.data, pluginNames, skillNames]
+    [accounts, mountsQuery.data, pluginNames, skillNames]
   );
   const shown = rows.slice(0, SPACE_HOME_EXTENSIONS_SHOWN);
-  const [open, setOpen] = useSpaceSectionOpen(
-    SPACE_SECTION_OPEN_KEYS.homeExtensions,
-    spaceKey
-  );
   const addLabel = t("spaces.home.extensions.add", {
     defaultValue: "Connect",
   });

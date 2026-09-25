@@ -8,6 +8,7 @@ describe("engenty-specialists managed skills", () => {
     expect(Object.keys(ENGENTY_SPECIALISTS_MANAGED_SKILLS).toSorted()).toEqual([
       "chief-of-staff",
       "durable-work",
+      "getting-started",
       "hire-agent",
       "routines",
       "space-data",
@@ -34,6 +35,15 @@ describe("engenty-specialists managed skills", () => {
     expect(hire).toContain("`routines_create`");
     expect(hire).toContain("reusing an existing id make it a gated proposal");
     expect(hire).not.toContain("never publish it yourself");
+    // A Chief of Staff is the coordinator: fixed mandate, no Routine needed.
+    expect(hire).toContain("## Hire a Chief of Staff (coordinator)");
+    // The playbook is the hire's; the hiring agent must not go looking for it.
+    expect(hire).toContain(
+      "it is not in your catalog, so do not search for it"
+    );
+    expect(hire).toContain(
+      "`for_work`: `chat`. The hire is complete without a Routine"
+    );
 
     const durable = byName["durable-work"];
     expect(durable).toContain("Call `registry_agents_list` in this turn");

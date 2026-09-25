@@ -79,13 +79,13 @@ describe("verifyKbSearchResults with Jev", () => {
         },
         model: "jev-test",
       }),
-    } as unknown as import("@engenty/typesafe-client").TypeSafeClient;
+    } as unknown as import("@engenty/typesafe-client").ClassifierClient;
     const kept = await verifyKbSearchResults({
       candidates: [
         { article: null, result: result("a") },
         { article: null, result: result("b") },
       ],
-      jev,
+      classifier: jev,
       query: "vat on invoices",
       settings,
     });
@@ -104,13 +104,13 @@ describe("verifyKbSearchResults with Jev", () => {
           model: "jev-test",
         };
       },
-    } as unknown as import("@engenty/typesafe-client").TypeSafeClient;
+    } as unknown as import("@engenty/typesafe-client").ClassifierClient;
     const kept = await verifyKbSearchResults({
       candidates: [
         { article: null, result: result("first") },
         { article: null, result: result("second") },
       ],
-      jev,
+      classifier: jev,
       query: "vat on invoices",
       settings: { ...settings, search_verifier_max_candidates: 1 },
     });
@@ -123,10 +123,10 @@ describe("verifyKbSearchResults with Jev", () => {
       systemOne: async () => {
         throw new Error("typesafe_http_503");
       },
-    } as unknown as import("@engenty/typesafe-client").TypeSafeClient;
+    } as unknown as import("@engenty/typesafe-client").ClassifierClient;
     const kept = await verifyKbSearchResults({
       candidates: [{ article: null, result: result("a") }],
-      jev,
+      classifier: jev,
       query: "vat on invoices",
       settings,
     });

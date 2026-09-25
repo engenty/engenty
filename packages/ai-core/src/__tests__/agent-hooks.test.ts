@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { renderAgentFn } from "../hooks/frame.js";
 import {
+  useEffort,
   useInstruction,
   useModel,
-  usePurpose,
   useRegisteredTool,
   useSkillHint,
   useSubagent,
@@ -40,7 +40,7 @@ describe("renderAgentFn", () => {
   it("renders a draft that parses as AgentConfig — no mapping layer", () => {
     const config = renderAgentFn(
       descriptor(() => {
-        usePurpose("planning_coding");
+        useEffort("high");
         useSkillHint("triage");
         useRegisteredTool("engenty_tool_execute");
         useSubagent("engenty.cli", "cli");
@@ -49,7 +49,7 @@ describe("renderAgentFn", () => {
       })
     );
     expect(config.id).toBe("test.agent");
-    expect(config.purpose).toBe("planning_coding");
+    expect(config.effort).toBe("high");
     expect(config.skillIds).toEqual(["triage"]);
     expect(config.toolIds).toEqual(["engenty_tool_execute"]);
     expect(config.subAgents).toEqual([{ alias: "cli", id: "engenty.cli" }]);
@@ -103,7 +103,7 @@ describe("renderAgentFn", () => {
       renderAgentFn(
         descriptor(() => {
           useModel("a/b");
-          usePurpose("chat");
+          useEffort("medium");
           return "Base.";
         })
       )
@@ -269,7 +269,7 @@ describe("useMachine", () => {
       m.advance("diagnose", "Call once the issue reproduces.");
     }
     if (m.phase === "diagnose") {
-      usePurpose("planning_coding");
+      useEffort("high");
       m.advance("report", "Call once root cause is identified.");
     }
     return "Triage the issue.";
@@ -281,7 +281,7 @@ describe("useMachine", () => {
     expect(Object.keys(renderedToolsOf(config) ?? {})).toEqual([
       "enter_diagnose",
     ]);
-    expect(config.purpose).toBeUndefined();
+    expect(config.effort).toBeUndefined();
   });
 
   it("changes toolset and model tier on the next render after a transition", async () => {
@@ -300,7 +300,7 @@ describe("useMachine", () => {
     // Turn N+1: a fresh render over the persisted snapshot.
     const ctx2 = contextWith(persisted);
     const config2 = renderAgentFn(descriptor(machineAgent), ctx2);
-    expect(config2.purpose).toBe("planning_coding");
+    expect(config2.effort).toBe("high");
     expect(Object.keys(renderedToolsOf(config2) ?? {})).toEqual([
       "enter_report",
     ]);

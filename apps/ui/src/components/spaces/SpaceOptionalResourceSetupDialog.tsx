@@ -7,75 +7,36 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
 } from "@engenty/ui-core";
-import { Plug, Sparkles } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Sparkles } from "lucide-react";
 import {
   overviewIconToneForCategory,
   SettingsOverviewIcon,
 } from "@/components/settings/SettingsOverviewIcon";
 import type { SpaceCatalogItem } from "./space-mount-catalog";
-import {
-  DEFAULT_MODULE_ACCESS,
-  type SpaceAccessLevel,
-} from "./space-setup-selection";
 
-const ACCESS_LEVELS: SpaceAccessLevel[] = ["none", "read", "write"];
-
+/** Add / remove one optional resource (a skill) on the Space. */
 export function SpaceOptionalResourceSetupDialog({
-  access,
   inSpace,
   item,
-  kind,
   onAdd,
-  onApplyAccess,
   onOpenChange,
   onRemove,
   open,
   saving,
 }: {
-  /**
-   * What this space's engentys may do with the ACCOUNT
-   * (PLAN-connections-ux.md C1). `null` on an account in the space means this
-   * space never decided, and its own `autonomous_mode` decides alone — which
-   * is usually why an engenty still cannot use it.
-   */
-  access?: SpaceAccessLevel | null;
   inSpace: boolean;
   item: SpaceCatalogItem | null;
-  kind: "connection" | "skill";
-  onAdd: (access?: SpaceAccessLevel) => Promise<boolean>;
-  /** Change the level of an account already in this space. Accounts only. */
-  onApplyAccess?: ((access: SpaceAccessLevel) => Promise<boolean>) | null;
+  onAdd: () => Promise<boolean>;
   onOpenChange: (open: boolean) => void;
   onRemove: (() => Promise<boolean>) | null;
   open: boolean;
   saving: boolean;
 }) {
   const { t } = useTranslation("common");
-  const [draftAccess, setDraftAccess] = useState<SpaceAccessLevel>(
-    DEFAULT_MODULE_ACCESS
-  );
-
-  useEffect(() => {
-    if (open) {
-      setDraftAccess(access ?? DEFAULT_MODULE_ACCESS);
-    }
-  }, [access, open]);
-
   if (!item) {
     return null;
   }
-  const Icon = kind === "skill" ? Sparkles : Plug;
-  // A skill is availability only; an account carries a level, and it is the
-  // control that decides whether this space's engentys can use it at all.
-  const showAccess = kind === "connection";
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
@@ -83,7 +44,7 @@ export function SpaceOptionalResourceSetupDialog({
         <DialogHeader>
           <div className="flex items-start gap-3">
             <SettingsOverviewIcon
-              Icon={Icon}
+              Icon={Sparkles}
               tone={overviewIconToneForCategory(item.category)}
             />
             <div className="min-w-0">
@@ -101,39 +62,8 @@ export function SpaceOptionalResourceSetupDialog({
         </DialogHeader>
 
         <p className="text-muted-foreground text-sm">
-          {t(
-            kind === "connection"
-              ? "spaces.setup.connectionAccessHint"
-              : "spaces.setup.skillAccessHint"
-          )}
+          {t("spaces.setup.skillAccessHint")}
         </p>
-        {showAccess ? (
-          <div className="space-y-2">
-            <Label htmlFor="space-account-access">
-              {t("spaces.setup.accountAccessLabel")}
-            </Label>
-            <Select
-              onValueChange={(value) =>
-                setDraftAccess(value as SpaceAccessLevel)
-              }
-              value={draftAccess}
-            >
-              <SelectTrigger id="space-account-access">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {ACCESS_LEVELS.map((level) => (
-                  <SelectItem key={level} value={level}>
-                    {t(`spaces.setup.accountAccess.${level}`)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-muted-foreground text-xs">
-              {t(`spaces.setup.accountAccessHint.${draftAccess}`)}
-            </p>
-          </div>
-        ) : null}
         {onRemove ? (
           <p className="text-muted-foreground text-xs">
             {t("spaces.setup.resourceRemoveHint")}
@@ -167,25 +97,11 @@ export function SpaceOptionalResourceSetupDialog({
             >
               {inSpace ? t("actions.close") : t("actions.cancel")}
             </Button>
-            {inSpace ? (
-              showAccess && onApplyAccess && draftAccess !== access ? (
-                <Button
-                  disabled={saving}
-                  onClick={async () => {
-                    if (await onApplyAccess(draftAccess)) {
-                      onOpenChange(false);
-                    }
-                  }}
-                  type="button"
-                >
-                  {t("spaces.setup.moduleApply")}
-                </Button>
-              ) : null
-            ) : (
+            {inSpace ? null : (
               <Button
                 disabled={saving}
                 onClick={async () => {
-                  if (await onAdd(showAccess ? draftAccess : undefined)) {
+                  if (await onAdd()) {
                     onOpenChange(false);
                   }
                 }}

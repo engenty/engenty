@@ -1,3 +1,4 @@
+import { resolveChatModelId } from "@engenty/ai-core";
 import {
   assertSourceAdapterRunReady,
   computeDocumentSourceNextRunAt,
@@ -297,6 +298,10 @@ async function executeKbSourceRun(
       sourceForRetrieval = { ...source, settings: mergedSettings };
     }
 
+    // Page titles / pattern suggestion run on the `fast_text` role.
+    const retrieveContext = {
+      llmModel: resolveChatModelId({ purpose: "fast_text" }),
+    };
     const itemLogs: KbSourceRunItemLog[] = [];
 
     for (const [index, entry] of entries.entries()) {
@@ -371,7 +376,7 @@ async function executeKbSourceRun(
         const retrieved = await runBoundedPhase(
           "retrieve_item",
           entry.item_key,
-          () => adapter.retrieveItem(sourceForRetrieval, entry)
+          () => adapter.retrieveItem(sourceForRetrieval, entry, retrieveContext)
         );
         const contentHash = hashDocumentSourceItemContent(retrieved);
         if (

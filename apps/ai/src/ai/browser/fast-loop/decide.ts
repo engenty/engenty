@@ -6,10 +6,10 @@
 
 import {
   type ChoiceAnswer,
+  type ClassifierClient,
   type JsonValue,
   type SystemOneResponse,
   type SystemOneUsage,
-  type TypeSafeClient,
   validateChoiceAnswer,
 } from "@engenty/typesafe-client";
 
@@ -142,7 +142,7 @@ export function scoreSteps(
 }
 
 export interface DecideInput {
-  client: TypeSafeClient;
+  client: ClassifierClient;
   goal: string;
   history: readonly HistoryEntry[];
   model?: string;

@@ -1,4 +1,8 @@
-import type { AiSettingSource } from "@engenty/ai-core";
+/**
+ * Provenance of a non-model setting. Unlike models, these keep a package
+ * default under the platform layer.
+ */
+export type SettingSource = "agent" | "tenant" | "platform" | "default";
 
 export const DEFAULT_AGENT_MAX_STEPS = 24;
 export const MAX_AGENT_MAX_STEPS = 60;
@@ -35,7 +39,7 @@ export interface ResolveAgentMaxStepsOptions {
 }
 
 export interface ResolvedAgentMaxSteps {
-  source: AiSettingSource;
+  source: SettingSource;
   value: number;
 }
 

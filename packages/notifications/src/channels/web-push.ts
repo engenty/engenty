@@ -6,6 +6,7 @@ import { createLogger } from "@engenty/telemetry";
 import webPush from "web-push";
 import type { NotificationChannel, NotificationRecord } from "../contracts.js";
 import type { NotificationsStore } from "../dal/store.js";
+import { notificationSource } from "../presentation.js";
 
 const logger = createLogger({ name: "notifications-web-push" });
 
@@ -35,20 +36,16 @@ export function pushMessageFor(record: NotificationRecord): {
   tag: string | undefined;
   title: string;
 } {
-  const payload = record.payload ?? {};
-  const title =
-    typeof payload.conversation_label === "string"
-      ? payload.conversation_label
-      : "engenty";
-  const body =
-    typeof payload.text_preview === "string" && payload.text_preview
-      ? payload.text_preview
-      : record.summary;
+  // A banner: where it came from on top, what it is below, one line more
+  // when the producer had one (a question, a message preview).
+  const body = record.body
+    ? `${record.summary}\n${record.body}`
+    : record.summary;
   return {
     body: body.slice(0, 240),
-    route: typeof payload.route === "string" ? payload.route : null,
+    route: record.target,
     tag: record.dedupe_key ?? undefined,
-    title,
+    title: notificationSource(record) ?? "engenty",
   };
 }
 

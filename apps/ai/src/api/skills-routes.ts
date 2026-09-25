@@ -13,6 +13,11 @@ import {
 } from "../ai/core-http-client.js";
 import { type AiSessionScope, scopeAccessToken } from "../ai/sessions.js";
 import {
+  COMPUTER_SKILL_PROVIDER_ID,
+  createComputerSkillProvider,
+  parseComputerSkillRef,
+} from "../ai/skills/providers/computer-skills-provider.js";
+import {
   createDefaultSkillRegistryProviderRegistry,
   type SkillRegistryProviderRegistry,
 } from "../ai/skills/providers/registry.js";
@@ -33,10 +38,27 @@ import { syncTenantManagedSkills } from "../ai/workspace/tenant-skills-seed.js";
 import { AI_BASE_PATH } from "../config/constants.js";
 import { createRegistryStore } from "../dal/registry/index.js";
 import { createDbSourceFromEnv } from "../infra/tenant-db.js";
+import { resolveNotifications } from "../notifications/inbox.js";
 import type { AiScopeResolver } from "./http.js";
 import { handleRouteError, resolveScope } from "./http.js";
 
 const logger = createLogger({ name: "ai.skills.routes" });
+
+// `skill_propose` files its `skill_proposed` row under this subject (id: the
+// proposal's name); a decision here closes it.
+const SKILL_PROPOSAL_SUBJECT = "skill_proposal";
+
+async function resolveSkillProposalNotifications(
+  tenantId: string,
+  name: string
+): Promise<void> {
+  await resolveNotifications({
+    outcome: "decided",
+    subjectId: name,
+    subjectType: SKILL_PROPOSAL_SUBJECT,
+    tenantId,
+  });
+}
 
 export interface RegisterSkillsRoutesOptions {
   providerRegistry?: SkillRegistryProviderRegistry;
@@ -121,6 +143,28 @@ function decodeFileInputs(raw: unknown): SkillFileInput[] {
   return files;
 }
 
+/**
+ * The computer provider for the Space a ref names — only after the caller's
+ * own token has read that Space. The ref is client input: without the check,
+ * anyone in the tenant could copy skills off a Space they are not in.
+ */
+async function computerProviderFor(
+  refId: string | undefined,
+  tenantId: string,
+  core: EngentyCoreClient | null
+) {
+  const ref = refId ? parseComputerSkillRef(refId) : null;
+  if (!(ref && core)) {
+    return;
+  }
+  try {
+    await core.getSpaceSurface(ref.spaceId);
+  } catch {
+    return;
+  }
+  return createComputerSkillProvider({ spaceId: ref.spaceId, tenantId });
+}
+
 export function registerSkillsRoutes(
   app: Hono<any>,
   options: RegisterSkillsRoutesOptions
@@ -203,6 +247,7 @@ export function registerSkillsRoutes(
         name,
       });
       await store.remove(name);
+      await resolveSkillProposalNotifications(resolved.scope.tenantId, name);
       return c.json({ skill: saved });
     } catch (err) {
       return handleRouteError(
@@ -230,6 +275,7 @@ export function registerSkillsRoutes(
         return c.json({ error: "skills.unknownProposal" }, 404);
       }
       await store.remove(name);
+      await resolveSkillProposalNotifications(resolved.scope.tenantId, name);
       return c.json({ ok: true });
     } catch (err) {
       return handleRouteError(
@@ -292,17 +338,20 @@ export function registerSkillsRoutes(
         ref?: { id?: string };
         spaceId?: string;
       };
-      const provider = providerRegistry.get(body.provider ?? "");
       const refId = body.ref?.id;
-      if (!(provider && refId)) {
-        return c.json({ error: "skills.invalidInstallRequest" }, 400);
-      }
       const accessToken = scopeAccessToken(resolved.scope)?.trim();
       const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
       const core =
         accessToken && coreBaseUrl
           ? new EngentyCoreClient({ accessToken, coreBaseUrl })
           : null;
+      const provider =
+        body.provider === COMPUTER_SKILL_PROVIDER_ID
+          ? await computerProviderFor(refId, resolved.scope.tenantId, core)
+          : providerRegistry.get(body.provider ?? "");
+      if (!(provider && refId)) {
+        return c.json({ error: "skills.invalidInstallRequest" }, 400);
+      }
       const dbSource = createDbSourceFromEnv();
       const registryStore = dbSource ? createRegistryStore(dbSource) : null;
       const spaceId = body.attach?.spaceId ?? body.spaceId;

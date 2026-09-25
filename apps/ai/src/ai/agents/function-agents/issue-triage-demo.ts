@@ -1,10 +1,10 @@
 // Demo phase agent (PLAN-agent-hooks Phase 3 proof): a three-phase triage
-// workflow driven by useMachine — per-phase model tier, per-phase skill
+// workflow driven by useMachine — per-phase effort tier, per-phase skill
 // hints, and transition tools that persist thread state. Registered only
 // when ENGENTY_DEMO_AGENTS=1 so it never shows in tenant catalogs by
 // default.
 import type { AgentFnDescriptor } from "@engenty/ai-core";
-import { useMachine, usePurpose, useSkillHint } from "@engenty/ai-core";
+import { useEffort, useMachine, useSkillHint } from "@engenty/ai-core";
 
 export const ISSUE_TRIAGE_DEMO_AGENT_ID = "engenty.issue-triage-demo";
 
@@ -25,7 +25,7 @@ export const issueTriageDemoAgent: AgentFnDescriptor = {
       );
     }
     if (machine.phase === "diagnose") {
-      usePurpose("planning_coding");
+      useEffort("high");
       useSkillHint("debugging-guide");
       machine.advance(
         "report",

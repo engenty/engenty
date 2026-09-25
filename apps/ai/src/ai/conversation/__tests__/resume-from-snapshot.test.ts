@@ -6,6 +6,7 @@
 // which is the state a resume always starts from, including after a restart.
 import { createFrontendToolDefinition } from "@engenty/ag-ui-bridge";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { bindTestModelsPerTest } from "../../../__tests__/helpers/test-model-bindings.js";
 
 const listSuspendedRuns = vi.fn();
 const resumeStream = vi.fn();
@@ -128,6 +129,8 @@ async function runAndCollect(input: ReturnType<typeof baseInput>) {
   unsub();
   return events;
 }
+
+bindTestModelsPerTest();
 
 describe("resume continues from the stored snapshot", () => {
   beforeEach(() => {

@@ -4,6 +4,9 @@
 import type { ApprovalDecision } from "@engenty/approvals-sdk";
 import { capabilityCovers } from "@engenty/plugin-sdk";
 import type { OpenAPIHono } from "@hono/zod-openapi";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { isSpaceOwner } from "../../../dal/space-membership.js";
+import { createDatabaseAdapter } from "../../../infra/index.js";
 import type { ApprovalDecidedEvent } from "../../../security/approval-gate.js";
 import type { SecurityAuditLogAdapter } from "../../../security/audit-adapter.js";
 import { enrichAuditEventsWithUsers } from "../../../security/audit-enrich.js";
@@ -19,9 +22,22 @@ export function registerApprovalRoutes(params: {
   authProvider: AuthProvider;
   approvalService: ApprovalService;
   auditLog: SecurityAuditLogAdapter;
+  /** Tenant-locked handle for the space-owner check; defaults to the adapter. */
+  getTenantDb?: ((auth: { tenantId: string }) => SupabaseClient) | null;
   /** After a decision lands: `emitApprovalDecided` (notifications resolve on it). */
   onDecided?: (event: ApprovalDecidedEvent) => Promise<void>;
 }) {
+  function tenantDb(tenantId: string): SupabaseClient {
+    if (params.getTenantDb) {
+      return params.getTenantDb({ tenantId });
+    }
+    const client = createDatabaseAdapter(params.config);
+    if (!client) {
+      throw new Error("approval_routes_requires_database");
+    }
+    return client;
+  }
+
   params.app.get("/api/security/approvals", async (c) => {
     const authResult = await requireAuth(c, params.authProvider);
     if (authResult.error || !authResult.auth) {
@@ -83,29 +99,38 @@ export function registerApprovalRoutes(params: {
             : "This request was already decided by someone else.",
       });
     }
-    // PLAN-spaces.md CN.6/3 — being in the tenant is not being the person the
-    // request was addressed to. A module that knows who owns the thing at
-    // stake says so in the request context; without it, tenant scope remains
-    // the rule, which is the pre-existing behaviour for every other module.
+    // Being in the tenant is not being the person the request was addressed
+    // to. A request about a Space's resource (a connection, today) names that
+    // Space in its context, and only the Space's owners — or a tenant admin —
+    // may decide it (PLAN-space-owned-connections.md). Without it, tenant
+    // scope remains the rule.
     //
     // 403 rather than 404 here: the caller can already SEE this request in
     // their queue, so hiding it would be theatre — what they need to be told
     // is that it is not theirs to answer.
-    const approverUserId =
-      typeof existing.context?.owner_user_id === "string"
-        ? existing.context.owner_user_id
+    const approverSpaceId =
+      typeof existing.context?.space_id === "string"
+        ? existing.context.space_id
         : null;
     if (
-      approverUserId &&
-      approverUserId !== authResult.auth.principalId &&
+      approverSpaceId &&
       !capabilityCovers(
         [...(authResult.auth.capabilities ?? [])],
         "core.users.manage"
+      ) &&
+      !(
+        authResult.auth.principalId &&
+        (await isSpaceOwner(
+          tenantDb(authResult.auth.tenantId),
+          authResult.auth.tenantId,
+          approverSpaceId,
+          authResult.auth.principalId
+        ))
       )
     ) {
       return jsonApiError(c, 403, {
         message:
-          "Only the owner of the connection this request is about (or a tenant admin) can decide it.",
+          "Only the owners of the connection's space (or a tenant admin) can decide this request.",
       });
     }
     const decided = await params.approvalService.decide({

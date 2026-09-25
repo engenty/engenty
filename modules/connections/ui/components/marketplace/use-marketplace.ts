@@ -1,31 +1,32 @@
 import { useMutation, useQuery, useQueryClient } from "@engenty/query-client";
-import { updateConnectionSettings } from "../../api.js";
+import { connectionsInSpace } from "../../lib/connection-space.js";
 import { connectionsKeys } from "../../queries.js";
 import {
   apiErrorMessage,
   deleteImportedConnector,
-  deleteSpaceMount,
+  disablePluginOnSpace,
+  enablePluginOnSpace,
   getAgentConnectorIds,
-  listAgentGrants,
   listSpaceMounts,
   loadMarketplaceCatalog,
   patchAgentConnectorIds,
-  setAgentGrant,
-  upsertSpaceMount,
 } from "./marketplace-api.js";
 import type { MarketplacePlugin } from "./marketplace-model.js";
 
 const spaceMountsKey = (spaceId: string) =>
   ["spaces", "mounts", spaceId] as const;
-const grantsKey = (agentId: string) =>
-  ["ai-ui", "agent-connections", "grants", agentId] as const;
 const connectorIdsKey = (agentId: string) =>
   ["connections", "agent-connector-ids", agentId] as const;
 
+/**
+ * Catalog + the Space's plugin mounts (+ the agent's preferred plugins).
+ * `plugins[].connections` holds only the accounts of `spaceId`: a Space's
+ * accounts are what its agents and members use.
+ */
 export function useMarketplaceData(input: {
   agentId?: string | null;
   enabled: boolean;
-  spaceId?: string | null;
+  spaceId: string | null;
 }) {
   const catalogQuery = useQuery({
     enabled: input.enabled,
@@ -37,11 +38,6 @@ export function useMarketplaceData(input: {
     enabled: input.enabled && Boolean(input.spaceId),
     queryFn: ({ signal }) => listSpaceMounts(input.spaceId as string, signal),
     queryKey: spaceMountsKey(input.spaceId ?? ""),
-  });
-  const grantsQuery = useQuery({
-    enabled: input.enabled && Boolean(input.agentId),
-    queryFn: ({ signal }) => listAgentGrants(input.agentId as string, signal),
-    queryKey: grantsKey(input.agentId ?? ""),
   });
   const connectorIdsQuery = useQuery({
     enabled: input.enabled && Boolean(input.agentId),
@@ -55,7 +51,7 @@ export function useMarketplaceData(input: {
   ).map((connector) => ({
     auth_kind: connector.auth_kind,
     configured: connector.configured,
-    connections: connector.connections ?? [],
+    connections: connectionsInSpace(connector.connections ?? [], input.spaceId),
     credential_fields: connector.credential_fields,
     dcr_available: Boolean(connector.dcr_available),
     description: connector.description ?? "",
@@ -74,26 +70,15 @@ export function useMarketplaceData(input: {
       .filter((mount) => mount.resourceType === "plugin")
       .map((mount) => mount.resourceKey)
   );
-  const connectionMountIds = new Set(
-    (mountsQuery.data ?? [])
-      .filter((mount) => mount.resourceType === "connection")
-      .map((mount) => mount.resourceKey)
-  );
-  const grantedIds = new Set(
-    (grantsQuery.data ?? []).map((grant) => grant.connection_id)
-  );
 
   return {
-    connectionMountIds,
     connectorIds: connectorIdsQuery.data ?? [],
     error: catalogQuery.error ?? mountsQuery.error,
-    grantedIds,
-    grants: grantsQuery.data ?? [],
     isPending:
       catalogQuery.isPending ||
-      (Boolean(input.spaceId) && mountsQuery.isPending) ||
-      (Boolean(input.agentId) &&
-        (grantsQuery.isPending || connectorIdsQuery.isPending)),
+      !input.spaceId ||
+      mountsQuery.isPending ||
+      (Boolean(input.agentId) && connectorIdsQuery.isPending),
     pluginMountIds,
     plugins,
   };
@@ -101,18 +86,13 @@ export function useMarketplaceData(input: {
 
 export function useMarketplaceActions(input: {
   agentId?: string | null;
-  spaceId?: string | null;
+  spaceId: string | null;
 }) {
   const queryClient = useQueryClient();
   const invalidate = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: connectionsKeys.catalog() }),
       queryClient.invalidateQueries({ queryKey: ["spaces"] }),
-      input.agentId
-        ? queryClient.invalidateQueries({
-            queryKey: grantsKey(input.agentId),
-          })
-        : Promise.resolve(),
       input.agentId
         ? queryClient.invalidateQueries({
             queryKey: connectorIdsKey(input.agentId),
@@ -124,47 +104,12 @@ export function useMarketplaceActions(input: {
 
   const enableOnSpace = useMutation({
     mutationFn: (connectorId: string) =>
-      upsertSpaceMount({
-        resourceKey: connectorId,
-        resourceType: "plugin",
-        spaceId: input.spaceId as string,
-      }),
+      enablePluginOnSpace({ connectorId, spaceId: input.spaceId as string }),
     onSuccess: invalidate,
   });
   const disableOnSpace = useMutation({
     mutationFn: (connectorId: string) =>
-      deleteSpaceMount({
-        resourceKey: connectorId,
-        resourceType: "plugin",
-        spaceId: input.spaceId as string,
-      }),
-    onSuccess: invalidate,
-  });
-  const mountAccount = useMutation({
-    mutationFn: (connectionId: string) =>
-      upsertSpaceMount({
-        agentAccess: "write",
-        resourceKey: connectionId,
-        resourceType: "connection",
-        spaceId: input.spaceId as string,
-      }),
-    onSuccess: invalidate,
-  });
-  const grantAccount = useMutation({
-    mutationFn: (params: { connectionId: string; granted: boolean }) =>
-      setAgentGrant({
-        agentId: input.agentId as string,
-        connectionId: params.connectionId,
-        granted: params.granted,
-      }),
-    onSuccess: invalidate,
-  });
-  const setAllSpaces = useMutation({
-    mutationFn: (params: { allSpaces: boolean; connectionId: string }) =>
-      updateConnectionSettings({
-        all_spaces: params.allSpaces,
-        connection_id: params.connectionId,
-      }),
+      disablePluginOnSpace({ connectorId, spaceId: input.spaceId as string }),
     onSuccess: invalidate,
   });
   const setConnectorIds = useMutation({
@@ -186,26 +131,17 @@ export function useMarketplaceActions(input: {
     errorMessage: [
       enableOnSpace.error,
       disableOnSpace.error,
-      mountAccount.error,
-      grantAccount.error,
-      setAllSpaces.error,
       setConnectorIds.error,
       uninstall.error,
     ]
       .filter(Boolean)
       .map(apiErrorMessage)[0],
-    grantAccount,
     invalidate,
-    mountAccount,
     pending:
       enableOnSpace.isPending ||
       disableOnSpace.isPending ||
-      mountAccount.isPending ||
-      grantAccount.isPending ||
-      setAllSpaces.isPending ||
       setConnectorIds.isPending ||
       uninstall.isPending,
-    setAllSpaces,
     setConnectorIds,
     uninstall,
   };

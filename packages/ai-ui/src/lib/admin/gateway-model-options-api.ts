@@ -17,19 +17,25 @@ export type GatewayModelPriceTier =
   | "expensive";
 
 export type GatewayModelAvailabilityPurpose =
-  | "chat"
-  | "routing"
+  | "agent"
+  | "classification"
+  | "text"
   | "embedding"
   | "image"
   | "video"
+  | "realtime"
+  | "transcription"
   | "rerank";
 
 export interface GatewayModelOption {
-  available_for_chat: boolean;
+  available_for_agent: boolean;
+  available_for_classification: boolean;
   available_for_embedding: boolean;
   available_for_image: boolean;
+  available_for_realtime: boolean;
   available_for_rerank: boolean;
-  available_for_routing: boolean;
+  available_for_text: boolean;
+  available_for_transcription: boolean;
   available_for_video: boolean;
   context_tokens: number | null;
   display_name: string | null;

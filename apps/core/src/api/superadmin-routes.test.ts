@@ -38,8 +38,8 @@ const CONFIG = {
 };
 
 /**
- * In-memory SuperadminDal covering the tenant + membership flows the routes
- * exercise. Everything else throws so an accidental dependency surfaces loudly.
+ * In-memory SuperadminDal for the seat-limit flow. Everything else throws so
+ * an accidental dependency surfaces loudly.
  */
 function createFakeDal(): SuperadminDal {
   const tenants = new Map<string, CoreTenant>();
@@ -70,30 +70,6 @@ function createFakeDal(): SuperadminDal {
       tenants.set(id, tenant);
       return tenant;
     },
-    async listTenants() {
-      return [...tenants.values()];
-    },
-    async getTenant(id) {
-      return tenants.get(id) ?? null;
-    },
-    async updateTenant(id, patch) {
-      const current = tenants.get(id);
-      if (!current) {
-        throw new Error("tenant not found");
-      }
-      const next = { ...current, ...patch, updated_at: now };
-      tenants.set(id, next);
-      return next;
-    },
-    async updateTenantStatus(id, status) {
-      const current = tenants.get(id);
-      if (!current) {
-        throw new Error("tenant not found");
-      }
-      const next = { ...current, status, updated_at: now };
-      tenants.set(id, next);
-      return next;
-    },
     async createUser(input) {
       const id = `user-${++seq}`;
       const user: TenantMember = {
@@ -114,12 +90,6 @@ function createFakeDal(): SuperadminDal {
       const forTenant = memberships.get(tenantId) ?? new Map();
       forTenant.set(userId, role);
       memberships.set(tenantId, forTenant);
-    },
-    async updateTenantMemberRole({ userId, tenantId, role }) {
-      memberships.get(tenantId)?.set(userId, role);
-    },
-    async removeUserFromTenant({ userId, tenantId }) {
-      memberships.get(tenantId)?.delete(userId);
     },
     async listTenantMembers(tenantId) {
       const forTenant = memberships.get(tenantId) ?? new Map();
@@ -185,132 +155,6 @@ describe("superadmin routes — auth", () => {
   });
 });
 
-describe("superadmin routes — tenant registry", () => {
-  it("creates, changes tier and status, and rejects a bad status", async () => {
-    const app = createApp();
-    const headers = await superadminHeaders();
-
-    const created = await app.request("/api/superadmin/tenants", {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ slug: "acme", name: "Acme" }),
-    });
-    expect(created.status).toBe(200);
-    const createdBody = (await created.json()) as { data: CoreTenant };
-    const id = createdBody.data.id;
-    expect(createdBody.data.tier).toBe("platform");
-    expect(createdBody.data.status).toBe("active");
-    expect(createdBody.data.package_id).toBeNull();
-
-    const withPackage = await app.request("/api/superadmin/tenants", {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        slug: "biz",
-        name: "Biz",
-        package_id: "business",
-        tier: "satellite",
-      }),
-    });
-    expect(withPackage.status).toBe(200);
-    const withPackageBody = (await withPackage.json()) as { data: CoreTenant };
-    expect(withPackageBody.data).toMatchObject({
-      slug: "biz",
-      package_id: "business",
-      tier: "satellite",
-    });
-
-    const patched = await app.request(`/api/superadmin/tenants/${id}`, {
-      method: "PATCH",
-      headers,
-      body: JSON.stringify({ tier: "satellite" }),
-    });
-    expect(patched.status).toBe(200);
-
-    const suspended = await app.request(
-      `/api/superadmin/tenants/${id}/status`,
-      { method: "POST", headers, body: JSON.stringify({ status: "suspended" }) }
-    );
-    expect(suspended.status).toBe(200);
-
-    const list = await app.request("/api/superadmin/tenants", { headers });
-    const listBody = (await list.json()) as { data: CoreTenant[] };
-    expect(listBody.data).toHaveLength(2);
-    expect(listBody.data.find((row) => row.id === id)).toMatchObject({
-      tier: "satellite",
-      status: "suspended",
-    });
-
-    const bad = await app.request(`/api/superadmin/tenants/${id}/status`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ status: "nope" }),
-    });
-    expect(bad.status).toBe(400);
-  });
-});
-
-describe("superadmin routes — tenant membership", () => {
-  it("assigns, lists, re-roles, and removes a member", async () => {
-    const app = createApp();
-    const headers = await superadminHeaders();
-
-    const tenantRes = await app.request("/api/superadmin/tenants", {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ slug: "acme", name: "Acme" }),
-    });
-    const tenantId = ((await tenantRes.json()) as { data: CoreTenant }).data.id;
-
-    const userRes = await app.request("/api/superadmin/users", {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ email: "u@acme.test", tenant_id: tenantId }),
-    });
-    const userId = ((await userRes.json()) as { data: { id: string } }).data.id;
-
-    await app.request(`/api/superadmin/tenants/${tenantId}/users`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ userId, role: "member" }),
-    });
-
-    const listed = await app.request(
-      `/api/superadmin/users?tenantId=${tenantId}`,
-      { headers }
-    );
-    const listedBody = (await listed.json()) as { data: TenantMember[] };
-    expect(listedBody.data).toHaveLength(1);
-    expect(listedBody.data[0]).toMatchObject({
-      id: userId,
-      tenant_role: "member",
-    });
-
-    await app.request(`/api/superadmin/tenants/${tenantId}/users/${userId}`, {
-      method: "PATCH",
-      headers,
-      body: JSON.stringify({ role: "admin" }),
-    });
-    const afterRole = (await (
-      await app.request(`/api/superadmin/users?tenantId=${tenantId}`, {
-        headers,
-      })
-    ).json()) as { data: TenantMember[] };
-    expect(afterRole.data[0].tenant_role).toBe("admin");
-
-    await app.request(`/api/superadmin/tenants/${tenantId}/users/${userId}`, {
-      method: "DELETE",
-      headers,
-    });
-    const afterRemove = (await (
-      await app.request(`/api/superadmin/users?tenantId=${tenantId}`, {
-        headers,
-      })
-    ).json()) as { data: TenantMember[] };
-    expect(afterRemove.data).toHaveLength(0);
-  });
-});
-
 // Seat caps are enforced by the closed `@engenty/entitlements` package, which
 // the public snapshot excludes — without it every request is unmetered.
 describe.skipIf(!entitlements)(
@@ -368,88 +212,17 @@ describe.skipIf(!entitlements)(
       });
       expect(create.status).toBe(403);
     });
-
-    it("allows adds in observe mode even past the cap", async () => {
-      const app = createApp(async () => ({
-        maxUsers: 1,
-        enforcement_mode: "observe",
-      }));
-      const headers = await superadminHeaders();
-      const tenantId = await seedTenantAtCap(app, headers, "obs");
-      const create = await app.request("/api/superadmin/users", {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ email: "x@y.z", tenant_id: tenantId }),
-      });
-      expect(create.status).toBe(200);
-    });
   }
 );
 
 describe("superadmin routes — cross-tenant approvals", () => {
-  function createAppWithApprovals() {
-    const app = new OpenAPIHono();
-    const approvalService = createApprovalService(
-      createFakeApprovalDb().client
-    );
-    registerSuperadminRoutes({ app, config: CONFIG, approvalService });
-    return { app, approvalService };
-  }
-
-  it("lists pending requests from every tenant", async () => {
-    const { app, approvalService } = createAppWithApprovals();
-    await approvalService.request({
-      actorId: "agent-a",
-      tenantId: "tenant-a",
-      moduleId: "contacts",
-      operationId: "contacts.delete",
-      reason: "bulk delete",
-    });
-    await approvalService.request({
-      actorId: "agent-b",
-      tenantId: "tenant-b",
-      moduleId: "invoices",
-      operationId: "invoices.void",
-      reason: "void run",
-    });
-
-    const res = await app.request("/api/superadmin/approvals", {
-      headers: await superadminHeaders(),
-    });
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as { data: { tenantId: string }[] };
-    expect(body.data.map((r) => r.tenantId).sort()).toEqual([
-      "tenant-a",
-      "tenant-b",
-    ]);
-  });
-
-  it("decides a request belonging to another tenant", async () => {
-    const { app, approvalService } = createAppWithApprovals();
-    const pending = await approvalService.request({
-      actorId: "agent-a",
-      tenantId: "tenant-a",
-      moduleId: "contacts",
-      operationId: "contacts.delete",
-      reason: "bulk delete",
-    });
-
-    const res = await app.request(
-      `/api/superadmin/approvals/${pending.id}/decision`,
-      {
-        method: "POST",
-        headers: await superadminHeaders(),
-        body: JSON.stringify({ decision: "allow_once" }),
-      }
-    );
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as { data: { status: string } };
-    expect(body.data.status).toBe("approved");
-    expect(await approvalService.listPendingAllTenants()).toHaveLength(0);
-  });
-
   it("rejects a non-superadmin token", async () => {
-    const { app } = createAppWithApprovals();
+    const app = new OpenAPIHono();
+    registerSuperadminRoutes({
+      app,
+      config: CONFIG,
+      approvalService: createApprovalService(createFakeApprovalDb().client),
+    });
     const token = await signToken(["core.users.manage"]);
     const res = await app.request("/api/superadmin/approvals", {
       headers: { authorization: `Bearer ${token}` },

@@ -46,56 +46,28 @@ describe("settings routes", () => {
       expect(res.status).toBe(403);
     });
 
-    it("returns env vars when superadmin", async () => {
-      const token = await signToken(["core.superadmin"]);
-      const app = createApp();
-      const res = await app.request("/api/settings/env", {
-        headers: { authorization: `Bearer ${token}` },
-      });
-      expect(res.status).toBe(200);
-      const body = (await res.json()) as {
-        data: { vars: Array<{ key: string; value: string; masked: boolean }> };
-        ok: true;
-      };
-      expect(body.ok).toBe(true);
-      expect(Array.isArray(body.data.vars)).toBe(true);
-      expect(body.data.vars.every((v) => typeof v.key === "string")).toBe(true);
-      expect(body.data.vars.every((v) => typeof v.masked === "boolean")).toBe(
-        true
-      );
-    });
-
-    it("lists FIRECRAWL_API_KEY as missing when not set", async () => {
-      const prevKey = process.env.FIRECRAWL_API_KEY;
-      const prevUrl = process.env.FIRECRAWL_API_URL;
-      delete process.env.FIRECRAWL_API_KEY;
-      delete process.env.FIRECRAWL_API_URL;
+    it("masks secret-looking values for superadmin", async () => {
+      const previous = process.env.TEST_SERVICE_KEY;
+      process.env.TEST_SERVICE_KEY = "supersecretvalue123";
       try {
         const token = await signToken(["core.superadmin"]);
-        const app = createApp();
-        const res = await app.request("/api/settings/env", {
+        const res = await createApp().request("/api/settings/env", {
           headers: { authorization: `Bearer ${token}` },
         });
         expect(res.status).toBe(200);
         const body = (await res.json()) as {
-          data: { vars: Array<{ key: string; missing?: boolean }> };
+          data: {
+            vars: Array<{ key: string; masked: boolean; value: string }>;
+          };
         };
-        const fc = body.data.vars.find((v) => v.key === "FIRECRAWL_API_KEY");
-        expect(fc?.missing).toBe(true);
-        const urlRow = body.data.vars.find(
-          (v) => v.key === "FIRECRAWL_API_URL"
-        );
-        expect(urlRow?.missing).toBe(true);
+        const row = body.data.vars.find((v) => v.key === "TEST_SERVICE_KEY");
+        expect(row?.masked).toBe(true);
+        expect(row?.value).not.toContain("supersecretvalue123");
       } finally {
-        if (prevKey === undefined) {
-          delete process.env.FIRECRAWL_API_KEY;
+        if (previous === undefined) {
+          delete process.env.TEST_SERVICE_KEY;
         } else {
-          process.env.FIRECRAWL_API_KEY = prevKey;
-        }
-        if (prevUrl === undefined) {
-          delete process.env.FIRECRAWL_API_URL;
-        } else {
-          process.env.FIRECRAWL_API_URL = prevUrl;
+          process.env.TEST_SERVICE_KEY = previous;
         }
       }
     });

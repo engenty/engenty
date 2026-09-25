@@ -1,5 +1,11 @@
 # Connections groundwork — multi-account + module consumption + streams
 
+> **Superseded in part (2026-09-23):** connections belong to a Space
+> (`module_connections.connections.space_id`; `connected_by` is audit only).
+> `sharing`, `non_owner_max_group`, owner-based reach and owner approvals are
+> gone. Current model: `docs/content/dev/connections.md`,
+> `PLAN-space-owned-connections.md`.
+
 Status: IMPLEMENTED 2026-07-04 on `feat/connections` (all four workstreams).
 Extends the connections framework (`docs/wip/connections-framework.md`,
 shipped on `feat/connections`). Companion plan: `docs/wip/inbox-module.md`

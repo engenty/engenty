@@ -22,6 +22,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  useSyncExternalStore,
 } from "react";
 import {
   type CjkPlugin,
@@ -332,7 +333,13 @@ type StreamdownPluginMap = NonNullable<
   ComponentProps<typeof Streamdown>["plugins"]
 >;
 
+// The plugin set is shared by every markdown block: loaded once (lazily, on
+// the first block), then read synchronously. A block that mounts after the
+// load renders once, with the final plugins — it no longer parses its
+// markdown a second time when an effect hands them over.
+let streamdownPlugins: StreamdownPluginMap | undefined;
 let streamdownPluginsPromise: Promise<StreamdownPluginMap> | null = null;
+const streamdownPluginListeners = new Set<() => void>();
 
 function loadStreamdownPlugins(): Promise<StreamdownPluginMap> {
   if (!streamdownPluginsPromise) {
@@ -360,6 +367,10 @@ function loadStreamdownPlugins(): Promise<StreamdownPluginMap> {
         math: mathModule.math as MathPlugin,
         mermaid: mermaidModule.mermaid,
       };
+      streamdownPlugins = plugins;
+      for (const listener of streamdownPluginListeners) {
+        listener();
+      }
       return plugins;
     });
   }
@@ -367,23 +378,25 @@ function loadStreamdownPlugins(): Promise<StreamdownPluginMap> {
   return streamdownPluginsPromise;
 }
 
+function subscribeStreamdownPlugins(listener: () => void): () => void {
+  streamdownPluginListeners.add(listener);
+  void loadStreamdownPlugins();
+  return () => {
+    streamdownPluginListeners.delete(listener);
+  };
+}
+
+function getStreamdownPlugins(): StreamdownPluginMap | undefined {
+  return streamdownPlugins;
+}
+
 export const MessageResponse = memo(
   ({ className, components, ...props }: MessageResponseProps) => {
-    const [plugins, setPlugins] = useState<StreamdownPluginMap>();
-
-    useEffect(() => {
-      let mounted = true;
-
-      void loadStreamdownPlugins().then((loadedPlugins) => {
-        if (mounted) {
-          setPlugins(loadedPlugins);
-        }
-      });
-
-      return () => {
-        mounted = false;
-      };
-    }, []);
+    const plugins = useSyncExternalStore(
+      subscribeStreamdownPlugins,
+      getStreamdownPlugins,
+      getStreamdownPlugins
+    );
 
     return (
       <Streamdown

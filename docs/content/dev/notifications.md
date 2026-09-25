@@ -37,20 +37,22 @@ the seam that settles it can resolve every open record with one indexed query.
 
 **First to answer wins.** The right to resolve a record is never on the row:
 it belongs to the subject (core's approval route checks the request's
-`owner_user_id`, a chat interrupt checks the thread's write access). A row
+`space_id` — that Space's owners or a tenant admin decide — a chat interrupt
+checks the thread's write access). A row
 about shared work is addressed to its place so everyone who may act sees it;
 whoever answers first closes it for all — resolve is by subject, one write.
 The run's initiator and the routine's owner are *subscribers* (pushed,
 mailed — `subscribers`, `ownerUserId`, `initiatorUserId` on emit), never the
 audience of shared work. A person is the audience only when the subject is
-theirs: a connection they own, a private room (its participants, one row
+theirs: a private room (its participants, one row
 each), a personal agent's thread, assigned work.
 
 **Seen is per person.** `core.notification_seen` holds one row per
 (notification, viewer); the record's `status` is `pending` · `dismissed` ·
 `resolved` and never "seen". The list returns `seen` for the caller; the
-badge counts pending rows the caller has not seen. A merged re-ask forgets
-everyone's seen. A decision is never dismissed (`POST …/dismiss` → 422
+badge does not look at it (see [Attention](#attention-wichtig)). Seen only
+decides what arrives as new (toast, browser, desktop) and the unread dot. A
+merged re-ask forgets everyone's seen. A decision is never dismissed (`POST …/dismiss` → 422
 `notifications.decideInstead`): it is answered. `dedupe_key` merges
 an exact repeat while pending; `coalesce_key` merges a *different* ask about
 the same thing (optionally within a window) into the open row, `×N`.
@@ -63,12 +65,34 @@ Origin rides `metadata` under fixed keys the list reads:
 
 ## Kinds and classes
 
-| class | kinds | on the badge |
+| class | kinds | needs attention |
 |---|---|---|
 | `decision` | `approval_requested`, `tool_approval`, `action_gate`, `action_question`, `agent_run_suspended`, `agent_proposed`, `workflow_proposed`, `skill_proposed`, `app_release_proposed`, `task_question`, `task_needs_input` | yes |
 | `alert` | `action_failed`, `routine_failed`, `task_failed` | yes |
 | `todo` | `task_assigned`, `task_review_requested`, `stream_escalation` | yes |
-| `update` | `agent_message_received`, `agent_work_completed`, `agent_hired`, `records_written`, `task_completed`, `stream_update`, `team_chat.message` | no |
+| `update` | `agent_message_received`, `agent_work_completed`, `agent_hired`, `records_written`, `task_completed`, `stream_update`, `team_chat.message`, `routine_outcome` | no — except `priority` `high` or `urgent` |
+
+An `update` stays in the Updates lane, never Fehler. Alerts remain failures.
+High and urgent updates also need attention; ordinary updates do not.
+`routine_outcome` is class `update`: the row a routine destination binding
+delivers (`notification.update` / `notification.high`).
+
+### Attention (Wichtig)
+
+One rule, `isAttention` (`contracts.ts`, mirrored in
+`notifications-ui/src/classification.ts`): an **open** (`pending`) record that
+is a `decision`, `todo` or `alert`, or an `update` with `priority` `high` or
+`urgent` — **seen or not**. An attention record nags until it is handled: a
+decision until it is resolved, a todo until its subject closes it, an alert
+or an FYI until someone dismisses it (✕).
+
+Every number and list reads it: the rail bell, the Work and Plan tabs, the
+space dashboard bell, the desktop dock badge (`GET …/attention-count`); the
+bell's first tab **Wichtig** (all attention rows, newest first, optionally
+narrowed to one agent); the space dashboard's Wichtig block and the per-agent
+"2 wichtig" pills on desk cards and sidebar rows (`useSpaceAttention`, over
+the space list). A newly arrived, unseen attention record is handed to the
+client channels (browser, desktop, the in-app toast).
 
 A module registers its own kinds with `engenty.server.notifications.registerKinds({ "<module>.<kind>": "<class>" })`.
 
@@ -134,9 +158,10 @@ A person sees tenant rows, stream rows, their own `user` rows and the `space`
 rows of every space they may enter (the route's `accessibleSpaceIds`; the
 RLS select policy says the same for realtime). Inside a space
 (`scope=space`): the space's own rows only. Tenant-wide rows live under
-`scope=tenant`. The bell badge is the in-space Freigaben + Fehler count
-inside a space (the tenant total is one click away under Tenant); "Mark all
-seen" is the caller's own view and never touches decisions.
+`scope=tenant`. Inside a space the bell badge is that space's attention
+count (the tenant total is one click away under Tenant). High/urgent updates
+stay in the Updates lane, not Fehler. "Mark all seen" is the caller's own
+view and never touches decisions — nor the badge.
 
 ## Registering a body (what a kind can DO)
 
@@ -172,7 +197,8 @@ outright.
 ## HTTP
 
 `GET /api/notifications` (query `scope`, `status`, `class`, `kind`, `source`,
-`actor`, `stream`, `subject_*`, `priority`, `limit`), `GET …/unseen-count`,
+`actor`, `stream`, `subject_*`, `priority`, `limit`), `GET …/attention-count`
+(`{ total, in_space }` — open attention rows, seen or not),
 `POST …/seen-all`, `POST …/:id/seen` (the caller's view), `POST …/:id/dismiss`
 (the row; 422 for a decision), streams and routes
 under `…/streams`, push subscriptions under `…/push`.

@@ -41,6 +41,8 @@ export interface SkillProviderSearchOptions {
 }
 
 export interface SkillRegistryProvider {
+  /** A page about the skill for people; absent → the skills.sh page. */
+  browseUrl?(ref: SkillRef): string;
   fetchSkill(ref: SkillRef): Promise<FetchedSkill>;
   // Stable id, e.g. "skills_sh". Stored as the installed skill's `source`.
   id: string;

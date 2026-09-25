@@ -32,8 +32,7 @@ export interface LocalEnvParams {
   /** Reachable from inside the containers; the browser keeps localhost. */
   internalSupabaseUrl: string;
   port: number;
-  /** Host directories the compose bind-mounts, created under the install. */
-  sandboxDir: string;
+  /** The host directory the compose bind-mounts, created under the install. */
   spacesDir: string;
 }
 
@@ -58,10 +57,7 @@ export function buildHomeEnv(existing: string, params: LocalEnvParams): string {
     VITE_SUPABASE_URL: params.credentials.SUPABASE_URL,
     VITE_SUPABASE_ANON_KEY: params.credentials.SUPABASE_ANON_KEY,
     ENGENTY_SECURITY_JWT_SECRET: generateSecret(),
-    // Host paths for the two trees the containers mount. apps/ai hands
-    // ENGENTY_SANDBOX_HOST_DIR to the Docker daemon when it starts a sibling
-    // container, so it must be the path as the HOST sees it.
-    ENGENTY_SANDBOX_HOST_DIR: params.sandboxDir,
+    // The host path of the one tree the containers mount.
     ENGENTY_SPACES_HOST_DIR: params.spacesDir,
     // Empty on purpose: /initial_setup collects the model provider key, and an
     // unset variable would stop compose before the app can ask for one.
@@ -80,9 +76,7 @@ export function writeHomeEnv(
   home = engentyHome()
 ): string {
   ensureEngentyHome(home);
-  for (const dir of [params.sandboxDir, params.spacesDir]) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
+  fs.mkdirSync(params.spacesDir, { recursive: true });
   const file = homeEnvPath(home);
   const existing = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "";
   const next = buildHomeEnv(existing, params);

@@ -4,7 +4,6 @@ import { canonicalModulePathname } from "@engenty/ai-core/browser";
 import { shellSecondaryNavItemProps } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
-  Badge,
   SidebarGroup,
   SidebarGroupContent,
   SidebarNavList,
@@ -185,11 +184,6 @@ export function InboxSidebarPanel() {
                       >
                         <AtSign className="size-4" />
                         <span className="truncate">{accountLabel(entry)}</span>
-                        {entry.all_spaces ? (
-                          <Badge className="ml-auto" variant="secondary">
-                            {t("filters.allSpaces")}
-                          </Badge>
-                        ) : null}
                       </Link>
                     </SidebarRowButton>
                   </SidebarRow>

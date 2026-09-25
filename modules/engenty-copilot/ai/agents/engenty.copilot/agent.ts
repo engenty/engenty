@@ -20,10 +20,6 @@ export const ENGENTY_FILE_ANALYST_AGENT_ID = "engenty.file-analyst";
 // tool without it, so the copilot fell back to engenty.cli for app requests).
 export const ENGENTY_APP_CODER_AGENT_ID = "engenty.app-coder";
 
-const engentyCopilotSupervisorModel = resolveChatModelId({
-  purpose: "routing",
-});
-
 export const engentyCopilotAgentConfig: AgentConfig = {
   description:
     "Live front-door copilot for Engenty. Completes bounded work in this chat. Recurring jobs become Routines on an Engenty; owned work is a Task, and an outcome that needs several becomes several linked Tasks.",
@@ -34,7 +30,6 @@ export const engentyCopilotAgentConfig: AgentConfig = {
   interfaceRole: "live",
   // The space's live mouth/ears — platform-placed, never hired.
   kind: "interface",
-  model: engentyCopilotSupervisorModel,
   name: "Engenty Copilot",
   skillIds: [
     "work-routing",
@@ -43,6 +38,7 @@ export const engentyCopilotAgentConfig: AgentConfig = {
     "routines",
     "space-data",
     "space-setup",
+    "getting-started",
   ],
   source: "builtin",
   subAgents: [
@@ -56,20 +52,24 @@ export const engentyCopilotAgentConfig: AgentConfig = {
   // skill is activated, which happens mid-turn, and anything unlisted stays on.
   toolGating: { bySkill: ENGENTY_COPILOT_SKILL_TOOL_IDS },
   // Personal-assistant desk: per-user `/home` (rw), `/skills` (ro), `/task`
-  // when bound, tenant-shared `/shared` (rw). The sandbox powers Code Mode
+  // when bound, tenant-shared `/shared` (rw). The sandbox is the computer of
+  // the Space the person stands in (`run` + the run's Space, see
+  // `resolveRunSandboxLifecycle`), shared with that Space's agents and
+  // engenty.cli; `/home` is file tools only there. The sandbox powers Code Mode
   // (`execute_typescript` — tool orchestration programs; reads run freely,
   // gated writes need a grant via engenty_tools_preapprove first); the
   // container starts lazily on first use, so idle chats pay nothing.
-  // EXECUTE_COMMAND keeps its HITL approval gate; free-form CLI/code work
-  // stays delegated to the engenty.cli sub-agent (own sandbox + artifacts).
+  // EXECUTE_COMMAND runs unapproved, like engenty.cli on the same computer —
+  // a gate one delegation away from an ungated shell protects nothing.
+  // Free-form CLI/code work stays delegated to engenty.cli (own report).
   workspace: {
     enabled: true,
     preset: "assistant",
     sandbox: {
       enabled: true,
-      lifecycle: "session",
+      lifecycle: "run",
       mountPath: "/sandbox",
-      requireApproval: true,
+      requireApproval: false,
     },
     search: { bm25: true },
     // Long-running-process control and code intelligence belong to the agents
@@ -91,7 +91,8 @@ export function createEngentyCopilotAgent(input: {
   return new Agent({
     id: ENGENTY_COPILOT_AGENT_ID,
     instructions: ENGENTY_INSTRUCTIONS,
-    model: engentyCopilotSupervisorModel,
+    // Resolved per call: the `chat` binding may change after boot.
+    model: () => resolveChatModelId({ purpose: "chat" }),
     name: "Engenty Copilot",
     // `MastraToolDefinition` is `object` — ai-core keeps no @mastra/core
     // dependency, so the opaque contract type is widened here, in the one layer

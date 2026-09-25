@@ -33,6 +33,8 @@
     "@ai-sdk/openai": "^4.0.67",
     "@engenty/ag-ui-bridge": "workspace:*",
     "@engenty/telemetry": "workspace:*",
+    "@engenty/tenant-settings": "workspace:*",
+    "@engenty/typesafe-client": "workspace:*",
     "ai": "7.0.102",
     "ajv": "^8.20.0",
     "sharp": "^0.35.4",

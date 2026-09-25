@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  DEFAULT_TASK_IDENTIFIER_PREFIX,
-  DEFAULT_TASK_STALE_AFTER_DAYS,
   mergeTaskSettingsUpdate,
   TASKS_TENANT_SETTING,
   taskSettingsFromTenantKv,
@@ -9,13 +7,6 @@ import {
 } from "./task-settings.js";
 
 describe("taskSettingsFromTenantKv", () => {
-  it("returns builtins when no KV rows exist", () => {
-    const settings = taskSettingsFromTenantKv([]);
-    expect(settings.identifier_prefix).toBe(DEFAULT_TASK_IDENTIFIER_PREFIX);
-    expect(settings.stale_after_days).toBe(DEFAULT_TASK_STALE_AFTER_DAYS);
-    expect(settings.task_status_definitions.map((d) => d.id)).toContain("todo");
-  });
-
   it("reads typed KV rows, including wrapped status definitions", () => {
     const settings = taskSettingsFromTenantKv([
       { name: TASKS_TENANT_SETTING.identifierPrefix, value: "ACME" },

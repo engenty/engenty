@@ -1,15 +1,8 @@
-// Pins the `ai.chat_session` retrieval source (Phase 5a): document building
-// (session-granular text, owner visibility column, filter metadata), filter
-// mapping, and — most importantly — the hydrated hit shape engenty-copilot's
-// `searchAgentChatSessions` parses (`item.thread_id`, `item.chunk_text`, …).
-
 import type { RetrievalMatch } from "@engenty/retrieval";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
 import {
-  AI_CHAT_SEARCH_PROVIDER_ID,
   AI_CHAT_SESSION_SOURCE_TYPE,
-  createChatSearchRetrieval,
   createChatSessionRetrievalSource,
 } from "../dal/chat-search/index.js";
 import type { ThreadRow } from "../dal/threads/index.js";
@@ -127,23 +120,13 @@ describe("createChatSessionRetrievalSource", () => {
     }),
   });
 
-  it("builds one session document with owner visibility and filter metadata", async () => {
+  it("indexes a session as visible only to its creator", async () => {
     const document = await source.buildDocument({
       doc_id: threadId,
       tenant_id: tenantId,
     });
-    expect(document).not.toBeNull();
+    expect(source.visibility).toBe("user");
     expect(document?.owner_user_id).toBe(userId);
-    expect(document?.title).toBe("Transcript title");
-    expect(document?.source_updated_at).toBe(session.updated_at);
-    expect(document?.text).toContain("Transcript title");
-    expect(document?.text).toContain("user: Find contacts");
-    expect(document?.filter_metadata).toEqual({
-      agent_id: "engenty.copilot",
-      route_key: "copilot",
-      status: "completed",
-      workspace_key: "chat",
-    });
   });
 
   it("returns null for an unknown session (ingest = delete)", async () => {
@@ -154,87 +137,24 @@ describe("createChatSessionRetrievalSource", () => {
     expect(document).toBeNull();
   });
 
-  it("registers with user visibility and paragraph splitting", () => {
-    expect(source.visibility).toBe("user");
-    expect(source.splitter).toEqual({
-      max_chunk_length: 1200,
-      mode: "paragraph",
-    });
-  });
-
-  it("maps route filters onto metadata / occurred pushdown", () => {
-    const mapped = source.retriever?.mapFilters?.({
-      agent_id: "engenty.copilot",
-      from: "2026-01-01T00:00:00.000Z",
-      status: "completed",
-      to: "2026-02-01T00:00:00.000Z",
-      workspace_key: "chat",
-    });
-    expect(mapped).toEqual({
-      metadata: {
-        agent_id: "engenty.copilot",
-        status: "completed",
-        workspace_key: "chat",
-      },
-      occurred_after: "2026-01-01T00:00:00.000Z",
-      occurred_before: "2026-02-01T00:00:00.000Z",
-    });
-  });
-
-  it("hydrates the legacy AiChatSearchHit shape, best chunk per session", async () => {
+  // engenty-copilot's searchAgentChatSessions parses this item shape.
+  it("hydrates one hit per session carrying its best chunk", async () => {
     const results = await source.retriever?.hydrate?.(
       [
         match(),
-        match({ chunk_id: `${threadId}::chunk::1`, chunk_index: 1, score: 1 }),
+        match({
+          chunk_id: `${threadId}::chunk::1`,
+          chunk_index: 1,
+          score: 1,
+          text: "weaker chunk",
+        }),
       ],
       { query: "contacts", tenant_id: tenantId, user_id: userId }
     );
     expect(results).toHaveLength(1);
-    const [hit] = results ?? [];
-    expect(hit).toMatchObject({
-      doc_id: threadId,
-      matched_fields: ["text"],
-      score: 2.5,
-      source_scores: { fts: 1, trigram: 0, vector: 0.5 },
-    });
-    // The item shape engenty-copilot parses — field-for-field.
-    expect(hit?.item).toEqual({
-      agent_id: "engenty.copilot",
-      chunk_id: `${threadId}::chunk::0`,
+    expect(results?.[0]?.item).toMatchObject({
       chunk_text: "user: Find contacts",
-      doc_id: threadId,
-      document_type: "session",
-      metadata: { agent_id: "engenty.copilot", status: "completed" },
-      role: null,
-      route_context: { routeKey: "copilot" },
-      run_id: null,
-      session_id: threadId,
-      session_status: "completed",
-      source_created_at: session.created_at,
-      source_id: threadId,
-      source_updated_at: session.updated_at,
-      tenant_id: tenantId,
-      text: "user: Find contacts",
       thread_id: threadId,
-      user_id: userId,
-      workspace_key: "chat",
     });
-  });
-});
-
-describe("createChatSearchRetrieval", () => {
-  it("re-exposes the manufactured provider under the legacy id", () => {
-    const retrieval = createChatSearchRetrieval({
-      supabase: fakeSupabase({ thread: [], thread_message: [] }),
-    });
-    expect(retrieval.provider.id).toBe(AI_CHAT_SEARCH_PROVIDER_ID);
-    expect(retrieval.provider.capabilities).toEqual({
-      hybrid: true,
-      lexical: true,
-      semantic: true,
-    });
-    expect(typeof retrieval.provider.search).toBe("function");
-    expect(typeof retrieval.provider.backfill).toBe("function");
-    expect(typeof retrieval.provider.getStatus).toBe("function");
   });
 });

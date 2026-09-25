@@ -1,10 +1,5 @@
 import { createLogger } from "@engenty/telemetry";
-import {
-  isJevConfigured,
-  type NoulQuestion,
-  resolveJevClient,
-  type TypeSafeClient,
-} from "@engenty/typesafe-client";
+import type { ClassifierClient, NoulQuestion } from "@engenty/typesafe-client";
 import type { Article, KbSearchResult } from "../schema/types.js";
 
 const logger = createLogger({ name: "kb-search-verifier" });
@@ -23,7 +18,7 @@ export const KB_VERIFIER_MIN_RELEVANCE = 0.5;
  * of leaving it to run on.
  */
 export const KB_VERIFIER_TIMEOUT_MS = 4000;
-/** With the backoff this caps a degraded Jev at ~8.5 s instead of ~76 s. */
+/** With the backoff this caps a degraded classifier at ~8.5 s instead of ~76 s. */
 export const KB_VERIFIER_RETRIES = 2;
 
 export interface KbSearchVerifierSettings {
@@ -38,8 +33,8 @@ export interface KbSearchVerifierCandidate {
 
 export interface KbSearchVerifierOptions {
   candidates: KbSearchVerifierCandidate[];
-  /** Jev; resolved from the environment when omitted. `null` skips verification. */
-  jev?: TypeSafeClient | null;
+  /** The tenant's `classifier` binding; `null` skips verification. */
+  classifier: ClassifierClient | null;
   query: string;
   settings: KbSearchVerifierSettings;
 }
@@ -58,11 +53,6 @@ export function shouldVerifyKbSearchQuery(
   return (
     countKbSearchQueryTerms(query) >= settings.search_verifier_min_query_terms
   );
-}
-
-/** Whether a Jev door is open for the verifier to ask through. */
-export function isKbSearchVerifierConfigured(): boolean {
-  return isJevConfigured();
 }
 
 function truncateForVerifier(value: string | null | undefined, max: number) {
@@ -148,8 +138,8 @@ export function relevantFromAnswers(
   return kept;
 }
 
-async function askJev(
-  jev: TypeSafeClient,
+async function askClassifier(
+  classifier: ClassifierClient,
   query: string,
   candidates: KbSearchVerifierCandidate[]
 ): Promise<KbSearchResult[]> {
@@ -158,7 +148,7 @@ async function askJev(
     candidates.map(serializeCandidate)
   );
   const startedAt = performance.now();
-  const response = await jev.systemOne({ questions, state });
+  const response = await classifier.systemOne({ questions, state });
   const kept = relevantFromAnswers(response.answers, candidates.length);
   logger.debug("KB search verifier answered", {
     candidates: candidates.length,
@@ -182,20 +172,14 @@ export async function verifyKbSearchResults(
   if (candidates.length === 0) {
     return [];
   }
-  const jev =
-    options.jev === undefined
-      ? (resolveJevClient(undefined, {
-          retries: KB_VERIFIER_RETRIES,
-          timeoutMs: KB_VERIFIER_TIMEOUT_MS,
-        })?.client ?? null)
-      : options.jev;
-  if (!jev) {
+  const { classifier } = options;
+  if (!classifier) {
     logger.warn("Skipping KB search verifier; no classifier is configured");
     return candidates.map((candidate) => candidate.result);
   }
 
   try {
-    return await askJev(jev, options.query, candidates);
+    return await askClassifier(classifier, options.query, candidates);
   } catch (error) {
     logger.warn("KB search verifier failed; returning unverified candidates", {
       error: String(error),

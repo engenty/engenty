@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  capabilityModuleIds,
   isModuleSkill,
-  relatedConnectionIds,
   relatedSkillIds,
   syncSpaceSkills,
 } from "./space-capability-recommendations";
@@ -21,61 +19,6 @@ describe("relatedSkillIds", () => {
       "custom-researcher",
       "kb-search-and-retrieve",
     ]);
-  });
-});
-
-describe("relatedConnectionIds", () => {
-  it("offers file connectors when Knowledge Base is mounted", () => {
-    const ids = relatedConnectionIds(new Set(["knowledge-base"]), [
-      {
-        connectorId: "local-files",
-        hasFiles: true,
-        id: "conn-folder",
-        name: "Documents",
-      },
-      {
-        connectorId: "google-drive",
-        hasFiles: true,
-        id: "connector:google-drive",
-        name: "Google Drive",
-      },
-      {
-        connectorId: "google-gmail",
-        hasFiles: false,
-        id: "conn-mail",
-        name: "Gmail",
-      },
-    ]);
-    expect([...ids].sort()).toEqual(["conn-folder", "connector:google-drive"]);
-  });
-
-  it("matches known file connectors even when hasFiles is missing", () => {
-    const ids = relatedConnectionIds(new Set(["knowledge-base"]), [
-      {
-        connectorId: "local-files",
-        id: "connector:local-files",
-        name: "Local Files",
-      },
-    ]);
-    expect([...ids]).toEqual(["connector:local-files"]);
-  });
-
-  it("offers mail connectors when Inbox is mounted", () => {
-    const ids = relatedConnectionIds(new Set(["inbox"]), [
-      {
-        connectorId: "google-gmail",
-        hasFiles: false,
-        id: "conn-mail",
-        name: "Work Gmail",
-      },
-      {
-        connectorId: "local-files",
-        hasFiles: true,
-        id: "conn-folder",
-        name: "Documents",
-      },
-    ]);
-    expect([...ids]).toEqual(["conn-mail"]);
   });
 });
 
@@ -155,19 +98,5 @@ describe("isModuleSkill", () => {
         known
       )
     ).toBe(false);
-  });
-});
-
-describe("capabilityModuleIds", () => {
-  it("drops baseline modules so Files does not recommend Drive on every space", () => {
-    const ids = capabilityModuleIds(
-      [
-        { resourceKey: "files", resourceType: "module" },
-        { resourceKey: "knowledge-base", resourceType: "module" },
-        { resourceKey: "tasks", resourceType: "module" },
-      ],
-      new Set(["module:files", "module:tasks"])
-    );
-    expect([...ids]).toEqual(["knowledge-base"]);
   });
 });

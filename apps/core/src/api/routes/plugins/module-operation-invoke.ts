@@ -181,6 +181,9 @@ export function handlerAuth(
       // against the routine's stored one (personal-space owner resolution,
       // PLAN-space-computer.md §2.1).
       ...(auth.triggerId ? { triggerId: auth.triggerId } : {}),
+      // The task subject, for the same kind of verified space claim
+      // (`mayUseSpaceInRun`).
+      ...(auth.taskId ? { taskId: auth.taskId } : {}),
     },
     { approvedEdge, principal: auth }
   );

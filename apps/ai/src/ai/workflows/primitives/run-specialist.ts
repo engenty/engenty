@@ -33,6 +33,10 @@ import {
 } from "../../../../ai/tools/engenty-tools/lib/run-context.js";
 import { isUnresolvedSpaceGate } from "../../../../ai/tools/engenty-tools/lib/space-gate.js";
 import {
+  createOutcomesDeliverTool,
+  OUTCOMES_DELIVER_GUIDANCE,
+} from "../../../../ai/tools/outcomes-deliver-tool.js";
+import {
   createRoutineSelfTools,
   ROUTINE_SELF_TOOLS_GUIDANCE,
 } from "../../../../ai/tools/routine-self-tools.js";
@@ -46,6 +50,7 @@ import { runDelegatedConversation } from "../../conversation/delegate-run.js";
 import {
   createAgentRunStoreFromEnv,
   createRegistryStoreFromEnv,
+  createRoutineOutcomeStoreFromEnv,
   createRoutineStoreFromEnv,
   createThreadStoreFromEnv,
   createWorkflowRunStoreFromEnv,
@@ -365,8 +370,8 @@ export function createRunSpecialistPrimitive() {
         // Without this the specialist runs on its compiled-in default model:
         // `assembleDynamicAgent` short-circuits when no modelConfig is supplied,
         // so the tenant's bindings and AI settings never get a say. Resolved
-        // here (not pinned to a tier) so each node runs at the tier ITS agent
-        // declares — a router-purpose agent stays router-tier.
+        // here (not pinned to a tier) so each node runs at the effort tier ITS
+        // agent declares.
         const modelConfig = await resolveGraphRunModelConfig(scope);
 
         // Resume path first, exactly like approval_gate: the same node
@@ -402,18 +407,40 @@ export function createRunSpecialistPrimitive() {
         const routineStore = runCtx.routineId
           ? createRoutineStoreFromEnv()
           : null;
-        const routineTools =
-          runCtx.routineId && routineStore
-            ? createRoutineSelfTools({
-                agentTypeKey: input.agent_type_key,
-                onQuestion: (question) => {
-                  askedQuestion ??= question;
-                },
+        const outcomeStore = runCtx.routineId
+          ? createRoutineOutcomeStoreFromEnv()
+          : null;
+        const outcomeBindings =
+          outcomeStore && runCtx.routineId
+            ? await outcomeStore.list({
+                enabled: true,
                 routineId: runCtx.routineId,
-                routines: routineStore,
-                runId: childRunId,
                 tenantId: runCtx.tenantId,
               })
+            : [];
+        const routineTools =
+          runCtx.routineId && routineStore
+            ? {
+                ...createRoutineSelfTools({
+                  agentTypeKey: input.agent_type_key,
+                  onQuestion: (question) => {
+                    askedQuestion ??= question;
+                  },
+                  routineId: runCtx.routineId,
+                  routines: routineStore,
+                  runId: childRunId,
+                  tenantId: runCtx.tenantId,
+                }),
+                ...(outcomeBindings.length > 0
+                  ? createOutcomesDeliverTool({
+                      bindings: outcomeBindings,
+                      requestId: runCtx.requestId,
+                      routineId: runCtx.routineId,
+                      routines: routineStore,
+                      tenantId: runCtx.tenantId,
+                    })
+                  : {}),
+              }
             : {};
         // A window onto the conversation that ASKED for this run, when one
         // did. Read-only and bound to that thread id — the run answers where
@@ -537,7 +564,12 @@ export function createRunSpecialistPrimitive() {
               ...(previousRunsSection ? [previousRunsSection] : []),
               ...(runCtx.taskId ? [TASK_SELF_TOOLS_GUIDANCE] : []),
               ...(runCtx.routineId && routineStore
-                ? [ROUTINE_SELF_TOOLS_GUIDANCE]
+                ? [
+                    ROUTINE_SELF_TOOLS_GUIDANCE,
+                    ...(outcomeBindings.length > 0
+                      ? [OUTCOMES_DELIVER_GUIDANCE]
+                      : []),
+                  ]
                 : []),
               ...(runCtx.callerThreadId ? [CALLER_THREAD_TOOLS_GUIDANCE] : []),
             ].join("\n\n"),

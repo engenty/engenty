@@ -44,6 +44,7 @@ import {
   ENGENTY_OPEN_SKILL_DETAIL_EDIT,
   type EngentySkillsLocationState,
 } from "../features/agents-workspace/workspace-navigation-state";
+import { SkillProposalsCard } from "../features/skill-proposals/skill-proposals-card";
 import { CreateSkillModal } from "../features/skills/create-skill-modal";
 import { InstallSkillModal } from "../features/skills/install-skill-modal";
 import {
@@ -292,6 +293,8 @@ export function SkillsCatalogPage() {
         onOpenChange={setInstallOpen}
         open={installOpen}
       />
+
+      <SkillProposalsCard />
 
       <SkillCatalogToolbar
         columnOrder={columnOrder}

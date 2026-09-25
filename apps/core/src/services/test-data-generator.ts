@@ -1,3 +1,9 @@
+import {
+  DEFAULT_MODEL_GATEWAY_ID,
+  parseModelRef,
+  readAiGatewayApiKeyFromEnv,
+  roleModelRef,
+} from "@engenty/ai-core";
 import type { ZodType } from "zod";
 
 /** Thrown when the LLM HTTP call fails after retries (includes status for API mapping). */
@@ -35,7 +41,11 @@ function parseRetryAfterSeconds(header: string | null): number | undefined {
   return;
 }
 
-async function fetchOpenAiChatCompletion(params: {
+/** Vercel AI Gateway's OpenAI-compatible endpoint. */
+const AI_GATEWAY_CHAT_COMPLETIONS_URL =
+  "https://ai-gateway.vercel.sh/v1/chat/completions";
+
+async function fetchGatewayChatCompletion(params: {
   apiKey: string;
   body: Record<string, unknown>;
   logger: GenerateTestDataParams["logger"];
@@ -44,7 +54,7 @@ async function fetchOpenAiChatCompletion(params: {
   let lastStatus = 0;
 
   for (let attempt = 0; attempt < MAX_LLM_ATTEMPTS; attempt++) {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetch(AI_GATEWAY_CHAT_COMPLETIONS_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -75,14 +85,14 @@ async function fetchOpenAiChatCompletion(params: {
         fromHeaderMs ?? baseBackoffMs + jitterMs
       );
       logger.warn(
-        `OpenAI returned ${response.status}; retrying in ${Math.round(delayMs)}ms (${attempt + 2}/${MAX_LLM_ATTEMPTS})`
+        `AI Gateway returned ${response.status}; retrying in ${Math.round(delayMs)}ms (${attempt + 2}/${MAX_LLM_ATTEMPTS})`
       );
       await sleep(delayMs);
       continue;
     }
 
     const text = await response.text();
-    logger.error(`OpenAI API error ${response.status}: ${text}`);
+    logger.error(`AI Gateway error ${response.status}: ${text}`);
     throw new TestDataLlmHttpError(
       response.status,
       `LLM API error: ${response.status}`
@@ -113,7 +123,6 @@ export interface GenerateTestDataResult {
   warnings: string[];
 }
 
-const DEFAULT_MODEL = "gpt-4o-mini";
 const MAX_INSTRUCTIONS_LEN = 2000;
 
 function extractJsonArray(raw: string): unknown[] {
@@ -163,16 +172,21 @@ export async function generateTestData(
   } = params;
 
   const warnings: string[] = [];
-  const apiKey =
-    String(config.testDataOpenAiApiKey ?? "").trim() ||
-    String(process.env.OPENAI_API_KEY ?? "").trim();
+  const apiKey = readAiGatewayApiKeyFromEnv();
   if (!apiKey) {
-    throw new Error(
-      "Test data generation requires OPENAI_API_KEY or config.testDataOpenAiApiKey"
-    );
+    throw new Error("Test data generation requires AI_GATEWAY_API_KEY");
   }
 
-  const model = String(config.testDataModel ?? "").trim() || DEFAULT_MODEL;
+  // `config.testDataModel` pins a model; otherwise the `model.low` binding.
+  const ref = parseModelRef(
+    String(config.testDataModel ?? "").trim() || roleModelRef("model.low")
+  );
+  if (ref.gateway !== DEFAULT_MODEL_GATEWAY_ID) {
+    throw new Error(
+      `Test data generation runs on the ${DEFAULT_MODEL_GATEWAY_ID} gateway; "${ref.gateway}:${ref.modelId}" is not served there`
+    );
+  }
+  const model = ref.modelId;
   const safeInstructions =
     instructions.length > MAX_INSTRUCTIONS_LEN
       ? `${instructions.slice(0, MAX_INSTRUCTIONS_LEN)}...`
@@ -195,7 +209,7 @@ ${safeInstructions ? `\nAdditional instructions: ${safeInstructions}` : ""}
 
 Return a JSON object: { "records": [ ... array of ${count} objects ... ] }. Use snake_case. Every record must include all required fields.`;
 
-  const response = await fetchOpenAiChatCompletion({
+  const response = await fetchGatewayChatCompletion({
     apiKey,
     logger,
     body: {

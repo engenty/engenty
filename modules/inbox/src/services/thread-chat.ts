@@ -20,7 +20,7 @@ export interface AnswerThreadQuestionInput {
   digests: InboxMessageDigest[];
   history: InboxThreadChatTurn[];
   messages: InboxMessage[];
-  /** Resolved classifier-tier model id. */
+  /** Resolved fast-text model id. */
   modelId: string;
   question: string;
   thread: InboxThread;

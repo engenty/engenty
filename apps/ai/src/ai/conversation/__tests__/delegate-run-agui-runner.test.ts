@@ -16,7 +16,7 @@ import {
   AGENT_THREADS_STEP_LIMIT_REACHED,
 } from "../../sessions/mastra-stream-failure.js";
 import {
-  describeWorkspaceToolCall,
+  workspaceApprovalTitle,
   workspaceToolGrantId,
 } from "../../workspace/workspace-tool-guards.js";
 import { runHeadlessViaMastraAgent } from "../delegate-run-agui-driver.js";
@@ -49,7 +49,7 @@ function run(agent: unknown, extra: Record<string, unknown> = {}) {
     agent,
     agentId: "headless-runner",
     content: "go",
-    describeCall: describeWorkspaceToolCall,
+    describeCall: workspaceApprovalTitle,
     grantIdOf: workspaceToolGrantId,
     resourceId: "resource-1",
     runId: "run-1",
@@ -192,7 +192,7 @@ describe("thread binding", () => {
       agent,
       agentId: "headless-runner",
       content: "remember this",
-      describeCall: describeWorkspaceToolCall,
+      describeCall: workspaceApprovalTitle,
       grantIdOf: workspaceToolGrantId,
       resourceId: "resource-9",
       runId: "run-9",
@@ -276,7 +276,7 @@ describe("requestContext", () => {
       agent,
       agentId: "headless-runner",
       content: "probe it",
-      describeCall: describeWorkspaceToolCall,
+      describeCall: workspaceApprovalTitle,
       grantIdOf: workspaceToolGrantId,
       requestContext,
       resourceId: "resource-1",

@@ -9,10 +9,15 @@
 // A run in a space is addressed to the space: every member sees it and the
 // first to answer wins. The presser and the routine's owner stay subscribed
 // to the push; they no longer own the row.
-import type { NotificationPriority } from "@engenty/notifications";
+import type {
+  NotificationPriority,
+  NotificationTitle,
+} from "@engenty/notifications";
 import { emitInboxNotification, resolveNotifications } from "./inbox.js";
 
 export interface RunAsk {
+  /** One plain line under the title: the gate's question, the proposal. */
+  body?: string | null;
   kind:
     | "action_gate"
     | "action_question"
@@ -24,13 +29,22 @@ export interface RunAsk {
     | "routine_review";
   payload?: Record<string, unknown>;
   priority?: NotificationPriority;
-  title: string;
+  /**
+   * English fallback, said whole — used only when the title misses a name.
+   * Never ids.
+   */
+  summary: string;
+  /** What the row says: a key of NOTIFICATION_TITLES + the names it uses. */
+  title?: NotificationTitle;
 }
 
 export interface NotifyRunSuspendedInput {
   /** The registry id of the Engenty whose run parked — the row's actor. */
   actorAgentId?: string | null;
-  /** Its display name, when the caller has it; the list shows this. */
+  /**
+   * Its display name, when the caller has it; the list shows this. Absent,
+   * origin enrichment resolves the agent id to its name.
+   */
   actorLabel?: string | null;
   ask: RunAsk;
   assigneeUserId?: string | null;
@@ -65,9 +79,11 @@ export async function notifyRunSuspended(
     metadata: {
       run_id: input.runId,
       ...(input.routineId ? { routine_id: input.routineId } : {}),
-      ...(input.actorAgentId
+      // A known name is stamped; otherwise origin enrichment resolves the
+      // actor id (never the raw id as a label).
+      ...(input.actorAgentId && input.actorLabel?.trim()
         ? {
-            actor_label: input.actorLabel ?? input.actorAgentId,
+            actor_label: input.actorLabel.trim(),
             actor_ref: `agent:${input.actorAgentId}`,
           }
         : {}),
@@ -77,6 +93,7 @@ export async function notifyRunSuspended(
     ...(input.participantUserIds?.length
       ? { participantUserIds: input.participantUserIds }
       : {}),
+    ...(input.ask.body ? { body: input.ask.body } : {}),
     ...(input.ask.payload ? { payload: input.ask.payload } : {}),
     ...(input.preSeenUserIds?.length
       ? { preSeenUserIds: input.preSeenUserIds }
@@ -85,9 +102,54 @@ export async function notifyRunSuspended(
     source: input.source,
     spaceId: input.spaceId ?? null,
     subject: input.subject,
-    summary: input.ask.title,
+    summary: input.ask.summary,
     tenantId: input.tenantId,
+    ...(input.ask.title ? { title: input.ask.title } : {}),
   });
+}
+
+/**
+ * A failure as one plain line for a notification body: a known class
+ * ("Connection expired", "Timed out") or the first line of the message —
+ * never a stack, never the whole payload.
+ */
+export function failureLine(error: unknown): string | null {
+  const raw =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : "";
+  const text = raw.trim();
+  if (!text) {
+    return null;
+  }
+  const lower = text.toLowerCase();
+  if (
+    /invalid_grant|token (has )?expired|expired token|reauth|re-auth|reconnect|refresh token|connection (has )?expired|unauthori[sz]ed|\b401\b/.test(
+      lower
+    )
+  ) {
+    return "Connection expired";
+  }
+  if (/timed? ?out|timeout|etimedout|deadline exceeded/.test(lower)) {
+    return "Timed out";
+  }
+  if (/rate.?limit|too many requests|\b429\b/.test(lower)) {
+    return "Rate limited";
+  }
+  if (
+    /econnrefused|enotfound|econnreset|network error|fetch failed/.test(lower)
+  ) {
+    return "Could not reach the service";
+  }
+  const first =
+    text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .find((line) => line.length > 0 && !/^at\s/.test(line)) ?? "";
+  // "Error: foo" → "foo"; the class name says nothing to a person.
+  return first.replace(/^[A-Za-z]*Error:\s*/, "").slice(0, 200) || null;
 }
 
 /**

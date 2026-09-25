@@ -5,11 +5,12 @@
     "model.low": "openai/gpt-5.4-nano",
     "model.medium": "openai/gpt-5.6-luna",
     "model.high": "openai/gpt-5.6-luna",
-    "router": "openai/gpt-5.4-nano",
-    "classifier": "openai/gpt-5.4-nano",
-    "safeguard": "openai/gpt-5.4-nano",
-    "planning_coding": "openai/gpt-5.6-luna",
-    "research": "openai/gpt-5.6-luna",
-    "memory": "openai/gpt-5.6-luna"
+    "classifier": "typesafe-ai/jev",
+    "fast_text": "openai/gpt-5.4-nano",
+    "image": "vercel:google/gemini-2.5-flash-image",
+    "embedding": "vercel:openai/text-embedding-3-small",
+    "video": "vercel:google/veo-3.0-fast-generate-001",
+    "realtime": "vercel:openai/gpt-realtime-2",
+    "transcription": "vercel:openai/whisper-1"
   }
 }

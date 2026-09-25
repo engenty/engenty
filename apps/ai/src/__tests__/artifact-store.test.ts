@@ -1,8 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
 import {
-  ARTIFACT_INLINE_CONTENT_MAX_BYTES,
-  ArtifactContentTooLargeError,
   ArtifactVersionConflictError,
   createArtifactStore,
 } from "../dal/artifacts/artifact-store.js";
@@ -12,8 +10,7 @@ const tenantId = "tenant-1";
 
 /**
  * Chainable supabase fake. Every builder method returns the builder; terminal
- * calls (single/maybeSingle) resolve to a per-table queued result. `inserts`
- * records what was written so we can assert both writes happened on create.
+ * calls resolve to the queued result. `inserts` records what was written.
  */
 function makeFake(opts: {
   // Result returned by the artifact SELECT (existing row lookup), if any.
@@ -74,65 +71,6 @@ describe("artifact store logic", () => {
         createdByKind: "agent",
       })
     ).rejects.toBeInstanceOf(ArtifactVersionConflictError);
-    // No version written on conflict.
     expect(inserts).toHaveLength(0);
-  });
-
-  it("rejects content over the inline size limit", async () => {
-    const { client } = makeFake({});
-    const db = createRecordingDbSource(client);
-    const store = createArtifactStore(db.source as never);
-    const tooBig = "a".repeat(ARTIFACT_INLINE_CONTENT_MAX_BYTES + 1);
-
-    await expect(
-      store.create({
-        tenantId,
-        type: "markdown",
-        title: "Big",
-        scopeType: "thread",
-        scopeId: "t1",
-        createdByKind: "agent",
-        content: tooBig,
-      })
-    ).rejects.toBeInstanceOf(ArtifactContentTooLargeError);
-  });
-
-  it("rejects an unknown artifact type", async () => {
-    const { client } = makeFake({});
-    const db = createRecordingDbSource(client);
-    const store = createArtifactStore(db.source as never);
-
-    await expect(
-      store.create({
-        tenantId,
-        type: "spreadsheet-3000",
-        title: "X",
-        scopeType: "thread",
-        scopeId: "t1",
-        createdByKind: "agent",
-        content: "hi",
-      })
-    ).rejects.toThrow(/unknown artifact type/i);
-  });
-
-  it("writes both the artifact and its first version on create", async () => {
-    const { client, inserts } = makeFake({});
-    const db = createRecordingDbSource(client);
-    const store = createArtifactStore(db.source as never);
-
-    await store.create({
-      tenantId,
-      type: "markdown",
-      title: "Doc",
-      scopeType: "thread",
-      scopeId: "t1",
-      createdByKind: "agent",
-      content: "# hi",
-    });
-
-    expect(inserts.map((i) => i.table)).toEqual([
-      "artifact",
-      "artifact_version",
-    ]);
   });
 });

@@ -121,13 +121,15 @@ describe("a run that stopped to ask a human (TASK_BLOCKED)", () => {
       "tasks_update",
       expect.objectContaining({ status: "in_review" })
     );
-    // The question is the inbox subject — a row reading only "Task ENG-12"
-    // makes the reader open it to find out what is even being asked.
+    // The title names the task; the question is the line under it — a row
+    // reading only "Task ENG-12" makes the reader open it to find out what
+    // is even being asked.
     expect(emitInboxNotification).toHaveBeenCalledWith(
       expect.objectContaining({
+        body: "which project does Wednesday's 4h belong to",
         kind: "task_needs_input",
         priority: "high",
-        summary: "which project does Wednesday's 4h belong to",
+        title: expect.objectContaining({ key: "task_needs_input" }),
       })
     );
   });
@@ -172,14 +174,15 @@ describe("a run that asked a question (`task_ask_user`)", () => {
     );
   });
 
-  it("raises the question in the inbox with the question as the subject", async () => {
+  it("raises the question in the inbox with the question as its line", async () => {
     await runStep(finalizeStep, asked, RUN_ID);
 
     expect(emitInboxNotification).toHaveBeenCalledWith(
       expect.objectContaining({
+        body: asked.question,
         kind: "task_question",
         priority: "high",
-        summary: asked.question,
+        title: { key: "task_question", params: { task: asked.title } },
       })
     );
   });

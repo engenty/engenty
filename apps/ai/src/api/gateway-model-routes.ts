@@ -44,11 +44,14 @@ const modelOptionsQuerySchema = z.object({
 
 const availabilityPatchSchema = z
   .object({
-    available_for_chat: z.boolean().optional(),
+    available_for_agent: z.boolean().optional(),
     available_for_embedding: z.boolean().optional(),
     available_for_image: z.boolean().optional(),
     available_for_rerank: z.boolean().optional(),
-    available_for_routing: z.boolean().optional(),
+    available_for_classification: z.boolean().optional(),
+    available_for_realtime: z.boolean().optional(),
+    available_for_text: z.boolean().optional(),
+    available_for_transcription: z.boolean().optional(),
     available_for_video: z.boolean().optional(),
     // Optional: omitted, the patch applies to the id on every gateway serving
     // it, which is what a client that predates multiple gateways expects.
@@ -57,11 +60,14 @@ const availabilityPatchSchema = z
   })
   .refine(
     (value) =>
-      value.available_for_chat != null ||
+      value.available_for_agent != null ||
       value.available_for_embedding != null ||
       value.available_for_image != null ||
       value.available_for_rerank != null ||
-      value.available_for_routing != null ||
+      value.available_for_classification != null ||
+      value.available_for_realtime != null ||
+      value.available_for_text != null ||
+      value.available_for_transcription != null ||
       value.available_for_video != null,
     { message: "At least one availability flag is required." }
   );
@@ -111,11 +117,14 @@ function modelOptionFromRecord(
   model: Awaited<ReturnType<AiGatewayModelStore["listGatewayModels"]>>[number]
 ): GatewayModelOption {
   return {
-    available_for_chat: model.available_for_chat,
+    available_for_agent: model.available_for_agent,
     available_for_embedding: model.available_for_embedding,
     available_for_image: model.available_for_image,
     available_for_rerank: model.available_for_rerank,
-    available_for_routing: model.available_for_routing,
+    available_for_classification: model.available_for_classification,
+    available_for_realtime: model.available_for_realtime,
+    available_for_text: model.available_for_text,
+    available_for_transcription: model.available_for_transcription,
     available_for_video: model.available_for_video,
     context_tokens: model.context_tokens,
     display_name: model.display_name,
@@ -143,9 +152,9 @@ function availabilityPatchFromBody(
   body: z.infer<typeof availabilityPatchSchema>
 ): Partial<GatewayModelAvailabilityFlags> {
   return {
-    ...(body.available_for_chat == null
+    ...(body.available_for_agent == null
       ? {}
-      : { available_for_chat: body.available_for_chat }),
+      : { available_for_agent: body.available_for_agent }),
     ...(body.available_for_embedding == null
       ? {}
       : { available_for_embedding: body.available_for_embedding }),
@@ -155,9 +164,18 @@ function availabilityPatchFromBody(
     ...(body.available_for_rerank == null
       ? {}
       : { available_for_rerank: body.available_for_rerank }),
-    ...(body.available_for_routing == null
+    ...(body.available_for_classification == null
       ? {}
-      : { available_for_routing: body.available_for_routing }),
+      : { available_for_classification: body.available_for_classification }),
+    ...(body.available_for_realtime == null
+      ? {}
+      : { available_for_realtime: body.available_for_realtime }),
+    ...(body.available_for_text == null
+      ? {}
+      : { available_for_text: body.available_for_text }),
+    ...(body.available_for_transcription == null
+      ? {}
+      : { available_for_transcription: body.available_for_transcription }),
     ...(body.available_for_video == null
       ? {}
       : { available_for_video: body.available_for_video }),

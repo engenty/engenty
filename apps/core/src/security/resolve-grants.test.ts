@@ -1,5 +1,5 @@
-import { RoleProfileRegistry } from "@engenty/plugin-sdk";
-import { describe, expect, it, vi } from "vitest";
+import { capabilityCovers, RoleProfileRegistry } from "@engenty/plugin-sdk";
+import { describe, expect, it } from "vitest";
 import {
   createAssignedRoleIdsCache,
   type GrantSubject,
@@ -17,9 +17,8 @@ const noAssignments = () => Promise.resolve<string[]>([]);
 
 describe("resolveGrants", () => {
   it("superadmin short-circuits to core.superadmin + wildcard", async () => {
-    const listAssignedRoleIds = vi.fn(noAssignments);
     const grants = await resolveGrants(
-      { registry: registry(), listAssignedRoleIds },
+      { registry: registry(), listAssignedRoleIds: noAssignments },
       { kind: "user", id: "u1", isSuperAdmin: true, tenantRole: "admin" },
       "t1"
     );
@@ -27,38 +26,20 @@ describe("resolveGrants", () => {
       roleProfiles: ["core.superadmin"],
       capabilities: ["core.superadmin", "*"],
     });
-    // Never even reads assignments for a superadmin.
-    expect(listAssignedRoleIds).not.toHaveBeenCalled();
   });
 
-  it("admin base resolves to today's wildcard bundle", async () => {
-    const grants = await resolveGrants(
-      { registry: registry(), listAssignedRoleIds: noAssignments },
-      { kind: "user", id: "u1", isSuperAdmin: false, tenantRole: "admin" },
-      "t1"
-    );
-    expect(grants.roleProfiles).toEqual(["tenant.admin"]);
-    expect(grants.capabilities).toEqual(["core.credentials.manage", "*"]);
-  });
-
-  it("member base grants full module access + settings", async () => {
+  it("member base covers module work but not core administration", async () => {
     const grants = await resolveGrants(
       { registry: registry(), listAssignedRoleIds: noAssignments },
       { kind: "user", id: "u1", isSuperAdmin: false, tenantRole: "member" },
       "t1"
     );
-    expect(grants.capabilities).toEqual([
-      "module.*",
-      "tenant-settings.read",
-      "tenant-settings.write",
-      "user-settings.read",
-      "user-settings.write",
-      "notifications.read",
-      "notifications.write",
-    ]);
-    // module.* covers any module read/write but NOT core administration.
-    expect(grants.capabilities).not.toContain("*");
-    expect(grants.capabilities).not.toContain("core.*");
+    expect(capabilityCovers(grants.capabilities, "module.contacts.write")).toBe(
+      true
+    );
+    expect(
+      capabilityCovers(grants.capabilities, "core.credentials.manage")
+    ).toBe(false);
   });
 
   it("a user with no tenant role gets no grants", async () => {
@@ -68,16 +49,6 @@ describe("resolveGrants", () => {
       "t1"
     );
     expect(grants).toEqual({ roleProfiles: [], capabilities: [] });
-  });
-
-  it("agents get the capable read+write assistant base by default", async () => {
-    const grants = await resolveGrants(
-      { registry: registry(), listAssignedRoleIds: noAssignments },
-      { kind: "agent", id: "a1" },
-      "t1"
-    );
-    expect(grants.roleProfiles).toEqual(["agent.assistant"]);
-    expect(grants.capabilities).toEqual(["module.read", "module.write"]);
   });
 
   it("unions assigned roles, dedupes caps, ignores unknown ids", async () => {

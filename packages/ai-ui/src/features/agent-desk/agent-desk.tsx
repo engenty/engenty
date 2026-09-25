@@ -4,7 +4,6 @@ import type { PageBreadcrumb } from "@engenty/ui-plugin-sdk";
 import {
   type ReactNode,
   useCallback,
-  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -165,8 +164,6 @@ export function AgentDesk(props: {
       writePendingHostMessage(hostKey, pendingSubmit);
     }
   }, [hostKey, pendingSubmit]);
-  const selected = searchParams.get("engagement");
-  const threadId = threadIdFromEngagement(selected);
   const asking = searchParams.get("action") === "ask";
   // The drawer over the chat, if one is open. `tab` is the key links minted
   const { closePanel, openPanel, panel } = useAgentDeskPanel();
@@ -179,8 +176,14 @@ export function AgentDesk(props: {
   const chatSurface = Boolean(
     feedQuery.data && isAgentDeskChatSurface(feedQuery.data.agent)
   );
-  const shouldBindLatestConversation =
-    chatSurface && !(selected || asking) && Boolean(newestConversation);
+  // The open conversation: the one the URL names, else — on a chat desk —
+  // the newest, read straight from the feed. The bare desk URL is not
+  // rewritten to name it: binding it a render later, through the URL, reset
+  // the lane and drew the transcript twice.
+  const selected =
+    searchParams.get("engagement") ??
+    (chatSurface && !asking ? (newestConversation?.id ?? null) : null);
+  const threadId = threadIdFromEngagement(selected);
   const [newRoomOpen, setNewRoomOpen] = useState(false);
   const openDm = useOpenDmMutation();
   // The viewer's private line with this agent: the same thread every time,
@@ -242,6 +245,9 @@ export function AgentDesk(props: {
   // viewer's line; everything else on a desk is the team's shared
   // conversation. Non-chat agents show their engagement list — no kind.
   const openEngagementIsDm = openEngagement?.metadata.dm === true;
+  // Two agents talking (message_agent): the person follows it read-only.
+  // The desk's controls and the host's context are about the host, not it.
+  const openEngagementIsPair = openEngagement?.metadata.delegated === true;
   const chatIsConversation = Boolean(
     feedQuery.data &&
       (asking ||
@@ -281,6 +287,28 @@ export function AgentDesk(props: {
       return NO_BREADCRUMBS;
     }
     const { agent: current } = feedQuery.data;
+    // Two agents talking: the crumb names the pair, and there is no single
+    // agent's settings pane for it to open.
+    const pairTitle = openEngagementIsPair ? openEngagement?.title : null;
+    if (pairTitle) {
+      return [
+        {
+          compactKept: true,
+          label: (
+            <span className="flex min-w-0 items-center gap-1.5 font-medium text-foreground text-sm">
+              <AgentFace
+                avatarUrl={current.avatarUrl}
+                kind={current.engenty}
+                name={current.name}
+                size={20}
+              />
+              <span className="min-w-0 truncate">{pairTitle}</span>
+            </span>
+          ),
+          menuLabel: pairTitle,
+        },
+      ];
+    }
     return [
       {
         compactKept: true,
@@ -304,7 +332,7 @@ export function AgentDesk(props: {
         menuLabel: current.name,
       },
     ];
-  }, [feedQuery.data, openPanel]);
+  }, [feedQuery.data, openEngagement?.title, openEngagementIsPair, openPanel]);
   // The conversation switcher hangs on the SPACE crumb: it lists the Space's
   // desks and rooms, so the Space is what it belongs to — the agent crumb is
   // just the name of the one that is open.
@@ -331,20 +359,6 @@ export function AgentDesk(props: {
     ]
   );
 
-  useEffect(() => {
-    if (!(shouldBindLatestConversation && newestConversation)) {
-      return;
-    }
-    const next = new URLSearchParams(searchParams);
-    next.set("engagement", newestConversation.id);
-    setSearchParams(next, { replace: true });
-  }, [
-    newestConversation,
-    searchParams,
-    setSearchParams,
-    shouldBindLatestConversation,
-  ]);
-
   if (feedQuery.isPending) {
     return <DeskMessage>Loading agent desk…</DeskMessage>;
   }
@@ -367,8 +381,9 @@ export function AgentDesk(props: {
   return (
     <>
       <DeskFrame
-        actions={actions}
+        actions={openEngagementIsPair ? null : actions}
         breadcrumbs={breadcrumbs}
+        browserTarget={{ agentId: agent.id, spaceId }}
         canEditPads={Boolean(feedQuery.data && canManageAgents)}
         canManage={canManage}
         chapterCard={
@@ -384,6 +399,7 @@ export function AgentDesk(props: {
           lastActivityAt: openEngagement?.sort_at ?? null,
           memberCount: spaceAudience?.peopleCount,
           moduleLabel,
+          pairTitle: openEngagementIsPair ? openEngagement?.title : null,
           relation,
           spaceName,
           visibility: chatSurface ? visibility : null,

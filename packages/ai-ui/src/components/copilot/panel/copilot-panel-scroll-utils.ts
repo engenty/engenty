@@ -1,7 +1,4 @@
-import type {
-  CopilotEmptyLandingAlign,
-  CopilotPanelContentProps,
-} from "./copilot-panel-content-types";
+import type { CopilotEmptyLandingAlign } from "./copilot-panel-content-types";
 
 export type { CopilotEmptyLandingAlign } from "./copilot-panel-content-types";
 
@@ -83,19 +80,4 @@ export function resolveCopilotEmptyLandingAlign(input: {
     return "center";
   }
   return shouldCenterCopilotEmptyLanding(input) ? "center" : undefined;
-}
-
-export function buildCopilotAutoScrollSignature(
-  messages: CopilotPanelContentProps["messages"],
-  pendingUserText?: string | null,
-  pendingUserParts?: readonly unknown[] | null
-): string {
-  const last = messages.at(-1);
-  return JSON.stringify({
-    lastId: last?.id ?? null,
-    lastParts: last?.parts ?? null,
-    length: messages.length,
-    pendingPartCount: pendingUserParts?.length ?? 0,
-    pendingUserText: pendingUserText?.trim() || null,
-  });
 }

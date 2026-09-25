@@ -152,12 +152,14 @@ export function loadCoreRuntimeEnvFromCallerSrcDir(
 }
 
 /**
- * Root of the spaces tree — every App's source repository and data directory
- * live under it, as `tenants/<tenant>/spaces/<space>/apps/<slug>/{src,data}`.
- * app-host writes it and mounts `data/` into the App's isolate; engenty-ai
- * binds a space's `apps/` into that space's computer. Both must resolve the
- * same value: containers bind /opt/engenty/spaces, dev uses the home directory
- * so the Docker daemon can bind the same path into a sibling container.
+ * The one host root for what Engenty keeps on disk: every Space's folder
+ * (`tenants/<tenant>/spaces/<space>/` — see {@link resolveSpaceDir}) and
+ * apps/ai's staging of object storage (`tenants/<tenant>/…/ai/…`). app-host
+ * writes the Apps under it and engenty-ai binds parts of it into sibling
+ * containers, so both must resolve the same value, and the path must be the
+ * same inside a container and on the host: containers bind
+ * /opt/engenty/spaces 1:1, dev uses the home directory so the Docker daemon
+ * can bind the same path.
  */
 export function resolveSpacesDir(): string {
   const configured = process.env.ENGENTY_SPACES_DIR?.trim();
@@ -165,6 +167,23 @@ export function resolveSpacesDir(): string {
     return configured;
   }
   return path.join(os.homedir(), ".engenty", "spaces");
+}
+
+/**
+ * One Space's folder on the host, its "Space drive": everything the Space's
+ * computer and browser keep — `home/`, `sandbox/`, `cache/`,
+ * `browser/{profile,downloads}/`, and the Apps' `apps/`. Losable except
+ * `apps/`: work lives in object storage and records in Postgres; deleting the
+ * rest loses installs, logins and caches only.
+ */
+export function resolveSpaceDir(tenantId: string, spaceId: string): string {
+  return path.join(
+    resolveSpacesDir(),
+    "tenants",
+    tenantId.trim(),
+    "spaces",
+    spaceId.trim()
+  );
 }
 
 export function envString(

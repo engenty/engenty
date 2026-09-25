@@ -20,7 +20,7 @@ function makeDeps(options?: {
     ])
   );
   const deps: QueryDeps = {
-    resolveEmbedderForSources: () => Promise.resolve(embedder),
+    resolveEmbedder: () => Promise.resolve(embedder),
     sources,
     supabase: supabase as never,
   };
@@ -80,8 +80,7 @@ describe("fast path", () => {
 describe("degradation and guards", () => {
   it("embedding failure degrades to lexical instead of throwing", async () => {
     const { deps, supabase } = makeDeps();
-    deps.resolveEmbedderForSources = () =>
-      Promise.reject(new Error("gateway down"));
+    deps.resolveEmbedder = () => Promise.reject(new Error("gateway down"));
     const response = await runQuery(deps, {
       filters: { tenant_id: "tenant-1" },
       limit: 10,

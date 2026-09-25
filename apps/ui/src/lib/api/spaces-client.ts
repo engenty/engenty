@@ -22,6 +22,8 @@ export interface Space {
   /** Override of tenant agent-approval mode. Null inherits. */
   agentApprovalMode: "manual" | "auto" | "pass-all" | null;
   color: string | null;
+  /** Hosts this space's computer may reach beyond the shared registry list. */
+  computerEgressHosts: string[];
   /** Network reach of this space's shared computer. Null inherits the host. */
   computerNetworkTier: "none" | "egress" | null;
   createdAt: string;
@@ -250,6 +252,7 @@ export function getSpaceSurface(spaceId: string, signal?: AbortSignal) {
 export interface SpaceSetupPayload {
   agent_approval_mode?: "manual" | "auto" | "pass-all" | null;
   color?: string | null;
+  computer_egress_hosts?: string[];
   computer_network_tier?: "none" | "egress" | null;
   description?: string | null;
   icon?: string | null;
@@ -359,22 +362,17 @@ export async function getSpaceSkillCatalog(signal?: AbortSignal) {
   return result.skills ?? [];
 }
 
-/** One connected account, as the mount picker needs it (Phase CN.3). */
+/** One connected account. It belongs to one Space (`space_id`). */
 export interface SpaceCatalogConnection {
   display_name?: string | null;
   external_account?: string | null;
   id: string;
-  owner_user_id?: string | null;
-  sharing?: "org" | "personal";
+  space_id: string;
 }
 
 export interface SpaceCatalogConnector {
-  /**
-   * Accounts connected for this connector that the CALLER may see — the
-   * catalog filters to org-shared plus their own. These are what a space
-   * mounts; the connector itself is not mountable (Phase CN.3).
-   */
   actions?: { id: string }[];
+  /** Accounts the caller may see, each owned by one Space (`space_id`). */
   connections?: SpaceCatalogConnection[];
   description?: string | null;
   id: string;

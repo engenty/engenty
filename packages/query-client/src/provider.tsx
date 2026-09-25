@@ -9,6 +9,9 @@ function createQueryClient() {
         retry: 1,
         staleTime: 30_000,
         refetchOnWindowFocus: false,
+        // Hidden tabs skip interval fetches (TanStack default). Pin it so a
+        // library upgrade cannot start background poll bursts again.
+        refetchIntervalInBackground: false,
       },
       mutations: {
         retry: 0,

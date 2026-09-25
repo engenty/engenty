@@ -4,6 +4,7 @@ export type {
   UseQueryResult,
 } from "@tanstack/react-query";
 export {
+  infiniteQueryOptions,
   keepPreviousData,
   queryOptions,
   useInfiniteQuery,
@@ -27,4 +28,10 @@ export {
   removeOptimisticItems,
   reorderOptimisticItems,
 } from "./optimistic/paginated-list.js";
+export {
+  keepPollingWhenHidden,
+  POLL_STAGGER_RATIO,
+  staggeredRefetchInterval,
+  staggerPollMs,
+} from "./poll.js";
 export { EngentyQueryProvider } from "./provider.js";

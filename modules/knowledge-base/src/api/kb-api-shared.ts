@@ -25,9 +25,11 @@ export type GetKbDb = (auth: { tenantId: string }) => SupabaseClient;
 export interface KbDbHandles {
   /** Tenant-locked handle factory — every request-shaped read/write. */
   getDb: GetKbDb;
-  /** Service-role client, reserved for the ONE context-less read that
-   * resolves tenancy itself: the source-webhook token → source-row lookup
-   * in kb-sources.ts. Everything else must go through `getDb`. */
+  /** Service-role client, reserved for context-less reads: the
+   * source-webhook token → source-row lookup in kb-sources.ts (resolves
+   * tenancy itself) and the platform `image` model binding in
+   * kb-cover-media-routes.ts (no tenant_id). Everything else must go
+   * through `getDb`. */
   serviceDb: SupabaseClient;
 }
 

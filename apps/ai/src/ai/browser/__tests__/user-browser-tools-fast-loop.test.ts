@@ -1,6 +1,6 @@
 // The switch: `browser_run_fast` appears only with ENGENTY_BROWSER_FAST_LOOP
-// on AND a TypeSafe key, and it goes through the same wrapper as every other
-// browser tool (seat, unattended gate, audit).
+// on AND the run's classifier binding reachable, and it goes through the same
+// wrapper as every other browser tool (seat, unattended gate, audit).
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@mastra/agent-browser", () => ({
@@ -16,6 +16,7 @@ vi.mock("@mastra/agent-browser", () => ({
       },
     });
     onBrowserClosed = vi.fn(() => () => undefined);
+    sharedManager = { newTab: vi.fn(() => Promise.resolve()) };
   },
 }));
 
@@ -64,13 +65,20 @@ import {
 } from "../user-browser-tools.js";
 
 const identity = {
+  agentId: "agent-a",
+  spaceId: "00000000-0000-4000-8000-0000000000cc",
   tenantId: "00000000-0000-4000-8000-0000000000aa",
-  userId: "00000000-0000-4000-8000-0000000000cc",
 };
-const SANDBOX_ID = `engenty-browser-${identity.tenantId}-${identity.userId}`;
+const WINDOW_KEY = `engenty-browser-${identity.tenantId}-${identity.spaceId}#${identity.agentId}`;
 
 const baseInput = {
-  browser: { autostart: false, unattended: false, userId: identity.userId },
+  browser: {
+    agentId: identity.agentId,
+    autostart: false,
+    spaceId: identity.spaceId,
+    unattended: false,
+  },
+  classifierModelId: "typesafe-ai/jev",
   headless: false,
   tenantId: identity.tenantId,
 };
@@ -98,6 +106,16 @@ describe("browser_run_fast switch", () => {
   it("is absent with the switch on but no key at all", async () => {
     process.env.ENGENTY_BROWSER_FAST_LOOP = "true";
     const tools = await createUserBrowserTools(baseInput);
+    expect(tools).not.toHaveProperty(BROWSER_RUN_FAST_TOOL_ID);
+  });
+
+  it("is absent when the run resolved no classifier", async () => {
+    process.env.ENGENTY_BROWSER_FAST_LOOP = "true";
+    process.env.TYPESAFE_API_KEY = "sk-test";
+    const tools = await createUserBrowserTools({
+      ...baseInput,
+      classifierModelId: null,
+    });
     expect(tools).not.toHaveProperty(BROWSER_RUN_FAST_TOOL_ID);
   });
 
@@ -196,7 +214,7 @@ describe("browser_run_fast switch", () => {
     process.env.ENGENTY_BROWSER_FAST_LOOP = "1";
     process.env.TYPESAFE_API_KEY = "sk-test";
     const tools = await createUserBrowserTools(baseInput);
-    takeUserSeat(SANDBOX_ID);
+    takeUserSeat(WINDOW_KEY);
     const tool = tools[BROWSER_RUN_FAST_TOOL_ID] as unknown as {
       execute: (input: unknown, ctx: unknown) => Promise<unknown>;
     };

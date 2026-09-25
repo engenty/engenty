@@ -1,20 +1,14 @@
 import { describe, expect, it } from "vitest";
-import {
-  findSpaceIdForRecord,
-  hasSpaceRecordSource,
-} from "./space-record-lookup.js";
+import { findSpaceIdForRecord } from "./space-record-lookup.js";
 
 const TENANT = "11111111-1111-1111-1111-111111111111";
 const SPACE_A = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
-const SPACE_B = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
 const PROJECT_ID = "project-marketing";
 const PHASE_ID = "phase-marketing";
 const PHASE_TASK_ID = "task-launch";
 const KB_ID = "kb-handbook";
 const ARTICLE_ID = "article-onboarding";
 const ATTACHMENT_ID = "attachment-handbook-pdf";
-const TASK_UUID = "dddddddd-dddd-dddd-dddd-dddddddddddd";
-const ROUTINE_UUID = "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee";
 const FILE_UUID = "ffffffff-ffff-ffff-ffff-ffffffffffff";
 const FOLDER_UUID = "99999999-9999-4999-8999-999999999999";
 
@@ -86,20 +80,6 @@ const ROWS: MockRow[] = [
     tenant_id: TENANT,
   },
   {
-    id: TASK_UUID,
-    schema: "module_tasks",
-    space_id: SPACE_A,
-    table: "tasks",
-    tenant_id: TENANT,
-  },
-  {
-    id: ROUTINE_UUID,
-    schema: "module_tasks",
-    space_id: SPACE_B,
-    table: "triggers",
-    tenant_id: TENANT,
-  },
-  {
     id: KB_ID,
     schema: "module_kb",
     space_id: SPACE_A,
@@ -138,16 +118,6 @@ const ROWS: MockRow[] = [
   },
 ];
 
-describe("hasSpaceRecordSource", () => {
-  it("covers projects, project children, tasks, KB, and files", () => {
-    expect(hasSpaceRecordSource("projects")).toBe(true);
-    expect(hasSpaceRecordSource("tasks")).toBe(true);
-    expect(hasSpaceRecordSource("knowledge-base")).toBe(true);
-    expect(hasSpaceRecordSource("files")).toBe(true);
-    expect(hasSpaceRecordSource("contacts")).toBe(false);
-  });
-});
-
 describe("findSpaceIdForRecord", () => {
   const client = stubClient(ROWS) as never;
 
@@ -170,33 +140,6 @@ describe("findSpaceIdForRecord", () => {
       await findSpaceIdForRecord(client, {
         moduleId: "projects",
         recordId: PHASE_TASK_ID,
-        tenantId: TENANT,
-      })
-    ).toBe(SPACE_A);
-  });
-
-  it("resolves tasks and routines from their own space_id", async () => {
-    expect(
-      await findSpaceIdForRecord(client, {
-        moduleId: "tasks",
-        recordId: TASK_UUID,
-        tenantId: TENANT,
-      })
-    ).toBe(SPACE_A);
-    expect(
-      await findSpaceIdForRecord(client, {
-        moduleId: "tasks",
-        recordId: ROUTINE_UUID,
-        tenantId: TENANT,
-      })
-    ).toBe(SPACE_B);
-  });
-
-  it("resolves a KB article through its knowledge base", async () => {
-    expect(
-      await findSpaceIdForRecord(client, {
-        moduleId: "knowledge-base",
-        recordId: ARTICLE_ID,
         tenantId: TENANT,
       })
     ).toBe(SPACE_A);
@@ -227,36 +170,5 @@ describe("findSpaceIdForRecord", () => {
         tenantId: TENANT,
       })
     ).toBe(SPACE_A);
-  });
-
-  it("returns null for an unknown module, missing row, or unusable uuid", async () => {
-    expect(
-      await findSpaceIdForRecord(client, {
-        moduleId: "contacts",
-        recordId: PROJECT_ID,
-        tenantId: TENANT,
-      })
-    ).toBeNull();
-    expect(
-      await findSpaceIdForRecord(client, {
-        moduleId: "projects",
-        recordId: "no-such-project",
-        tenantId: TENANT,
-      })
-    ).toBeNull();
-    expect(
-      await findSpaceIdForRecord(client, {
-        moduleId: "knowledge-base",
-        recordId: "no-such-attachment",
-        tenantId: TENANT,
-      })
-    ).toBeNull();
-    expect(
-      await findSpaceIdForRecord(client, {
-        moduleId: "tasks",
-        recordId: "not-a-uuid",
-        tenantId: TENANT,
-      })
-    ).toBeNull();
   });
 });

@@ -2,9 +2,9 @@
 // answers the driver's scripts by recognising which one it was handed, so
 // freshness, occlusion and the text helper's contract are exercised for real.
 import type {
+  ClassifierClient,
   SystemOneRequest,
   SystemOneResponse,
-  TypeSafeClient,
 } from "@engenty/typesafe-client";
 import { describe, expect, it, vi } from "vitest";
 
@@ -157,7 +157,7 @@ function scriptedClient(
       usage: { input_tokens: 100, output_tokens: 0 },
     };
   });
-  return { client: { systemOne } as unknown as TypeSafeClient, systemOne };
+  return { client: { systemOne } as unknown as ClassifierClient, systemOne };
 }
 
 const helper = (text: string | null, latency_ms = 5) =>
@@ -514,7 +514,7 @@ describe("runFastLoop", () => {
       systemOne: vi.fn(async () => {
         throw new Error("typesafe_http_529");
       }),
-    } as unknown as TypeSafeClient;
+    } as unknown as ClassifierClient;
     const result = await runFastLoop({
       client,
       fieldText: helper("x"),

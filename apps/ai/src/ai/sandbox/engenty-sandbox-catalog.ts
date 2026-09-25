@@ -8,6 +8,7 @@ import {
 } from "./engenty-sandbox-docker.js";
 import { parseEngentySandboxId } from "./parse-engenty-sandbox-id.js";
 import { stopSpaceComputerContainer } from "./space-computer.js";
+import { getSpaceDriveUsage } from "./space-drives.js";
 
 export interface EngentySandboxCatalogEntry {
   /** Which agent's computer this is — a thread can run more than one. */
@@ -16,16 +17,20 @@ export interface EngentySandboxCatalogEntry {
   container_name: string;
   /** When the container started, so a stuck one is visible as a stuck one. */
   created_at_ms: number | null;
+  /**
+   * A space computer's Space folder on the host, as the last sweep measured
+   * it (`du`), and the quota it is held to; null on other rows or before the
+   * first sweep.
+   */
+  drive: { bytes: number; max_bytes: number } | null;
   lifecycle: "session" | "run" | "task" | "space" | "browser";
   sandbox_id: string;
   scope_key: string;
-  /** The space a `space` (computer) row belongs to; null for run rows. */
+  /** The space a `space` computer or `browser` row belongs to; null for run rows. */
   space_id: string | null;
   state: string;
   thread_id: string | null;
   title: string | null;
-  /** The person a `browser` row belongs to; null for every other row. */
-  user_id: string | null;
 }
 
 async function resolveThreadIdForSandbox(input: {
@@ -61,7 +66,7 @@ async function enrichSandboxRow(input: {
   if (!parsed) {
     return null;
   }
-  // The space computer belongs to a SPACE, not a thread — its id carries the
+  // The space computer and browser belong to a SPACE, not a thread — its id carries the
   // tenant, and that is the visibility check: every member of the tenant may
   // see (and stop/reset) their spaces' machines. There is no thread to title
   // it; the UI names it by its space.
@@ -69,6 +74,10 @@ async function enrichSandboxRow(input: {
     if (parsed.tenant_id !== input.scope.tenantId) {
       return null;
     }
+    const usage =
+      parsed.lifecycle === "space" && parsed.space_id
+        ? getSpaceDriveUsage(input.scope.tenantId, parsed.space_id)
+        : null;
     return {
       container_id: input.row.container_id,
       container_name: input.row.container_name,
@@ -76,12 +85,12 @@ async function enrichSandboxRow(input: {
       sandbox_id: parsed.sandbox_id,
       agent_id: null,
       created_at_ms: input.row.created_at_ms,
+      drive: usage ? { bytes: usage.bytes, max_bytes: usage.maxBytes } : null,
       scope_key: parsed.scope_key,
       space_id: parsed.space_id,
       state: input.row.state,
       thread_id: null,
       title: null,
-      user_id: parsed.user_id,
     };
   }
   const threadId = await resolveThreadIdForSandbox({
@@ -111,12 +120,12 @@ async function enrichSandboxRow(input: {
     sandbox_id: parsed.sandbox_id,
     agent_id: parsed.agent_id,
     created_at_ms: input.row.created_at_ms,
+    drive: null,
     scope_key: parsed.scope_key,
     space_id: null,
     state: input.row.state,
     thread_id: threadId,
     title,
-    user_id: null,
   };
 }
 
@@ -181,9 +190,9 @@ export async function destroyEngentySandboxesForScope(input: {
     if (!parsed) {
       continue;
     }
-    // Destroying a space computer is Reset: the container (installed
-    // packages, dotfiles, browser profiles) goes, the drive stays — the
-    // workspace is bind-mounted and its staging dir is not touched here.
+    // Destroying a space computer is Reset: the container and what it wrote
+    // outside its binds go; the Space drive ($HOME, /sandbox, caches, the
+    // browser profile) stays — Reset is about the container.
     // Tenant-gated like the listing.
     if (parsed.lifecycle === "space" || parsed.lifecycle === "browser") {
       if (parsed.tenant_id !== input.scope.tenantId) {

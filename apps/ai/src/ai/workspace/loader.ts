@@ -1,6 +1,5 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { resolveSpacesDir } from "@engenty/environment/env";
 
 import {
   LocalFilesystem,
@@ -17,7 +16,7 @@ import type { EngentySandboxProvider } from "../sandbox/sandbox-provider.js";
 import { resolveSandboxStorageLayout } from "../sandbox/sandbox-storage-paths.js";
 import type { SandboxExtraMount } from "../sandbox/sandbox-types.js";
 import {
-  resolveUserBrowserDownloadsRootPath,
+  resolveUserBrowserDownloadsPath,
   USER_BROWSER_DOWNLOADS_MOUNT_PATH,
 } from "../sandbox/space-browser.js";
 import { isSkillWorkspaceMount } from "./allowed-skills.js";
@@ -37,6 +36,7 @@ import { wrapSkillFilesystem } from "./filtered-skill-filesystem.js";
 import {
   resolveLocalMountBasePath,
   resolveSandboxCachePaths,
+  resolveSpaceDrivePath,
   SANDBOX_CACHE_TOOLS,
   type SandboxCacheTool,
 } from "./local-workspace-paths.js";
@@ -99,13 +99,47 @@ function isSyncedWritableMount(mount: EngentyWorkspaceMountSpec): boolean {
   );
 }
 
+// A space computer is ONE container for every run in the Space, and Docker
+// fixes its binds when the first run creates it — Mastra reconnects by label
+// and only warns on a HostConfig mismatch. A bind whose source depends on the
+// run (the agent's or person's `/home`) would be whoever came first: another
+// agent's desk, readable and writable from this run's shell. So on a space
+// computer `/home` is not bound; it stays a direct Files-SDK mount, reachable
+// with file tools only.
+function isRunScopedMount(mount: EngentyWorkspaceMountSpec): boolean {
+  return mount.mountPath === HOME_MOUNT_PATH;
+}
+
+type SandboxLifecycle = "run" | "session" | "task" | "space";
+
+/**
+ * Whether a mount is bound into the run's container — reachable from its
+ * commands — rather than a file-tools-only mount. The binds below and the
+ * run's "Your computer" prompt both read this, so the prompt cannot name a
+ * path the shell does not have.
+ */
+export function isMountBoundIntoSandbox(
+  mount: EngentyWorkspaceMountSpec,
+  lifecycle?: SandboxLifecycle
+): boolean {
+  if (mount.kind === "data") {
+    // `/data` on a space computer: see the staging comment below.
+    return lifecycle !== "space" && Boolean(mount.spaceId);
+  }
+  if (!isSyncedWritableMount(mount)) {
+    return false;
+  }
+  return !(lifecycle === "space" && isRunScopedMount(mount));
+}
+
 // Stage + bind + sync table for the writable durable mounts (commons, home).
 // Returns the docker `extraMounts` (host bind + synced layout) and a
 // `mountPath -> stagingPath` map so the mount filesystem can back onto the same
 // local dir the container sees. Each mount uses its OWN storage prefix.
 export function buildSyncedWritableMounts(
   mounts: EngentyWorkspaceMountSpec[],
-  tenantId: string
+  tenantId: string,
+  lifecycle?: SandboxLifecycle
 ): {
   extraMounts: SandboxExtraMount[];
   stagingByMountPath: Map<string, string>;
@@ -113,7 +147,7 @@ export function buildSyncedWritableMounts(
   const extraMounts: SandboxExtraMount[] = [];
   const stagingByMountPath = new Map<string, string>();
   for (const mount of mounts) {
-    if (!isSyncedWritableMount(mount)) {
+    if (mount.kind === "data" || !isMountBoundIntoSandbox(mount, lifecycle)) {
       continue;
     }
     const stagingPath = resolveLocalMountBasePath(
@@ -292,7 +326,8 @@ export async function createEngentyAgentWorkspace(
     // be bound into the sandbox (docker) and synced to their own storage prefix.
     const synced = buildSyncedWritableMounts(
       spec.mounts,
-      spec.sandboxIdentity.tenantId
+      spec.sandboxIdentity.tenantId,
+      lifecycle
     );
     stagingByMountPath = synced.stagingByMountPath;
     const extraMounts = synced.extraMounts;
@@ -303,8 +338,19 @@ export async function createEngentyAgentWorkspace(
     // sandbox's own scratch, NOT under a space prefix: for agent byte-mounts
     // the prefix IS access (§1c), so materialised records there would be a hole
     // in the boundary this design exists to create.
+    //
+    // Not on a space computer: its scratch is the Space's, bound once for
+    // every run, while the tree is materialised as THIS run's principal and
+    // flushed against this run's manifest. Another person's run would read
+    // records it cannot see (materialising never deletes), clobber unflushed
+    // edits, or flush someone else's edit under its own approvals. There
+    // `/data` stays the direct adapter — file tools only, as `/home`.
     const dataMount = spec.mounts.find((mount) => mount.kind === "data");
-    if (dataMount && spec.fileStorageAccess && dataMount.spaceId) {
+    if (
+      dataMount?.spaceId &&
+      spec.fileStorageAccess &&
+      isMountBoundIntoSandbox(dataMount, lifecycle)
+    ) {
       dataStaging = {
         files: createSpaceDataFilesClient({
           accessToken: spec.fileStorageAccess.accessToken,
@@ -334,30 +380,26 @@ export async function createEngentyAgentWorkspace(
     // deploys from it); the machine only binds it. Empty storage prefix, so
     // the sandbox's own sync never uploads a repository to object storage.
     if (lifecycle === "space" && spec.sandboxIdentity.spaceId) {
-      // Every person's browser downloads in this tenant, bound read-write
-      // so a file a browser saved is the same byte the machine reads under
-      // /sandbox/browser-downloads/<user/>. A browser is per person, not
-      // per space, so the root is the tenant's. Empty storage prefix: the
-      // bytes are the browser's, never synced to object storage by the
-      // sandbox.
+      // This Space's browser downloads, bound read-write so a file its
+      // browser saved is the same byte the machine reads under
+      // /sandbox/browser-downloads. Empty storage prefix: the bytes are the
+      // browser's, never synced to object storage by the sandbox.
       extraMounts.push({
         containerPath: USER_BROWSER_DOWNLOADS_MOUNT_PATH,
         layout: {
           fileStorageRelativePath: "",
-          stagingPath: resolveUserBrowserDownloadsRootPath(
-            spec.sandboxIdentity.tenantId
-          ),
+          stagingPath: resolveUserBrowserDownloadsPath({
+            spaceId: spec.sandboxIdentity.spaceId,
+            tenantId: spec.sandboxIdentity.tenantId,
+          }),
         },
       });
       extraMounts.push({
         containerPath: SPACE_APPS_MOUNT_PATH,
         layout: {
           fileStorageRelativePath: "",
-          stagingPath: join(
-            resolveSpacesDir(),
-            "tenants",
+          stagingPath: resolveSpaceDrivePath(
             spec.sandboxIdentity.tenantId,
-            "spaces",
             spec.sandboxIdentity.spaceId,
             "apps"
           ),
@@ -410,6 +452,9 @@ export async function createEngentyAgentWorkspace(
       sandboxConfig: spec.sandboxConfig,
       ...(spec.spaceComputerNetwork
         ? { spaceComputerNetwork: spec.spaceComputerNetwork }
+        : {}),
+      ...(spec.spaceComputerEgressHosts
+        ? { spaceComputerEgressHosts: spec.spaceComputerEgressHosts }
         : {}),
       tenantId: spec.sandboxIdentity.tenantId,
       workspaceFsMode,

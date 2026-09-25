@@ -1,7 +1,7 @@
 import type { AgentFnDescriptor } from "@engenty/ai-core";
 import {
+  useEffort,
   useModel,
-  usePurpose,
   useRegisteredTool,
   useThreadState,
   useTool,
@@ -18,7 +18,7 @@ import {
   FunctionAgentProvider,
   type FunctionAgentStateChannel,
 } from "../ai/registry/function-provider.js";
-import { ModuleProvider } from "../ai/registry/module-provider.js";
+import { bindTestModelsPerTest } from "./helpers/test-model-bindings.js";
 
 const CONTEXT = { tenantId: "t1", threadId: "th1", userId: "u1" };
 
@@ -41,7 +41,7 @@ function phaseAgent(): AgentFnDescriptor {
         });
       }
       if (phase === "two") {
-        usePurpose("planning_coding");
+        useEffort("high");
         useRegisteredTool("registered_tool");
       }
       return `Phase ${phase}.`;
@@ -66,65 +66,46 @@ function memoryChannel(
   };
 }
 
-describe("FunctionAgentProvider", () => {
-  it("renders bare (base face) without a resolve context", async () => {
-    const provider = new FunctionAgentProvider([phaseAgent()], memoryChannel());
-    const config = await provider.getAgentConfig("test.phase-agent");
-    expect(config?.instructions).toBe("Phase one.");
-    expect(config?.purpose).toBeUndefined();
-    const listed = await provider.listAgentConfigs();
-    expect(listed.map((c) => c.id)).toEqual(["test.phase-agent"]);
-  });
+bindTestModelsPerTest();
 
+describe("FunctionAgentProvider", () => {
   it("state written in turn N changes the render in turn N+1", async () => {
     const channel = memoryChannel();
     const provider = new FunctionAgentProvider([phaseAgent()], channel);
     const first = await provider.getAgentConfig("test.phase-agent", CONTEXT);
     expect(first?.instructions).toBe("Phase one.");
-    expect(first?.toolIds).toEqual([]);
-    // The model calls the transition tool during the run.
     const rendered = (
       first as unknown as Record<symbol, Record<string, typeof echoTool>>
     )[Symbol.for("engenty.ai.renderedTools")];
     await rendered?.advance?.execute();
     expect(channel.state).toEqual({ phase: "two" });
-    // Next turn: fresh resolution over the persisted snapshot.
     const second = await provider.getAgentConfig("test.phase-agent", CONTEXT);
     expect(second?.instructions).toBe("Phase two.");
-    expect(second?.purpose).toBe("planning_coding");
+    expect(second?.effort).toBe("high");
     expect(second?.toolIds).toEqual(["registered_tool"]);
   });
 
-  it("beats ModuleProvider in the composite for the same id", async () => {
-    const moduleProvider = new ModuleProvider({
-      listModuleCapabilities: async () => [
-        {
-          agentConfigs: [
-            {
-              id: "test.phase-agent",
-              instructions: "From agent.json.",
-              model: "m",
-              name: "Data Twin",
-              skillIds: [],
-              toolIds: [],
-            },
-          ],
-          moduleId: "test",
-          tools: {},
-        },
-      ],
-    });
-    const registry = new CompositeAiRegistry([
-      new FunctionAgentProvider([phaseAgent()]),
-      moduleProvider,
-    ]);
-    const config = await registry.getAgentConfig("test.phase-agent");
-    expect(config?.instructions).toBe("Phase one.");
-  });
-
-  it("is wired into createDefaultAiRegistry via functionAgents", async () => {
+  it("replaces a module's agent.json config of the same id in the default registry", async () => {
     const registry = createDefaultAiRegistry({
       functionAgents: [phaseAgent()],
+      moduleLoader: {
+        listModuleCapabilities: async () => [
+          {
+            agentConfigs: [
+              {
+                id: "test.phase-agent",
+                instructions: "From agent.json.",
+                model: "m",
+                name: "Data Twin",
+                skillIds: [],
+                toolIds: [],
+              },
+            ],
+            moduleId: "test",
+            tools: {},
+          },
+        ],
+      },
       stateChannel: memoryChannel({ phase: "two" }),
     });
     const config = await registry.getAgentConfig("test.phase-agent", CONTEXT);
@@ -138,26 +119,11 @@ describe("assembleDynamicAgent with function agents", () => {
       new FunctionAgentProvider([descriptor], memoryChannel()),
     ]);
 
-  it("merges rendered inline tools into the agent toolset", async () => {
+  it("merges rendered inline tools, with runtime extraTools winning a name clash", async () => {
     const agent = await assembleDynamicAgent(
       registryWith({
         fn: () => {
           useTool("inline_tool", echoTool);
-          return "Base.";
-        },
-        id: "test.fn",
-        name: "Fn",
-      }),
-      "test.fn"
-    );
-    const tools = await agent.listTools();
-    expect(Object.keys(tools)).toContain("inline_tool");
-  });
-
-  it("extraTools stay authoritative over rendered tools on name clash", async () => {
-    const agent = await assembleDynamicAgent(
-      registryWith({
-        fn: () => {
           useTool("clash", { ...echoTool, description: "rendered" });
           return "Base.";
         },
@@ -171,6 +137,7 @@ describe("assembleDynamicAgent with function agents", () => {
       string,
       { description?: string }
     >;
+    expect(Object.keys(tools)).toContain("inline_tool");
     expect(tools.clash?.description).toBe("runtime");
   });
 
@@ -188,25 +155,20 @@ describe("assembleDynamicAgent with function agents", () => {
     const resolved = resolveAgentModelId(config ?? ({} as never), {
       chatModelId: "allowed/chat",
       grants: { allowed_models: ["allowed/chat"] },
-      routingModelId: "allowed/chat",
     });
-    // The rendered pin is outside the tenant grants → falls through to the
-    // governed purpose default, exactly like a row-authored pin.
     expect(resolved).toBe("allowed/chat");
   });
 });
 
 describe("createSessionAgentStateChannel", () => {
-  it("nests state under metadata.agent_state and merges on persist", async () => {
-    const rows = new Map<string, Record<string, unknown>>([
-      ["th1", { other_key: "kept" }],
-    ]);
+  it("persists only its own metadata key and loads it back", async () => {
+    // Writing the whole metadata object would revert concurrent writes to
+    // other keys.
+    const rows = new Map<string, Record<string, unknown>>();
     const store = {
-      getThread: vi.fn(async (p: { threadId: string }) => ({
+      getThread: async (p: { threadId: string }) => ({
         metadata: rows.get(p.threadId) ?? {},
-      })),
-      // Models the RPC: the patch is folded into the row in the database, so
-      // the channel can only ever affect its own key.
+      }),
       mergeThreadMetadataForUser: vi.fn(
         async (p: { patch?: Record<string, unknown>; threadId: string }) => {
           rows.set(p.threadId, {
@@ -218,11 +180,9 @@ describe("createSessionAgentStateChannel", () => {
       ),
     };
     const channel = createSessionAgentStateChannel(() => store);
-    expect(await channel.load(CONTEXT)).toEqual({});
     await channel.persist(CONTEXT, { phase: "two" });
-    expect(rows.get("th1")).toEqual({
+    expect(store.mergeThreadMetadataForUser.mock.calls[0]?.[0].patch).toEqual({
       agent_state: { phase: "two" },
-      other_key: "kept",
     });
     expect(await channel.load(CONTEXT)).toEqual({ phase: "two" });
   });

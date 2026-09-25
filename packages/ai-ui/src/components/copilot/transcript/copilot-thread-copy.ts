@@ -39,3 +39,23 @@ export function formatCopilotThreadCopyText(
   }
   return blocks.join("\n\n");
 }
+
+/** The thread as Markdown: one `## User` / `## Assistant` section per turn. */
+export function formatCopilotThreadMarkdown(
+  messages: readonly { parts?: readonly unknown[]; role: string }[]
+): string {
+  const sections: string[] = [];
+  for (const message of messages) {
+    if (message.role !== "user" && message.role !== "assistant") {
+      continue;
+    }
+    const text = extractCopilotMessageCopyText(message.parts);
+    if (!text) {
+      continue;
+    }
+    sections.push(
+      `## ${message.role === "user" ? "User" : "Assistant"}\n\n${text}`
+    );
+  }
+  return sections.join("\n\n");
+}

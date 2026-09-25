@@ -1,7 +1,7 @@
 import type {
+  ClassifierClient,
   SystemOneRequest,
   SystemOneResponse,
-  TypeSafeClient,
 } from "@engenty/typesafe-client";
 import { describe, expect, it, vi } from "vitest";
 
@@ -69,7 +69,7 @@ function client(
     model: "jev-1.13.0",
     usage: { input_tokens: 200, output_tokens: 0 },
   }));
-  return { client: { systemOne } as unknown as TypeSafeClient, systemOne };
+  return { client: { systemOne } as unknown as ClassifierClient, systemOne };
 }
 
 const pick = (id: string, ids: string[], p = 0.9) => ({

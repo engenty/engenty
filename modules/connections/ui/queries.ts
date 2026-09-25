@@ -21,20 +21,24 @@ import {
 
 export const connectionsKeys = {
   all: ["connections"] as const,
-  catalog: () => [...connectionsKeys.all, "catalog"] as const,
+  catalog: (spaceId?: string | null) =>
+    spaceId
+      ? ([...connectionsKeys.all, "catalog", spaceId] as const)
+      : ([...connectionsKeys.all, "catalog"] as const),
   approvals: (status: ApprovalStatus) =>
     [...connectionsKeys.all, "approvals", status] as const,
 };
 
-export function connectionsCatalogOptions() {
+/** `spaceId`: that Space's accounts; omitted, the current Space's. */
+export function connectionsCatalogOptions(spaceId?: string | null) {
   return queryOptions({
-    queryKey: connectionsKeys.catalog(),
-    queryFn: ({ signal }) => getConnectionsCatalog(signal),
+    queryKey: connectionsKeys.catalog(spaceId),
+    queryFn: ({ signal }) => getConnectionsCatalog(signal, spaceId),
   });
 }
 
-export function useConnectionsCatalogQuery() {
-  return useQuery(connectionsCatalogOptions());
+export function useConnectionsCatalogQuery(spaceId?: string | null) {
+  return useQuery(connectionsCatalogOptions(spaceId));
 }
 
 export function connectionApprovalsOptions(status: ApprovalStatus = "pending") {

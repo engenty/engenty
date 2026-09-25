@@ -6,22 +6,18 @@ import { describe, expect, it, vi } from "vitest";
 import type { FileMountStore } from "../dal/file-manager-store.js";
 import { registerFileSourcesRoutes } from "./file-sources-routes.js";
 
-/** The accounts core says the space has placed; each test sets it. */
-const placed = vi.hoisted(() => ({ current: new Set<string>() }));
-vi.mock("@engenty/connections-sdk", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@engenty/connections-sdk")>()),
-  resolveSpaceRecordAccounts: vi.fn(async () => placed.current),
-}));
-
 const TENANT = "11111111-1111-4111-8111-111111111111";
 const SPACE = "22222222-2222-4222-8222-222222222222";
+const OTHER_SPACE = "33333333-3333-4333-8333-333333333333";
 const DRIVE = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const MAILBOX = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 
 const auth = { principalId: "user-1", tenantId: TENANT } as never;
 
 /** The bind operation, with the two seams it touches. */
-function bindOperation(options: { existingFolderId?: string } = {}) {
+function bindOperation(
+  options: { driveSpaceId?: string; existingFolderId?: string } = {}
+) {
   const operations: PluginServerOperation[] = [];
   const create = vi.fn(async () => ({ id: "folder-1" }));
   const findByConnection = vi.fn(async () =>
@@ -44,6 +40,7 @@ function bindOperation(options: { existingFolderId?: string } = {}) {
             display_name: null,
             external_account: "me@example.com",
             id: DRIVE,
+            space_id: options.driveSpaceId ?? SPACE,
           },
         ]),
       } as never,
@@ -109,6 +106,19 @@ describe("files_account_bind", () => {
     expect(create).not.toHaveBeenCalled();
   });
 
+  it("does not show another Space's drive", async () => {
+    const { create, operation } = bindOperation({ driveSpaceId: OTHER_SPACE });
+
+    const result = await operation.handler(
+      { connection_id: DRIVE, space_id: SPACE },
+      { auth } as never
+    );
+
+    // A drive mounts only into the Files of the Space that owns it.
+    expect(result).toEqual({ bound: false, created: false, folder_id: null });
+    expect(create).not.toHaveBeenCalled();
+  });
+
   it("leaves an account that is not a drive alone", async () => {
     const { create, operation } = bindOperation();
 
@@ -125,15 +135,14 @@ describe("files_account_bind", () => {
 });
 
 describe("files_space_mount", () => {
-  it("mounts every placed drive's root and is ready", async () => {
-    placed.current = new Set([DRIVE, MAILBOX]);
+  it("mounts every drive the space owns and is ready", async () => {
     const { create, mountOperation } = bindOperation();
 
     const result = await mountOperation.handler({ space_id: SPACE }, {
       auth,
     } as never);
 
-    // The mailbox is placed too, but it is not a file source — not ours.
+    // Only file sources are listed; a mailbox of the space is not ours.
     expect(create).toHaveBeenCalledTimes(1);
     expect(result).toEqual({
       bound: [
@@ -150,8 +159,10 @@ describe("files_space_mount", () => {
   });
 
   it("is ready with no drive at all — native folders need nothing", async () => {
-    placed.current = new Set();
-    const { create, mountOperation } = bindOperation();
+    // The only drive belongs to another Space.
+    const { create, mountOperation } = bindOperation({
+      driveSpaceId: OTHER_SPACE,
+    });
 
     const result = await mountOperation.handler({ space_id: SPACE }, {
       auth,

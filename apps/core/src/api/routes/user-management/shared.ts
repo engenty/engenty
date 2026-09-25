@@ -50,6 +50,7 @@ export const SetupStatusSchema = z.object({
   usersCount: z.number(),
 });
 export const ResolvedAppearanceSchema = z.object({
+  chatStyle: z.string(),
   font: z.string(),
   fontSize: z.string(),
   language: z.string(),

@@ -29,18 +29,14 @@ import { pluginsFromConnectors } from "./space-plugin-catalog";
 
 export interface SpaceCatalogItem {
   category: string;
-  /** Connector this account (or pending offer) belongs to. */
+  /** Plugins: the connector this row stands for. */
   connectorId?: string | null;
   description?: string | null;
-  /** True when the connector can list/read files (Drive, local folder, S3). */
-  hasFiles?: boolean;
   id: string;
   managedByModule?: string | null;
   /** Skill catalog `engenty_modules` — which apps this skill is for. */
   modules?: string[];
   name: string;
-  /** Connector with no account yet — related, but not mountable. */
-  needsConnect?: boolean;
   /** Modules only: ids this module needs mounted alongside it. */
   requires?: string[];
   role?: string | null;
@@ -87,32 +83,29 @@ function withMountedExtras(
   return extras.length > 0 ? [...items, ...extras] : items;
 }
 
-/** One connected account, flattened out of the connector catalog (CN.3). */
+/** One connected account, flattened out of the connector catalog. */
 export interface SpaceConnectionMeta {
-  /** Display name of the connector it belongs to ("Gmail"). */
   connectorId: string;
+  /** Display name of the connector it belongs to ("Gmail"). */
   connectorName: string;
   hasFiles: boolean;
   id: string;
   /** The account as a person recognises it, or the connector as a last resort. */
   label: string;
-  ownerUserId: string | null;
-  sharing: "org" | "personal" | null;
+  /** The Space that owns the account. */
+  spaceId: string;
 }
 
 /**
- * Accounts by connection id, so a mount row can name the mailbox rather than
- * the provider.
- *
- * Exported and shared with the picker on purpose: the settings page listing
- * mounts and the dialog choosing them must not label the same account two
- * different ways — that is exactly the confusion account-level mounts exist to
- * remove.
+ * The accounts a Space owns — every agent and member of that Space uses them,
+ * nobody outside it. Labelled by the account (the mailbox), not the provider,
+ * sorted the way a person reads them.
  */
-export function connectionMetaById(
-  connectors: readonly SpaceCatalogConnector[]
-): Map<string, SpaceConnectionMeta> {
-  const map = new Map<string, SpaceConnectionMeta>();
+export function spaceAccounts(
+  connectors: readonly SpaceCatalogConnector[],
+  spaceId: string
+): SpaceConnectionMeta[] {
+  const accounts: SpaceConnectionMeta[] = [];
   for (const connector of connectors) {
     const connectorName = connector.title ?? connector.name ?? connector.id;
     const hasFiles = connectorHasFiles(connector);
@@ -121,18 +114,20 @@ export function connectionMetaById(
         connection.display_name?.trim() ||
         connection.external_account?.trim() ||
         null;
-      map.set(connection.id, {
+      if (connection.space_id !== spaceId) {
+        continue;
+      }
+      accounts.push({
         connectorId: connector.id,
         connectorName,
         hasFiles,
         id: connection.id,
         label: account ?? connectorName,
-        ownerUserId: connection.owner_user_id ?? null,
-        sharing: connection.sharing ?? null,
+        spaceId: connection.space_id,
       });
     }
   }
-  return map;
+  return accounts.sort((left, right) => left.label.localeCompare(right.label));
 }
 
 function connectorHasFiles(connector: SpaceCatalogConnector): boolean {
@@ -172,7 +167,6 @@ export function byCategory(
 
 export interface SpaceMountCatalog {
   agents: SpaceCatalogItem[];
-  connections: SpaceCatalogItem[];
   isPending: boolean;
   /**
    * Keys the user may not untick.
@@ -266,50 +260,6 @@ export function useSpaceMountCatalog(
     [mounts, skillsQuery.data]
   );
 
-  /**
-   * ACCOUNTS, not connectors (PLAN-spaces.md Phase CN.3).
-   *
-   * A mount grants what its key names, and the key is a connection row id. This
-   * list used to offer connectors, so ticking "Gmail" granted the space every
-   * Gmail account in the tenant — including a colleague's. The catalog already
-   * carries the accounts the CALLER may see (org-shared plus their own), which
-   * is exactly the right set to offer: you cannot mount a mailbox you cannot
-   * see, and nothing here needs a second visibility rule to say so.
-   *
-   * The label is the account, because that is what the person is choosing
-   * between — two rows reading "Gmail" would make the picker useless in the one
-   * case it exists for.
-   */
-  const connections = useMemo(() => {
-    const connectors = connectorsQuery.data ?? [];
-    const accounts = [...connectionMetaById(connectors).values()].map(
-      (meta) => ({
-        category: "integrations",
-        connectorId: meta.connectorId,
-        description:
-          meta.label === meta.connectorName ? null : meta.connectorName,
-        hasFiles: meta.hasFiles,
-        id: meta.id,
-        name: meta.label,
-      })
-    );
-    const connectedConnectors = new Set(
-      accounts.map((account) => account.connectorId)
-    );
-    const pending = connectors
-      .filter((connector) => !connectedConnectors.has(connector.id))
-      .map((connector) => ({
-        category: "integrations",
-        connectorId: connector.id,
-        description: connector.description ?? null,
-        hasFiles: connectorHasFiles(connector),
-        id: `connector:${connector.id}`,
-        name: connector.title ?? connector.name ?? connector.id,
-        needsConnect: true,
-      }));
-    return withMountedExtras([...accounts, ...pending], mounts, "connection");
-  }, [connectorsQuery.data, mounts]);
-
   const plugins = useMemo(
     () => pluginsFromConnectors(connectorsQuery.data ?? [], mounts),
     [connectorsQuery.data, mounts]
@@ -329,7 +279,6 @@ export function useSpaceMountCatalog(
 
   return {
     agents,
-    connections,
     isPending:
       catalogQuery.isPending ||
       agentsQuery.isPending ||

@@ -122,7 +122,6 @@ describe("buildHomeEnv", () => {
       "postgresql://postgres:postgres@host.docker.internal:54322/postgres?sslmode=disable",
     internalSupabaseUrl: "http://host.docker.internal:54321",
     port: 8787,
-    sandboxDir: "/home/u/.engenty/sandboxes",
     spacesDir: "/home/u/.engenty/spaces",
   };
 
@@ -141,10 +140,6 @@ describe("buildHomeEnv", () => {
     // Without this the server lane signs with a secret the stack never saw.
     expect(text).toContain(
       "SUPABASE_JWT_SECRET=super-secret-jwt-token-with-at-least-32-characters-long"
-    );
-    // Host-side paths: apps/ai hands the sandbox one to the Docker daemon.
-    expect(text).toContain(
-      "ENGENTY_SANDBOX_HOST_DIR=/home/u/.engenty/sandboxes"
     );
     expect(text).toContain("ENGENTY_SPACES_HOST_DIR=/home/u/.engenty/spaces");
   });

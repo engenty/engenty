@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  isJevModel,
+  jevModelForRoute,
   resolveTypeSafeClientOptions,
   TypeSafeClient,
   TypeSafeError,
@@ -107,12 +109,12 @@ describe("TypeSafeClient", () => {
 });
 
 describe("resolveTypeSafeClientOptions", () => {
-  it("prefers TypeSafe's own key and API", () => {
+  it("prefers TypeSafe's own key and API, spelling the model its way", () => {
     expect(
-      resolveTypeSafeClientOptions({
-        AI_GATEWAY_API_KEY: "vck",
-        TYPESAFE_API_KEY: "ts",
-      })
+      resolveTypeSafeClientOptions(
+        { AI_GATEWAY_API_KEY: "vck", TYPESAFE_API_KEY: "ts" },
+        "typesafe-ai/jev"
+      )
     ).toEqual({
       apiKey: "ts",
       baseUrl: "https://api.typesafe.ai",
@@ -122,25 +124,34 @@ describe("resolveTypeSafeClientOptions", () => {
   });
 
   it("falls back to the Vercel AI Gateway's TypeSafe route with the gateway key", () => {
-    expect(resolveTypeSafeClientOptions({ AI_GATEWAY_API_KEY: "vck" })).toEqual(
-      {
-        apiKey: "vck",
-        baseUrl: "https://ai-gateway.vercel.sh/typesafe",
-        model: "typesafe-ai/jev",
-        route: "vercel-gateway",
-      }
-    );
+    expect(
+      resolveTypeSafeClientOptions(
+        { AI_GATEWAY_API_KEY: "vck" },
+        "typesafe-ai/jev"
+      )
+    ).toEqual({
+      apiKey: "vck",
+      baseUrl: "https://ai-gateway.vercel.sh/typesafe",
+      model: "typesafe-ai/jev",
+      route: "vercel-gateway",
+    });
   });
 
-  it("honours TYPESAFE_MODEL on either route and is null without a key", () => {
+  it("carries a pinned release to either route and is null without a key", () => {
     expect(
-      resolveTypeSafeClientOptions({
-        AI_GATEWAY_API_KEY: "vck",
-        TYPESAFE_MODEL: "jev-1.13.0",
-      })?.model
+      resolveTypeSafeClientOptions({ AI_GATEWAY_API_KEY: "vck" }, "jev-1.13.0")
+        ?.model
+    ).toBe("typesafe-ai/jev-1.13.0");
+    expect(
+      resolveTypeSafeClientOptions(
+        { TYPESAFE_API_KEY: "ts" },
+        "typesafe:jev-1.13.0"
+      )?.model
     ).toBe("jev-1.13.0");
-    expect(resolveTypeSafeClientOptions({})).toBeNull();
-    expect(resolveTypeSafeClientOptions({ TYPESAFE_API_KEY: "  " })).toBeNull();
+    expect(resolveTypeSafeClientOptions({}, "typesafe-ai/jev")).toBeNull();
+    expect(
+      resolveTypeSafeClientOptions({ TYPESAFE_API_KEY: "  " }, "jev-latest")
+    ).toBeNull();
   });
 
   it("posts to the gateway prefix when constructed with that base URL", async () => {
@@ -160,5 +171,24 @@ describe("resolveTypeSafeClientOptions", () => {
     ];
     expect(url).toBe("https://ai-gateway.vercel.sh/typesafe/v1/systemone");
     expect(JSON.parse(String(init.body)).model).toBe("typesafe-ai/jev");
+  });
+});
+
+describe("isJevModel", () => {
+  it("tells Jev ids from LLM ids", () => {
+    expect(isJevModel("typesafe-ai/jev")).toBe(true);
+    expect(isJevModel("jev-latest")).toBe(true);
+    expect(isJevModel("typesafe:jev-1.13.0")).toBe(true);
+    expect(isJevModel("openai/gpt-oss-20b")).toBe(false);
+    expect(isJevModel("jevons/model")).toBe(false);
+  });
+});
+
+describe("jevModelForRoute", () => {
+  it("maps the current-release alias between the two spellings", () => {
+    expect(jevModelForRoute("jev-latest", "vercel-gateway")).toBe(
+      "typesafe-ai/jev"
+    );
+    expect(jevModelForRoute("typesafe-ai/jev", "typesafe")).toBe("jev-latest");
   });
 });

@@ -8,14 +8,18 @@
  *
  * Position and size persist in the layout snapshot (`windowRect`) and are
  * clamped to the viewport on every render — a window saved on a wide monitor
- * reopens inside a laptop screen instead of off its edge.
+ * reopens inside a laptop screen instead of off its edge. Before anyone drags
+ * it, the window opens beside the Engenty trigger, on the page side of
+ * whichever edge the app bar is docked to.
  *
  * The title bar is the drag handle (except on buttons and menus).
  */
 
-import type {
-  CopilotLayoutPersistence,
-  CopilotWindowRect,
+import {
+  type AppBarPosition,
+  type CopilotLayoutPersistence,
+  type CopilotWindowRect,
+  useAppBarPosition,
 } from "@engenty/app-shell";
 import { cn } from "@engenty/ui-core";
 import type {
@@ -23,7 +27,14 @@ import type {
   PointerEvent as ReactPointerEvent,
   RefObject,
 } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
+import { copilotWindowRectBesideTrigger } from "./copilot-window-anchor";
 import { isCopilotWindowMoveTarget } from "./copilot-window-move-target";
 
 export const COPILOT_WINDOW_MIN_WIDTH = 360;
@@ -62,7 +73,7 @@ function viewport(): { height: number; width: number } {
   return { height: window.innerHeight, width: window.innerWidth };
 }
 
-/** Default: bottom-right, the corner the launcher and the FAB live in. */
+/** Fallback when the Engenty trigger has not been measured yet. */
 export function defaultCopilotWindowRect(): CopilotWindowRect {
   const view = viewport();
   const width = Math.min(DEFAULT_WIDTH, view.width - VIEWPORT_MARGIN * 2);
@@ -140,6 +151,8 @@ function applyDrag(
 }
 
 export interface CopilotWindowSurfaceProps {
+  /** The Engenty trigger in the app bar. The window opens beside it. */
+  anchorRef?: RefObject<HTMLElement | null> | undefined;
   children: ReactNode;
   /** Layout persistence; the rect round-trips through `windowRect`. */
   copilotLayout: CopilotLayoutPersistence | null;
@@ -151,7 +164,29 @@ export interface CopilotWindowSurfaceProps {
   titleBarRef?: RefObject<HTMLDivElement | null>;
 }
 
+function openingCopilotWindowRect(input: {
+  anchor: HTMLElement | null;
+  appBarPosition: AppBarPosition;
+  saved: CopilotWindowRect | null;
+}): CopilotWindowRect {
+  if (input.saved) {
+    return clampCopilotWindowRect(input.saved);
+  }
+  const box = input.anchor?.getBoundingClientRect();
+  if (!box || box.width <= 0 || box.height <= 0) {
+    return clampCopilotWindowRect(defaultCopilotWindowRect());
+  }
+  return clampCopilotWindowRect(
+    copilotWindowRectBesideTrigger({
+      anchor: box,
+      position: input.appBarPosition,
+      size: { height: DEFAULT_HEIGHT, width: DEFAULT_WIDTH },
+    })
+  );
+}
+
 export function CopilotWindowSurface({
+  anchorRef,
   children,
   copilotLayout,
   dragHandleLabel,
@@ -160,13 +195,46 @@ export function CopilotWindowSurface({
   titleBar,
   titleBarRef,
 }: CopilotWindowSurfaceProps) {
+  const appBarPosition = useAppBarPosition();
+  const savedRect = copilotLayout?.snapshot?.windowRect ?? null;
+  // A dragged window keeps the rect the person left it in. Until then it
+  // sits beside the Engenty trigger, on the page side of the app bar.
+  const placedByUserRef = useRef(savedRect != null);
   const [rect, setRect] = useState<CopilotWindowRect>(() =>
-    clampCopilotWindowRect(
-      copilotLayout?.snapshot?.windowRect ?? defaultCopilotWindowRect()
-    )
+    openingCopilotWindowRect({
+      anchor: anchorRef?.current ?? null,
+      appBarPosition,
+      saved: savedRect,
+    })
   );
   const [dragging, setDragging] = useState(false);
   const dragRef = useRef<DragState | null>(null);
+
+  useLayoutEffect(() => {
+    if (placedByUserRef.current) {
+      return;
+    }
+    const place = () => {
+      if (placedByUserRef.current) {
+        return;
+      }
+      setRect((current) => {
+        const next = openingCopilotWindowRect({
+          anchor: anchorRef?.current ?? null,
+          appBarPosition,
+          saved: null,
+        });
+        return sameRect(current, next) ? current : next;
+      });
+    };
+    place();
+    const box = anchorRef?.current?.getBoundingClientRect();
+    if (box && box.width > 0 && box.height > 0) {
+      return;
+    }
+    const frame = requestAnimationFrame(place);
+    return () => cancelAnimationFrame(frame);
+  }, [anchorRef, appBarPosition]);
   const rectRef = useRef(rect);
   rectRef.current = rect;
   const mergeLayout = copilotLayout?.mergeLayout;
@@ -219,6 +287,7 @@ export function CopilotWindowSurface({
         if (event.button !== 0) {
           return;
         }
+        placedByUserRef.current = true;
         event.preventDefault();
         dragRef.current = {
           edge,
@@ -254,6 +323,7 @@ export function CopilotWindowSurface({
       data-copilot-speech-scope
       data-copilot-window
       key={`window:${surfaceInstanceKey}`}
+      onPointerDown={beginTitleBarDrag}
       role="dialog"
       style={{
         height: rect.height,
@@ -262,15 +332,16 @@ export function CopilotWindowSurface({
         width: rect.width,
       }}
     >
-      <div
-        aria-label={dragHandleLabel}
-        className="shrink-0"
-        onPointerDown={beginTitleBarDrag}
-        ref={titleBarRef}
-        role="toolbar"
-      >
-        {titleBar}
-      </div>
+      {titleBar ? (
+        <div
+          aria-label={dragHandleLabel}
+          className="shrink-0"
+          ref={titleBarRef}
+          role="toolbar"
+        >
+          {titleBar}
+        </div>
+      ) : null}
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {children}
       </div>

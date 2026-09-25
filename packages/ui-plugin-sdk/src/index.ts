@@ -707,11 +707,15 @@ export {
 } from "./page-config.js";
 export { useContributionRegistry } from "./use-contribution-registry.jsx";
 export type {
+  WorkspaceContextValue,
   WorkspaceSpace,
   WorkspaceTenant,
+  WorkspaceTenantState,
 } from "./workspace-context.jsx";
 export {
   useCanAdministerTenant,
   useWorkspaceContext,
+  useWorkspaceSpace,
+  useWorkspaceTenant,
   WorkspaceProvider,
 } from "./workspace-context.jsx";

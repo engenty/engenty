@@ -113,9 +113,8 @@ function resolved(): RunSpaceResolution {
   const space: RunSpace = {
     agentIds: new Set(surface.agents),
     allConnectorPrefixes: new Set(["gmail"]),
-    browser: null,
+    browser: { autostart: false, unattended: false },
     connectorPrefixes: new Set(["gmail"]),
-    mountedConnectionIds: new Set(surface.connections),
     moduleIds: new Set(["projects"]),
     readOnlyModuleIds: new Set(),
     spaceId: surface.spaceId,

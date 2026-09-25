@@ -13,10 +13,10 @@ import { fileURLToPath } from "node:url";
 import matter from "@11ty/gray-matter";
 import { loadAgentManifest } from "./agents/agent-manifest.js";
 import { loadChatCommandDefinitionsFromDirectory } from "./chat-commands/loader.js";
-import { DEFAULT_AI_CHAT_MODEL_ID } from "./config/chat-model-id.js";
 import type {
   AiRegistration,
   InstructionDocumentDefinition,
+  OutcomeProviderDefinition,
   RoutineDefinition,
   SkillDefinition,
   WorkflowDefinition,
@@ -52,6 +52,8 @@ export interface DefineModuleAiOptions {
   dir: string;
   instructionDocuments?: InstructionDocumentDefinition[];
   moduleId: string;
+  /** Plugin outcome destinations; built-ins are registered in apps/ai. */
+  outcomeProviders?: OutcomeProviderDefinition[];
   /** Raw markdown map for the dynamic seed channel when using the `skills` hatch. */
   skillMarkdown?: () => Record<string, string>;
   /** Escape hatch replacing the SKILL.md directory scan (e.g. chatbot dynamic skills). */
@@ -224,7 +226,6 @@ export function defineModuleAi(options: DefineModuleAiOptions): ModuleAi {
           description: manifest.description,
           id: manifest.id,
           instructions,
-          model: DEFAULT_AI_CHAT_MODEL_ID,
           // The module owns every agent it ships; `kind` defaults to
           // specialist and agent.json declares the exceptions (chat_surface,
           // delegated) explicitly — no suffix guessing.
@@ -421,6 +422,9 @@ export function defineModuleAi(options: DefineModuleAiOptions): ModuleAi {
         },
         instruction_documents: options.instructionDocuments,
         module_id: options.moduleId,
+        ...(options.outcomeProviders?.length
+          ? { outcome_providers: options.outcomeProviders }
+          : {}),
         routines: buildRoutines(),
         skills: buildSkillDefinitions(),
         triggers: options.triggers,
@@ -450,6 +454,9 @@ export function defineModuleAi(options: DefineModuleAiOptions): ModuleAi {
         ...(agentFns.length > 0 ? { agentFns } : {}),
         ...(chatCommands.length > 0 ? { chatCommands } : {}),
         ...(routines.length > 0 ? { routines } : {}),
+        ...(options.outcomeProviders?.length
+          ? { outcomeProviders: options.outcomeProviders }
+          : {}),
         ...(Object.keys(skillMarkdown).length > 0
           ? { skills: skillMarkdown }
           : {}),

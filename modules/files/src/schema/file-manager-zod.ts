@@ -173,8 +173,8 @@ export const fileSourceSummarySchema = z.object({
   connectorId: z.string(),
   connectorName: z.string(),
   label: z.string(),
-  sharing: z.string(),
-  allSpaces: z.boolean().optional(),
+  /** The Space that owns the drive. */
+  spaceId: z.string(),
 });
 
 export const browseEntrySchema = z.object({

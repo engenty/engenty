@@ -363,16 +363,6 @@
       "handleInvalid": "Lower-case letters, digits, dashes or underscores; up to 32 characters."
     }
   },
-  "agentConnections": {
-    "description": "Plugins and accounts this agent may use. Empty plugin list means every plugin enabled on the space, plus this agent’s personal accounts.",
-    "empty": "No accounts yet. This agent can only use connections you grant it here.",
-    "grantAction": "Grant access",
-    "personalBadge": "On this agent",
-    "allSpacesBadge": "All spaces",
-    "revoke": "Remove access",
-    "saveFailed": "Could not change access. Try again.",
-    "title": "Plugins"
-  },
   "agentDesk": {
     "actions": {
       "addRoutine": "Add routine",
@@ -414,8 +404,6 @@
     "connectors": "Connections",
     "drawer": {
       "back": "Back",
-      "collapse": "Restore settings panel size",
-      "expand": "Expand settings panel",
       "close": "Close",
       "resize": "Resize panel",
       "runs": "Runs",
@@ -589,7 +577,14 @@
       "showAsWindow": "Show as window",
       "composerPlaceholder": "Message the copilot…",
       "emptyStateTitle": "How can I help?",
-      "emptyStateSubtitle": "Ask questions, draft content, or get help across your workspace."
+      "emptyStateSubtitle": "Ask questions, draft content, or get help across your workspace.",
+      "description": "Your copilot everywhere in Engenty. Quick things get done right here in the chat; work that keeps recurring goes to an Engenty as a Routine, owned work becomes a Task.",
+      "developer": {
+        "heading": "Developer",
+        "copyJson": "Copy as JSON",
+        "copyMarkdown": "Copy as Markdown",
+        "copyId": "Copy ID"
+      }
     },
     "subAgent": {
       "backToChat": "Back to chat",
@@ -665,7 +660,7 @@
     "loading": "Loading agent…",
     "lockedSpaceHint": "This hire is always mounted on the space you opened it from.",
     "modelField": "Model",
-    "modelPlaceholder": "openai/gpt-5-mini",
+    "modelPlaceholder": "Empty — runs on the role binding",
     "nameField": "Name",
     "namePlaceholder": "Research agent",
     "readOnlyManaged": "This agent is managed by the {{module}} module and cannot be edited here.",
@@ -865,12 +860,10 @@
     "cancel": "Cancel",
     "codeManaged": "Code-managed",
     "modelOverride": "Model override",
-    "purpose": "Model tier",
     "maxSteps": "Max steps",
     "budget": "Budget ($ / period)",
     "inheritPlaceholder": "Inherit",
-    "structural": "Inherit (by structure)",
-    "inheritModel": "Inherit · {{tier}}",
+    "inheritModel": "Inherit model",
     "inherit": "inherit",
     "none": "none",
     "stepsLabel": "Steps",
@@ -879,8 +872,8 @@
     "inheritEffort": "Inherit effort",
     "expertToggle": "Expert: pin a model id",
     "approvalMode": "Approval mode",
-    "approvalInherit": "Tenant default",
-    "approvalHint": "Can only be stricter than the tenant mode, never looser. Pass-all does not grant extra rights."
+    "approvalInherit": "Default",
+    "approvalHint": "This agent's own mode wins over the space and tenant mode, stricter or looser. Without one, the space mode applies, else the tenant mode. Pass-all does not grant extra rights."
   },
   "artifactDetail": {
     "back": "Back to artifacts",
@@ -891,6 +884,7 @@
   "artifacts": {
     "paneLabel": "Artifacts",
     "empty": "Artifacts published in this thread appear here.",
+    "liveSurface": "Dashboard",
     "closeTab": "Close artifact",
     "pickerLabel": "Choose artifact",
     "pickerPlaceholder": "No artifact",
@@ -1277,38 +1271,22 @@
         "label": "Chat",
         "desc": "User-facing replies — copilot and specialist agents."
       },
-      "routing": {
-        "label": "Fast (routing)",
-        "desc": "Supervisor delegation, thread titles, tool search — frequent and cheap."
-      },
       "classifier": {
         "label": "Classifier",
-        "desc": "Inbox category lanes and attachment triage — single-shot, low latency."
+        "desc": "Picks one of N options with a confidence — effort routing, inbox categories, search verification, tool discovery, guardrails."
       },
-      "research": {
-        "label": "Research",
-        "desc": "Search & retrieval agents, workspace search, deep-research fan-outs — long context."
-      },
-      "planning_coding": {
-        "label": "Planning & coding",
-        "desc": "Most-capable tier: plans, task decomposition, coordinator proposals, sandboxed code."
-      },
-      "safeguard": {
-        "label": "Safeguard",
-        "desc": "Guardrail checks (moderation, PII, prompt injection)."
-      },
-      "memory": {
-        "label": "Memory",
-        "desc": "Observational memory: condenses conversations into durable observations."
+      "fast_text": {
+        "label": "Fast text",
+        "desc": "Short text without tools — titles, summaries, starters, memory. Small, cheap model with a large context window."
       }
     },
     "source": {
       "pinned": "Pinned · Tenant",
       "inheritPlatform": "Inherit · Platform",
-      "inheritDefault": "Inherit · Default"
+      "governance": "Substituted · Usage policy"
     },
     "inheritAction": "Inherit",
-    "inheritActionLong": "Inherit (platform default)",
+    "inheritActionLong": "Inherit (platform binding)",
     "inheritHint": "Inherits: {{model}}",
     "col": {
       "purpose": "Purpose",
@@ -1485,12 +1463,86 @@
       "flowLoading": "Loading…",
       "shortcode": "Shortcode",
       "shortcodeHint": "Optional short key a person can invoke this routine by.",
-      "agentTriggerHint": "The owning specialist may fire this routine via invoke_workflow while this trigger is on."
+      "agentTriggerHint": "The owning Engenty may fire this routine via invoke_workflow while this trigger is on.",
+      "destinationsHint": "Where the result goes (desk, inbox, email, …) is added on the routine after you save. This field is only the promise — what must be true."
     },
     "dialog": {
       "createTitle": "Add Routine",
       "editTitle": "Edit Routine",
       "description": "Create or edit a custom routine"
+    },
+    "outcomes": {
+      "title": "Destinations",
+      "description": "Where a finished run delivers its result. An empty list keeps the desk post from Reporting.",
+      "provider": "Destination",
+      "chooseProvider": "Choose a destination…",
+      "choose": "Choose…",
+      "mode": "When",
+      "modes": {
+        "always": "Every run",
+        "agent": "When the run calls it"
+      },
+      "modeHints": {
+        "always": "Settle always delivers here. The run cannot skip it.",
+        "agent": "Only when this run calls the destination. Nothing important means no ping."
+      },
+      "noConfig": "This destination has no standing settings.",
+      "enabled": "Enabled",
+      "active": "Active",
+      "paused": "Paused",
+      "add": "Add",
+      "save": "Save",
+      "cancel": "Cancel",
+      "addRow": "Add a destination",
+      "remove": "Remove this destination",
+      "empty": "No destinations — a run uses the reporting setting (desk card / quiet).",
+      "errors": {
+        "providerRequired": "Choose a destination.",
+        "configRequired": "Fill in the required settings.",
+        "configInvalid": "Check the destination settings."
+      },
+      "providers": {
+        "desk": {
+          "chat": "Desk chat"
+        },
+        "agent": {
+          "message": "Engenty message"
+        },
+        "notification": {
+          "update": "Inbox update",
+          "high": "High-priority update"
+        },
+        "email": "Email",
+        "artifact": {
+          "pointer": "Artifact pointer"
+        },
+        "webhook": "Webhook"
+      },
+      "providerHints": {
+        "desk": {
+          "chat": "Post the run's result into the owner's desk chat with this Engenty."
+        },
+        "agent": {
+          "message": "Hand the result to another mounted Engenty on this Space."
+        },
+        "notification": {
+          "update": "Write an update in the Space inbox. Does not count on the bell.",
+          "high": "Write a high-priority update in the Space inbox and on the dashboard card. Counts on the bell."
+        },
+        "email": "Send now through the tenant Gmail connection.",
+        "artifact": {
+          "pointer": "Record the artifact this run already produced so other destinations and the desk can name it."
+        },
+        "webhook": "HTTP POST of the result to a URL you configure."
+      }
+    },
+    "detail": {
+      "prompt": "Prompt",
+      "workflow": "Workflow"
+    },
+    "card": {
+      "triggers": "Triggers",
+      "noTrigger": "No trigger"
     }
   },
   "sections": {
@@ -1802,6 +1854,8 @@
     "title": "Skills for “{{query}}”",
     "via": "From {{provider}}",
     "empty": "No public skills matched “{{query}}”.",
+    "titleComputer": "Skills on this Space's computer",
+    "emptyComputer": "No skills found on this Space's computer.",
     "install": "Install",
     "installing": "Installing…",
     "installed": "Installed",
@@ -1911,7 +1965,7 @@
   "voiceConfirm": {
     "title": "Confirm action",
     "approveOnce": "Approve once",
-    "approveAlways": "Always allow (this chat)",
+    "approveAlways": "Approve for this agent",
     "deny": "Deny"
   },
   "workPanel": {
@@ -2070,12 +2124,12 @@
   },
   "browser": {
     "panel": {
-      "title": "Your browser",
+      "title": "Browser",
       "start": "Start",
       "stop": "Stop",
-      "hint": "Start a logged-in browser. Engentys drive it in your name wherever you work; you can take over any time.",
+      "hint": "Start this Space's logged-in browser. Every Engenty here works in its own window; logins are shared. You can take over any time.",
       "startFailed": "Could not start the browser.",
-      "toggle": "Show your browser",
+      "toggle": "Show the browser",
       "state": {
         "absent": "Not started",
         "running": "Running",
@@ -2084,27 +2138,27 @@
       "close": "Close",
       "expandPane": "Expand browser panel",
       "collapsePane": "Restore browser panel size",
-      "asleepHint": "Your browser is asleep — logins are kept. Start wakes it.",
+      "asleepHint": "The Space's browser is asleep — logins are kept. Start wakes it.",
       "steps": {
-        "start": "Start your browser — here, or when an Engenty asks you for one in the chat. It is yours alone, in every Space: its logins, cookies and downloads belong to you.",
-        "watch": "Ask an Engenty for anything on the web. It drives this browser in your name and you watch it here, live.",
+        "start": "Start the Space's browser — here, or when an Engenty asks for one in the chat. It belongs to this Space: its logins, cookies and downloads are shared by the Space's Engentys.",
+        "watch": "Ask an Engenty for anything on the web. It works in its own window of this browser and you watch it here, live.",
         "takeOver": "Take over whenever you need to: log in, solve a captcha, click around. The Engenty pauses.",
         "handBack": "Hand back and the Engenty continues from the page you left it on.",
-        "unattended": "Routines and other unattended runs may use it only after you switch on “Let Engentys use it while I am away” in your Copilot's settings.",
-        "signOut": "Stop puts it to sleep (logins kept, also automatically after 15 minutes idle). Sign out in your Copilot's settings forgets every login."
+        "unattended": "Routines and other unattended runs may use it only after a Space owner switches on “Let Engentys use it unattended” in the browser settings.",
+        "signOut": "Stop puts it to sleep (logins kept, also automatically after 15 minutes idle). Sign out forgets every login for the whole Space."
       }
     },
     "settings": {
-      "title": "Your browser",
-      "hint": "A logged-in browser Engentys drive in your name, in every Space. Logins stay between runs.",
+      "title": "Space browser",
+      "hint": "A logged-in browser shared by this Space's Engentys, each in its own window. Logins stay between runs.",
       "open": "Open",
       "signOut": "Sign out",
-      "signedOut": "Signed out — every login forgotten.",
+      "signedOut": "Signed out — every login in this Space's browser forgotten.",
       "failed": "That did not work. Try again.",
       "autostart": "Let Engentys start it without asking",
-      "autostartHint": "Off: an Engenty that needs the web asks you in the chat before your browser starts.",
-      "unattended": "Let Engentys use it while I am away",
-      "unattendedHint": "Routines and tasks may drive your logged-in browser without you watching. Off: they stop and ask."
+      "autostartHint": "Off: an Engenty that needs the web asks in the chat before the browser starts. Space owners only.",
+      "unattended": "Let Engentys use it unattended",
+      "unattendedHint": "Routines and tasks may drive the Space's logged-in browser without anyone watching. Off: they stop and ask. Space owners only."
     },
     "view": {
       "title": "Your browser",
@@ -2204,5 +2258,47 @@
     "reset": "Reset",
     "loading": "Loading…",
     "empty": "No profile yet."
+  },
+  "uiGuideFollowUp": {
+    "withTitle": "{{action}} — guide: {{title}}",
+    "plain": "{{action}} (guide)"
+  },
+  "dateDivider": {
+    "today": "Today {{time}}",
+    "yesterday": "Yesterday {{time}}"
+  },
+  "toolClip": {
+    "working": "Working …",
+    "thought": "Thought it through",
+    "navigate": "Opened {{page}}",
+    "guide": "Showed: {{title}}",
+    "guideGroup": "Tour: {{count}} steps shown",
+    "agentHired": "Hired {{name}}",
+    "appsAdded": "Added app: {{names}}",
+    "appsRemoved": "Removed app: {{names}}",
+    "remembered": "Made a note",
+    "page": {
+      "home": "the Space home",
+      "agents": "Agents",
+      "agent": "the agent's page",
+      "copilot": "Copilot",
+      "data": "Data",
+      "rooms": "the room",
+      "settings": "Settings",
+      "other": "a page"
+    }
+  },
+  "messageActions": {
+    "copy": "Copy message",
+    "copied": "Copied",
+    "copyLink": "Copy link",
+    "linkCopied": "Link copied",
+    "more": "More actions"
+  },
+  "skillProposals": {
+    "title": "Skills to review",
+    "approve": "Approve",
+    "reject": "Reject",
+    "actionFailed": "Could not record the decision."
   }
 }

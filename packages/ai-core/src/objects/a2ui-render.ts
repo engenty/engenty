@@ -5,10 +5,24 @@
  * updateDataModel) so replay re-feeds them through the renderer's
  * MessageProcessor — the same replay story as every other card. Same envelope
  * convention as `object_render` and `mcp_app`.
+ *
+ * `live` is optional: when present, the chat card is still a frozen snapshot,
+ * and the workspace end-pane replaces one surface in place (and may refresh
+ * it when the source rows change).
  */
+
+export interface A2uiLiveInboxDashboard {
+  connection_id?: string;
+  included: string[];
+  kind: "inbox_dashboard";
+  layout: string;
+}
+
+export type A2uiLiveMeta = A2uiLiveInboxDashboard;
 
 export interface A2uiRenderMeta {
   catalog_id: string;
+  live?: A2uiLiveMeta;
   /** Ordered A2UI v0.9 messages, opaque to the host. */
   messages: Record<string, unknown>[];
   surface_id: string;
@@ -17,6 +31,24 @@ export interface A2uiRenderMeta {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function readLive(value: unknown): A2uiLiveMeta | undefined {
+  if (!isRecord(value) || value.kind !== "inbox_dashboard") {
+    return;
+  }
+  const included = Array.isArray(value.included)
+    ? value.included.filter((id): id is string => typeof id === "string")
+    : [];
+  const layout = typeof value.layout === "string" ? value.layout : "";
+  const connectionId =
+    typeof value.connection_id === "string" ? value.connection_id : undefined;
+  return {
+    included,
+    kind: "inbox_dashboard",
+    layout,
+    ...(connectionId ? { connection_id: connectionId } : {}),
+  };
 }
 
 export function readA2uiRenderMeta(output: unknown): A2uiRenderMeta | null {
@@ -46,10 +78,12 @@ export function readA2uiRenderMeta(output: unknown): A2uiRenderMeta | null {
   if (messages.length === 0) {
     return null;
   }
+  const live = readLive(a2ui.live);
   return {
     catalog_id: catalogId,
     messages,
     surface_id: surfaceId,
     ...(typeof a2ui.title === "string" ? { title: a2ui.title } : {}),
+    ...(live ? { live } : {}),
   };
 }

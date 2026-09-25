@@ -17,6 +17,8 @@ const RUN_ERROR_CODE_LABELS: Record<string, string> = {
     "A safety guardrail blocked this message. Rephrase it and try again.",
   "agent_threads.runFailed":
     "The assistant run failed. Try again or start a new chat.",
+  "agent_threads.modelGatewayUnconfigured":
+    "This model isn't available. Check the model configuration.",
   "agent_threads.usageLimitExceeded":
     "AI usage limit reached for this tenant or user.",
   "agent_threads.invalidResume": "Could not resume the interrupted step.",
@@ -77,6 +79,11 @@ function mapProviderOrCodeMessage(message: string): string | null {
   }
   // The AI process restarted mid-run (dev reload, deploy): the reaper marks
   // the run `executor_lost` — nothing the person did.
+  if (lower.includes("model gateway") && lower.includes("is not configured")) {
+    return (
+      RUN_ERROR_CODE_LABELS["agent_threads.modelGatewayUnconfigured"] ?? null
+    );
+  }
   if (
     lower.includes("executor_lost") ||
     lower.includes("process restarted while run was in progress")

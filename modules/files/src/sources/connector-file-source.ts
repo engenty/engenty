@@ -94,6 +94,16 @@ export interface ConnectorFilesClient {
 }
 
 export interface CreateConnectorFileSourceOptions {
+  /**
+   * Throw unless this file space may use the connection. A drive belongs to
+   * one Space (PLAN-space-owned-connections.md) and node ids are
+   * client-supplied, so every provider call is checked here — the connections
+   * SDK does not narrow a call that names its connection directly.
+   */
+  assertConnectionUsable(
+    ctx: FileSourceContext,
+    connectionId: string
+  ): Promise<void>;
   client: ConnectorFilesClient;
   /** Resolve a mount root row within the space; null when `folderId` isn't one. */
   getMount(
@@ -188,7 +198,17 @@ export async function bytesFromConnectorRead(
 export function createConnectorFileSource(
   options: CreateConnectorFileSourceOptions
 ): FileSource {
-  const { client, getMount } = options;
+  const { assertConnectionUsable, client, getMount } = options;
+
+  /** A client-supplied `cnx:` id, decoded and checked against this Space. */
+  async function usableConnectorId(ctx: FileSourceContext, nodeId: string) {
+    const decoded = decodeConnectorNodeId(nodeId);
+    if (!decoded) {
+      throw new FileSourceNotFoundError("Not a connector file");
+    }
+    await assertConnectionUsable(ctx, decoded.connectionId);
+    return decoded;
+  }
 
   async function resolveNode(
     ctx: FileSourceContext,
@@ -196,6 +216,7 @@ export function createConnectorFileSource(
   ): Promise<ResolvedNode> {
     const decoded = decodeConnectorNodeId(folderId);
     if (decoded) {
+      await assertConnectionUsable(ctx, decoded.connectionId);
       return {
         connectionId: decoded.connectionId,
         ref: decoded.ref,
@@ -208,6 +229,7 @@ export function createConnectorFileSource(
     if (!mount) {
       throw new FileSourceNotFoundError("Mounted folder not found");
     }
+    await assertConnectionUsable(ctx, mount.connectionId);
     return {
       connectionId: mount.connectionId,
       ref: mount.sourceFolderId,
@@ -326,8 +348,8 @@ export function createConnectorFileSource(
     },
 
     async getDownloadUrl(ctx, fileId) {
-      const decoded = decodeConnectorNodeId(fileId);
-      if (!decoded) {
+      // Only builds the proxy URL; the download route checks the connection.
+      if (!decodeConnectorNodeId(fileId)) {
         throw new FileSourceNotFoundError("Not a connector file");
       }
       // Always the proxy path. Asking filesRead here would pull a local-files
@@ -340,10 +362,7 @@ export function createConnectorFileSource(
     },
 
     async readBytes(ctx, fileId) {
-      const decoded = decodeConnectorNodeId(fileId);
-      if (!decoded) {
-        throw new FileSourceNotFoundError("Not a connector file");
-      }
+      const decoded = await usableConnectorId(ctx, fileId);
       const result = await client.filesRead({
         connectionId: decoded.connectionId,
         fileRef: decoded.ref,
@@ -361,10 +380,7 @@ export function createConnectorFileSource(
      * and this code deliberately has no way to.
      */
     async deleteFile(ctx, fileId) {
-      const decoded = decodeConnectorNodeId(fileId);
-      if (!decoded) {
-        throw new FileSourceNotFoundError("Not a connector file");
-      }
+      const decoded = await usableConnectorId(ctx, fileId);
       if (!client.filesDelete) {
         readOnly();
       }
@@ -377,10 +393,7 @@ export function createConnectorFileSource(
     },
 
     async moveFile(ctx, fileId, newFolderId) {
-      const decoded = decodeConnectorNodeId(fileId);
-      if (!decoded) {
-        throw new FileSourceNotFoundError("Not a connector file");
-      }
+      const decoded = await usableConnectorId(ctx, fileId);
       if (!client.filesMove) {
         readOnly();
       }
@@ -411,10 +424,7 @@ export function createConnectorFileSource(
     },
 
     async renameFile(ctx, fileId, name) {
-      const decoded = decodeConnectorNodeId(fileId);
-      if (!decoded) {
-        throw new FileSourceNotFoundError("Not a connector file");
-      }
+      const decoded = await usableConnectorId(ctx, fileId);
       if (!client.filesMove) {
         readOnly();
       }
@@ -445,10 +455,7 @@ export function createConnectorFileSource(
      * NOT hold here, and this comment is the only honest place to say it.
      */
     async replaceContent(ctx, fileId, input) {
-      const decoded = decodeConnectorNodeId(fileId);
-      if (!decoded) {
-        throw new FileSourceNotFoundError("Not a connector file");
-      }
+      const decoded = await usableConnectorId(ctx, fileId);
       if (!(client.filesWrite && client.filesStat)) {
         readOnly();
       }

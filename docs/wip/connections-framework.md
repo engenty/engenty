@@ -1,5 +1,11 @@
 # External Connections Framework
 
+> **Superseded in part (2026-09-23):** connections belong to a Space
+> (`module_connections.connections.space_id`; `connected_by` is audit only).
+> `sharing`, `non_owner_max_group`, owner-based reach and owner approvals are
+> gone. Current model: `docs/content/dev/connections.md`,
+> `PLAN-space-owned-connections.md`.
+
 Status: WIP (feat/connections). One central mechanism for external service
 connections (Gmail, Drive, Calendar, Outlook, OneDrive, Slack, …), extensible
 via connector modules, with a three-axis permission model enforced at the

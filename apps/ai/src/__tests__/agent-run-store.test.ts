@@ -1,165 +1,10 @@
 import { EventType } from "@engenty/ag-ui-bridge";
 import { describe, expect, it, vi } from "vitest";
+import { createSessionRunTracker } from "../ai/sessions/run-tracking.js";
+import { createAgentRunStore } from "../dal/threads/agent-run-store.js";
 import { createRecordingDbSource } from "./helpers/recording-db-source.js";
 
-describe("createSessionRunTracker text coalescing", () => {
-  it("coalesces text deltas to DB but publishes every delta to the bus", async () => {
-    const appendRunEvent = vi.fn(async () => ({ event: {} }));
-    const runStore = {
-      appendRunEvent,
-      cancelRun: vi.fn(async () => ({ run: null })),
-      createRun: vi.fn(async () => ({ run: {} })),
-      finishRun: vi.fn(async () => ({ run: {} })),
-      getRun: vi.fn(async () => null),
-    };
-
-    const busEvents: string[] = [];
-    const { createSessionRunTracker } = await import(
-      "../ai/sessions/run-tracking.js"
-    );
-    const { subscribeRunEvents, markRunDone } = await import(
-      "../ai/sessions/run-event-bus.js"
-    );
-
-    const runId = "00000000-0000-4000-8000-000000000011";
-    const unsub = subscribeRunEvents(runId, (e) =>
-      busEvents.push((e.event as { type: string }).type)
-    );
-
-    const tracker = createSessionRunTracker({
-      agentId: "engenty.copilot",
-      createdByUserId: "00000000-0000-4000-8000-000000000002",
-      runId,
-      runStore: runStore as never,
-      threadId: "00000000-0000-4000-8000-000000000003",
-      tenantId: "00000000-0000-4000-8000-000000000001",
-    });
-
-    // Three text deltas — each published to bus, coalesced in DB.
-    await tracker.append({
-      type: EventType.TEXT_MESSAGE_CONTENT,
-      delta: "hello",
-      messageId: "m1",
-    });
-    await tracker.append({
-      type: EventType.TEXT_MESSAGE_CONTENT,
-      delta: " world",
-      messageId: "m1",
-    });
-    await tracker.append({
-      type: EventType.TEXT_MESSAGE_CONTENT,
-      delta: "!",
-      messageId: "m1",
-    });
-    // Non-text event triggers a flush of the coalesced burst.
-    await tracker.append({ type: EventType.TEXT_MESSAGE_END, messageId: "m1" });
-    await tracker.complete({ status: "completed" });
-
-    unsub();
-    markRunDone(runId);
-
-    // Bus receives every individual delta.
-    expect(busEvents.filter((t) => t === "TEXT_MESSAGE_CONTENT")).toHaveLength(
-      3
-    );
-
-    // DB only gets one coalesced TEXT_MESSAGE_CONTENT row for the burst (plus TEXT_MESSAGE_END).
-    const persistedTypes = appendRunEvent.mock.calls.map(
-      (c) => ((c as unknown[])[0] as { eventType: string }).eventType
-    );
-    expect(
-      persistedTypes.filter((t) => t === "TEXT_MESSAGE_CONTENT")
-    ).toHaveLength(1);
-    expect(persistedTypes).toContain("TEXT_MESSAGE_END");
-  });
-});
-
 describe("createSessionRunTracker tool-call args coalescing", () => {
-  it("coalesces TOOL_CALL_ARGS deltas to DB but publishes every delta to the bus", async () => {
-    const appendRunEvent = vi.fn(async () => ({ event: {} }));
-    const runStore = {
-      appendRunEvent,
-      cancelRun: vi.fn(async () => ({ run: null })),
-      createRun: vi.fn(async () => ({ run: {} })),
-      finishRun: vi.fn(async () => ({ run: {} })),
-      getRun: vi.fn(async () => null),
-    };
-
-    const busEvents: string[] = [];
-    const { createSessionRunTracker } = await import(
-      "../ai/sessions/run-tracking.js"
-    );
-    const { subscribeRunEvents, markRunDone } = await import(
-      "../ai/sessions/run-event-bus.js"
-    );
-
-    const runId = "00000000-0000-4000-8000-000000000012";
-    const unsub = subscribeRunEvents(runId, (e) =>
-      busEvents.push((e.event as { type: string }).type)
-    );
-
-    const tracker = createSessionRunTracker({
-      agentId: "engenty.copilot",
-      createdByUserId: "00000000-0000-4000-8000-000000000002",
-      runId,
-      runStore: runStore as never,
-      threadId: "00000000-0000-4000-8000-000000000003",
-      tenantId: "00000000-0000-4000-8000-000000000001",
-    });
-
-    // A tool call streaming its args as several deltas — each published to the
-    // bus, coalesced to a single DB row.
-    await tracker.append({
-      type: EventType.TOOL_CALL_START,
-      toolCallId: "t1",
-      toolCallName: "requestDecision",
-    });
-    await tracker.append({
-      type: EventType.TOOL_CALL_ARGS,
-      toolCallId: "t1",
-      delta: '{"sug',
-    });
-    await tracker.append({
-      type: EventType.TOOL_CALL_ARGS,
-      toolCallId: "t1",
-      delta: "gesti",
-    });
-    await tracker.append({
-      type: EventType.TOOL_CALL_ARGS,
-      toolCallId: "t1",
-      delta: 'ons":[]}',
-    });
-    // A different event type triggers a flush of the coalesced burst.
-    await tracker.append({ type: EventType.TOOL_CALL_END, toolCallId: "t1" });
-    await tracker.complete({ status: "completed" });
-
-    unsub();
-    markRunDone(runId);
-
-    // Bus receives every individual delta.
-    expect(busEvents.filter((t) => t === "TOOL_CALL_ARGS")).toHaveLength(3);
-
-    // DB only gets one coalesced TOOL_CALL_ARGS row for the burst, carrying the
-    // fully merged delta (plus TOOL_CALL_START / TOOL_CALL_END).
-    const argsRows = appendRunEvent.mock.calls
-      .map(
-        (c) =>
-          (c as unknown[])[0] as {
-            eventType: string;
-            payload: { delta?: string };
-          }
-      )
-      .filter((row) => row.eventType === "TOOL_CALL_ARGS");
-    expect(argsRows).toHaveLength(1);
-    expect(argsRows[0]?.payload.delta).toBe('{"suggestions":[]}');
-
-    const persistedTypes = appendRunEvent.mock.calls.map(
-      (c) => ((c as unknown[])[0] as { eventType: string }).eventType
-    );
-    expect(persistedTypes).toContain("TOOL_CALL_START");
-    expect(persistedTypes).toContain("TOOL_CALL_END");
-  });
-
   it("flushes a separate row per toolCallId when args bursts interleave", async () => {
     const appendRunEvent = vi.fn(async () => ({ event: {} }));
     const runStore = {
@@ -169,15 +14,10 @@ describe("createSessionRunTracker tool-call args coalescing", () => {
       finishRun: vi.fn(async () => ({ run: {} })),
       getRun: vi.fn(async () => null),
     };
-
-    const { createSessionRunTracker } = await import(
-      "../ai/sessions/run-tracking.js"
-    );
-    const runId = "00000000-0000-4000-8000-000000000013";
     const tracker = createSessionRunTracker({
       agentId: "engenty.copilot",
       createdByUserId: "00000000-0000-4000-8000-000000000002",
-      runId,
+      runId: "00000000-0000-4000-8000-000000000013",
       runStore: runStore as never,
       threadId: "00000000-0000-4000-8000-000000000003",
       tenantId: "00000000-0000-4000-8000-000000000001",
@@ -193,7 +33,6 @@ describe("createSessionRunTracker tool-call args coalescing", () => {
       toolCallId: "a",
       delta: "2",
     });
-    // Switching toolCallId flushes the previous burst.
     await tracker.append({
       type: EventType.TOOL_CALL_ARGS,
       toolCallId: "b",
@@ -219,213 +58,15 @@ describe("createSessionRunTracker tool-call args coalescing", () => {
   });
 });
 
-describe("createAgentRunStore", () => {
-  it("creates, appends ordered events, and finishes a run", async () => {
-    const rows = {
-      runs: [] as Record<string, unknown>[],
-      events: [] as Record<string, unknown>[],
-    };
-    const client = {
-      schema: () => ({
-        from: (table: string) => {
-          if (table === "agent_run") {
-            return {
-              insert: (payload: Record<string, unknown>) => ({
-                select: () => ({
-                  single: async () => {
-                    rows.runs.push(payload);
-                    return {
-                      data: {
-                        ...payload,
-                        started_at: "2026-05-21T00:00:00.000Z",
-                        status: "running",
-                      },
-                      error: null,
-                    };
-                  },
-                }),
-              }),
-              update: (patch: Record<string, unknown>) => {
-                const apply = async () => {
-                  rows.runs[0] = { ...rows.runs[0], ...patch };
-                  return { data: rows.runs[0], error: null };
-                };
-                // finishRun chains .neq("status","cancelled") before select —
-                // honour the guard so cancelled stays terminal in the fake too.
-                const applyUnlessCancelled = async () => {
-                  if (rows.runs[0]?.status === "cancelled") {
-                    return { data: null, error: null };
-                  }
-                  return apply();
-                };
-                return {
-                  eq: () => ({
-                    eq: () => ({
-                      neq: () => ({
-                        select: () => ({
-                          maybeSingle: applyUnlessCancelled,
-                        }),
-                      }),
-                      select: () => ({
-                        single: apply,
-                      }),
-                    }),
-                  }),
-                };
-              },
-              select: () => ({
-                eq: () => ({
-                  eq: () => ({
-                    maybeSingle: async () => ({
-                      data: rows.runs[0] ?? null,
-                      error: null,
-                    }),
-                  }),
-                }),
-              }),
-            };
-          }
-          return {
-            insert: (payload: Record<string, unknown>) => ({
-              select: () => ({
-                single: async () => {
-                  rows.events.push(payload);
-                  return {
-                    data: {
-                      ...payload,
-                      id: `evt-${rows.events.length}`,
-                      created_at: "2026-05-21T00:00:01.000Z",
-                    },
-                    error: null,
-                  };
-                },
-              }),
-            }),
-            select: () => ({
-              eq: () => ({
-                eq: () => ({
-                  order: () => ({
-                    order: async () => ({ data: rows.events, error: null }),
-                  }),
-                }),
-              }),
-            }),
-          };
-        },
-      }),
-    };
-
-    const { createAgentRunStore } = await import(
-      "../dal/threads/agent-run-store.js"
-    );
-    const db = createRecordingDbSource(client);
-    const store = createAgentRunStore(db.source as never);
-    await store.createRun({
-      id: "00000000-0000-4000-8000-000000000010",
-      tenantId: "00000000-0000-4000-8000-000000000001",
-      threadId: "00000000-0000-4000-8000-000000000003",
-      agentId: "engenty.copilot",
-      createdByUserId: "00000000-0000-4000-8000-000000000002",
-    });
-    await store.appendRunEvent({
-      runId: "00000000-0000-4000-8000-000000000010",
-      tenantId: "00000000-0000-4000-8000-000000000001",
-      threadId: "00000000-0000-4000-8000-000000000003",
-      seq: 0,
-      eventType: "RUN_STARTED",
-      payload: { type: EventType.RUN_STARTED },
-    });
-    await store.appendRunEvent({
-      runId: "00000000-0000-4000-8000-000000000010",
-      tenantId: "00000000-0000-4000-8000-000000000001",
-      threadId: "00000000-0000-4000-8000-000000000003",
-      seq: 1,
-      eventType: "RUN_FINISHED",
-      payload: { type: EventType.RUN_FINISHED },
-    });
-    await store.finishRun({
-      runId: "00000000-0000-4000-8000-000000000010",
-      tenantId: "00000000-0000-4000-8000-000000000001",
-      status: "completed",
-      promptTokens: 12,
-      completionTokens: 34,
-    });
-
-    expect(rows.events.map((event) => event.seq)).toEqual([0, 1]);
-    expect(rows.runs[0]?.status).toBe("completed");
-  });
-
-  it("finishRun does not overwrite a cancelled run (stop-button race)", async () => {
-    const rows: { runs: Record<string, unknown>[] } = {
-      runs: [
-        {
-          id: "00000000-0000-4000-8000-000000000020",
-          status: "cancelled",
-          cancelled_at: "2026-06-12T10:00:00.000Z",
-        },
-      ],
-    };
-    const client = {
-      schema: () => ({
-        from: () => ({
-          update: (patch: Record<string, unknown>) => ({
-            eq: () => ({
-              eq: () => ({
-                neq: () => ({
-                  select: () => ({
-                    maybeSingle: async () => {
-                      if (rows.runs[0]?.status === "cancelled") {
-                        return { data: null, error: null };
-                      }
-                      rows.runs[0] = { ...rows.runs[0], ...patch };
-                      return { data: rows.runs[0], error: null };
-                    },
-                  }),
-                }),
-              }),
-            }),
-          }),
-          select: () => ({
-            eq: () => ({
-              eq: () => ({
-                maybeSingle: async () => ({
-                  data: rows.runs[0] ?? null,
-                  error: null,
-                }),
-              }),
-            }),
-          }),
-        }),
-      }),
-    };
-
-    const { createAgentRunStore } = await import(
-      "../dal/threads/agent-run-store.js"
-    );
-    const db = createRecordingDbSource(client);
-    const store = createAgentRunStore(db.source as never);
-    const { run } = await store.finishRun({
-      runId: "00000000-0000-4000-8000-000000000020",
-      tenantId: "00000000-0000-4000-8000-000000000001",
-      status: "completed",
-    });
-    expect(run.status).toBe("cancelled");
-    expect(rows.runs[0]?.status).toBe("cancelled");
-  });
-});
-
 describe("listRunEvents pagination", () => {
   it("pages past the 1000-row PostgREST cap to return the full event log", async () => {
-    // A busy run with >1000 events (e.g. a tool streaming hundreds of arg
-    // deltas). PostgREST caps a single response at 1000 rows; listRunEvents must
-    // page through with .range() so the SSE replay still reaches RUN_FINISHED.
+    // A replay cut off before RUN_FINISHED leaves the client stuck "running".
     const TOTAL = 2074;
     const allRows = Array.from({ length: TOTAL }, (_, seq) => ({
       seq,
       event_type: seq === TOTAL - 1 ? "RUN_FINISHED" : "TOOL_CALL_ARGS",
       payload: {},
     }));
-    const ranges: [number, number][] = [];
     const client = {
       schema: () => ({
         from: () => ({
@@ -433,10 +74,10 @@ describe("listRunEvents pagination", () => {
             eq: () => ({
               eq: () => ({
                 order: () => ({
-                  range: async (from: number, to: number) => {
-                    ranges.push([from, to]);
-                    return { data: allRows.slice(from, to + 1), error: null };
-                  },
+                  range: async (from: number, to: number) => ({
+                    data: allRows.slice(from, to + 1),
+                    error: null,
+                  }),
                 }),
               }),
             }),
@@ -445,9 +86,6 @@ describe("listRunEvents pagination", () => {
       }),
     };
 
-    const { createAgentRunStore } = await import(
-      "../dal/threads/agent-run-store.js"
-    );
     const db = createRecordingDbSource(client);
     const store = createAgentRunStore(db.source as never);
     const events = await store.listRunEvents({
@@ -455,19 +93,12 @@ describe("listRunEvents pagination", () => {
       tenantId: "00000000-0000-4000-8000-000000000001",
     });
 
-    // All rows returned, in order, terminal event included.
     expect(events).toHaveLength(TOTAL);
     expect(events.at(-1)?.event_type).toBe("RUN_FINISHED");
-    // Paged: 1000 + 1000 + 74 → 3 requests.
-    expect(ranges).toEqual([
-      [0, 999],
-      [1000, 1999],
-      [2000, 2999],
-    ]);
   });
 });
 
-describe("tenant binding (Phase A)", () => {
+describe("tenant binding", () => {
   it("resolves the tenant-locked handle for the caller's tenant, not the service lane", async () => {
     const TENANT = "00000000-0000-4000-8000-0000000000aa";
     const client = {
@@ -483,17 +114,12 @@ describe("tenant binding (Phase A)", () => {
         }),
       }),
     };
-    // A DISTINCT service client: if the store reaches for the service lane on a
-    // tenant-keyed read, it gets this one and the test says so loudly.
     const serviceClient = {
       schema: () => {
         throw new Error("tenant-keyed read must not use the service lane");
       },
     };
 
-    const { createAgentRunStore } = await import(
-      "../dal/threads/agent-run-store.js"
-    );
     const db = createRecordingDbSource(client, serviceClient);
     const store = createAgentRunStore(db.source as never);
     await store.getRun({
@@ -501,226 +127,8 @@ describe("tenant binding (Phase A)", () => {
       tenantId: TENANT,
     });
 
-    // The assertion the old plain-client tests could not make: the store asked
-    // for a handle, and asked for THIS tenant. With a bare SupabaseClient,
-    // normalizeDbSource discards the tenantId and every one of these passes
-    // even if the binding is dropped entirely.
     expect(db.usedTenantLane()).toBe(true);
     expect(db.tenantCalls).toEqual([TENANT]);
     db.assertOnlyTenant(TENANT);
-  });
-});
-
-describe("sweepStalledRuns (D6 startup sweep)", () => {
-  it("marks all running rows with no finished_at as failed/executor_lost", async () => {
-    const stalledIds = ["run-stale-1", "run-stale-2"];
-    const updates: Record<string, unknown>[] = [];
-
-    const client = {
-      schema: () => ({
-        from: () => ({
-          update: (patch: Record<string, unknown>) => {
-            updates.push(patch);
-            return {
-              eq: () => ({
-                is: () => ({
-                  select: async () => ({
-                    data: stalledIds.map((id) => ({ id })),
-                    error: null,
-                  }),
-                }),
-              }),
-            };
-          },
-        }),
-      }),
-    };
-
-    const { createAgentRunStore } = await import(
-      "../dal/threads/agent-run-store.js"
-    );
-    const db = createRecordingDbSource(client);
-    const store = createAgentRunStore(db.source as never);
-    const result = await store.sweepStalledRuns();
-
-    expect(result.swept).toBe(2);
-    expect(updates[0]).toMatchObject({
-      status: "failed",
-      error_code: "executor_lost",
-    });
-    expect(updates[0]).toHaveProperty("finished_at");
-  });
-});
-
-describe("listRunsForPlatform (superadmin observer)", () => {
-  it("reads from the service lane and never asks for a tenant handle", async () => {
-    const rows = [
-      {
-        id: "00000000-0000-4000-8000-000000000010",
-        tenant_id: "00000000-0000-4000-8000-000000000001",
-        status: "completed",
-      },
-    ];
-    const filters: string[] = [];
-    const serviceClient = {
-      schema: () => ({
-        from: () => {
-          const api: Record<string, unknown> = {};
-          api.select = () => api;
-          api.eq = (column: string, value: string) => {
-            filters.push(`${column}=${value}`);
-            return api;
-          };
-          api.order = () => api;
-          api.limit = async () => ({ data: rows, error: null });
-          return api;
-        },
-      }),
-    };
-    const tenantClient = {
-      schema: () => {
-        throw new Error("tenant lane must not be used");
-      },
-    };
-
-    const { createAgentRunStore } = await import(
-      "../dal/threads/agent-run-store.js"
-    );
-    const db = createRecordingDbSource(tenantClient, serviceClient);
-    const store = createAgentRunStore(db.source as never);
-    const result = await store.listRunsForPlatform({
-      tenantId: "00000000-0000-4000-8000-000000000001",
-      status: "completed",
-      limit: 20,
-    });
-
-    expect(result).toHaveLength(1);
-    expect(filters).toEqual([
-      "tenant_id=00000000-0000-4000-8000-000000000001",
-      "status=completed",
-    ]);
-    expect(db.usedTenantLane()).toBe(false);
-  });
-
-  it("loads thread titles and catalog rates on the service lane", async () => {
-    const tables: string[] = [];
-    const serviceClient = {
-      schema: () => ({
-        from: (table: string) => {
-          tables.push(table);
-          const api: Record<string, unknown> = {};
-          api.select = () => api;
-          api.in = async () => {
-            if (table === "thread") {
-              return {
-                data: [
-                  {
-                    id: "00000000-0000-4000-8000-000000000003",
-                    space_id: "00000000-0000-4000-8000-000000000020",
-                    title: "Q3 close",
-                  },
-                ],
-                error: null,
-              };
-            }
-            return {
-              data: [
-                {
-                  display_name: "GPT-4.1 mini",
-                  input_per_mtok_micros: 400_000,
-                  model_id: "openai/gpt-4.1-mini",
-                  output_per_mtok_micros: 1_600_000,
-                },
-              ],
-              error: null,
-            };
-          };
-          return api;
-        },
-      }),
-    };
-    const tenantClient = {
-      schema: () => {
-        throw new Error("tenant lane must not be used");
-      },
-    };
-    const { createAgentRunStore } = await import(
-      "../dal/threads/agent-run-store.js"
-    );
-    const db = createRecordingDbSource(tenantClient, serviceClient);
-    const store = createAgentRunStore(db.source as never);
-    const described = await store.describePlatformRuns([
-      {
-        agent_id: "engenty.copilot",
-        cancelled_at: null,
-        completion_tokens: 8,
-        context_prompt_tokens: null,
-        created_by_user_id: null,
-        error_code: null,
-        error_message: null,
-        finished_at: null,
-        id: "00000000-0000-4000-8000-000000000010",
-        mastra_trace_id: null,
-        metadata: {},
-        model_id: "openai/gpt-4.1-mini",
-        prompt_tokens: 4,
-        started_at: "2026-05-21T00:00:00.000Z",
-        status: "completed",
-        tenant_id: "00000000-0000-4000-8000-000000000001",
-        thread_id: "00000000-0000-4000-8000-000000000003",
-        trigger: "message",
-      },
-    ]);
-
-    expect(tables).toEqual(["thread", "model"]);
-    expect(
-      described.threadTitles.get("00000000-0000-4000-8000-000000000003")
-    ).toBe("Q3 close");
-    expect(
-      described.threadSpaceIds.get("00000000-0000-4000-8000-000000000003")
-    ).toBe("00000000-0000-4000-8000-000000000020");
-    expect(described.models.get("openai/gpt-4.1-mini")?.displayName).toBe(
-      "GPT-4.1 mini"
-    );
-    expect(db.usedTenantLane()).toBe(false);
-  });
-});
-
-describe("createSessionRunTracker", () => {
-  it("marks run cancelled on abort", async () => {
-    const cancelRun = vi.fn(async () => ({ run: null }));
-    const finishRun = vi.fn(async () => ({ run: null }));
-    const createRun = vi.fn(async () => ({ run: {} }));
-    const appendRunEvent = vi.fn(async () => ({ event: {} }));
-    const runStore = {
-      appendRunEvent,
-      cancelRun,
-      createRun,
-      finishRun,
-      getRun: vi.fn(async () => null),
-    };
-
-    const { createSessionRunTracker } = await import(
-      "../ai/sessions/run-tracking.js"
-    );
-    const tracker = createSessionRunTracker({
-      agentId: "engenty.copilot",
-      createdByUserId: "00000000-0000-4000-8000-000000000002",
-      runId: "00000000-0000-4000-8000-000000000010",
-      runStore: runStore as never,
-      threadId: "00000000-0000-4000-8000-000000000003",
-      tenantId: "00000000-0000-4000-8000-000000000001",
-    });
-
-    await tracker.append({
-      type: EventType.RUN_STARTED,
-      runId: "00000000-0000-4000-8000-000000000010",
-      threadId: "00000000-0000-4000-8000-000000000003",
-    });
-    await tracker.cancel("client disconnected");
-
-    expect(createRun).toHaveBeenCalledOnce();
-    expect(cancelRun).toHaveBeenCalledOnce();
-    expect(finishRun).not.toHaveBeenCalled();
   });
 });

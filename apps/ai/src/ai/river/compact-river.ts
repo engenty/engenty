@@ -12,7 +12,7 @@
 // where they exist, so a week costs one call over seven summaries rather than
 // one over seven days of transcript.
 
-import { DEFAULT_AI_CLASSIFIER_MODEL_ID } from "@engenty/ai-core";
+import { resolveChatModelId } from "@engenty/ai-core";
 import { createLogger } from "@engenty/telemetry";
 import { generateText } from "ai";
 import { z } from "zod";
@@ -256,7 +256,8 @@ export async function compactRiver(
     logger.warn("river chapter skipped — no AI gateway key", { threadId });
     return null;
   }
-  const model = input.modelId?.trim() || DEFAULT_AI_CLASSIFIER_MODEL_ID;
+  const model =
+    input.modelId?.trim() || resolveChatModelId({ purpose: "fast_text" });
   let output: z.infer<typeof chapterOutputSchema> | null = null;
   try {
     const { text } = await generateText({

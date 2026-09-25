@@ -10,6 +10,8 @@ export const GANTT_LANE_PAD_PX = 7;
 export const GANTT_LABEL_ROW_PX = 12;
 
 export interface TrajectoryGanttSpan {
+  /** Wall-clock length of the row; absent without event timestamps. */
+  durationMs?: number;
   end: number;
   id: string;
   keyLabel: string | null;
@@ -60,9 +62,20 @@ export function trajectoryRowAnchorId(rowId: string): string {
   return `trajectory-row-${rowId}`;
 }
 
+export function rowDurationMs(row: {
+  endedAt?: number;
+  startedAt?: number;
+}): number | undefined {
+  if (row.startedAt === undefined || row.endedAt === undefined) {
+    return;
+  }
+  return Math.max(0, row.endedAt - row.startedAt);
+}
+
 /**
- * Equal-width sequence projection: one slot per ledger row. Timing is not on
- * the AG-UI wire, so this is the overview that always has something to draw.
+ * Equal-width sequence projection: one slot per ledger row. Preamble rows
+ * (system, history) carry no time, so slots stay equal and each span only
+ * reports its `durationMs` when the stored events had timestamps.
  */
 export function deriveTrajectoryGantt(
   rows: readonly TrajectoryRow[]
@@ -71,6 +84,7 @@ export function deriveTrajectoryGantt(
     return null;
   }
   const spans: TrajectoryGanttSpan[] = rows.map((row, index) => ({
+    durationMs: rowDurationMs(row),
     end: index + 1,
     id: row.id,
     keyLabel: row.keyLabel,

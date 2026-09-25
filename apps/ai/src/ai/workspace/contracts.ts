@@ -35,7 +35,6 @@ export const engentyWorkspaceAgentConfigSchema = z.object({
   description: z.string().optional(),
   id: z.string().min(1),
   instructions: z.string().default(""),
-  model: z.string().min(1),
   name: z.string().min(1),
   skillPaths: z.array(z.string().min(1)).default([]),
   subAgents: z
@@ -95,6 +94,8 @@ export const engentyWorkspaceRuntimeSpecSchema = z.object({
    * the agent's declared `sandboxConfig.network` instead.
    */
   spaceComputerNetwork: z.enum(["none", "egress"]).optional(),
+  /** The Space's own egress hosts (`core.spaces.computer_egress_hosts`). */
+  spaceComputerEgressHosts: z.array(z.string()).optional(),
   sandboxIdentity: z
     .object({
       runId: z.string().min(1),

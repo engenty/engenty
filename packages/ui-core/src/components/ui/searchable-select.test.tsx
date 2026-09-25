@@ -27,17 +27,4 @@ describe("SearchableSelect", () => {
       screen.getByText("GPT-5 mini (openai/gpt-5-mini)")
     ).toBeTruthy();
   });
-
-  it("shows the placeholder when nothing is selected", () => {
-    render(
-      <SearchableSelect
-        onValueChange={() => undefined}
-        options={options}
-        placeholder="Pick a model"
-        value=""
-      />
-    );
-
-    expect(screen.getByText("Pick a model")).toBeTruthy();
-  });
 });

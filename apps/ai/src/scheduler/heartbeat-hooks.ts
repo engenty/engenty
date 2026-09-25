@@ -19,6 +19,7 @@ import {
 } from "../ai/index.js";
 import { fireRoutine } from "../ai/routines/fire-routine.js";
 import { emitInboxNotification } from "../notifications/inbox.js";
+import { failureLine } from "../notifications/run-notifications.js";
 import { readHeartbeatMetadata } from "./heartbeat-metadata.js";
 import { runSystemJob } from "./system-jobs.js";
 
@@ -135,20 +136,35 @@ export function createSchedulerHeartbeatHooks(options?: {
           routines?.get({ id: meta.routineId, tenantId: meta.tenantId })
         )
         .catch(() => null);
+      const failureBody = failureLine(error);
       await emitInboxNotification({
         // Dedupe while unhandled: a crashing schedule fires every interval —
         // coalesce into one inbox entry until someone looks at it.
         dedupeKey: `routine_failed:${meta.routineId}`,
         kind: "routine_failed",
-        metadata: { routine_id: meta.routineId, schedule_id: schedule.id },
+        metadata: {
+          routine_id: meta.routineId,
+          schedule_id: schedule.id,
+          ...(routine?.agent_id ? { agent_id: routine.agent_id } : {}),
+        },
         ownerUserId: routine?.created_by_user_id ?? null,
         payload: { error: error.message.slice(0, 1000), phase },
         priority: "high",
         source: "routines",
         spaceId: routine?.space_id ?? null,
         subject: { id: meta.routineId, type: "routine" },
-        summary: `Scheduled routine fire failed: ${error.message.slice(0, 200)}`,
+        // The error's class or first line — never the stack.
+        ...(failureBody ? { body: failureBody } : {}),
+        summary: "A scheduled routine failed",
         tenantId: meta.tenantId,
+        ...(routine?.name?.trim()
+          ? {
+              title: {
+                key: "routine_failed",
+                params: { name: routine.name.trim() },
+              },
+            }
+          : {}),
       });
     },
   };

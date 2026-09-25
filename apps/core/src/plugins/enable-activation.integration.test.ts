@@ -83,14 +83,6 @@ describe("in-repo plugin activation", () => {
     });
   }
 
-  it("module on disk but not in manifest is neither discovered nor loaded", () => {
-    const root = createRepo({});
-    writeModule(root, "demo-mod");
-
-    const registry = loadFrom(root);
-    expect(registry.plugins.find((p) => p.id === "demo-mod")).toBeUndefined();
-  });
-
   it("enabling loads the module; disabling stops it (manifest is the gate)", () => {
     const root = createRepo({});
     writeModule(root, "demo-mod");

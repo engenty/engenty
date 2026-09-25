@@ -13,6 +13,8 @@ export function buildAppNavigationPathsPromptSection(): string {
     "",
     "The patterns below are conventions, not a route table — only the running app knows which pages exist. The `navigate` tool checks against the real routes: it resolves a module prefix when that module has exactly one page, and otherwise fails listing the routes that do exist. Say a page is open only when `navigate` returned it in `to`.",
     "",
+    "Never link to `/admin/engenty/…`: that area is a superadmin debugging surface, not a page for the user. Agents live on their Space desk (`?panel=manage` for their settings and workflows awaiting publish); a published workflow runs at `/s/<space_key>/workflows/<id>`.",
+    "",
     "Inside a Space, prefer `/s/<space_key>/…`. The module URL segment comes from the running route mirror and is **not** always the module id — do not assume `moduleId === segment`. Example: `knowledge-base` is `/s/<space_key>/kb/…`, not `/s/<space_key>/knowledge-base/…`. Let `navigate` resolve the real route table.",
     "",
     "| Area | Pattern |",
@@ -24,6 +26,7 @@ export function buildAppNavigationPathsPromptSection(): string {
     "| Copilot inside a Space | `/s/<space_key>/copilot` — the user's one private copilot conversation, opened at this Space; there are no per-thread URLs |",
     "| Space agent roster | `/s/<space_key>/agents` |",
     "| Space agent desk | `/s/<space_key>/agents/<agentId>`; hire: `/s/<space_key>/agents/new` |",
+    "| Space workflow | `/s/<space_key>/workflows/<id>` |",
     "| Dashboard | `/dashboard` |",
     "| Copilot (outside a Space) | `/copilot` — the same conversation |",
     "| App settings | `/settings`, `/settings/appearance`, `/settings/tenant` |",
@@ -32,7 +35,6 @@ export function buildAppNavigationPathsPromptSection(): string {
     "| Tenant plugins (setup) | `/setup/plugins` |",
     "| Roles & permissions (setup) | `/setup/roles` |",
     "| Audit logs (setup) | `/setup/audit-logs` |",
-    "| Agents / AI workspace | `/admin/engenty` — agents `/admin/engenty/agents/…`, skills `/admin/engenty/skills/…`, workflows `/admin/engenty/workflows/<id>` (never `/admin/engenty/flows/…`; that path is not a page) |",
     // A prefix is not a page: over half the modules register no bare
     // `/mdl/<module-folder>` route, and it fell through to the catch-all.
     "| Module plugins | Pages live under `/mdl/<module-folder>/…`. Common shapes where a module has them: list `/mdl/<module-folder>`; detail `/mdl/<module-folder>/<id>`; edit `/mdl/<module-folder>/<id>/edit`; settings `/mdl/<module-folder>/settings`. These are conventions, not guarantees. Legacy `/mdl/` links redirect into the Space mirror when that module is Space-placed. Record results from module operations carry a ready `link` — use it verbatim instead of building one. |",

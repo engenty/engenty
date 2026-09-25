@@ -70,13 +70,6 @@ export interface AiRegisteredAgent {
   modelOverride?: string | null;
   module_id: string;
   name: string;
-  purpose?:
-    | "chat"
-    | "routing"
-    | "research"
-    | "planning_coding"
-    | "safeguard"
-    | null;
   role?: AiAgentRole;
   skills: string[];
   source?: AiAgentSource;
@@ -400,7 +393,8 @@ export interface CustomAgentConfig {
   instructions: string;
   /** Server-derived on GET responses; never sent on create/update. */
   managed_by_module?: string | null;
-  model: string;
+  /** Authored model; absent = the effort tier's role binding. */
+  model?: string;
   name: string;
   /** Reachable from remote channels as itself (P5); default off. */
   remoteEnabled?: boolean;

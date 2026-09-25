@@ -6,12 +6,12 @@
 
 export const IMPORTED_MODULE_ID = "connections-external";
 
+/** A connected account; it belongs to one Space (`space_id`). */
 export interface MarketplaceAccount {
-  all_spaces?: boolean;
   display_name: string | null;
   external_account: string | null;
   id: string;
-  owner_user_id: string | null;
+  space_id: string;
   status?: string;
 }
 
@@ -105,34 +105,24 @@ export function pluginMatchesQuery(
   );
 }
 
+/**
+ * Plugins that count as installed in a Space: enabled on it (plugin mount) or
+ * with an account of it connected.
+ */
 export function installedPluginIds(input: {
-  grantedConnectorIds?: ReadonlySet<string>;
   pluginMountIds: ReadonlySet<string>;
-  spaceConnectionConnectorIds: ReadonlySet<string>;
+  spaceAccountConnectorIds: ReadonlySet<string>;
 }): Set<string> {
-  return new Set([
-    ...input.pluginMountIds,
-    ...input.spaceConnectionConnectorIds,
-    ...(input.grantedConnectorIds ?? []),
-  ]);
+  return new Set([...input.pluginMountIds, ...input.spaceAccountConnectorIds]);
 }
 
-export type AccountUse = "allSpaces" | "thisAgent" | "thisSpace";
-
-export function accountUses(input: {
-  account: MarketplaceAccount;
-  grantedToAgent: boolean;
-  mountedOnSpace: boolean;
-}): AccountUse[] {
-  const uses: AccountUse[] = [];
-  if (input.account.all_spaces) {
-    uses.push("allSpaces");
-  }
-  if (input.mountedOnSpace) {
-    uses.push("thisSpace");
-  }
-  if (input.grantedToAgent) {
-    uses.push("thisAgent");
-  }
-  return uses;
+/** Connector ids that have at least one account in this Space. */
+export function connectorIdsWithSpaceAccounts(
+  plugins: readonly Pick<MarketplacePlugin, "connections" | "id">[]
+): Set<string> {
+  return new Set(
+    plugins
+      .filter((plugin) => plugin.connections.length > 0)
+      .map((plugin) => plugin.id)
+  );
 }

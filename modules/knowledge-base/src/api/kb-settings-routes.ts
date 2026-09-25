@@ -59,10 +59,6 @@ export function registerKbSettingsRoutes(api: KbServerApi, getRepo: GetKbRepo) {
       }
 
       const payload: KbSettings = {
-        embedding_model:
-          typeof raw.embedding_model === "string"
-            ? raw.embedding_model
-            : current.embedding_model,
         search_vector_min_similarity:
           typeof raw.search_vector_min_similarity === "number"
             ? raw.search_vector_min_similarity

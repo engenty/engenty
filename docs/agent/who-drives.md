@@ -45,8 +45,11 @@ whose subject is that Task. Completing the run does not complete the Task.
 
 - **Copilot** is the live front door (the dock), not the scheduler and not a
   Space resident.
-- **Engenty** is a domain executor and a leaf; it does not orchestrate other
-  agents.
+- **Engenty** is a domain executor. The one a Space mounts without a
+  `reports_to` is that Space's coordinator (top-level, e.g. the Chief of
+  Staff): it also gets the `chief-of-staff` skill — set the Space up, route
+  work, hire a teammate — and the coordinator's page tools. Every other Engenty
+  reports to it and does not orchestrate.
 - **Task** is a work item and the optional subject of a run — never the way to
   make something run.
 - **Run** is the one execution record; every lane above converges on it.
@@ -54,7 +57,7 @@ whose subject is that Task. Completing the run does not complete the Task.
 - **Space** selects the apps, agents, connections, skills, and module data for a
   run. It is a boundary, not a driver.
 - **Workspace** is run-scoped files and context through the mounts actually
-  resolved for that lane: `/home`; `/shared` or `/space`; `/task` only when the
+  resolved for that lane: `/home`; `/space`, plus `/shared` unless Space-confined; `/task` only when the
   run has a Task subject, with `/project` following that Task's containment
   chain; and read-only `/skills`. It is not a queue or module database.
 - **`/data`** exposes mounted module records. It is not scratch space or a

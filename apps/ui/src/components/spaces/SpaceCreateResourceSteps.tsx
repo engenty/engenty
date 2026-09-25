@@ -1,14 +1,9 @@
 import { useTranslation } from "@engenty/i18n/ui";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@engenty/ui-core";
 import type { SpaceMountDeclaration } from "@engenty/ui-plugin-sdk";
 import { useMemo } from "react";
 import { SpaceModulePicker } from "./SpaceModulePicker";
 import { SpaceOptionalResourcePicker } from "./SpaceOptionalResourcePicker";
-import {
-  capabilityModuleIds,
-  isModuleSkill,
-  relatedConnectionIds,
-} from "./space-capability-recommendations";
+import { isModuleSkill } from "./space-capability-recommendations";
 import { optionalCount } from "./space-create-wizard-state";
 import type { SpaceMountCatalog } from "./space-mount-catalog";
 import type { SpaceSelection } from "./space-setup-selection";
@@ -69,16 +64,15 @@ export function SpaceCreateModulesStep(props: StepProps) {
   );
 }
 
+/**
+ * Optional skills for the new Space. Accounts are not picked here: a new
+ * Space owns none yet — connect them from the Space once it exists.
+ */
 export function SpaceCreateOptionalStep({
   catalog,
   onSelectionChange,
   selection,
 }: Pick<StepProps, "catalog" | "onSelectionChange" | "selection">) {
-  const { t } = useTranslation("common");
-  const moduleIds = useMemo(
-    () => capabilityModuleIds(selection.values(), catalog.lockedKeys),
-    [catalog.lockedKeys, selection]
-  );
   const catalogModuleIds = useMemo(
     () => new Set(catalog.modules.map((module) => module.id)),
     [catalog.modules]
@@ -88,45 +82,15 @@ export function SpaceCreateOptionalStep({
       catalog.skills.filter((skill) => !isModuleSkill(skill, catalogModuleIds)),
     [catalog.skills, catalogModuleIds]
   );
-  const recommendedConnectionIds = useMemo(
-    () => relatedConnectionIds(moduleIds, catalog.connections),
-    [catalog.connections, moduleIds]
-  );
-  const defaultTab =
-    recommendedConnectionIds.size > 0 ? "connections" : "skills";
-  const commit = async (next: SpaceSelection) => {
-    onSelectionChange(next);
-    return true;
-  };
   return (
-    <div className="space-y-4">
-      <Tabs defaultValue={defaultTab} key={defaultTab}>
-        <TabsList>
-          <TabsTrigger value="connections">
-            {t("spaces.setup.connectionsTitle")}
-          </TabsTrigger>
-          <TabsTrigger value="skills">
-            {t("spaces.setup.skillsTitle")}
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="connections">
-          <SpaceOptionalResourcePicker
-            commit={commit}
-            items={catalog.connections}
-            kind="connection"
-            recommendedIds={recommendedConnectionIds}
-            selection={selection}
-          />
-        </TabsContent>
-        <TabsContent value="skills">
-          <SpaceOptionalResourcePicker
-            commit={commit}
-            items={pickerSkills}
-            kind="skill"
-            selection={selection}
-          />
-        </TabsContent>
-      </Tabs>
-    </div>
+    <SpaceOptionalResourcePicker
+      commit={async (next) => {
+        onSelectionChange(next);
+        return true;
+      }}
+      items={pickerSkills}
+      kind="skill"
+      selection={selection}
+    />
   );
 }

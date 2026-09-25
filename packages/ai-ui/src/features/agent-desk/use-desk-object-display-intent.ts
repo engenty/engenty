@@ -1,5 +1,8 @@
 import { useMemo } from "react";
-import { openObjectPaneTab } from "../../artifacts/artifact-store.js";
+import {
+  openA2uiSurfacePaneTab,
+  openObjectPaneTab,
+} from "../../artifacts/artifact-store.js";
 import { setCopilotComposerDraft } from "../../copilot/copilot-composer-draft-intent.js";
 import type { ObjectDisplayIntent } from "../../objects/object-display-intent.js";
 
@@ -50,6 +53,7 @@ export function useDeskObjectDisplayIntent(
           expanded: opts?.expanded,
           title: opts?.title,
         }),
+      openLiveSurface: (meta) => openA2uiSurfacePaneTab(hostKey, meta),
     }),
     [hostKey, navigateFromChat]
   );

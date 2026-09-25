@@ -4,7 +4,7 @@
 // category later and writes it back.
 import {
   type ChoiceQuestion,
-  type TypeSafeClient,
+  type ClassifierClient,
   validateChoiceAnswer,
 } from "@engenty/typesafe-client";
 import {
@@ -147,11 +147,11 @@ export function categoriesFromAnswers(
 
 async function classifyBatch(
   batch: InboxMessage[],
-  jev: TypeSafeClient,
+  classifier: ClassifierClient,
   categoryItems: readonly InboxCategoryItem[]
 ): Promise<Record<string, InboxMessageCategory>> {
   const { questions, state } = buildCategoryQuestions(batch, categoryItems);
-  const response = await jev.systemOne({ questions, state });
+  const response = await classifier.systemOne({ questions, state });
   return categoriesFromAnswers(
     response.answers,
     batch.length,
@@ -166,21 +166,21 @@ async function classifyBatch(
  */
 export async function classifyInboxMessages(
   messages: InboxMessage[],
-  jev: TypeSafeClient | null,
+  classifier: ClassifierClient | null,
   categoryItems: readonly InboxCategoryItem[] = defaultInboxCategories().items
 ): Promise<Map<string, InboxMessageCategory>> {
   const result = new Map<string, InboxMessageCategory>();
   if (messages.length === 0) {
     return result;
   }
-  if (!jev) {
+  if (!classifier) {
     throw new Error("inbox_classifier_unavailable");
   }
   const allowlist = allowlistFrom(categoryItems);
 
   for (let start = 0; start < messages.length; start += BATCH_SIZE) {
     const batch = messages.slice(start, start + BATCH_SIZE);
-    const categories = await classifyBatch(batch, jev, categoryItems);
+    const categories = await classifyBatch(batch, classifier, categoryItems);
     for (const [id, category] of applyCategoryMap(
       batch,
       categories,

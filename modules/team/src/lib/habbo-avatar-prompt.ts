@@ -131,6 +131,3 @@ export const HABBO_AVATAR_VARIATIONS: Array<{
     hint: "playful techy vibe with glasses",
   },
 ];
-
-/** Default Gemini image model via AI Gateway (override with AI_GATEWAY_IMAGE_MODEL). */
-export const DEFAULT_HABBO_IMAGE_MODEL = "google/gemini-2.5-flash-image";

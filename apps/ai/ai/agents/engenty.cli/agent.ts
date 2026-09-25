@@ -1,23 +1,18 @@
 // engenty.cli — sandboxed code executor sub-agent for the Engenty AI system.
 //
-// Owns a dedicated sandbox (code_execution preset) with session lifecycle keyed
-// by the parent copilot's thread, so CLI artifacts survive the HITL
-// suspend → approve → resume round-trip. The parent copilot delegates
-// data-processing and scripting tasks here; CLI Agent returns a structured
-// execution report (see execution-report.ts) so the copilot can relay the
-// summary and offer file downloads without parsing raw output.
+// Runs on the Space computer of the run it is delegated from (code_execution
+// preset), so its installs, CLI logins and files are the Space's and outlive
+// the delegation; with no Space resolved it gets a per-run sandbox. The parent
+// copilot delegates data-processing and scripting tasks here; CLI Agent
+// returns a structured execution report (see execution-report.ts) so the
+// copilot can relay the summary and offer file downloads without parsing raw
+// output.
 
 import type { AgentConfig } from "@engenty/ai-core";
-import { resolveChatModelId } from "@engenty/ai-core";
 import { ENGENTY_CLI_INSTRUCTIONS } from "./instructions.js";
 import { ENGENTY_CLI_TOOL_IDS } from "./tools.js";
 
 export const ENGENTY_CLI_AGENT_ID = "engenty.cli";
-
-// Code-execution agents get their own model resolution slot so operators can
-// independently configure a faster/cheaper model for scripting tasks without
-// affecting the main chat experience.
-const cliAgentModel = resolveChatModelId({ purpose: "code_execution" });
 
 export const engentyCLIAgentConfig: AgentConfig = {
   description:
@@ -28,7 +23,6 @@ export const engentyCLIAgentConfig: AgentConfig = {
   // A CLI agent writes and runs code: every turn is the top tier.
   effort: "high",
   kind: "delegated",
-  model: cliAgentModel,
   name: "CLI Agent",
   skillIds: [],
   source: "builtin",
@@ -37,15 +31,15 @@ export const engentyCLIAgentConfig: AgentConfig = {
     enabled: true,
     preset: "code_execution",
     sandbox: {
-      // Session lifecycle keys the sandbox dir by parent thread so the CLI
-      // agent reuses the same container across multiple delegations within one
-      // conversation (files persist through HITL approve/resume round-trips).
+      // `run` lands on the Space computer when the run has a Space
+      // (`resolveRunSandboxLifecycle`).
       enabled: true,
-      lifecycle: "session",
+      lifecycle: "run",
       mountPath: "/sandbox",
       // It installs packages and calls third-party APIs, so it needs the wire.
-      // Where that reaches is the host's call — `egress` routes through the
-      // proxy when one is configured.
+      // Only the per-run fallback reads this: on the Space computer the
+      // Space's reach setting applies. Where `egress` reaches is the host's
+      // call — it routes through the proxy when one is configured.
       network: "egress",
       // Copilot gates delegation; CLI execute_command must not double-suspend.
       // Keep false until all chat models accept Mastra tool-approval-response

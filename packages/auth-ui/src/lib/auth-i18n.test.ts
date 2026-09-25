@@ -21,21 +21,21 @@ describe("detectAuthLocale", () => {
   });
 
   it("uses the browser language when nothing is stored", () => {
-    vi.stubGlobal("localStorage", memoryStorage());
+    vi.stubGlobal("sessionStorage", memoryStorage());
     vi.stubGlobal("navigator", { language: "de-AT" });
     expect(detectAuthLocale()).toBe("de");
   });
 
   it("falls back to English for an unsupported browser language", () => {
-    vi.stubGlobal("localStorage", memoryStorage());
+    vi.stubGlobal("sessionStorage", memoryStorage());
     vi.stubGlobal("navigator", { language: "fr-FR" });
     expect(detectAuthLocale()).toBe("en");
   });
 
-  it("lets a stored preference win over the browser", () => {
+  it("lets this tab's pick win over the browser", () => {
     const storage = memoryStorage();
     storage.setItem(AUTH_LOCALE_STORAGE_KEY, "en");
-    vi.stubGlobal("localStorage", storage);
+    vi.stubGlobal("sessionStorage", storage);
     vi.stubGlobal("navigator", { language: "de" });
     expect(detectAuthLocale()).toBe("en");
   });
@@ -46,9 +46,9 @@ describe("setAuthLocalePreference", () => {
     vi.unstubAllGlobals();
   });
 
-  it("writes the i18next storage key", () => {
+  it("keeps the pick for the tab", () => {
     const storage = memoryStorage();
-    vi.stubGlobal("localStorage", storage);
+    vi.stubGlobal("sessionStorage", storage);
     setAuthLocalePreference("de");
     expect(storage.getItem(AUTH_LOCALE_STORAGE_KEY)).toBe("de");
   });

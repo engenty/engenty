@@ -165,6 +165,8 @@ export interface StartConversationRunInput {
     reason?: string;
     source?: string;
   } | null;
+  /** The run's "Your computer" prompt section, from its workspace. */
+  computeInstructions?: string;
   /**
    * The tier this run's model was resolved from, however it was chosen — the
    * user's explicit pick or the auto sizing. Distinct from
@@ -426,7 +428,7 @@ export async function startConversationRun(
         agentId: input.agentId,
         alterEgo,
         ...(rootConfig?.name ? { agentName: rootConfig.name } : {}),
-        observationalModelId: input.modelConfig?.memoryModelId,
+        observationalModelId: input.modelConfig?.fastTextModelId,
         scope: input.scope,
         sharedObservations: rootConfig
           ? resolveSharedObservationsScope(rootConfig)
@@ -485,11 +487,10 @@ export async function startConversationRun(
           ...(input.modelConfig ? { modelConfig: input.modelConfig } : {}),
         })
       : { extraTools: {}, skipNativeSubAgents: false };
-    // The acting user's browser, when they have one (D11) — in this space
-    // or, for the river, outside any. Audit rides the run-event lane as
-    // agent steps only.
-    const runBrowser = await resolveRunBrowser({
-      scope: input.scope,
+    // This agent's window in the Space's browser (D11). Audit rides the
+    // run-event lane as agent steps only.
+    const runBrowser = resolveRunBrowser({
+      agentId: input.agentId,
       source: spaceResolution,
     });
     const browserTools = await createUserBrowserTools({
@@ -499,6 +500,7 @@ export async function startConversationRun(
       headless: false,
       tenantId: input.scope.tenantId,
       textModelId: input.modelConfig?.gradedModelIds?.low ?? null,
+      classifierModelId: input.modelConfig?.classifierModelId ?? null,
     });
     const extraTools = {
       ...frontendTools,
@@ -522,6 +524,9 @@ export async function startConversationRun(
       await buildSessionRuntimeInstructions({
         agentId: input.agentId,
         agentUi: input.agentUi,
+        ...(input.computeInstructions
+          ? { computeInstructions: input.computeInstructions }
+          : {}),
         frontendToolGrant,
         routeContext: input.routeContext ?? null,
         runContext: input.runContext,

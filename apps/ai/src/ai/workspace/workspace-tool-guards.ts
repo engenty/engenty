@@ -32,6 +32,7 @@
  * recursive, anything on a shared or space mount, anything in `/data` — asks.
  */
 
+import { WORKSPACE_TOOLS } from "@mastra/core/workspace";
 import type { ToolApprovalSuspendPayload } from "../../../ai/tools/engenty-tools/lib/execute-approval.js";
 import { getEngentyToolsRunContext } from "../../../ai/tools/engenty-tools/lib/run-context.js";
 import { DATA_MOUNT_PATH, SPACE_MOUNT_PATH } from "./workspace-presets.js";
@@ -43,6 +44,9 @@ import { DATA_MOUNT_PATH, SPACE_MOUNT_PATH } from "./workspace-presets.js";
  * Nothing here is shared with another principal, so a single-file delete inside
  * one destroys only the agent's own work.
  */
+const EXECUTE_COMMAND_TOOL = WORKSPACE_TOOLS.SANDBOX.EXECUTE_COMMAND;
+const DELETE_TOOL = WORKSPACE_TOOLS.FILESYSTEM.DELETE;
+
 const OWN_SCRATCH_MOUNTS = ["/home", "/task", "/sandbox"] as const;
 
 /**
@@ -73,19 +77,36 @@ export function isRecursiveDelete(args: Record<string, unknown>): boolean {
   return args.recursive === true;
 }
 
+function commandOf(args: Record<string, unknown>): string {
+  const command = typeof args.command === "string" ? args.command.trim() : "";
+  const cwd = typeof args.cwd === "string" ? args.cwd.trim() : "";
+  if (!command) {
+    return "";
+  }
+  // The working directory is part of what runs: `rm -rf *` in `/task` and in
+  // `/shared` are different requests, so it is part of what is approved.
+  return cwd ? `cd ${cwd} && ${command}` : command;
+}
+
 /**
  * A grant id that names WHAT was approved, not merely which tool.
  *
  * Path-scoped on purpose: approving one recursive delete of
  * `/shared/old-imports` must not grant every future recursive delete the agent
  * thinks of. A grant is permission for a change, not for a capability.
+ *
+ * Commands the same way: approving `python3 /task/check_mail.py` allows that
+ * exact command (in that directory) and nothing else. Specialists repeat their
+ * commands — a routine runs the same script every fire — so an exact-command
+ * grant is spendable; a tool-wide one would be permission to run anything.
  */
 export function workspaceToolGrantId(
   toolName: string,
   args: Record<string, unknown>
 ): string {
-  const path = pathOf(args);
-  return path ? `workspace:${toolName}:${path}` : `workspace:${toolName}`;
+  const target =
+    toolName === EXECUTE_COMMAND_TOOL ? commandOf(args) : pathOf(args);
+  return target ? `workspace:${toolName}:${target}` : `workspace:${toolName}`;
 }
 
 /**
@@ -117,18 +138,25 @@ export function workspaceDeleteNeedsApproval(
  * tool's.
  *
  * An approval card reading `mastra_workspace_delete` tells a person nothing
- * they can decide on. "delete /shared/imports and everything in it" is the
+ * they can decide on. "Delete /shared/imports and everything in it" is the
  * same fact stated so the answer is obvious — and the cascade is named
  * explicitly, because that is the part someone approving in a hurry would
- * otherwise not see.
+ * otherwise not see. A command is shown as the command itself.
  */
-export function describeWorkspaceToolCall(args: unknown): string {
+export function describeWorkspaceToolCall(
+  toolName: string,
+  args: unknown
+): { target: string; title: string } {
   const record = (args ?? {}) as Record<string, unknown>;
-  const path = pathOf(record);
-  if (!path) {
-    return "target not stated";
+  if (toolName === EXECUTE_COMMAND_TOOL) {
+    return { target: commandOf(record), title: "Run command" };
   }
-  return isRecursiveDelete(record) ? `${path} and everything inside it` : path;
+  const path = pathOf(record);
+  const target =
+    path && isRecursiveDelete(record)
+      ? `${path} and everything inside it`
+      : path;
+  return { target, title: toolName === DELETE_TOOL ? "Delete" : toolName };
 }
 
 /**
@@ -150,6 +178,28 @@ function isGranted(toolName: string, args: Record<string, unknown>): boolean {
 }
 
 /**
+ * Card title + body for a workspace call: the action as the title, the exact
+ * command or path as the body. A call whose target cannot be read still asks —
+ * the body says so rather than inventing one.
+ */
+export function workspaceApprovalCard(
+  toolName: string,
+  args: unknown
+): { body: string; title: string } {
+  const { target, title } = describeWorkspaceToolCall(toolName, args);
+  return { body: target || "(no target given)", title };
+}
+
+/** One-line form of {@link workspaceApprovalCard}, for lanes with a title only. */
+export function workspaceApprovalTitle(
+  toolName: string,
+  args: unknown
+): string {
+  const card = workspaceApprovalCard(toolName, args);
+  return `${card.title}: ${card.body}`;
+}
+
+/**
  * The gate's pause, stated as the approval card every other gated call uses.
  *
  * A workspace tool is gated by Mastra's own `requireApproval`, so its pause
@@ -167,7 +217,7 @@ export function workspaceApprovalSuspendPayload(gate: {
     operation_id: workspaceToolGrantId(gate.toolName, gate.args),
     requires_approval: true,
     risk_level: "high",
-    title: `${gate.toolName} — ${describeWorkspaceToolCall(gate.args)}`,
+    ...workspaceApprovalCard(gate.toolName, gate.args),
   };
 }
 
@@ -190,14 +240,9 @@ export function workspaceDeleteApprovalGate(toolName: string) {
  * routine fire would gate, park for a human, and — because the static answer
  * cannot see the grant that human wrote — gate again on the very next fire,
  * forever. Reading the grants makes an approval mean something: the first call
- * asks, the approval is recorded on the run's subject, and the re-dispatch (or
- * the next fire of a routine holding a standing grant) runs it.
- *
- * Its grant id names the TOOL, not a path — an `execute_command` call carries
- * no path, and a grant keyed on the command string would never be spendable
- * twice, since a model does not repeat itself verbatim. So this is the one
- * workspace grant that means "this subject may run commands", which is exactly
- * what a routine's standing allow-list is for.
+ * asks, the approval is recorded (on the agent, the run's subject, or the
+ * routine), and the next call of the SAME command runs. A different command
+ * asks again — see {@link workspaceToolGrantId}.
  */
 export function sandboxExecuteApprovalGate(toolName: string) {
   return ({ args }: { args: Record<string, unknown> }): boolean =>

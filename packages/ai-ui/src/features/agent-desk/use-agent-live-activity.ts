@@ -9,7 +9,11 @@
 // tenant's run feed is polled and folded to one state per agent. One query
 // for every row: React Query shares it, so a sidebar of ten desks polls once.
 
-import { useQuery } from "@engenty/query-client";
+import {
+  keepPreviousData,
+  staggeredRefetchInterval,
+  useQuery,
+} from "@engenty/query-client";
 import type { AiAgentRunSummary } from "../../lib/admin/ai-runtime-types.js";
 import { listTenantRuns } from "../../lib/runtime/runs-api.js";
 
@@ -17,7 +21,11 @@ import { listTenantRuns } from "../../lib/runtime/runs-api.js";
 export type AgentLiveActivity = "needs_input" | "working";
 
 /** Nothing pushes a background run to the browser, so the feed is polled. */
-const POLL_INTERVAL_MS = 5000;
+export const AGENT_LIVE_ACTIVITY_POLL_MS = 5000;
+/** Quiet desks do not need a 5s tick — that overlapped Space home. */
+export const AGENT_LIVE_ACTIVITY_IDLE_POLL_MS = 30_000;
+
+const LIVE_ACTIVITY_POLL_SALT = "agent-live-activity";
 
 /** Runs to look at — the newest of the tenant, across every space. */
 const FEED_LIMIT = 60;
@@ -83,6 +91,16 @@ export function agentLiveActivityByAgent(
   return byAgent;
 }
 
+export function agentLiveActivityPollMs(
+  runs: readonly AiAgentRunSummary[] | undefined
+): number | false {
+  const live = agentLiveActivityByAgent(runs ?? []).size > 0;
+  return staggeredRefetchInterval(
+    live ? AGENT_LIVE_ACTIVITY_POLL_MS : AGENT_LIVE_ACTIVITY_IDLE_POLL_MS,
+    LIVE_ACTIVITY_POLL_SALT
+  );
+}
+
 export function useAgentLiveActivityMap(
   enabled = true
 ): ReadonlyMap<string, AgentLiveActivity> {
@@ -90,7 +108,12 @@ export function useAgentLiveActivityMap(
     enabled,
     queryFn: ({ signal }) => listTenantRuns({ limit: FEED_LIMIT, signal }),
     queryKey: ["ai", "agent-runs", "live-activity"],
-    refetchInterval: POLL_INTERVAL_MS,
+    placeholderData: keepPreviousData,
+    refetchInterval: (query) =>
+      agentLiveActivityPollMs(
+        (query.state.data as { runs?: AiAgentRunSummary[] } | undefined)?.runs
+      ),
+    refetchIntervalInBackground: false,
     select: (data) => agentLiveActivityByAgent(data.runs),
   });
   return query.data ?? EMPTY_ACTIVITY;

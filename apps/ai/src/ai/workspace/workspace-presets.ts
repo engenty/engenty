@@ -241,10 +241,9 @@ export function resolveSandboxStorageRelativePath(
   ctx: SandboxLifecycleContext
 ): string {
   if (lifecycle === "space") {
-    // The space computer's drive. Constant within a space on purpose: the
-    // staging root is already space-rooted (`resolveMountSpaceId`), so this is
-    // one shared workspace per space — every run that targets the machine, and
-    // the machine itself, see the same bytes (PLAN-space-computer.md §1.2).
+    // The space computer's `/sandbox`. A label for the mount table only: the
+    // machine's layout (`resolveSandboxStorageLayout`) puts it in the Space
+    // drive's `sandbox/` and never syncs it, so nothing is stored here.
     return "ai/sandboxes/space/workspace/";
   }
   if (lifecycle === "task") {

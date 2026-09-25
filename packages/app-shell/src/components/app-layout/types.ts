@@ -8,6 +8,7 @@ import type { NavigationSection, ShellSidebarConfig } from "../../types/shell";
 import type { ShellAppBarPositionPersistence } from "../../types/shell-app-bar-position";
 import type { AppBarThemeMenu } from "../../types/shell-app-bar-theme";
 import type { ShellSecondaryNavPinnedPersistence } from "../../types/shell-secondary-nav-pinned";
+import type { AppMenuContent } from "../app-menu-dialog";
 import type { AppMenuActions } from "../app-topbar";
 
 export interface SecondaryNavRouteTransition {
@@ -20,6 +21,8 @@ export interface AppLayoutProps {
   appBarPositionPersistence?: ShellAppBarPositionPersistence;
   /** "Theme ›" on the app-bar context menu. Omit to hide the submenu. */
   appBarThemes?: AppBarThemeMenu;
+  /** Space tabs, About, and the list shown inside a space tab. */
+  appMenu?: AppMenuContent;
   /** Quick-action callbacks for the ⌘K command menu. */
   appMenuActions?: AppMenuActions;
   children: ReactNode;

@@ -37,9 +37,6 @@ function useConfigLabels(config: SearchIndexProviderConfig | null) {
   const perTenant = t("settings.searchIndex.config.perTenant");
   const none = t("settings.searchIndex.config.none");
   return {
-    embeddingModel: config.embeddingModelDynamic
-      ? perTenant
-      : (config.embeddingModel ?? "—"),
     fastPath:
       config.fastPathMaxTerms == null ? none : String(config.fastPathMaxTerms),
     splitter: config.splitter ?? "—",
@@ -173,10 +170,6 @@ export function SearchIndexProviderCard({
           <ConfigItem
             label={t("settings.searchIndex.config.trigram")}
             value={configLabels.trigram}
-          />
-          <ConfigItem
-            label={t("settings.searchIndex.config.embeddingModel")}
-            value={configLabels.embeddingModel}
           />
         </div>
       ) : (

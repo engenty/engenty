@@ -1,6 +1,5 @@
 import { useTranslation } from "@engenty/i18n/ui";
 import {
-  Badge,
   Button,
   Card,
   Empty,
@@ -199,9 +198,6 @@ function AccountRow({ account }: { account: InboxAccount }) {
                 account.external_account ??
                 account.connector_id}
             </span>
-            <Badge variant="secondary">
-              {t(account.all_spaces ? "filters.allSpaces" : "filters.personal")}
-            </Badge>
           </div>
           <span className="text-muted-foreground text-xs">
             {account.connector_id}

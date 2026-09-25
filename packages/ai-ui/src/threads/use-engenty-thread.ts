@@ -3,6 +3,8 @@
 import { useMemo } from "react";
 import type { AppsAiThreadRecord } from "../ag-ui/apps-ai/apps-ai-thread-api.js";
 import {
+  appsAiThreadDetailQueryKey,
+  appsAiThreadMessagesQueryKey,
   useAppsAiThreadMessagesQuery,
   useAppsAiThreadQuery,
 } from "../ag-ui/apps-ai/apps-ai-thread-api.js";
@@ -56,22 +58,23 @@ export function useEngentyThread(
     threadId: resolvedThreadId,
   });
 
+  // Detail and transcript load side by side: the transcript does not need the
+  // detail, and chaining them doubled the wait on every open.
   const messagesQuery = useAppsAiThreadMessagesQuery({
-    enabled: enabled && detailQuery.isSuccess,
+    enabled,
     serviceBaseUrl: ctx.serviceBaseUrl,
     threadId: resolvedThreadId,
   });
 
+  // The keys the queries above are cached under: a run that settles
+  // invalidates exactly these.
   const threadDetailQueryKey = useMemo(
     () =>
       resolvedThreadId
-        ? [
-            "apps-ai",
-            "sessions",
-            "detail",
-            ctx.serviceBaseUrl,
-            resolvedThreadId,
-          ]
+        ? appsAiThreadDetailQueryKey({
+            serviceBaseUrl: ctx.serviceBaseUrl,
+            threadId: resolvedThreadId,
+          })
         : [],
     [ctx.serviceBaseUrl, resolvedThreadId]
   );
@@ -79,13 +82,10 @@ export function useEngentyThread(
   const threadMessagesQueryKey = useMemo(
     () =>
       resolvedThreadId
-        ? [
-            "apps-ai",
-            "sessions",
-            "messages",
-            ctx.serviceBaseUrl,
-            resolvedThreadId,
-          ]
+        ? appsAiThreadMessagesQueryKey({
+            serviceBaseUrl: ctx.serviceBaseUrl,
+            threadId: resolvedThreadId,
+          })
         : [],
     [ctx.serviceBaseUrl, resolvedThreadId]
   );
@@ -105,13 +105,10 @@ export function useEngentyThread(
   return {
     agUiMessages: messagesQuery.agUiMessages,
     isLoading: detailQuery.isLoading,
-    // Fetching an older page keeps the transcript on screen: it is a prepend,
-    // not a reload, so it must not swap the lane for the loading skeleton.
-    isLoadingMessages:
-      messagesQuery.isPending ||
-      messagesQuery.isLoading ||
-      (messagesQuery.isFetching && !messagesQuery.isFetchingNextPage) ||
-      !messagesQuery.isFetched,
+    // Loading only while nothing is held: a cached transcript shows at once
+    // and a background refetch replaces it when it lands (hydration takes the
+    // newer rows). Older pages are a prepend, never a reload.
+    isLoadingMessages: messagesQuery.isPending,
     messagesError:
       messagesQuery.error instanceof Error ? messagesQuery.error : null,
     olderMessages,

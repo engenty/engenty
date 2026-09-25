@@ -19,7 +19,6 @@ export const SPACE_RESOURCE_KINDS = [
   "module",
   "agent",
   "skill",
-  "connection",
   "plugin",
 ] as const;
 export type SpaceResourceKind = (typeof SPACE_RESOURCE_KINDS)[number];
@@ -66,8 +65,8 @@ export function spaceMountKey(
  * files is a complete space. The first Company space is baseline only.
  *
  * MIRRORED IN SQL: `core.space_baseline_mounts()` — the latest migration that
- * redefines it. `space-setup.test.ts` / `space-baseline-sql-pin.test.ts` read
- * that function and fail if the two lists disagree.
+ * redefines it. `apps/core/src/dal/spaces.integration.test.ts` creates a space
+ * on a real database and fails if the seeded mounts disagree with this list.
  */
 export const SPACE_BASELINE_MOUNTS: readonly SpaceMountDeclaration[] = [
   // Chat. A mounted app like any other — not a special case in the schema.

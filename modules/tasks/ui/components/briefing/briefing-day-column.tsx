@@ -1,10 +1,7 @@
-// Left Briefing column: Attention (inbox HITL/errors) · On your plate · Recently done.
-import {
-  type InboxNotificationDto,
-  useInboxListQuery,
-} from "@engenty/ai-ui/embed";
+// Left Briefing column: Attention (open `isAttention` rows) · On your plate · Recently done.
+import { useInboxListQuery } from "@engenty/ai-ui/embed";
 import { useTranslation } from "@engenty/i18n/ui";
-import { isNeedsInput, NotificationList } from "@engenty/notifications-ui";
+import { isAttention, NotificationList } from "@engenty/notifications-ui";
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import type {
@@ -127,9 +124,7 @@ export function BriefingDayColumn({
 
   const attentionNotifications = useMemo(() => {
     const all = inboxQuery.data?.notifications ?? [];
-    return all.filter(
-      (n: InboxNotificationDto) => isNeedsInput(n) && n.status === "pending"
-    );
+    return all.filter(isAttention);
   }, [inboxQuery.data?.notifications]);
 
   const plateTasks = useMemo(() => buildPlateTasks(snapshot), [snapshot]);

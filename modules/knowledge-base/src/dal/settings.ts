@@ -80,11 +80,6 @@ export function createKbSettingsRepo(
       );
 
       await kv.set(KB_KV_SCOPE_CONTEXT, {
-        name: KB_KV_KEY.embeddingModel,
-        type: "string",
-        value_string: input.embedding_model,
-      });
-      await kv.set(KB_KV_SCOPE_CONTEXT, {
         name: KB_KV_KEY.searchVectorMinSimilarity,
         type: "numeric",
         value_numeric: input.search_vector_min_similarity,

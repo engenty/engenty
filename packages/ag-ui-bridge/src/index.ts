@@ -159,6 +159,7 @@ export {
   GANTT_LANE_PAD_PX,
   GANTT_LANE_PITCH_PX,
   ganttLaneFor,
+  rowDurationMs,
   trajectoryRowAnchorId,
 } from "./run-trace-gantt.js";
 export type {

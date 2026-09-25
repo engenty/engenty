@@ -308,6 +308,10 @@
     "fontDescription": "Primäre UI-Schriftfamilie.",
     "fontSize": "Schriftgröße",
     "fontSizeDescription": "Skalierung der Basisschriftgröße.",
+    "chatUi": "Chat-Ansicht",
+    "chatUiDescription": "Wie Agenten-Nachrichten in Chats erscheinen.",
+    "chatStyleCanvas": "Agent auf der Fläche",
+    "chatStyleBubbles": "Agent in Sprechblasen",
     "runtimeTitle": "Laufzeit",
     "runtimeDescription": "Umgebungskonfiguration für die aktuelle App-Laufzeit.",
     "apiBaseUrl": "API-Basis-URL",
@@ -383,6 +387,8 @@
         "test": "Testsuche"
       },
       "overview": {
+        "embeddingModel": "Embedding-Modell",
+        "embeddingModelHint": "Ein Modell für alle Indizes, plattformweit in der Rollenzuordnung festgelegt. Nach einem Wechsel erscheinen betroffene Zeilen als veraltet, bis der Index neu aufgebaut ist.",
         "description": "Zustand und effektive Konfiguration jedes registrierten Suchindex – über Core- und KI-Laufzeit hinweg.",
         "reloadProviders": "Provider neu laden",
         "providersFailed": "Providerliste konnte nicht geladen werden.",
@@ -415,11 +421,10 @@
         "vectorThreshold": "Vektor-Schwelle",
         "fastPath": "Fast-Path-Begriffe",
         "trigram": "Titel-Trigramm",
-        "embeddingModel": "Embedding-Modell",
         "unavailable": "Keine Retrieval-Konfiguration gemeldet (manueller Provider)."
       },
       "params": {
-        "description": "Die Wissensdatenbank ist die einzige Quelle mit persistierten, pro-Tenant-Suchparametern. Änderungen an Chunking oder Embedding-Modell gelten für neu indexierte Inhalte; für bestehende Zeilen neu aufbauen.",
+        "description": "Die Wissensdatenbank ist die einzige Quelle mit persistierten, pro-Tenant-Suchparametern. Chunking-Änderungen gelten für neu indexierte Inhalte; für bestehende Zeilen neu aufbauen.",
         "kbTitle": "Wissensdatenbank-Parameter",
         "loading": "Einstellungen werden geladen…",
         "loadFailed": "Wissensdatenbank-Einstellungen konnten nicht geladen werden.",
@@ -431,8 +436,6 @@
         "verifierMinTerms": "Verifier: Min. Suchbegriffe",
         "verifierMinTermsHint": "Der LLM-Verifier läuft nur bei Anfragen mit mindestens so vielen Begriffen.",
         "verifierMaxCandidates": "Verifier: Max. Kandidaten",
-        "embeddingModel": "Embedding-Modell",
-        "embeddingModelHint": "Gilt für neu indexierte Artikel; für bestehende Zeilen neu aufbauen.",
         "save": "Speichern",
         "saved": "Gespeichert.",
         "saveFailed": "Einstellungen konnten nicht gespeichert werden.",
@@ -462,6 +465,7 @@
       "title": "KI",
       "overviewDescription": "Standardmodelle und Nutzung für diesen Arbeitsbereich.",
       "modelsOverview": "Chat-Modell: {{model}}",
+      "modelsOverviewUnbound": "Chat-Modell: keine Rollenbindung",
       "usageOverview": "{{when}} · {{cost}}",
       "usageOverviewWithLimit": "{{when}} · {{cost}} von {{limit}}"
     },
@@ -649,9 +653,10 @@
       "body": "Diese Aktion erfordert deine Freigabe. Operation: {{operation}}",
       "bodyBulk": "Diese Aktionen erfordern deine Freigabe. Operationen: {{operations}}",
       "approveOnce": "Einmal erlauben",
-      "approveAlways": "Immer erlauben (dieser Chat)",
+      "approveAlways": "Für diesen Agent erlauben",
       "approveRun": "Für diesen Lauf erlauben",
-      "approveChat": "Für diesen Chat erlauben",
+      "workspaceCommand": "Diesen Befehl ausführen?",
+      "workspaceDelete": "Das löschen?",
       "deny": "Ablehnen",
       "approved": "Freigegeben",
       "denied": "Abgelehnt"
@@ -732,10 +737,7 @@
       "completed": "Abgeschlossen",
       "failed": "Fehlgeschlagen"
     },
-    "context": {
-      "menu": "Kontext",
-      "recent": "Zuletzt"
-    }
+    "guideDismiss": "Schließen"
   },
   "sidebar": {
     "brand": "engenty",
@@ -743,7 +745,14 @@
     "search": "Suchen",
     "search_placeholder": "Suchen",
     "appMenu": {
-      "about": "Über"
+      "about": "Über",
+      "actions": "Aktionen",
+      "all": "Alle",
+      "empty": "Keine Ergebnisse.",
+      "loading": "Laden…",
+      "search": "Apps suchen…",
+      "settings": "Einstellungen",
+      "spaceEmpty": "In diesem Space ist noch nichts."
     }
   },
   "about": {
@@ -913,7 +922,9 @@
         "chiefOfStaffHint": "Richtet den Space ein, verteilt Arbeit, stellt Kolleg:innen ein",
         "title": "Neuer Agent"
       },
-      "section": "Agenten"
+      "section": "Agenten",
+      "attention_one": "{{count}} wichtig",
+      "attention_other": "{{count}} wichtig"
     },
     "members": {
       "description": "Wer diesen Space öffnen kann. Alle hier sehen seine Arbeit, seine Daten und seine Chats.",
@@ -1023,9 +1034,8 @@
       "optionalTitle": "Optionaler Zugriff",
       "optionalHint": "Überspringe diesen Schritt, wenn der Space jetzt keinen bestimmten Skill oder Account benötigt.",
       "capabilitiesTitle": "Fähigkeiten",
-      "capabilitiesHint": "Verbindungen kannst du hier ergänzen. Skills der gewählten Apps sind automatisch dabei. Engentys, MCPs und OpenAI-Plugins können später dazukommen.",
+      "capabilitiesHint": "Hier kommen zusätzliche Skills dazu. Skills für die gewählten Apps sind automatisch dabei. Konten verbindest du, sobald der Space existiert; Engentys, MCPs und OpenAI-Plugins können später dazukommen.",
       "skillSearchPrompt": "Durchsuche Extra-Skills, wenn dieser Space etwas braucht, das nicht mit den Apps kommt.",
-      "connectionSearchPrompt": "Keine passenden Verbindungen für die gewählten Module. Suche, um alle verbundenen Konten zu sehen.",
       "focus": {
         "modules": "{{count}} optionale Module ausgewählt — fokussiert.",
         "modulesBroad": "{{count}} optionale Module ausgewählt. Erwäge, kleiner zu starten und später zu ergänzen.",
@@ -1062,8 +1072,6 @@
       "skillsHint": "Skills, die diese Engentys laden dürfen. Skills bleiben in der Tenant-Bibliothek; Einbinden macht sie nur verfügbar.",
       "addPackage": "Paket hinzufügen",
       "removePackage": "Paket entfernen",
-      "connectionsTitle": "Verbindungen",
-      "connectionsHint": "Verbundene Konten, die dieser Space erreicht. Aktiviere ein Plugin, authentifiziere ein Konto, oder teile ein Konto mit jedem Space.",
       "pluginsTitle": "Plugins",
       "pluginsHint": "Konnektor-Definitionen in diesem Space, auch solche, die noch kein Konto haben.",
       "appearanceLabel": "Farbe und Icon",
@@ -1117,17 +1125,6 @@
       "catalogSearching": "Suche passende Einträge…",
       "moduleAddTitle": "{{name}} hinzufügen",
       "moduleDescriptionFallback": "Für dieses Modul gibt es noch keine Beschreibung.",
-      "accountAccessLabel": "Engenty-Zugriff",
-      "accountAccess": {
-        "none": "Nur für Menschen",
-        "read": "Nur lesen",
-        "write": "Darf lesen und handeln"
-      },
-      "accountAccessHint": {
-        "none": "Das Konto steht in diesem Space für Menschen bereit. Engentys bekommen nichts davon.",
-        "read": "Engentys in diesem Space dürfen aus diesem Konto lesen, aber nichts schreiben.",
-        "write": "Engentys in diesem Space dürfen mit diesem Konto lesen und handeln. Seine eigenen Freigaberegeln gelten weiter."
-      },
       "moduleAccessLabel": "Engenty-Zugriff",
       "moduleAccessSummary": "Engentys: {{access}}",
       "moduleAccess": {
@@ -1147,7 +1144,6 @@
       "moduleRemoveHint": "Das Entfernen blendet das Modul in diesem Space aus. Seine Datensätze werden nicht gelöscht.",
       "recommended": "Empfohlen",
       "recommendedSection": "Für diesen Space empfohlen",
-      "connectLater": "Nach dem Erstellen verbinden",
       "agentSearch": "Engentys suchen…",
       "agentInSpaceSection": "In diesem Space",
       "agentAvailableSection": "Weitere Engentys",
@@ -1168,7 +1164,6 @@
       "agentRemoveHint": "Das Entfernen blendet den Engenty in diesem Space aus. Der Agent selbst und seine Daten werden nicht gelöscht.",
       "skillSearch": "Skills suchen…",
       "skillSearchPrompt": "Durchsuche Extra-Skills, wenn dieser Space etwas braucht, das nicht mit den Apps kommt.",
-      "connectionSearch": "Verbundene Konten suchen…",
       "resourceInSpaceSection": "In diesem Space",
       "resourceAvailableSection": "Verfügbar",
       "resourceInSpace": "Im Space",
@@ -1179,7 +1174,6 @@
       "resourceDescriptionFallback": "Noch keine Beschreibung verfügbar.",
       "resourceNoMatches": "Keine passenden Einträge.",
       "skillAccessHint": "Dieser Skill steht den Engentys im Space zur Verfügung. Er bleibt in der Skill-Bibliothek des Tenants.",
-      "connectionAccessHint": "Dieses verbundene Konto ist aus dem Space erreichbar. Seine Aktions- und Freigaberichtlinien gelten weiterhin.",
       "resourceRemove": "Aus Space entfernen",
       "resourceRemoveHint": "Das Entfernen löscht weder den Skill noch das Konto oder dessen Daten.",
       "moduleNotReady": "{{module}} ist in diesem Space, aber noch nicht bereit: {{detail}}",
@@ -1339,7 +1333,11 @@
         "agents": "Agenten",
         "pinned": "Favoriten",
         "active": "Aktiv",
-        "quiet": "Inaktiv"
+        "quiet": "Inaktiv",
+        "attention": "Wichtig"
+      },
+      "attention": {
+        "all": "Alle ({{count}})"
       }
     },
     "notFound": "Dieser Space ist nicht verfügbar.",
@@ -1362,6 +1360,10 @@
       "networkTitle": "Internetzugang",
       "networkHint": "Erlaubt dem Computer dieses Space, Pakete zu installieren und externe APIs aufzurufen. Aus führt er weiterhin Code aus und nutzt Engentys eigene Werkzeuge.",
       "networkHintReset": "Wirkt nach einem Zurücksetzen.",
+      "egressHostsTitle": "Erlaubte Hosts",
+      "egressHostsHint": "Weitere Hosts, die der Computer dieses Space erreichen darf, einer pro Zeile — etwa die API einer installierten CLI. Paket-Registries sind immer erlaubt. *.example.com erlaubt alle Subdomains. Gilt ab dem nächsten Lauf.",
+      "egressHostsInvalid": "Kein Host: {{hosts}}",
+      "egressHostsTooMany": "Höchstens {{max}} Hosts.",
       "networkInherit": "Host-Standard",
       "inheritResolved": "{{label}} — {{value}}",
       "network": {
@@ -1699,7 +1701,8 @@
       "answer": "Antworten",
       "approve": "Freigeben",
       "fix": "Beheben",
-      "review": "Prüfen"
+      "review": "Prüfen",
+      "continue": "Fortsetzen"
     },
     "approval": {
       "allowAlways": "Für diesen Agenten immer erlauben",
@@ -1710,10 +1713,7 @@
       "decided": "Entschieden: {{decision}}",
       "deny": "Ablehnen",
       "failed": "Entscheidung konnte nicht gespeichert werden.",
-      "risk": "Risiko {{level}}",
-      "summary": "{{actor}} möchte {{operation}} in {{space}} ausführen",
-      "summaryCompact": "{{operation}} ausführen",
-      "summaryGlobal": "{{actor}} möchte {{operation}} ausführen"
+      "risk": "Risiko {{level}}"
     },
     "bell": "Benachrichtigungen",
     "clearAll": "Alle löschen",
@@ -1726,7 +1726,8 @@
       "all": "Alle",
       "errors": "Fehler",
       "hitl": "Braucht deine Antwort",
-      "updates": "Updates"
+      "updates": "Updates",
+      "attention": "Wichtig"
     },
     "inboxTitle": {
       "errors_one": "{{count}} Fehler",
@@ -1734,13 +1735,16 @@
       "hitl_one": "{{count}} offene Freigabe",
       "hitl_other": "{{count}} offene Freigaben",
       "updates_one": "{{count}} Update",
-      "updates_other": "{{count}} Updates"
+      "updates_other": "{{count}} Updates",
+      "attention_one": "{{count}} wichtig",
+      "attention_other": "{{count}} wichtig"
     },
     "lane": {
       "approvals": "Freigaben",
       "errors": "Fehler",
       "needsYou": "Braucht deine Antwort",
-      "updates": "Updates"
+      "updates": "Updates",
+      "attention": "Wichtig"
     },
     "loadFailed": "Benachrichtigungen konnten nicht geladen werden.",
     "loading": "Lädt…",
@@ -1753,12 +1757,58 @@
       "thisSpace": "Dieser Space"
     },
     "searchPlaceholder": "Benachrichtigungen durchsuchen…",
-    "spaceCard": "{{count}} Dinge brauchen deine Aufmerksamkeit in diesem Space",
     "subtitle": "Freigaben, Fehler und erledigte Agentenarbeit, die deine Aufmerksamkeit brauchen.",
     "title": "Benachrichtigungen",
     "viewAll": "Alle anzeigen",
     "views": {
       "save": "Aktuellen Filter speichern"
+    },
+    "actorFilter": {
+      "clear": "Alle anzeigen"
+    },
+    "open": "Öffnen",
+    "titles": {
+      "action_failed": "Workflow „{{name}}“ ist fehlgeschlagen",
+      "action_gate": "Workflow „{{name}}“ wartet auf deine Entscheidung",
+      "action_question": "Workflow „{{name}}“ hat eine Frage",
+      "agent_desk_post": "{{actor}} hat ein Update gepostet",
+      "agent_handoff": "{{from}} hat Arbeit an {{to}} übergeben",
+      "agent_hired": "{{name}} ist jetzt im Team",
+      "agent_look_proposed": "{{actor}} schlägt ein neues Aussehen vor",
+      "agent_proposed": "Neuer Agent „{{name}}“ zur Prüfung",
+      "agent_question": "{{actor}} hat eine Frage",
+      "agent_reply": "{{from}} hat {{to}} geantwortet",
+      "agent_revision_proposed": "Änderungen an „{{name}}“ zur Prüfung",
+      "agent_run_suspended": "{{actor}} schlägt Änderungen zur Prüfung vor",
+      "app_release_proposed": "„{{name}}“ v{{version}} ist bereit zur Veröffentlichung",
+      "approval_requested": "{{actor}} möchte {{operation}} ausführen",
+      "records_written": "{{actor}} hat {{operation}} ausgeführt",
+      "room_paused": "„{{name}}“ pausiert nach {{count}} Zügen",
+      "routine_created": "{{actor}} hat die Routine „{{name}}“ angelegt",
+      "routine_failed": "Routine „{{name}}“ ist fehlgeschlagen",
+      "routine_outcome": "Update von „{{name}}“",
+      "routine_review": "Routine „{{name}}“ ist fertig – Ergebnis prüfen",
+      "skill_proposed": "Neuer Skill „{{name}}“ zur Prüfung",
+      "connector_import_requested": "„{{name}}“ als Connector importieren?",
+      "stream_escalation": "{{actor}} braucht deine Aufmerksamkeit",
+      "stream_update": "Update von {{actor}}",
+      "task_completed": "„{{task}}“ ist erledigt",
+      "task_failed": "„{{task}}“ ist fehlgeschlagen",
+      "task_needs_input": "„{{task}}“ braucht deine Eingabe",
+      "task_question": "„{{task}}“ hat eine Frage",
+      "task_review_requested": "„{{task}}“ ist bereit zur Prüfung",
+      "team_chat_dm": "{{actor}} hat dir geschrieben",
+      "team_chat_mention": "{{actor}} hat dich in {{name}} erwähnt",
+      "team_chat_message": "{{actor}} hat in {{name}} geschrieben",
+      "team_chat_reply": "{{actor}} hat in {{name}} geantwortet",
+      "tool_approval": "{{actor}} möchte {{operation}} verwenden",
+      "workflow_proposed": "Workflow „{{name}}“ zur Prüfung",
+      "workflow_revised": "Workflow „{{name}}“ v{{version}} zur Prüfung"
+    },
+    "group": {
+      "more": "+{{count}} weitere",
+      "moreFrom": "+{{count}} weitere von {{name}}",
+      "less": "Weniger anzeigen"
     }
   }
 }

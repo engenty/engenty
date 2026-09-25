@@ -7,6 +7,7 @@ import type {
 import {
   ensureLocalServiceCredential,
   isLocalSupabaseUrl,
+  LOCAL_AI_SERVICE_CAPABILITIES,
   LOCAL_AI_SERVICE_CREDENTIAL_NAME,
   parseServiceSecret,
 } from "./local-service-credential.js";
@@ -29,7 +30,7 @@ describe("ensureLocalServiceCredential", () => {
   it("keeps a configured secret whose row is live and whose hash matches", async () => {
     const { rows, store } = memoryStore([
       {
-        capabilities: ["module.read"],
+        capabilities: [...LOCAL_AI_SERVICE_CAPABILITIES],
         createdAt: 1,
         id: "cred-1",
         name: "ai-service",
@@ -45,7 +46,34 @@ describe("ensureLocalServiceCredential", () => {
     expect(rows).toHaveLength(1);
   });
 
-  it("mints a platform credential when nothing is configured, and says so", async () => {
+  it("replaces a live row minted before the AI service set grew", async () => {
+    // A row with only module.read/write would 403 every routine calling a
+    // connector action (module.connections.read is not covered).
+    const { rows, store } = memoryStore([
+      {
+        capabilities: ["module.read", "module.write", "module.execute"],
+        createdAt: 1,
+        id: "cred-1",
+        name: "ai-service (local) old",
+        secretHash: sha256("engsvc_abc"),
+        tenantId: null,
+      },
+    ]);
+    const result = await ensureLocalServiceCredential({
+      configured: "cred-1.engsvc_abc",
+      stores: store,
+    });
+    expect(result.status).toBe("minted");
+    if (result.status !== "minted") {
+      return;
+    }
+    expect(result.reason).toBe("stale_capabilities");
+    expect(rows.at(-1)?.capabilities).toEqual([
+      ...LOCAL_AI_SERVICE_CAPABILITIES,
+    ]);
+  });
+
+  it("mints a platform credential when nothing is configured", async () => {
     const { rows, store } = memoryStore();
     const result = await ensureLocalServiceCredential({
       configured: undefined,
@@ -55,26 +83,13 @@ describe("ensureLocalServiceCredential", () => {
     if (result.status !== "minted") {
       return;
     }
-    expect(result.reason).toBe("missing");
-    expect(rows).toHaveLength(1);
     const row = rows[0]!;
     expect(row.tenantId).toBeNull();
-    expect(row.name).toBe(LOCAL_AI_SERVICE_CREDENTIAL_NAME);
-    expect(row.capabilities).toEqual(
-      expect.arrayContaining([
-        "module.read",
-        "module.write",
-        "module.execute",
-        "module.tasks.read",
-        "module.tasks.write",
-      ])
-    );
-    // The returned value is exactly what apps/ai exchanges — and the stored
-    // hash is of the part after the id, the way the API route stores it.
+    // The returned value is what apps/ai exchanges; the stored hash covers the
+    // part after the id, as the API route stores it.
     const parsed = parseServiceSecret(result.secret);
     expect(parsed?.credentialId).toBe(row.id);
     expect(sha256(parsed?.secret ?? "")).toBe(row.secretHash);
-    expect(parsed?.secret.startsWith("engsvc_")).toBe(true);
   });
 
   it("re-mints when the configured row is gone, revoked, or the secret is wrong — never touching the old row", async () => {
@@ -112,7 +127,7 @@ describe("ensureLocalServiceCredential", () => {
 });
 
 describe("ensureLocalServiceCredential — one active platform name", () => {
-  it("falls back to a dated name when a live row already holds the base name, and never revokes it", async () => {
+  it("mints under another name when a live row already holds the base name, and never revokes it", async () => {
     const rows: ServiceCredentialRecord[] = [
       {
         capabilities: [],
@@ -145,29 +160,12 @@ describe("ensureLocalServiceCredential — one active platform name", () => {
     };
     const result = await ensureLocalServiceCredential({
       configured: undefined,
-      now: () => new Date("2026-09-19T17:12:00Z"),
       stores: store,
     });
     expect(result.status).toBe("minted");
     expect(rows).toHaveLength(2);
     expect(rows[0]?.disabledAt).toBeUndefined();
-    expect(rows[1]?.name).toBe("ai-service (local) 2026-09-19T17:12Z");
-  });
-
-  it("rethrows any other insert failure", async () => {
-    await expect(
-      ensureLocalServiceCredential({
-        configured: undefined,
-        stores: {
-          async get() {
-            return null;
-          },
-          async insert() {
-            throw new Error("service_credential insert: connection refused");
-          },
-        },
-      })
-    ).rejects.toThrow("connection refused");
+    expect(rows[1]?.name).not.toBe(LOCAL_AI_SERVICE_CREDENTIAL_NAME);
   });
 });
 

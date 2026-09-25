@@ -56,6 +56,7 @@ import {
   nameTenant,
   readPersonalSpace,
   readWorkspaceContext,
+  saveTenantLanguage,
 } from "../lib/initial-setup-workspace";
 import {
   createDetachedSupabaseAuthClient,
@@ -577,9 +578,11 @@ function Step1AdminForm({
 
 function Step2TeamForm({
   adminCredentials,
+  locale,
   onComplete,
 }: {
   adminCredentials: AdminValues;
+  locale: AuthLocale;
   onComplete: (values: {
     accessToken: string;
     teamName: string;
@@ -620,6 +623,7 @@ function Step2TeamForm({
         name,
         tenantId: context.currentTenant.id,
       });
+      await saveTenantLanguage({ accessToken, language: locale });
       onComplete({ accessToken, teamName: name, userId: context.userId });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to name the team.");
@@ -1504,6 +1508,7 @@ export function InitialSetupWizard({ onComplete }: InitialSetupWizardProps) {
                     {step === 2 ? (
                       <Step2TeamForm
                         adminCredentials={adminCredentials}
+                        locale={locale}
                         onComplete={(result) => {
                           setAccessToken(result.accessToken);
                           setUserId(result.userId);

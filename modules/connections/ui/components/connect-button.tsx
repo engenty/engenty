@@ -9,6 +9,7 @@ import {
   type ConnectCompleteResult,
   readConnectCompleteMessage,
 } from "../connect-popup.js";
+import { useConnectSpaceId } from "../hooks/use-connection-space.js";
 
 export interface ConnectButtonProps {
   className?: string;
@@ -27,10 +28,8 @@ export interface ConnectButtonProps {
   redirectTo?: string;
   size?: "sm" | "default";
   /**
-   * Mount the new account into this space on success (PLAN-spaces.md CN.4
-   * Flow A) — set when the connect was started from inside one, so the user
-   * comes back to a space that can actually use the account. Absent means a
-   * tenant-level connect, which belongs to no space.
+   * The Space the new account will belong to — the one the connect started
+   * in. Absent = the viewer's personal Space (Copilot, personal places).
    */
   spaceId?: string | null;
   variant?: "default" | "ghost" | "outline";
@@ -63,6 +62,7 @@ export function ConnectButton({
 }: ConnectButtonProps) {
   const { t } = useTranslation("connections");
   const [connecting, setConnecting] = useState(false);
+  const targetSpaceId = useConnectSpaceId(spaceId);
   const cleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(
@@ -108,6 +108,9 @@ export function ConnectButton({
   };
 
   const connect = async () => {
+    if (!targetSpaceId) {
+      return;
+    }
     setConnecting(true);
     // Open synchronously inside the click gesture so popup blockers allow it;
     // the auth URL is assigned once fetched.
@@ -125,7 +128,7 @@ export function ConnectButton({
               ? // Popup blocked — fall back to a full redirect returning here.
                 `${window.location.pathname}${window.location.search}`
               : redirectTo,
-        spaceId,
+        spaceId: targetSpaceId,
       });
       if (popup) {
         popup.location.replace(authUrl);
@@ -151,7 +154,7 @@ export function ConnectButton({
   return (
     <Button
       className={className}
-      disabled={connecting}
+      disabled={connecting || !targetSpaceId}
       onClick={() => void connect()}
       size={size}
       type="button"

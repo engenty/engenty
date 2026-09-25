@@ -94,6 +94,7 @@ export function MarketplaceConnect({
           onConnected={(connectionId) => void onConnected?.(connectionId)}
           onOpenChange={setCredentialsOpen}
           open={credentialsOpen}
+          spaceId={spaceId}
         />
       </>
     );
@@ -159,6 +160,7 @@ export function MarketplaceConnect({
           onConnected={(connectionId) => void onConnected?.(connectionId)}
           onOpenChange={setCredentialsOpen}
           open={credentialsOpen}
+          spaceId={spaceId}
         />
       </>
     );

@@ -9,10 +9,6 @@ export const SPACE_MOUNT_KIND_COPY: Record<
     hintKey: "spaces.setup.agentsHint",
     titleKey: "spaces.setup.agentsTitle",
   },
-  connection: {
-    hintKey: "spaces.setup.connectionsHint",
-    titleKey: "spaces.setup.connectionsTitle",
-  },
   plugin: {
     hintKey: "spaces.setup.pluginsHint",
     titleKey: "spaces.setup.pluginsTitle",

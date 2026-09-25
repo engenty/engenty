@@ -4,11 +4,13 @@
 // touches the Task via `modules/tasks` operations. The specialist (agent-loop)
 // step lives separately in task-job-specialist-step.ts.
 import { createHash } from "node:crypto";
+import { humanizeOperationId } from "@engenty/notifications";
 import { createStep } from "@mastra/core/workflows";
 import {
   emitInboxNotification,
   resolveNotifications,
 } from "../../notifications/inbox.js";
+import { failureLine } from "../../notifications/run-notifications.js";
 import { EngentyCoreHttpError } from "../core-http-client.js";
 import { createScopeModuleOperationInvoker } from "../sessions/task-workspace-hook.js";
 import {
@@ -347,7 +349,9 @@ export const finalizeStep = createStep({
       ...(inputData.thread_id ? { threadId: inputData.thread_id } : {}),
     });
     const taskRef = inputData.identifier ?? inputData.task_id;
-    const subjectTitle = inputData.title?.trim() || null;
+    // The task as a person names it: its title, else its identifier (ENG-12).
+    const taskName =
+      inputData.title?.trim() || inputData.identifier?.trim() || null;
 
     if (needsApproval) {
       const pendings = inputData.pending_approvals ?? [];
@@ -362,8 +366,21 @@ export const finalizeStep = createStep({
         resultText: inputData.result_text ?? "",
         taskRef,
       });
+      // The operation as words: the gated call's own label when it has one,
+      // else its id humanized. Never the raw id.
+      const primaryLabel =
+        pendings[0]?.title?.trim() ||
+        (pendings[0]?.operation_id
+          ? humanizeOperationId(pendings[0].operation_id)
+          : "a tool");
       await emitInboxNotification({
+        // The task's agent asks; `{actor}` resolves to its name at emit.
+        ...(inputData.agent_type_key
+          ? { actor: { id: inputData.agent_type_key, kind: "agent" as const } }
+          : {}),
         assigneeUserId: inputData.assignee_user_id ?? null,
+        // What is about to happen, in one line (present tense, no ids).
+        ...(approvalHeadline ? { body: approvalHeadline } : {}),
         dedupeKey: `tool-approval:${inputData.task_id}:${primaryOp}`,
         kind: "tool_approval",
         metadata: {
@@ -378,6 +395,8 @@ export const finalizeStep = createStep({
         payload: {
           approvals: pendings,
           ...(approvalHeadline ? { approval_summary: approvalHeadline } : {}),
+          // The run's notes, for the approval card on the task page (the
+          // place this is decided); the bell shows only the one-line body.
           ...(inputData.result_text
             ? { result_text: inputData.result_text.slice(0, 2000) }
             : {}),
@@ -388,9 +407,9 @@ export const finalizeStep = createStep({
         // The answer comes back on the task and re-dispatch is a new run, so
         // the task is the subject a resolve can find.
         subject: { id: inputData.task_id, type: "task" },
-        summary:
-          approvalHeadline ?? subjectTitle ?? `approval to run ${primaryOp}`,
+        summary: `Approval needed to use ${primaryLabel}`,
         tenantId: inputData.tenant_id,
+        title: { key: "tool_approval", params: { operation: primaryLabel } },
       });
       return { ...inputData, status: "released" as const };
     }
@@ -404,7 +423,12 @@ export const finalizeStep = createStep({
       const question = asked || blocked;
       const viaTool = Boolean(asked);
       await emitInboxNotification({
+        ...(inputData.agent_type_key
+          ? { actor: { id: inputData.agent_type_key, kind: "agent" as const } }
+          : {}),
         assigneeUserId: inputData.assignee_user_id ?? null,
+        // The question IS what the row is for; the title says which task.
+        ...(question ? { body: question } : {}),
         dedupeKey: viaTool
           ? `task-question:${inputData.task_id}:${runId}`
           : `task-needs-input:${inputData.task_id}:${runId}`,
@@ -416,25 +440,21 @@ export const finalizeStep = createStep({
           task_identifier: inputData.identifier ?? null,
           ...(inputData.thread_id ? { thread_id: inputData.thread_id } : {}),
         },
-        payload: {
-          ...(question ? { question } : {}),
-          ...(inputData.result_text
-            ? { result_text: inputData.result_text.slice(0, 2000) }
-            : {}),
-        },
+        ...(question ? { payload: { question } } : {}),
         priority: "high",
         source: "tasks",
         spaceId: inputData.space_id ?? null,
         subject: { id: inputData.task_id, type: "task" },
-        // The question IS the subject: an inbox row saying only "Task ENG-12"
-        // makes the reader open it to find out what is even being asked.
-        summary:
-          question ||
-          subjectTitle ||
-          (viaTool
-            ? `Task ${taskRef} has a question`
-            : `Task ${taskRef} needs input`),
+        summary: viaTool ? "A task has a question" : "A task needs your input",
         tenantId: inputData.tenant_id,
+        ...(taskName
+          ? {
+              title: {
+                key: viaTool ? "task_question" : "task_needs_input",
+                params: { task: taskName },
+              },
+            }
+          : {}),
       });
       return { ...inputData, status: "released" as const };
     }
@@ -451,14 +471,21 @@ export const finalizeStep = createStep({
     // review kind the inbox and briefing already treat as one. Only a task
     // that actually completed announces itself as completed.
     const parkedForReview = !failed && nextStatus === "in_review";
+    const terminalKind = failed
+      ? ("task_failed" as const)
+      : parkedForReview
+        ? ("task_review_requested" as const)
+        : ("task_completed" as const);
+    // One line under the title: what went wrong, or what got done.
+    const terminalBody = failed ? failureLine(inputData.note) : headline;
     await emitInboxNotification({
+      ...(inputData.agent_type_key
+        ? { actor: { id: inputData.agent_type_key, kind: "agent" as const } }
+        : {}),
       assigneeUserId: inputData.assignee_user_id ?? null,
+      ...(terminalBody ? { body: terminalBody } : {}),
       dedupeKey: `task:${inputData.task_id}:${runId}`,
-      kind: failed
-        ? "task_failed"
-        : parkedForReview
-          ? "task_review_requested"
-          : "task_completed",
+      kind: terminalKind,
       metadata: {
         agent_type_key: inputData.agent_type_key,
         run_id: runId,
@@ -466,9 +493,6 @@ export const finalizeStep = createStep({
         task_identifier: inputData.identifier ?? null,
         ...(inputData.thread_id ? { thread_id: inputData.thread_id } : {}),
       },
-      ...(inputData.result_text
-        ? { payload: { result_text: inputData.result_text.slice(0, 2000) } }
-        : {}),
       priority: failed || parkedForReview ? "high" : "medium",
       source: "tasks",
       spaceId: inputData.space_id ?? null,
@@ -478,8 +502,15 @@ export const finalizeStep = createStep({
         failed || parkedForReview
           ? { id: inputData.task_id, type: "task" }
           : { id: runId, type: "run" },
-      summary: headline ?? subjectTitle ?? `Task ${taskRef}`,
+      summary: failed
+        ? "A task failed"
+        : parkedForReview
+          ? "A task is ready for review"
+          : "A task is done",
       tenantId: inputData.tenant_id,
+      ...(taskName
+        ? { title: { key: terminalKind, params: { task: taskName } } }
+        : {}),
     });
     return { ...inputData, status: "released" as const };
   },

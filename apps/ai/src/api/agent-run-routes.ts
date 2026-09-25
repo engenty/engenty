@@ -34,14 +34,6 @@ const runsBase = `${AI_BASE_PATH}/v1/runs`;
 const adminRunsBase = `${AI_BASE_PATH}/v1/admin/runs`;
 const sessionsBase = `${AI_BASE_PATH}/v1/threads`;
 
-/**
- * Prompt preview is a developer tool, not a product surface. Same switch the
- * AG-UI debug firehose uses, so both dev-only routes disappear together.
- */
-export function isPromptPreviewEnabled(): boolean {
-  return process.env.NODE_ENV !== "production";
-}
-
 const listRunsQuerySchema = z.object({
   agent_id: z.string().min(1).optional(),
   limit: z.coerce.number().int().min(1).max(100).optional(),
@@ -230,7 +222,7 @@ export function registerAgentRunRoutes(
 
   // Platform observer: reconstruct the NEXT prompt on this run's thread.
   // Superadmin-gated and not NODE_ENV-gated — Manage needs this in every
-  // environment. The tenant `/threads/:id/prompt-preview` route stays local-only.
+  // environment, like the thread `/threads/:id/prompt-preview` route.
   app.get(`${adminRunsBase}/:runId/prompt-preview`, async (c) => {
     const scope = await resolveScope(c, opts.scopeResolver);
     if (!scope.ok) {
@@ -430,15 +422,15 @@ export function registerAgentRunRoutes(
   // per request rather than captured per run — see prompt-preview.ts for why.
   //
   // Developer-mode only, matching the client gate (`useDeveloperModeEnabled`
-  // requires a development build), and 404 in production rather than 403: the
-  // route does not exist there, and saying so invites nobody to go looking.
+  // is superadmin-only, in every environment), and 404 rather than 403 for
+  // everyone else: saying the route exists invites nobody to go looking.
   app.get(`${sessionsBase}/:threadId/prompt-preview`, async (c) => {
-    if (!isPromptPreviewEnabled()) {
-      return c.json({ error: "agent_runs.promptPreviewDisabled" }, 404);
-    }
     const scope = await resolveScope(c, opts.scopeResolver);
     if (!scope.ok) {
       return scope.response;
+    }
+    if (scope.scope.isSuperAdmin !== true) {
+      return c.json({ error: "agent_runs.promptPreviewDisabled" }, 404);
     }
     const threadId = c.req.param("threadId");
     if (!uuidString.safeParse(threadId).success) {

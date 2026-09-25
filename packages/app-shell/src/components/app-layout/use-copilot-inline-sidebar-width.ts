@@ -6,7 +6,12 @@ import {
   useRef,
   useState,
 } from "react";
-import { useCopilotShell } from "../../context/copilot-shell-context";
+import {
+  useCopilotActions,
+  useCopilotChromeHidden,
+  useCopilotHost,
+  useCopilotLayout,
+} from "../../context/copilot-shell-context";
 import { shouldShowInlineCopilotSidebar } from "../../lib/copilot-chrome";
 import {
   COPILOT_SIDEBAR_DEFAULT_WIDTH,
@@ -15,13 +20,10 @@ import {
 } from "./constants";
 
 export function useCopilotInlineSidebarWidth() {
-  const {
-    chromeHidden,
-    copilotSidebarRef,
-    dockMode,
-    notifySidebarMounted,
-    notifySidebarUnmounted,
-  } = useCopilotShell();
+  const chromeHidden = useCopilotChromeHidden();
+  const { copilotSidebarRef } = useCopilotHost();
+  const { dockMode } = useCopilotLayout();
+  const { notifySidebarMounted, notifySidebarUnmounted } = useCopilotActions();
   const showInlineCopilotSidebar = shouldShowInlineCopilotSidebar({
     chromeHidden,
     dockMode,

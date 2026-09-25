@@ -39,7 +39,7 @@ describe("notifyAgentProposed", () => {
       kind: "agent_proposed",
       spaceId: SPACE_ID,
       subject: { id: "apps.builder", type: "agent" },
-      summary: expect.stringContaining("App Coder"),
+      title: { key: "agent_proposed", params: { name: "App Coder" } },
     });
   });
 
@@ -53,8 +53,10 @@ describe("notifyAgentProposed", () => {
       tenantId: "tenant-1",
     });
     expect(emitInboxNotification.mock.calls[0]?.[0]).toMatchObject({
-      summary: expect.stringContaining("revision"),
       spaceId: null,
+      summary: expect.stringContaining("revision"),
+      target: "/admin/engenty",
+      title: { key: "agent_revision_proposed", params: { name: "App Coder" } },
     });
   });
 });

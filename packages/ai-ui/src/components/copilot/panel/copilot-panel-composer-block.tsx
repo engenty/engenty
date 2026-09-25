@@ -20,7 +20,6 @@ export function CopilotPanelComposerBlock({
   centerEmptyLanding,
   compact,
   enableStatusFlap = true,
-  compactContextControl,
   composerDockStyle,
   composerFocusKey,
   composerLeadingControl,
@@ -56,7 +55,6 @@ export function CopilotPanelComposerBlock({
   autoExpand?: boolean;
   compact: boolean;
   enableStatusFlap?: boolean;
-  compactContextControl?: ReactNode;
   composerDockStyle: boolean;
   composerFocusKey?: string | number | null;
   composerLeadingControl?: ReactNode;
@@ -122,10 +120,9 @@ export function CopilotPanelComposerBlock({
               <CopilotCompactComposerShell
                 autoExpand={autoExpand}
                 belowCard={
-                  composerLeadingControl || compactContextControl ? (
+                  composerLeadingControl ? (
                     <div className="flex items-center gap-2">
                       {composerLeadingControl}
-                      {compactContextControl}
                     </div>
                   ) : undefined
                 }
@@ -166,13 +163,6 @@ export function CopilotPanelComposerBlock({
             ) : compact ? (
               <CopilotCompactComposerShell
                 autoExpand={autoExpand}
-                belowCard={
-                  compactContextControl ? (
-                    <div className="flex items-center gap-2">
-                      {compactContextControl}
-                    </div>
-                  ) : undefined
-                }
                 chatStatus={status}
                 dockContent={dockedSurface}
                 enableStatusFlap={enableStatusFlap}

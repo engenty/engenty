@@ -22,9 +22,12 @@ interface MessageLike {
  * (the same tool output the inline card reads), so the docked chooser appears
  * immediately instead of waiting for the lagging session-metadata refetch.
  *
- * Returns the last *unresolved* `requestDecision` / `requestFeedback` tool part
- * shaped as open-interrupt metadata, or null when none is pending. Gate calls on
- * `awaitingInterrupt` — only then is the last unresolved part the active one.
+ * Only the MOST RECENT `requestDecision` / `requestFeedback` part can be
+ * pending: it is returned as open-interrupt metadata when it carries an
+ * unanswered artifact, otherwise null. Never walk past it to an older part — a
+ * natively suspended call has no artifact output yet, and an older unanswered
+ * question behind it is abandoned, not open. Returning null lets callers fall
+ * back to the persisted open interrupt. Gate calls on `awaitingInterrupt`.
  */
 export function pendingInterruptFromTranscript(
   messages: readonly MessageLike[]
@@ -54,7 +57,7 @@ export function pendingInterruptFromTranscript(
         }
         const artifact = parseDecisionArtifact(part.output);
         if (!artifact) {
-          continue;
+          return null; // suspended or interrupted — see above
         }
         return {
           artifact_id: artifact.artifactId,
@@ -74,7 +77,7 @@ export function pendingInterruptFromTranscript(
         }
         const artifact = parseFeedbackArtifact(part.output);
         if (!artifact) {
-          continue;
+          return null;
         }
         return {
           artifact_id: artifact.artifactId,

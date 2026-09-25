@@ -93,6 +93,7 @@ export interface CanvasEdge {
 const PRIMITIVE_KIND: Record<string, CanvasNodeKind> = {
   apply_field_updates: "apply",
   approval_gate: "gate",
+  pick_surface: "gate",
   artifact_read: "artifact",
   artifact_write: "artifact",
   engenty_tool: "tool",

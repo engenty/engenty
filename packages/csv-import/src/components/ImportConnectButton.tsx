@@ -5,11 +5,7 @@ import { getConnectUrl } from "../connection-import-api.js";
 export interface ImportConnectButtonProps {
   connectingLabel: string;
   connectLabel: string;
-  /** @deprecated Sharing is no longer chosen at connect time. */
-  connectOrgLabel?: string;
   connectorId: string;
-  /** @deprecated Sharing is no longer chosen at connect time. */
-  connectPersonalLabel?: string;
   onError?: (message: string) => void;
   redirectTo: string;
 }
@@ -30,7 +26,6 @@ export function ImportConnectButton({
       const { authUrl } = await getConnectUrl({
         connectorId,
         redirectTo,
-        sharing: "personal",
       });
       window.location.assign(authUrl);
     } catch (error) {

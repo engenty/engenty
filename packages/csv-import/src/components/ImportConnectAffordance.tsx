@@ -24,9 +24,7 @@ export function ImportConnectAffordance({
       <ImportConnectButton
         connectingLabel={labels.connecting}
         connectLabel={labels.connect}
-        connectOrgLabel={labels.connectOrg}
         connectorId={connector.id}
-        connectPersonalLabel={labels.connectPersonal}
         onError={onError}
         redirectTo={redirectTo}
       />

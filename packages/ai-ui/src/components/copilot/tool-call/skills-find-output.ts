@@ -108,5 +108,8 @@ export function matchesSkillsFindOutput(ctx: {
   toolName: string;
 }): boolean {
   const name = ctx.resolvedToolName || ctx.toolName;
-  return name === "skills_find" && parseSkillsFindOutput(ctx.output) !== null;
+  return (
+    (name === "skills_find" || name === "computer_skills_find") &&
+    parseSkillsFindOutput(ctx.output) !== null
+  );
 }

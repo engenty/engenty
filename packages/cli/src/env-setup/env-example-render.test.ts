@@ -44,6 +44,8 @@ describe("renderExampleFile", () => {
     expect(text).not.toContain("VITE_MANAGE_APP_BASE");
     expect(text).not.toContain("VITE_MANAGE_BASE_URL");
     expect(text).not.toContain("ENGENTY_MANAGE_BASE_URL");
+    expect(text).toContain("VITE_COPILOT_COMPOSER_DRAFT_RECOVERY");
+    expect(text).toContain("VITE_UI_PERFORMANCE_TELEMETRY");
     expect(text).not.toContain("ENGENTY_GATEWAY_MANAGE_ENABLED");
     expect(text).not.toContain("DAYTONA_API_URL");
     expect(text).not.toContain("DAYTONA_API_KEY");

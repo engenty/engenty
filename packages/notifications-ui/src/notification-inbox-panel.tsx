@@ -10,14 +10,11 @@ import {
   TabsList,
   TabsTrigger,
 } from "@engenty/ui-core";
-import { Bell, CheckCheck, ChevronRight } from "lucide-react";
+import { Bell, CheckCheck, ChevronRight, X } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
-import {
-  isUnseen,
-  matchesLaneFilter,
-  type NotificationLaneFilter,
-} from "./classification.js";
+import { isUnseen, matchesLaneFilter } from "./classification.js";
+import type { InboxLane, InboxOpenRequest } from "./inbox-open.js";
 import { NotificationList } from "./notification-list.js";
 import {
   NOTIFICATIONS_PATH,
@@ -25,7 +22,7 @@ import {
   spaceKeyFromPathname,
 } from "./notification-paths.js";
 import {
-  NEEDS_INPUT_SCAN_LIMIT,
+  ATTENTION_SCAN_LIMIT,
   useMarkAllSeenMutation,
   useNotificationsQuery,
 } from "./queries.js";
@@ -33,8 +30,6 @@ import {
 /** Width + padding for the popover chrome. Height is fixed so lane switches never resize it. */
 export const notificationInboxPopoverClassName =
   "z-[100] flex h-[min(40rem,calc(100dvh-1.5rem))] min-h-[min(40rem,calc(100dvh-1.5rem))] w-[min(32rem,calc(100vw-2rem))] flex-col gap-0 overflow-hidden p-0";
-
-type InboxLane = Exclude<NotificationLaneFilter, "all">;
 
 const INBOX_TABS: {
   value: InboxLane;
@@ -44,6 +39,14 @@ const INBOX_TABS: {
   titleDefault: string;
   badgeVariant: "default" | "destructive" | "secondary";
 }[] = [
+  {
+    badgeVariant: "default",
+    defaultLabel: "Important",
+    labelKey: "notifications.lane.attention",
+    titleDefault: "{{count}} important",
+    titleKey: "notifications.inboxTitle.attention",
+    value: "attention",
+  },
   {
     badgeVariant: "default",
     defaultLabel: "Approvals",
@@ -71,6 +74,8 @@ const INBOX_TABS: {
 ];
 
 export interface NotificationInboxPanelProps {
+  /** Opened for a lane / one actor (`openNotificationInbox`). */
+  initial?: InboxOpenRequest | null;
   /** Standing in a space: the panel opens narrowed to it, with a way out. */
   inSpace: boolean;
   onNavigate: () => void;
@@ -85,6 +90,7 @@ export interface NotificationInboxPanelProps {
 
 export function NotificationInboxPanel({
   inSpace,
+  initial,
   onNavigate,
   scopeLocked,
   viewAllHref,
@@ -98,15 +104,18 @@ export function NotificationInboxPanel({
   const [scope, setScope] = useState<"space" | "tenant">(
     scopeLocked ?? (inSpace ? "space" : "tenant")
   );
-  const [lane, setLane] = useState<InboxLane>("hitl");
+  const [lane, setLane] = useState<InboxLane>(initial?.lane ?? "attention");
+  const [actor, setActor] = useState(initial?.actor ?? null);
   const listQuery = useNotificationsQuery({
-    limit: NEEDS_INPUT_SCAN_LIMIT,
+    limit: ATTENTION_SCAN_LIMIT,
     scope,
   });
   const markAll = useMarkAllSeenMutation();
   const spaceId = currentRequestSpaceId();
-  const notifications = (listQuery.data?.notifications ?? []).filter((n) =>
-    scope === "space" ? Boolean(spaceId) && n.space_id === spaceId : true
+  const notifications = (listQuery.data?.notifications ?? []).filter(
+    (n) =>
+      (scope === "space" ? Boolean(spaceId) && n.space_id === spaceId : true) &&
+      (actor ? n.actor_id === actor.id : true)
   );
   const visible = notifications.filter((n) => matchesLaneFilter(n, lane));
   const hasUnseen = visible.some((n) => isUnseen(n));
@@ -143,8 +152,8 @@ export function NotificationInboxPanel({
               const count = notifications.filter((n) =>
                 matchesLaneFilter(n, tab.value)
               ).length;
-              // Freigaben + Fehler still need a person. Updates are FYI — listed,
-              // not badged, so the tab numbers add to the bell.
+              // Wichtig is the bell's number; Freigaben + Fehler are its
+              // parts. Updates are FYI — listed, not badged.
               const showBadge = tab.value !== "updates" && count > 0;
               return (
                 <TabsTrigger
@@ -179,14 +188,29 @@ export function NotificationInboxPanel({
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="flex h-7 shrink-0 items-center justify-between gap-2 border-border-soft border-b bg-background px-4">
-          <h2 className="min-w-0 truncate font-medium text-muted-foreground text-xs">
-            {listQuery.isPending
-              ? t("notifications.loading", { defaultValue: "Loading…" })
-              : t(activeTab.titleKey, {
-                  count: visible.length,
-                  defaultValue: activeTab.titleDefault,
+          <div className="flex min-w-0 items-center gap-2">
+            <h2 className="min-w-0 truncate font-medium text-muted-foreground text-xs">
+              {listQuery.isPending
+                ? t("notifications.loading", { defaultValue: "Loading…" })
+                : t(activeTab.titleKey, {
+                    count: visible.length,
+                    defaultValue: activeTab.titleDefault,
+                  })}
+            </h2>
+            {actor ? (
+              <button
+                aria-label={t("notifications.actorFilter.clear", {
+                  defaultValue: "Show everyone",
                 })}
-          </h2>
+                className="inline-flex min-w-0 shrink items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-foreground text-xs hover:text-muted-foreground"
+                onClick={() => setActor(null)}
+                type="button"
+              >
+                <span className="truncate">{actor.label}</span>
+                <X aria-hidden className="size-3 shrink-0" />
+              </button>
+            ) : null}
+          </div>
           {hasUnseen ? (
             <Button
               aria-label={t("notifications.markAllSeen", {

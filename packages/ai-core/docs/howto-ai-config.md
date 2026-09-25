@@ -1,39 +1,39 @@
 ---
 title: "AI config – models"
-description: Environment variables, tenant ai.config JSON, and model selection for apps/ai AG-UI sessions.
+description: Role bindings, tenant ai.config JSON, and model selection for apps/ai AG-UI sessions.
 ---
 
 # AI Config – Models
 
 Product chat runs on **`apps/ai` AG-UI**. Model ids are resolved via `@engenty/ai-core` helpers and tenant `ai.config` JSON. Copilot identity and tone come from instruction documents in `modules/engenty-copilot/ai/agents/engenty.copilot/` (`AGENTS.md`, `SOUL.md`), assembled with `buildAgentLayeredPrompt`.
 
-## Environment Variables
+## Where models come from
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `AI_GATEWAY_API_KEY` | API key for the Vercel AI Gateway (required for copilot) | — |
-| `OPENROUTER_API_KEY` | API key for OpenRouter, the optional second gateway | — |
-| `AI_CHAT_MODEL` | Seeds the `model.medium` and `model.high` role bindings | `DEFAULT_AI_CHAT_MODEL_ID` |
-| `AI_CLASSIFIER_MODEL` | Seeds `classifier` (and `model.low` if unset in the pack) | Gateway pack |
-| `AI_ROUTING_MODEL` | Seeds `router` | Role default |
-| `AI_SAFEGUARD_MODEL` | Seeds `safeguard` | Role default |
-| `AI_PLANNING_CODING_MODEL` | Seeds `planning_coding` | Role default |
-| `AI_RESEARCH_MODEL` | Seeds `research` | Role default |
+| Variable | Description |
+|----------|-------------|
+| `AI_GATEWAY_API_KEY` | API key for the Vercel AI Gateway (required for copilot) |
+| `OPENROUTER_API_KEY` | API key for OpenRouter, the optional second gateway |
 
-These variables are **seed values, not runtime configuration**. They are read by
-`seedBindings` (`config/model-roles.ts`) to populate `ai.model_binding` when that
-table is empty. Per-gateway defaults live in
-`packages/ai-core/data/model-bindings/<gateway>.json`. Afterwards the binding
-rows are the source of truth and changing an env var has no effect. Manage
-models in the bindings console instead.
+There are **no model env vars and no package default model**. Every model
+comes from a **role binding** (`ai.model_binding`), edited in manage → Role
+bindings. Roles: `model.low` / `model.medium` / `model.high` (graded agent
+tiers), `classifier` (pick-one-of-N), `fast_text` (short prose without tools),
+`image`, `embedding`, `video`, `realtime`. An unbound role throws
+(`ModelRoleNotBoundError`) instead of falling back.
 
-Each role has exactly one env key. `AI_COORDINATOR_MODEL` and the other
-legacy aliases were removed on 2026-08-04 along with the dead
-`apps/core/src/lib/ai-config.ts` fallback chain this section used to describe
-(nothing had imported it in a long time).
+Seeds, applied only to an empty table:
 
-Runtime resolution for a chat model id is `resolveChatModelId`
-(`@engenty/ai-core`): explicit override → tenant default → `DEFAULT_AI_CHAT_MODEL_ID`.
+- `apps/ai/config/default-models.json` — committed bindings (per role:
+  `gateway` + `model_id`), manage → Role bindings → Export
+- `apps/ai/config/available-models.json` — activated catalog + pricing,
+  manage → AI models → Export
+- `packages/ai-core/data/model-bindings/<gateway>.json` — per-gateway packs for
+  a first boot, picked by the gateway whose key was connected
+
+Runtime resolution (`resolvePurposeModel` / `resolveChatModelId`,
+`@engenty/ai-core`): session override → agent override → tenant `ai.config` →
+role binding. The browser cannot resolve a binding — it reads the effective
+model from `GET /ai/v1/settings/effective`.
 
 ## Model refs: naming a gateway in a single string
 
@@ -48,7 +48,7 @@ stored value needed migrating when OpenRouter was added.
   (`meta-llama/llama-3.1-8b-instruct:free`).
 - `ai.model_binding` keeps the pair in two columns; the ref exists for the
   single-string surfaces (tenant JSON, agent `modelOverride`, session picks,
-  `AI_*_MODEL` seeds, select values).
+  select values).
 - Anything that means *which model* rather than *which model, where* — usage
   rows, pricing lookups, governance grants — takes `modelIdOfRef` first.
 
@@ -61,9 +61,9 @@ itself instead of as an "unknown model" from the wrong gateway.
 
 Stored under key `ai.config`. Parsed fields include:
 
-- `chat_model_id`, `coordinator_model_id` (routing model; legacy JSON key) — copilot chat and supervisor/routing
-- `routing_model_id` — optional alias read by parsers; persisted settings still use `coordinator_model_id`
-- `classifier_model_id` — intended for fast single-shot classification (e.g. inbox document scan); default in UI is `openai/gpt-oss-20b`
+- `chat_model_id` — chat agents (copilot, supervisors, specialists) when no effort tier applies
+- `classifier_model_id` — pick-one-of-N questions (effort routing, inbox lanes, guardrails)
+- `fast_text_model_id` — short prose without tools (titles, summaries, observational memory)
 
 Legacy keys such as `identity_prompt` / `soul_prompt` may still exist in stored JSON but are ignored by the API and UI.
 
@@ -74,9 +74,8 @@ The `apps/ai` session harness resolves tenant `ai.config` per run and passes res
 Typical resolution order:
 
 1. Per-request override (if any)
-2. Tenant `ai.config` (`chat_model_id`, `coordinator_model_id` / `routing_model_id`)
-3. Environment variables (`AI_CHAT_MODEL`, `AI_ROUTING_MODEL`, `AI_COORDINATOR_MODEL`)
-4. Package defaults (`DEFAULT_AI_CHAT_MODEL_ID`, etc.)
+2. Tenant `ai.config` (`chat_model_id`, `classifier_model_id`, `fast_text_model_id`)
+3. Role bindings (`ai.model_binding`) — no further fallback
 
 ## Copilot instruction seeds
 

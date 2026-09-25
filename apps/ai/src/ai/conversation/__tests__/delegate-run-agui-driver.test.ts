@@ -6,7 +6,7 @@
 import { EventType } from "@engenty/ag-ui-bridge";
 import { describe, expect, it } from "vitest";
 import {
-  describeWorkspaceToolCall,
+  workspaceApprovalTitle,
   workspaceToolGrantId,
 } from "../../workspace/workspace-tool-guards.js";
 import {
@@ -16,7 +16,7 @@ import {
 } from "../delegate-run-agui-driver.js";
 
 const deps = {
-  describeCall: describeWorkspaceToolCall,
+  describeCall: workspaceApprovalTitle,
   grantIdOf: workspaceToolGrantId,
 };
 
@@ -237,7 +237,9 @@ describe("headless AG-UI driver mapping", () => {
     expect(asked[0]?.operationId).toBe(
       "workspace:mastra_workspace_delete:/shared/reports"
     );
-    expect(asked[0]?.title).toContain("mastra_workspace_delete");
+    expect(asked[0]?.title).toBe(
+      "Delete: /shared/reports and everything inside it"
+    );
   });
 
   it("ignores a plain RUN_FINISHED and non-mastra interrupts", () => {

@@ -183,8 +183,8 @@ export function mapHeadlessAgUiEvent(
   deps: {
     /** `workspaceToolGrantId` — injected so this module stays free of workspace deps. */
     grantIdOf: (toolName: string, args: Record<string, unknown>) => string;
-    /** `describeWorkspaceToolCall` — the human-readable half of the card title. */
-    describeCall: (args: unknown) => string;
+    /** `workspaceApprovalTitle` — the human-readable card title. */
+    describeCall: (toolName: string, args: unknown) => string;
     /**
      * Optional, and by default filters NOTHING: a leaf runs under
      * `approvalPolicy: "deny"`, so module ops never suspend and a workspace tool
@@ -301,7 +301,7 @@ export function mapHeadlessAgUiEvent(
         sinks.onApprovalRequired?.({
           operationId: grantId,
           riskLevel: "high",
-          title: `${toolName} — ${deps.describeCall(args)}`,
+          title: deps.describeCall(toolName, args),
         });
       }
       break;
@@ -353,7 +353,7 @@ export async function runHeadlessViaMastraAgent(input: {
    * parks and is re-dispatched after someone approves.
    */
   declineApprovals?: boolean;
-  describeCall: (args: unknown) => string;
+  describeCall: (toolName: string, args: unknown) => string;
   grantIdOf: (toolName: string, args: Record<string, unknown>) => string;
   /**
    * Reasoning-iteration cap for the child. Without it the loop halts at

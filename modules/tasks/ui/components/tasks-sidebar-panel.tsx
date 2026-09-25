@@ -1,5 +1,5 @@
 import { canonicalModulePathname } from "@engenty/ai-core/browser";
-import { useInboxUnseenCountQuery } from "@engenty/ai-ui/embed";
+import { useInboxAttentionCountQuery } from "@engenty/ai-ui/embed";
 import { requestApiEnvelope } from "@engenty/api-client";
 import { shellSecondaryNavItemProps } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
@@ -409,9 +409,9 @@ export function TasksSidebarPanel() {
     }),
     [pathname]
   );
-  const inboxUnseenQuery = useInboxUnseenCountQuery();
-  const inboxUnseen =
-    inboxUnseenQuery.data?.in_space ?? inboxUnseenQuery.data?.total ?? 0;
+  const inboxAttentionQuery = useInboxAttentionCountQuery();
+  const inboxAttention =
+    inboxAttentionQuery.data?.in_space ?? inboxAttentionQuery.data?.total ?? 0;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -436,7 +436,7 @@ export function TasksSidebarPanel() {
                   />
                   <SidebarNavRow
                     active={navActive.inbox}
-                    badgeCount={inboxUnseen}
+                    badgeCount={inboxAttention}
                     icon={Inbox}
                     label={t("sidebar.inbox")}
                     to={tasksPaths.inbox}

@@ -10,7 +10,8 @@
 /**
  * Builtin registry tools a top-level engenty carries beyond the catalog
  * floor: it adds apps and accounts (`space_setup`), hires a teammate when a
- * job deserves its own owner (`agent_propose`, `registry_agents_list`), talks
+ * job deserves its own owner (`agent_propose`, `registry_agents_list`) and
+ * removes one that is no longer needed (`agent_remove`, always a card), talks
  * to colleagues (`message_agent`, `agent_status`), gives itself standing work
  * (`routines_create`) and improves itself under approval
  * (`agent_self_revise`, `skill_propose`).
@@ -21,6 +22,7 @@ export const FIRST_ENGENTY_TOOL_IDS: readonly string[] = [
   "space_setup",
   "registry_agents_list",
   "agent_propose",
+  "agent_remove",
   "agent_status",
   "message_agent",
   "routines_create",

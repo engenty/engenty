@@ -1,11 +1,11 @@
 export { isRendering, renderAgentFn, requireRenderFrame } from "./frame.js";
 export {
   type ThreadStateSetter,
+  useEffort,
   useGuardrails,
   useInstruction,
   useLimits,
   useModel,
-  usePurpose,
   useRegisteredTool,
   useSkillHint,
   useSubagent,

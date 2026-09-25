@@ -1,8 +1,7 @@
 import {
   createConnectionsRepo,
-  listMountedConnectionAccess,
-  mountConnectionInSpace,
-  resolveVerifiedSpaceOwnerForRun,
+  mayUseSpaceInRun,
+  readSpaceAccess,
 } from "@engenty/connections-sdk";
 import type { EngentyPluginFactory } from "@engenty/plugin-sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -10,6 +9,7 @@ import { registerConnectionsCredentialsRoutes } from "./api/credentials-routes.j
 import { registerConnectionsOAuthRoutes } from "./api/oauth-routes.js";
 import { registerConnectionsOperations } from "./api/operations.js";
 import { createConnectionsSettingsResolver } from "./lib/settings-resolver.js";
+import type { ResolveSpaceAccess } from "./lib/space-access.js";
 import { createConnectionsProfilePolicy } from "./policy.js";
 
 /**
@@ -65,45 +65,32 @@ const registerConnectionsPlugin: EngentyPluginFactory = (engenty) => {
   // CON-03). The connect routes themselves stay transport-only.
   const onConnected = async (event: {
     connectorId: string;
-    sharing: "personal" | "org";
+    spaceId: string;
     tenantId: string;
   }) => {
     await events.modules.emit(
       "connections.connected",
-      { connector_id: event.connectorId, sharing: event.sharing },
+      { connector_id: event.connectorId, space_id: event.spaceId },
       { tenantId: event.tenantId }
     );
   };
+  // Who may enter / own which Space — core's rule, read on the same
+  // tenant-locked handle as the connections themselves.
+  const resolveSpaceAccess: ResolveSpaceAccess = ({ tenantId, userId }) =>
+    readSpaceAccess(getDb({ tenantId }), { tenantId, userId });
   registerConnectionsOAuthRoutes(
     server,
-    { getDb: (tenantId) => getDb({ tenantId }), getRepo, serviceRepo },
+    { getRepo, serviceRepo },
     settings,
+    resolveSpaceAccess,
     { onConnected }
   );
-  registerConnectionsCredentialsRoutes(server, getRepo, { onConnected });
+  registerConnectionsCredentialsRoutes(server, getRepo, resolveSpaceAccess, {
+    onConnected,
+  });
 
   registerConnectionsOperations(server, getRepo, {
-    // `core.agents.name` holds the agent key, which is the only identifier an
-    // agent can see. Read on the service handle and filtered by tenant: the
-    // table is platform data with no scope_id, so foreignSelect does not apply.
-    resolveAgentPrincipalId: async ({ agentKey, tenantId }) => {
-      const { data } = await serviceDb
-        .schema("core")
-        .from("agents")
-        .select("id")
-        .eq("tenant_id", tenantId)
-        .eq("name", agentKey)
-        .limit(1)
-        .maybeSingle();
-      return (data as { id?: string } | null)?.id ?? null;
-    },
-    mountConnectionInSpace: async ({ connectionId, spaceId, tenantId }) => {
-      await mountConnectionInSpace(getDb({ tenantId }), {
-        connectionId,
-        spaceId,
-        tenantId,
-      });
-    },
+    resolveSpaceAccess,
     settings,
     // task_id/operation_id ride along so the tasks module can resume the
     // blocked run the approval was really about (subscriber pattern — no
@@ -133,24 +120,19 @@ const registerConnectionsPlugin: EngentyPluginFactory = (engenty) => {
   // the deduped request in core.approval_requests + emits `approval.requested`.
   // The onAutonomousAsk hook that wrote module_connections.approval_requests
   // here is gone with the second ledger it fed.
-  // The space narrows WHICH ACCOUNT (CN.3) and says how far its engentys may
-  // go with it (PLAN-connections-ux.md B1); the repo decides everything else.
-  // Same tenant-locked handle, so the mount read is confined exactly as the
-  // connection read is.
+  // The run's Space picks the account (it owns it); the account's own
+  // autonomous_mode and action policies decide the rest.
   server.registerProfilePolicy(
-    createConnectionsProfilePolicy(
-      getRepo,
-      ({ spaceId, tenantId }) =>
-        listMountedConnectionAccess(getDb({ tenantId }), tenantId, spaceId),
-      // §2.1 — personal-space owner reach, verified against the routine's
-      // stored space binding on the same tenant-locked handle.
-      ({ principalType, spaceId, tenantId, triggerId }) =>
-        resolveVerifiedSpaceOwnerForRun(getDb({ tenantId }), {
-          principalType,
-          spaceId,
-          tenantId,
-          triggerId,
-        })
+    createConnectionsProfilePolicy(getRepo, (auth, spaceId) =>
+      mayUseSpaceInRun(getDb({ tenantId: auth.tenantId }), {
+        capabilities: auth.capabilities,
+        principalId: auth.principalId,
+        principalType: auth.principalType,
+        spaceId,
+        taskId: auth.taskId ?? null,
+        tenantId: auth.tenantId,
+        triggerId: auth.triggerId ?? null,
+      })
     )
   );
 };

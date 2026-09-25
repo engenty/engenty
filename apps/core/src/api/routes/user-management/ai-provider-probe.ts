@@ -13,6 +13,8 @@ export type AiProviderGateway =
   | "opper"
   | "openai"
   | "anthropic"
+  | "mistral"
+  | "spacexai"
   | "typesafe";
 
 export interface AiProviderGatewaySpec {
@@ -38,6 +40,12 @@ export const AI_PROVIDER_GATEWAYS: Readonly<
     label: "Anthropic",
     probeUrl: "https://api.anthropic.com/v1/models?limit=1",
   },
+  mistral: {
+    envKey: "MISTRAL_API_KEY",
+    headers: bearer,
+    label: "Mistral",
+    probeUrl: "https://api.mistral.ai/v1/models",
+  },
   openai: {
     envKey: "OPENAI_API_KEY",
     headers: bearer,
@@ -55,6 +63,12 @@ export const AI_PROVIDER_GATEWAYS: Readonly<
     headers: bearer,
     label: "Opper",
     probeUrl: "https://api.opper.ai/v3/compat/models",
+  },
+  spacexai: {
+    envKey: "XAI_API_KEY",
+    headers: bearer,
+    label: "SpaceX AI (Grok)",
+    probeUrl: "https://api.x.ai/v1/models",
   },
   // Not a model gateway: the classifier behind the experimental browser fast
   // loop (PLAN-browser-fast-loop.md). Listed so the Setup UI's "Test key"
@@ -77,6 +91,33 @@ export function isAiProviderGateway(
   value: unknown
 ): value is AiProviderGateway {
   return typeof value === "string" && value in AI_PROVIDER_GATEWAYS;
+}
+
+/**
+ * The key to probe: the one in the request, else the stored one. Platform
+ * settings are applied to core's `process.env`, so that is the effective value
+ * apps/ai uses too. Empty string when neither exists.
+ */
+export function resolveProbeApiKey(
+  provided: unknown,
+  gateway: AiProviderGateway,
+  env: Readonly<Record<string, string | undefined>> = process.env
+): string {
+  const fromBody = typeof provided === "string" ? provided.trim() : "";
+  return fromBody || (env[AI_PROVIDER_GATEWAYS[gateway].envKey] ?? "").trim();
+}
+
+/**
+ * A key reduced to what an admin needs to recognise it: its first and last
+ * four characters. Short keys show only the ending so the mask never reveals
+ * most of the secret.
+ */
+export function maskApiKey(apiKey: string): string {
+  const key = apiKey.trim();
+  if (key.length <= 12) {
+    return `••••${key.slice(-2)}`;
+  }
+  return `${key.slice(0, 4)}••••••••${key.slice(-4)}`;
 }
 
 export interface AiProviderProbeResult {

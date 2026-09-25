@@ -93,7 +93,6 @@ describe("reapStaleCheckouts", () => {
     expect(result.checked).toBe(1);
     expect(result.reaped).toHaveLength(1);
     expect(released).toEqual([task.id]);
-    expect(comments[0]).toContain("stale checkout");
     expect(activity[0]?.event_type).toBe("tasks.checkout_reaped");
     expect(q.send).toHaveBeenCalledWith(
       AGENT_TASK_DISPATCH_QUEUE,

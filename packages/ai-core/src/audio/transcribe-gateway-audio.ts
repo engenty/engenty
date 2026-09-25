@@ -1,12 +1,20 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { transcribe } from "ai";
 import { readAiGatewayApiKeyFromEnv } from "../config/ai-gateway-api-key.js";
+import {
+  DEFAULT_MODEL_GATEWAY_ID,
+  parseModelRef,
+} from "../config/model-ref.js";
+import { roleModelRef } from "../config/platform-bindings.js";
 
-const DEFAULT_WHISPER_MODEL = "whisper-1";
+export const TRANSCRIPTION_MODEL_ROLE = "transcription";
 const AI_GATEWAY_OPENAI_BASE_URL = "https://ai-gateway.vercel.sh/v1";
 
 export class TranscribeGatewayAudioError extends Error {
-  readonly code: "missing_api_key" | "transcription_failed";
+  readonly code:
+    | "missing_api_key"
+    | "transcription_failed"
+    | "unsupported_gateway";
 
   constructor(
     code: TranscribeGatewayAudioError["code"],
@@ -21,7 +29,6 @@ export class TranscribeGatewayAudioError extends Error {
 
 export interface TranscribeGatewayAudioOptions {
   language?: string;
-  modelId?: string;
 }
 
 function resolveWhisperLanguage(language?: string): string | undefined {
@@ -32,13 +39,22 @@ function resolveWhisperLanguage(language?: string): string | undefined {
   return normalized.split("-")[0] || undefined;
 }
 
-function resolveWhisperModelId(modelId?: string): string {
-  const raw = modelId?.trim() || `openai/${DEFAULT_WHISPER_MODEL}`;
-  if (raw.includes("/")) {
-    const [, modelName] = raw.split("/", 2);
-    return modelName || DEFAULT_WHISPER_MODEL;
+/**
+ * The `transcription` role's model, as the gateway's OpenAI-compatible endpoint
+ * names it: OpenAI models without their vendor prefix, others as-is. Only the
+ * default gateway serves transcription.
+ */
+function resolveTranscriptionModelId(): string {
+  const ref = parseModelRef(roleModelRef(TRANSCRIPTION_MODEL_ROLE));
+  if (ref.gateway !== DEFAULT_MODEL_GATEWAY_ID) {
+    throw new TranscribeGatewayAudioError(
+      "unsupported_gateway",
+      `The "Transcription" model role is bound to ${ref.gateway}; transcription only runs on the ${DEFAULT_MODEL_GATEWAY_ID} gateway.`
+    );
   }
-  return raw;
+  return ref.modelId.startsWith("openai/")
+    ? ref.modelId.slice("openai/".length)
+    : ref.modelId;
 }
 
 async function toAudioPayload(
@@ -67,10 +83,11 @@ export async function transcribeGatewayAudio(
     baseURL: AI_GATEWAY_OPENAI_BASE_URL,
   });
 
+  const modelId = resolveTranscriptionModelId();
   try {
     const whisperLanguage = resolveWhisperLanguage(options.language);
     const result = await transcribe({
-      model: openai.transcription(resolveWhisperModelId(options.modelId)),
+      model: openai.transcription(modelId),
       audio: await toAudioPayload(audio),
       providerOptions: whisperLanguage
         ? { openai: { language: whisperLanguage } }

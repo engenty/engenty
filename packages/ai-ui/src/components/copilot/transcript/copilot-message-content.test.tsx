@@ -18,7 +18,7 @@ describe("CopilotMessageContent sub-agent delegations", () => {
     render(
       <MemoryRouter>
         <CopilotMessageContent
-          messages={[{ id: "assistant-1" }]}
+          isLastMessage
           msg={{
             id: "assistant-1",
             role: "assistant",
@@ -42,7 +42,6 @@ describe("CopilotMessageContent sub-agent delegations", () => {
               },
             ],
           }}
-          status="ready"
           subAgentFullViewLabel="Full view"
           threadId="thread-1"
         />
@@ -68,7 +67,7 @@ describe("CopilotMessageContent tool timeline", () => {
     render(
       <MemoryRouter>
         <CopilotMessageContent
-          messages={[{ id: "assistant-1" }]}
+          isLastMessage
           msg={{
             id: "assistant-1",
             role: "assistant",
@@ -84,7 +83,7 @@ describe("CopilotMessageContent tool timeline", () => {
               },
             ],
           }}
-          status="streaming"
+          streaming
         />
       </MemoryRouter>
     );
@@ -109,7 +108,7 @@ describe("CopilotMessageContent tool timeline", () => {
     render(
       <MemoryRouter>
         <CopilotMessageContent
-          messages={[{ id: "assistant-1" }]}
+          isLastMessage
           msg={{
             id: "assistant-1",
             role: "assistant",
@@ -124,7 +123,7 @@ describe("CopilotMessageContent tool timeline", () => {
               },
             ],
           }}
-          status="streaming"
+          streaming
         />
       </MemoryRouter>
     );
@@ -137,7 +136,7 @@ describe("CopilotMessageContent tool timeline", () => {
     render(
       <MemoryRouter>
         <CopilotMessageContent
-          messages={[{ id: "assistant-1" }]}
+          isLastMessage
           msg={{
             id: "assistant-1",
             role: "assistant",
@@ -153,7 +152,7 @@ describe("CopilotMessageContent tool timeline", () => {
               { type: "text", text: "Here is what I found." },
             ],
           }}
-          status="streaming"
+          streaming
         />
       </MemoryRouter>
     );
@@ -171,7 +170,7 @@ describe("CopilotMessageContent generic tool step", () => {
     render(
       <MemoryRouter>
         <CopilotMessageContent
-          messages={[{ id: "assistant-1" }]}
+          isLastMessage
           msg={{
             id: "assistant-1",
             role: "assistant",
@@ -187,7 +186,7 @@ describe("CopilotMessageContent generic tool step", () => {
               },
             ],
           }}
-          status="streaming"
+          streaming
         />
       </MemoryRouter>
     );
@@ -210,7 +209,7 @@ describe("CopilotMessageContent rich tool step content", () => {
     render(
       <MemoryRouter>
         <CopilotMessageContent
-          messages={[{ id: "assistant-1" }]}
+          isLastMessage
           msg={{
             id: "assistant-1",
             role: "assistant",
@@ -230,7 +229,6 @@ describe("CopilotMessageContent rich tool step content", () => {
               { type: "text", text: "Here is what I found." },
             ],
           }}
-          status="ready"
         />
       </MemoryRouter>
     );
@@ -262,7 +260,7 @@ describe("CopilotMessageContent tool list across text", () => {
     render(
       <MemoryRouter>
         <CopilotMessageContent
-          messages={[{ id: "assistant-1" }]}
+          isLastMessage
           msg={{
             id: "assistant-1",
             role: "assistant",
@@ -301,7 +299,6 @@ describe("CopilotMessageContent tool list across text", () => {
               },
             ],
           }}
-          status="ready"
         />
       </MemoryRouter>
     );
@@ -319,7 +316,7 @@ describe("CopilotMessageContent tool list across text", () => {
     render(
       <MemoryRouter>
         <CopilotMessageContent
-          messages={[{ id: "assistant-1" }]}
+          isLastMessage
           msg={{
             id: "assistant-1",
             role: "assistant",
@@ -353,7 +350,6 @@ describe("CopilotMessageContent tool list across text", () => {
               { type: "text", text: "Done." },
             ],
           }}
-          status="ready"
         />
       </MemoryRouter>
     );
@@ -376,7 +372,7 @@ describe("CopilotMessageContent error-shaped tool output", () => {
     render(
       <MemoryRouter>
         <CopilotMessageContent
-          messages={[{ id: "assistant-1" }]}
+          isLastMessage
           msg={{
             id: "assistant-1",
             role: "assistant",
@@ -401,7 +397,6 @@ describe("CopilotMessageContent error-shaped tool output", () => {
               { type: "text", text: "Done." },
             ],
           }}
-          status="ready"
         />
       </MemoryRouter>
     );
@@ -442,11 +437,7 @@ describe("CopilotMessageContent docked decision suppression", () => {
   it("renders the chooser inline when it is not docked", () => {
     render(
       <MemoryRouter>
-        <CopilotMessageContent
-          messages={[{ id: "assistant-1" }]}
-          msg={decisionMsg}
-          status="ready"
-        />
+        <CopilotMessageContent isLastMessage msg={decisionMsg} />
       </MemoryRouter>
     );
 
@@ -458,9 +449,8 @@ describe("CopilotMessageContent docked decision suppression", () => {
       <MemoryRouter>
         <CopilotMessageContent
           dockedInterruptToolCallId="decision-1"
-          messages={[{ id: "assistant-1" }]}
+          isLastMessage
           msg={decisionMsg}
-          status="ready"
         />
       </MemoryRouter>
     );
@@ -506,11 +496,7 @@ describe("CopilotMessageContent object renders", () => {
   it("renders the object card outside the collapsed tool timeline", () => {
     render(
       <MemoryRouter>
-        <CopilotMessageContent
-          messages={[{ id: "assistant-1" }]}
-          msg={showObjectsMsg}
-          status="ready"
-        />
+        <CopilotMessageContent isLastMessage msg={showObjectsMsg} />
       </MemoryRouter>
     );
 
@@ -533,7 +519,7 @@ describe("CopilotMessageContent file-read dump", () => {
     render(
       <MemoryRouter>
         <CopilotMessageContent
-          messages={[{ id: "assistant-1" }]}
+          isLastMessage
           msg={{
             id: "assistant-1",
             role: "assistant",
@@ -548,7 +534,6 @@ describe("CopilotMessageContent file-read dump", () => {
               },
             ],
           }}
-          status="ready"
         />
       </MemoryRouter>
     );

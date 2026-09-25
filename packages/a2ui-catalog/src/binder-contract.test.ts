@@ -74,5 +74,8 @@ describe("A2UI binder schema contract (zod 3)", () => {
       expect(shapeOf(name).value, name).toEqual({ type: "DYNAMIC" });
     }
     expect(shapeOf("Table").rows).toEqual({ type: "DYNAMIC" });
+    expect(shapeOf("BarChart").points).toEqual({ type: "DYNAMIC" });
+    expect(shapeOf("DonutChart").slices).toEqual({ type: "DYNAMIC" });
+    expect(shapeOf("Metric").sparkline).toEqual({ type: "DYNAMIC" });
   });
 });

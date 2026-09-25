@@ -38,6 +38,22 @@ describe("formatCopilotRunError", () => {
     );
   });
 
+  it("points an unconfigured model gateway at the model configuration", () => {
+    expect(
+      formatCopilotRunError("agent_threads.modelGatewayUnconfigured")
+    ).toBe("This model isn't available. Check the model configuration.");
+    expect(
+      formatCopilotRunError(
+        'ai session run HTTP 503: {"error":"agent_threads.modelGatewayUnconfigured"}'
+      )
+    ).toBe("This model isn't available. Check the model configuration.");
+    expect(
+      formatCopilotRunError(
+        'Model gateway "openrouter" is not configured: set OPENROUTER_API_KEY in platform settings.'
+      )
+    ).toBe("This model isn't available. Check the model configuration.");
+  });
+
   it("explains a run lost to a process restart", () => {
     expect(
       formatCopilotRunError("Process restarted while run was in progress")

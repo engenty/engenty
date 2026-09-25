@@ -3,13 +3,19 @@
  * `/download` path. Local-files and Drive return text/base64 from
  * `filesRead`; Node `fetch` of that path is `Invalid URL`.
  */
-import type { FileSourceContext } from "@engenty/file-storage";
+import {
+  type FileSourceContext,
+  FileSourceNotFoundError,
+} from "@engenty/file-storage";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   bytesFromConnectorRead,
   createConnectorFileSource,
 } from "./connector-file-source.js";
 import { encodeConnectorNodeId } from "./connector-ref.js";
+
+/** The file space may use every connection in these tests. */
+const allowConnection = async () => undefined;
 
 const ctx: FileSourceContext = {
   owner: { id: "space-1", type: "space" },
@@ -91,6 +97,7 @@ describe("connector file source readBytes", () => {
   it("returns proxied text bytes instead of a relative download URL", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     const source = createConnectorFileSource({
+      assertConnectionUsable: allowConnection,
       client: {
         filesList: vi.fn(),
         filesRead: vi.fn(async () => ({
@@ -112,6 +119,7 @@ describe("connector file source readBytes", () => {
   it("still exposes a relative download path for the browser URL route", async () => {
     const filesRead = vi.fn();
     const source = createConnectorFileSource({
+      assertConnectionUsable: allowConnection,
       client: {
         filesList: vi.fn(),
         filesRead,
@@ -122,5 +130,30 @@ describe("connector file source readBytes", () => {
       `/api/files/spaces/space/space-1/files/${encodeURIComponent(fileId)}/download`
     );
     expect(filesRead).not.toHaveBeenCalled();
+  });
+});
+
+describe("connector file source — the drive's Space", () => {
+  it("refuses a drive this file space's Space does not own", async () => {
+    const filesRead = vi.fn();
+    const filesList = vi.fn();
+    const source = createConnectorFileSource({
+      assertConnectionUsable: async () => {
+        throw new FileSourceNotFoundError(
+          "That connected drive belongs to another Space"
+        );
+      },
+      client: { filesList, filesRead },
+      getMount: vi.fn(async () => null),
+    });
+
+    await expect(source.readBytes(ctx, fileId)).rejects.toThrow(
+      "belongs to another Space"
+    );
+    await expect(source.listFolder(ctx, fileId)).rejects.toThrow(
+      "belongs to another Space"
+    );
+    expect(filesRead).not.toHaveBeenCalled();
+    expect(filesList).not.toHaveBeenCalled();
   });
 });

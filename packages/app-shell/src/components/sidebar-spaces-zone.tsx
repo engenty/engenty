@@ -26,7 +26,7 @@ import {
   TooltipTrigger,
 } from "@engenty/ui-core";
 import { Check, MoreHorizontal, Plus, Settings2 } from "lucide-react";
-import type { ReactNode } from "react";
+import { createContext, type ReactNode, useContext } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAppBarChromeContext } from "../context/app-bar-chrome-context";
 import type {
@@ -74,6 +74,8 @@ export interface SidebarSpacesZoneProps {
   onNavigate?: () => void;
   /** Opens the full space list (search + manage). */
   onOpenSwitcher?: () => void;
+  /** Hover/focus of a destination tile — warm that space's shell queries. */
+  onPrefetchSpace?: (space: { id: string; key: string }) => void;
   /** Skeleton tiles at the budget count, so the rail does not reflow. */
   pending?: boolean;
   resolved: ResolveRailSpacesResult;
@@ -112,6 +114,20 @@ function tileStyle(color?: string | null) {
 
 const TILE_BASE =
   "relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg font-semibold text-xs";
+
+const PrefetchSpaceContext = createContext<
+  ((space: { id: string; key: string }) => void) | undefined
+>(undefined);
+
+function usePrefetchDestination() {
+  const prefetch = useContext(PrefetchSpaceContext);
+  return (space: RailSpaceTile) => {
+    if (!prefetch || space.isCurrent) {
+      return;
+    }
+    prefetch({ id: space.id, key: space.key });
+  };
+}
 
 /**
  * Discord-style edge pill + shadow chrome on the tile. The pill sits on the
@@ -207,6 +223,7 @@ function SpaceTile({
   space: RailSpaceTile;
 }) {
   const { tooltipSide } = useAppBarChromeContext();
+  const prefetchDestination = usePrefetchDestination();
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -221,6 +238,8 @@ function SpaceTile({
             space.color ? "" : "bg-sidebar-accent text-sidebar-foreground"
           )}
           onClick={onNavigate}
+          onFocus={() => prefetchDestination(space)}
+          onPointerEnter={() => prefetchDestination(space)}
           style={tileStyle(space.color)}
           to={href}
         >
@@ -255,6 +274,7 @@ function SpaceChooserMenuItems({
   const navigate = useNavigate();
   const showCreate = Boolean(canCreate && onCreateSpace);
   const showManage = Boolean(onOpenSwitcher && labels.manage);
+  const prefetchDestination = usePrefetchDestination();
 
   return (
     <>
@@ -263,6 +283,8 @@ function SpaceChooserMenuItems({
         <DropdownMenuItem
           className={cn("gap-2", space.isCurrent && "font-medium")}
           key={space.id}
+          onFocus={() => prefetchDestination(space)}
+          onPointerEnter={() => prefetchDestination(space)}
           onSelect={() => {
             onNavigate?.();
             navigate(spaceHref(space));
@@ -447,6 +469,7 @@ function SpaceRow({
   onNavigate?: () => void;
   space: RailSpaceTile;
 }) {
+  const prefetchDestination = usePrefetchDestination();
   return (
     <Link
       aria-current={space.isCurrent ? "page" : undefined}
@@ -456,6 +479,8 @@ function SpaceRow({
         space.isCurrent ? ROW_CURRENT : ROW_REST
       )}
       onClick={onNavigate}
+      onFocus={() => prefetchDestination(space)}
+      onPointerEnter={() => prefetchDestination(space)}
       to={href}
     >
       <SpaceRowTile space={space} />
@@ -565,6 +590,7 @@ export function SidebarSpacesZone({
   onCreateSpace,
   onNavigate,
   onOpenSwitcher,
+  onPrefetchSpace,
   pending = false,
   resolved,
   spaceHref,
@@ -612,20 +638,22 @@ export function SidebarSpacesZone({
 
   if (extended) {
     return (
-      <SidebarSpacesList
-        canCreate={canCreate}
-        chooserSpaces={chooserSpaces}
-        extraTiles={extraTiles}
-        hiddenTotal={hiddenTotal}
-        labels={labels}
-        onCreateSpace={onCreateSpace}
-        onNavigate={onNavigate}
-        onOpenSwitcher={onOpenSwitcher}
-        showChooser={showChooser}
-        spaceHref={spaceHref}
-        stackIndicator={stackIndicator}
-        visible={visible}
-      />
+      <PrefetchSpaceContext.Provider value={onPrefetchSpace}>
+        <SidebarSpacesList
+          canCreate={canCreate}
+          chooserSpaces={chooserSpaces}
+          extraTiles={extraTiles}
+          hiddenTotal={hiddenTotal}
+          labels={labels}
+          onCreateSpace={onCreateSpace}
+          onNavigate={onNavigate}
+          onOpenSwitcher={onOpenSwitcher}
+          showChooser={showChooser}
+          spaceHref={spaceHref}
+          stackIndicator={stackIndicator}
+          visible={visible}
+        />
+      </PrefetchSpaceContext.Provider>
     );
   }
 
@@ -696,10 +724,12 @@ export function SidebarSpacesZone({
   ) : null;
 
   return (
-    <div aria-label={labels.spaces} className={stripClass} role="group">
-      {spaceTiles}
-      {overflowChooser}
-      {addSpaceButton}
-    </div>
+    <PrefetchSpaceContext.Provider value={onPrefetchSpace}>
+      <div aria-label={labels.spaces} className={stripClass} role="group">
+        {spaceTiles}
+        {overflowChooser}
+        {addSpaceButton}
+      </div>
+    </PrefetchSpaceContext.Provider>
   );
 }

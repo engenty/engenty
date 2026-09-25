@@ -35,6 +35,11 @@ import { callerScope } from "./engenty-tools/lib/caller-scope.js";
 import { resolveRegistryAgent } from "./engenty-tools/lib/registry-agent.js";
 import { getEngentyToolsRunContext } from "./engenty-tools/lib/run-context.js";
 
+/** A Workflow's editor (canvas + Publish), outside any space. */
+function workflowEditorRoute(workflowId: string): string {
+  return `/admin/engenty/workflows/${encodeURIComponent(workflowId)}`;
+}
+
 export const WORKFLOW_PROPOSE_TOOL_ID = "workflow_propose";
 
 /**
@@ -529,6 +534,10 @@ export const actionProposeTool = createTool({
         dedupeKey: `flow-graph-proposal:${tenantId}:${graphId}`,
         spaceId: executionSpaceId(ctx.space) ?? null,
         kind: "workflow_proposed",
+        ...(ctx.agentTypeKey
+          ? { actor: { id: ctx.agentTypeKey, kind: "agent" as const } }
+          : {}),
+        body: input.description,
         metadata: {
           workflow_id: graphId,
           version: version.version,
@@ -536,8 +545,12 @@ export const actionProposeTool = createTool({
         },
         priority: "medium",
         source: "workflows",
-        summary: `A multi-step Workflow "${input.name}" is ready for review — open it to check the steps and publish it.`,
+        // An owned Workflow opens on its owner's manage panel (built from
+        // workflow_id + owner_agent_id); a library one has no desk, so its
+        // own editor page, where Publish sits.
+        ...(ownerAgentId ? {} : { target: workflowEditorRoute(graphId) }),
         tenantId,
+        title: { key: "workflow_proposed", params: { name: input.name } },
       });
 
       // Interactive chat: park the run on a Publish card so the human can

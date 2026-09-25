@@ -69,6 +69,11 @@ export interface EngentyAIProps {
   formatRequestError?: (message: string) => string;
   formatTransportBlocker?: (blocker: "scope" | "ai_base_url") => string;
   frontendTools?: FrontendToolDefinition[];
+  /**
+   * Live UI snapshot for the next turn. Prefer a getter so a space switch
+   * does not rebuild the AI tree.
+   */
+  getStateSnapshot?: () => RunAgentInput["state"] | undefined;
   queryClient?: QueryClient;
   /** Supabase client for `ai.thread` realtime list invalidation. */
   resolveKbArticleHref?: (kbSlug: string, articleSlug: string) => string;
@@ -142,6 +147,14 @@ export interface AgentHost {
   /** Re-attach to an in-flight server run after reload/navigation (poll transcript + run events). */
   resumeActiveRun: () => void;
   resumeInterrupt: (feedback: EngentyInterruptFeedback) => void;
+  /**
+   * Where the next turn happens. Writes a ref the session reads at submit
+   * time, so a space switch does not rebuild the host or re-render the app.
+   */
+  setTurnContext: (next: {
+    pathname: string;
+    routeContext: HostConfig["routeContext"];
+  }) => void;
   state: EngentyAgUiState;
   status: EngentyAgentStatus;
   /** Put words into the attached run; false when there was none to steer. */
@@ -157,13 +170,13 @@ export interface EngentyAIContextValue {
   formatRequestError: (message: string) => string;
   formatTransportBlocker: (blocker: "scope" | "ai_base_url") => string;
   frontendTools: FrontendToolDefinition[];
+  getStateSnapshot?: () => RunAgentInput["state"] | undefined;
   isTransportReady: boolean;
   queryClient?: QueryClient;
   registerHost: (host: AgentHost) => void;
   resolveHost: (hostKey: string) => AgentHost | null;
   resolveKbArticleHref?: (kbSlug: string, articleSlug: string) => string;
   serviceBaseUrl: string;
-  stateSnapshot?: RunAgentInput["state"];
   // Subscribe to host registration updates for `hostKey`. Returns an
   // unsubscribe fn. Used by `useAgentHost` to re-render sibling-subtree
   // consumers when the registered host changes (active copilot: shell

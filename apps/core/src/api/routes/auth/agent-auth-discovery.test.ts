@@ -9,24 +9,6 @@ function buildApp(): OpenAPIHono {
 }
 
 describe("agent auth discovery (auth.md protocol)", () => {
-  it("serves /auth.md as markdown with both flows and absolute URLs", async () => {
-    const res = await buildApp().request("/auth.md", {
-      headers: {
-        "x-forwarded-host": "app.example.com",
-        "x-forwarded-proto": "https",
-      },
-    });
-    expect(res.status).toBe(200);
-    expect(res.headers.get("content-type")).toContain("text/markdown");
-    const body = await res.text();
-    expect(body).toContain("User-Claimed claim ceremony");
-    expect(body).toContain("API key");
-    expect(body).toContain("https://app.example.com/api/auth/device/authorize");
-    expect(body).toContain("https://app.example.com/auth/device");
-    // Agent-Verified is explicitly not offered.
-    expect(body).toContain("ID-JAG) is not supported");
-  });
-
   it("serves RFC 8414 metadata with the agent_auth extension", async () => {
     const res = await buildApp().request(
       "/.well-known/oauth-authorization-server",

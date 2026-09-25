@@ -1,14 +1,14 @@
 export {
   type ApprovalDecision,
+  type AttentionCountDto,
   decideApprovalRequest,
-  fetchUnseenCount,
+  fetchAttentionCount,
   isAlreadyDecided,
   type ListNotificationsInput,
   listNotifications,
   markAllSeen,
   markNotification,
   type NotificationDto,
-  type UnseenCountDto,
 } from "./api.js";
 export {
   APPROVAL_REQUEST_KINDS,
@@ -16,10 +16,11 @@ export {
   registerApprovalRequestRenderer,
 } from "./approval-request-notification.js";
 export {
-  countOpenHitl,
+  groupAttentionByAgent,
+  isAttention,
+  isDismissible,
   isError,
   isHitl,
-  isNeedsInput,
   isUnseen,
   matchesLaneFilter,
   type NotificationLaneFilter,
@@ -31,6 +32,12 @@ export {
   registerClientChannel,
   useClientChannels,
 } from "./client-channels.js";
+export {
+  type InboxLane,
+  type InboxOpenRequest,
+  openNotificationInbox,
+} from "./inbox-open.js";
+export { NotificationAttentionCard } from "./notification-attention-card.js";
 export {
   NOTIFICATIONS_PATH,
   NotificationBell,
@@ -45,23 +52,28 @@ export {
   notificationInboxPopoverClassName,
 } from "./notification-inbox-panel.js";
 export {
+  actionVerb,
+  localizedSummary,
+  notificationBodyText,
+} from "./notification-item.js";
+export {
   NotificationList,
   type NotificationListProps,
   type NotificationListVariant,
 } from "./notification-list.js";
 export { spaceInboxPath } from "./notification-paths.js";
 export { NotificationPreferencesSection } from "./notification-preferences-section.js";
-export { NotificationSpaceCard } from "./notification-space-card.js";
 export { NotificationsPage } from "./notifications-page.js";
 export {
   notificationKeys,
+  type SpaceAttention,
+  useAttentionCount,
+  useAttentionCountQuery,
   useDecideApprovalMutation,
   useMarkAllSeenMutation,
   useMarkNotificationMutation,
-  useNeedsInputCount,
   useNotificationsQuery,
-  useSpaceNeedsInputCount,
-  useUnseenCountQuery,
+  useSpaceAttention,
 } from "./queries.js";
 export { useNotificationsRealtime } from "./realtime.js";
 export {

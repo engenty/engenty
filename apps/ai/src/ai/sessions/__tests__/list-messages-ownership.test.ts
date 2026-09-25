@@ -62,3 +62,45 @@ describe("listMessages ownership", () => {
     ).rejects.toMatchObject({ code: "agent_threads.notFound" });
   });
 });
+
+describe("listMessages delta page (after)", () => {
+  // Five rows in transcript order. The fake store answers like the real one:
+  // strictly after (created_at, id), ascending, at most `limit` rows.
+  const rows = [1, 2, 3, 4, 5].map((n) => ({
+    created_at: `2026-09-24T10:00:0${n}.000000+00:00`,
+    id: `00000000-0000-4000-8000-00000000010${n}`,
+    metadata: {},
+    parts: [],
+    role: "assistant",
+  }));
+  const listMessagesOrdered = vi.fn(
+    async (params: { afterId?: string; limit: number }) => {
+      const start = rows.findIndex((row) => row.id === params.afterId) + 1;
+      return rows.slice(start, start + params.limit);
+    }
+  );
+
+  it("returns the next newer rows oldest first and says more newer exist", async () => {
+    const { service } = makeService(listMessagesOrdered as never);
+    const page = await service.listMessages({
+      after: { createdAt: rows[0].created_at, id: rows[0].id },
+      limit: 2,
+      scope: { tenantId, userId: owner },
+      threadId,
+    } as never);
+    expect(page.messages.map((m) => m.id)).toEqual([rows[1].id, rows[2].id]);
+    expect(page.has_more).toBe(true);
+  });
+
+  it("reports no more once the delta reaches the newest row", async () => {
+    const { service } = makeService(listMessagesOrdered as never);
+    const page = await service.listMessages({
+      after: { createdAt: rows[2].created_at, id: rows[2].id },
+      limit: 2,
+      scope: { tenantId, userId: owner },
+      threadId,
+    } as never);
+    expect(page.messages.map((m) => m.id)).toEqual([rows[3].id, rows[4].id]);
+    expect(page.has_more).toBe(false);
+  });
+});

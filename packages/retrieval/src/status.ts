@@ -1,4 +1,6 @@
-// Current/stale/missing scan over source rows vs indexed documents.
+// Current/stale/missing scan over source rows vs indexed documents. A row is
+// stale when its source changed after indexing or when it was embedded by a
+// model other than the one in effect.
 // Scan-wide semantics shared with backfill target selection (copy source:
 // the fixed inbox provider on feat/inbox-hybrid-search).
 
@@ -27,7 +29,12 @@ export async function scanIndexState(
   source: RetrievalSourceRegistration,
   store: RetrievalStore,
   tenantId: string,
-  options?: { force?: boolean; metadata?: Record<string, string> }
+  options: {
+    /** The model in effect: rows embedded by any other model are stale. */
+    embeddingModel: string;
+    force?: boolean;
+    metadata?: Record<string, string>;
+  }
 ): Promise<ScanResult> {
   const trimmed = tenantId.trim();
   if (!trimmed) {
@@ -35,7 +42,7 @@ export async function scanIndexState(
   }
   const sourceRows = await source.listDocuments({
     limit: MAX_STATUS_SCAN,
-    ...(options?.metadata ? { metadata: options.metadata } : {}),
+    ...(options.metadata ? { metadata: options.metadata } : {}),
     tenant_id: trimmed,
   });
   const indexed = await store.listIndexedDocs(trimmed, source.source_type);
@@ -51,14 +58,15 @@ export async function scanIndexState(
       continue;
     }
     const isStale =
+      state.embedding_model !== options.embeddingModel ||
       new Date(state.content_updated_at).getTime() <
-      new Date(row.updated_at).getTime();
+        new Date(row.updated_at).getTime();
     if (isStale) {
       stale++;
       pending.push(row.doc_id);
     } else {
       current++;
-      if (options?.force) {
+      if (options.force) {
         pending.push(row.doc_id);
       }
     }

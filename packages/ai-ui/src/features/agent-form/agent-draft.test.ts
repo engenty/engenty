@@ -1,4 +1,3 @@
-import { DEFAULT_AI_CHAT_MODEL_ID } from "@engenty/ai-core/browser";
 import { describe, expect, it } from "vitest";
 import type { CustomAgentConfig } from "../../lib/admin/ai-runtime-api";
 import {
@@ -26,9 +25,10 @@ const config: CustomAgentConfig = {
 };
 
 describe("agent-draft", () => {
-  it("seeds new drafts with the package chat default", () => {
+  it("leaves the model unset on new drafts (role binding decides)", () => {
     const draft = createEmptyAgentDraft();
-    expect(draft.model).toBe(DEFAULT_AI_CHAT_MODEL_ID);
+    expect(draft.model).toBe("");
+    expect(buildAgentConfigFromDraft(draft)).not.toHaveProperty("model");
     expect(draft.agentScope).toBe("shared");
     expect(draft.engenty).toBe("round");
     expect(draft.spaceIds).toEqual([]);

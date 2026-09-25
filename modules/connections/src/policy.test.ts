@@ -16,7 +16,6 @@ import {
   type ConnectionSummary,
   type ConnectionsRepo,
   registerConnectorDefinition,
-  type SpaceConnectionAccess,
 } from "@engenty/connections-sdk";
 import type { PluginPolicyInput } from "@engenty/plugin-sdk";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -25,6 +24,7 @@ import { createConnectionsProfilePolicy } from "./policy.js";
 const TENANT = "t-1";
 const USER = "u-1";
 const CONNECTION_ID = "conn-1";
+const SPACE = "00000000-0000-4000-8000-00000000aaaa";
 
 const handler = vi.fn(() => Promise.resolve({ ok: true }));
 
@@ -59,9 +59,9 @@ function connection(
   overrides: Partial<ConnectionSummary> = {}
 ): ConnectionSummary {
   return {
-    all_spaces: false,
     auth_kind: "browser",
     autonomous_mode: "full",
+    connected_by: USER,
     connector_id: "testmail",
     created_at: "2026-01-01T00:00:00.000Z",
     display_name: "Test Mail",
@@ -69,19 +69,22 @@ function connection(
     external_account: "person@example.com",
     granted_scopes: [],
     id: CONNECTION_ID,
-    non_owner_max_group: null,
-    owner_user_id: USER,
-    sharing: "personal",
+    space_id: SPACE,
     status: "active",
     tenant_id: TENANT,
     ...overrides,
   } as ConnectionSummary;
 }
 
-/** Tenant-locked repo factory, as the Phase A policy signature expects. */
-function repo(conn = connection()): () => ConnectionsRepo {
+/**
+ * Tenant-locked repo factory, as the Phase A policy signature expects. Like
+ * the real repo, candidates are the accounts the named Space owns.
+ */
+function repo(...conns: ConnectionSummary[]): () => ConnectionsRepo {
+  const all = conns.length > 0 ? conns : [connection()];
   const stub = {
-    listCandidateConnections: () => Promise.resolve([conn]),
+    listCandidateConnections: (params: { spaceId: string }) =>
+      Promise.resolve(all.filter((c) => c.space_id === params.spaceId)),
     listPolicyOverrides: () => Promise.resolve([]),
   } as unknown as ConnectionsRepo;
   return () => stub;
@@ -93,16 +96,16 @@ function policyInput(overrides: {
   operationId?: string;
   principalId?: string;
   principalType?: "user" | "agent" | "service";
-  spaceId?: string;
-  triggerId?: string;
+  /** Defaults to the Space that owns the test account; null = no Space. */
+  spaceId?: string | null;
 }): PluginPolicyInput {
+  const spaceId = overrides.spaceId === undefined ? SPACE : overrides.spaceId;
   return {
     auth: {
       audience: [],
       authMethod: "oauth",
       ...(overrides.callOrigin ? { callOrigin: overrides.callOrigin } : {}),
-      ...(overrides.spaceId ? { spaceId: overrides.spaceId } : {}),
-      ...(overrides.triggerId ? { triggerId: overrides.triggerId } : {}),
+      ...(spaceId ? { spaceId } : {}),
       capabilities: overrides.capabilities ?? ["module.connections.write"],
       delegationChain: [],
       moduleIds: [],
@@ -123,6 +126,9 @@ function policyInput(overrides: {
   } as PluginPolicyInput;
 }
 
+/** The Space claim check, passing: these tests are about what happens inside a Space. */
+const allowSpace = async () => true;
+
 describe("connections profile policy — who owns the approval UX", () => {
   beforeEach(() => {
     __resetConnectorRegistryForTests();
@@ -134,8 +140,19 @@ describe("connections profile policy — who owns the approval UX", () => {
     __resetConnectorRegistryForTests();
   });
 
+  it("refuses a Space the call may not use, before reading any account", async () => {
+    const policy = createConnectionsProfilePolicy(repo(), async () => false);
+    const decision = await policy(
+      policyInput({ callOrigin: "app", principalType: "user" })
+    );
+    expect(decision).toMatchObject({ action: "deny" });
+    expect(decision && "reason" in decision ? decision.reason : "").toContain(
+      "connection_not_in_space"
+    );
+  });
+
   it("escalates an App-originated write with the connection it resolved", async () => {
-    const policy = createConnectionsProfilePolicy(repo());
+    const policy = createConnectionsProfilePolicy(repo(), allowSpace);
     const decision = await policy(
       policyInput({ callOrigin: "app", principalType: "user" })
     );
@@ -148,14 +165,14 @@ describe("connections profile policy — who owns the approval UX", () => {
     expect(decision?.approvalContext).toEqual({
       action_id: "send_message",
       connection_id: CONNECTION_ID,
-      // CN.6/3 — who may DECIDE this. Core restricts the decision route to the
-      // owner (plus tenant admins) on the strength of this field; without it
-      // any colleague in the tenant could approve an agent sending mail from
-      // someone else's mailbox, which the reason string below already claimed
-      // was not possible.
-      owner_user_id: USER,
+      // Who may DECIDE this: core restricts the decision route to the owners
+      // of this Space (plus tenant admins) on the strength of this field.
+      space_id: SPACE,
       connector_id: "testmail",
     });
+    expect(decision?.reason).toContain(
+      "sent to the owners of the connection's space"
+    );
     // The gate decides; it must never be the thing that runs the action.
     expect(handler).not.toHaveBeenCalled();
   });
@@ -164,20 +181,20 @@ describe("connections profile policy — who owns the approval UX", () => {
     // Same user, same write, no app origin: `null` hands the approval card to
     // the AI pre-gate, which IS running in chat. Changing this would put two
     // approval prompts in front of every chat connector call.
-    const policy = createConnectionsProfilePolicy(repo());
+    const policy = createConnectionsProfilePolicy(repo(), allowSpace);
     const decision = await policy(policyInput({ principalType: "user" }));
 
     expect(decision).toBeNull();
   });
 
   it("still escalates an agent principal", async () => {
-    const policy = createConnectionsProfilePolicy(repo());
+    const policy = createConnectionsProfilePolicy(repo(), allowSpace);
     const decision = await policy(policyInput({ principalType: "agent" }));
     expect(decision?.action).toBe("require_approval");
   });
 
   it("allows an App-originated read — reads were never the hole", async () => {
-    const policy = createConnectionsProfilePolicy(repo());
+    const policy = createConnectionsProfilePolicy(repo(), allowSpace);
     const decision = await policy(
       policyInput({
         callOrigin: "app",
@@ -192,7 +209,8 @@ describe("connections profile policy — who owns the approval UX", () => {
     // own autonomous_mode clamp. A connection its owner marked "off" now
     // refuses outright rather than asking.
     const policy = createConnectionsProfilePolicy(
-      repo(connection({ autonomous_mode: "off" }))
+      repo(connection({ autonomous_mode: "off" })),
+      allowSpace
     );
     const decision = await policy(policyInput({ callOrigin: "app" }));
     expect(decision?.action).toBe("deny");
@@ -219,7 +237,8 @@ describe("connections profile policy — who owns the approval UX", () => {
 
     it("denies a write to a connector the role does not name", async () => {
       const policy = createConnectionsProfilePolicy(
-        repo(connection({ connector_id: "testchat" }))
+        repo(connection({ connector_id: "testchat" })),
+        allowSpace
       );
       const decision = await policy(
         policyInput({
@@ -234,7 +253,7 @@ describe("connections profile policy — who owns the approval UX", () => {
     });
 
     it("allows the write to the connector it does name", async () => {
-      const policy = createConnectionsProfilePolicy(repo());
+      const policy = createConnectionsProfilePolicy(repo(), allowSpace);
       const decision = await policy(
         policyInput({
           capabilities: gmailScoped,
@@ -247,7 +266,8 @@ describe("connections profile policy — who owns the approval UX", () => {
 
     it("does not restrict reads on the unnamed connector", async () => {
       const policy = createConnectionsProfilePolicy(
-        repo(connection({ connector_id: "testchat" }))
+        repo(connection({ connector_id: "testchat" })),
+        allowSpace
       );
       const decision = await policy(
         policyInput({
@@ -260,7 +280,8 @@ describe("connections profile policy — who owns the approval UX", () => {
 
     it("leaves an unscoped broad grant able to drive every connector", async () => {
       const policy = createConnectionsProfilePolicy(
-        repo(connection({ connector_id: "testchat" }))
+        repo(connection({ connector_id: "testchat" })),
+        allowSpace
       );
       const decision = await policy(
         policyInput({
@@ -275,7 +296,8 @@ describe("connections profile policy — who owns the approval UX", () => {
       // The two gates compose: scope refuses first, so CON-01's approval
       // request is never even recorded for a connector the role cannot use.
       const policy = createConnectionsProfilePolicy(
-        repo(connection({ connector_id: "testchat" }))
+        repo(connection({ connector_id: "testchat" })),
+        allowSpace
       );
       const decision = await policy(
         policyInput({
@@ -289,270 +311,99 @@ describe("connections profile policy — who owns the approval UX", () => {
     });
   });
 
-  // PLAN-spaces.md Phase CN.3 — the WHERE axis. Two spaces, two mailboxes of
-  // the SAME connector: before CN.3 the mount key was the connector, so
-  // mounting "Test Mail" in either space reached both accounts.
-  describe("space mounts narrow to the ACCOUNT", () => {
-    const SPACE_A = "space-a";
-    const SPACE_B = "space-b";
+  // PLAN-space-owned-connections.md — an account belongs to one Space; every
+  // agent and member of that Space uses it, nobody outside it does.
+  describe("the run's Space owns the account", () => {
+    const SPACE_B = "00000000-0000-4000-8000-00000000bbbb";
     const CONNECTION_B = "conn-2";
-
-    /** Both accounts are candidates for the principal; only mounts differ. */
-    function twoAccountRepo(): () => ConnectionsRepo {
-      const stub = {
-        listCandidateConnections: () =>
-          Promise.resolve([
-            connection({ sharing: "org" }),
-            connection({
-              external_account: "team@example.com",
-              id: CONNECTION_B,
-              sharing: "org",
-            }),
-          ]),
-        listPolicyOverrides: () => Promise.resolve([]),
-      } as unknown as ConnectionsRepo;
-      return () => stub;
-    }
-
-    /** Space A mounts account 1; space B mounts account 2. No level chosen. */
-    const mounts = (params: { spaceId: string }) =>
-      Promise.resolve(
-        new Map<string, SpaceConnectionAccess | null>([
-          [params.spaceId === SPACE_A ? CONNECTION_ID : CONNECTION_B, null],
-        ])
-      );
-
-    function inSpace(spaceId: string): PluginPolicyInput {
-      const base = policyInput({ operationId: "testmail_list_messages" });
-      return { ...base, auth: { ...base.auth, spaceId } };
-    }
-
-    it("resolves to the account its own space mounts", async () => {
-      const policy = createConnectionsProfilePolicy(twoAccountRepo(), mounts);
-      // Two candidates would be ambiguous without the mount; narrowing to one
-      // is what lets the call resolve at all.
-      const decision = await policy(inSpace(SPACE_A));
-      expect(decision?.reason).not.toContain("connection_not_in_space");
+    const accountB = connection({
+      external_account: "team@example.com",
+      id: CONNECTION_B,
+      space_id: SPACE_B,
     });
 
-    it("refuses an account mounted only in ANOTHER space, and says so", async () => {
-      const policy = createConnectionsProfilePolicy(
-        // Only account 2 exists as a candidate, and space A does not mount it.
-        (() => {
-          const stub = {
-            listCandidateConnections: () =>
-              Promise.resolve([
-                connection({ id: CONNECTION_B, sharing: "org" }),
-              ]),
-            listPolicyOverrides: () => Promise.resolve([]),
-          } as unknown as ConnectionsRepo;
-          return () => stub;
-        })(),
-        mounts
-      );
-      const decision = await policy(inSpace(SPACE_A));
-      expect(decision?.action).toBe("deny");
-      // The refusal must name the SPACE, not read as "no such account" — C3a's
-      // lesson about silent narrowing producing a confident wrong diagnosis.
-      expect(decision?.reason).toContain("connection_not_in_space");
-      expect(decision?.reason).toContain("this space");
-    });
-
-    // PLAN-connections-ux.md B1 — the mount now carries HOW FAR, not just
-    // whether the account is here at all.
-    it("clamps an unattended run to the level the space chose", async () => {
-      const readOnlyHere = () =>
-        Promise.resolve(
-          new Map<string, SpaceConnectionAccess | null>([
-            [CONNECTION_ID, "read"],
-          ])
-        );
-      const policy = createConnectionsProfilePolicy(repo(), readOnlyHere);
-      const base = policyInput({
-        operationId: "testmail_send_message",
-        principalType: "agent",
-      });
-      const decision = await policy({
-        ...base,
-        auth: { ...base.auth, spaceId: SPACE_A },
-      });
-      expect(decision?.action).toBe("deny");
-      expect(decision?.reason).toContain("connection_space_access_read_only");
-    });
-
-    it("does not narrow when the call names no space", async () => {
-      const policy = createConnectionsProfilePolicy(repo(), mounts);
-      const decision = await policy(
-        policyInput({ operationId: "testmail_list_messages" })
-      );
-      expect(decision?.reason ?? "").not.toContain("connection_not_in_space");
-    });
-  });
-
-  // PLAN-spaces.md CN.5 — "the Marketing Agent may use my Gmail". The
-  // alternative was impersonation; a grant keeps the audit trail honest and
-  // gives revocation one place to live.
-  describe("agent grants on a personal account", () => {
-    const AGENT = "agent-1";
-    const OTHER_USER = "u-2";
-
-    /** A personal account owned by SOMEONE ELSE — the case grants exist for. */
-    function othersPersonalRepo(granted: boolean): () => ConnectionsRepo {
-      const conn = connection({ owner_user_id: OTHER_USER });
-      const grants = new Set(granted ? [CONNECTION_ID] : []);
-      const stub = {
-        listAgentGrantedConnectionIds: () => Promise.resolve(grants),
-        listCandidateConnections: (params: {
-          agentGrantedConnectionIds?: ReadonlySet<string>;
-        }) =>
-          Promise.resolve(
-            params.agentGrantedConnectionIds?.has(conn.id) ? [conn] : []
-          ),
-        listPolicyOverrides: () => Promise.resolve([]),
-      } as unknown as ConnectionsRepo;
-      return () => stub;
-    }
-
-    function asAgent(): PluginPolicyInput {
-      const base = policyInput({
+    function asAgent(spaceId: string | null): PluginPolicyInput {
+      return policyInput({
         operationId: "testmail_list_messages",
         principalType: "service",
+        spaceId,
       });
-      return { ...base, auth: { ...base.auth, agentId: AGENT } };
     }
 
-    it("lets a granted agent reach an account it does not own", async () => {
-      const policy = createConnectionsProfilePolicy(othersPersonalRepo(true));
-      const decision = await policy(asAgent());
-      expect(decision?.action).not.toBe("deny");
-    });
-
-    it("denies the same agent without the grant — default is none", async () => {
-      const policy = createConnectionsProfilePolicy(othersPersonalRepo(false));
-      const decision = await policy(asAgent());
-      // No candidate at all: an ungranted personal account of someone else is
-      // not merely refused, it is not visible to select from.
-      expect(decision?.action).toBe("deny");
-    });
-
-    it("does not let a grant override autonomous_mode: off", async () => {
-      const conn = connection({
-        autonomous_mode: "off",
-        owner_user_id: OTHER_USER,
+    it("resolves to the account its own Space owns, not the other Space's", async () => {
+      const policy = createConnectionsProfilePolicy(
+        repo(connection(), accountB),
+        allowSpace
+      );
+      // Two accounts of the same connector would be ambiguous tenant-wide;
+      // each Space sees exactly its own.
+      expect(await policy(asAgent(SPACE))).toEqual({
+        action: "allow",
+        reason: "connection_policy_allow",
       });
-      const stub = {
-        listAgentGrantedConnectionIds: () =>
-          Promise.resolve(new Set([CONNECTION_ID])),
-        listCandidateConnections: () => Promise.resolve([conn]),
-        listPolicyOverrides: () => Promise.resolve([]),
-      } as unknown as ConnectionsRepo;
-      const policy = createConnectionsProfilePolicy(() => stub);
-      const decision = await policy(asAgent());
-      // The grant answers "may this agent reach the account", not "may it do
-      // anything with it" — every other clamp still runs.
+      expect(await policy(asAgent(SPACE_B))).toEqual({
+        action: "allow",
+        reason: "connection_policy_allow",
+      });
+    });
+
+    it("does not reach another Space's account", async () => {
+      const policy = createConnectionsProfilePolicy(repo(accountB), allowSpace);
+      const decision = await policy(asAgent(SPACE));
       expect(decision?.action).toBe("deny");
-      expect(decision?.reason).toContain("connection_autonomous_disabled");
+      expect(decision?.reason).toContain("connection_not_connected");
+    });
+
+    it("denies with connection_not_in_space when the run names no Space", async () => {
+      const policy = createConnectionsProfilePolicy(repo(), allowSpace);
+      for (const principalType of ["user", "service"] as const) {
+        const decision = await policy(
+          policyInput({
+            operationId: "testmail_list_messages",
+            principalType,
+            spaceId: null,
+          })
+        );
+        expect(decision?.action).toBe("deny");
+        expect(decision?.reason).toContain("connection_not_in_space");
+        expect(decision?.reason).toContain("belong to a space");
+      }
+    });
+
+    it("clamps an unattended run by the account's autonomous_mode only", async () => {
+      const policy = createConnectionsProfilePolicy(
+        repo(connection({ autonomous_mode: "read_only" })),
+        allowSpace
+      );
+      const write = await policy(
+        policyInput({
+          operationId: "testmail_send_message",
+          principalType: "agent",
+        })
+      );
+      expect(write?.action).toBe("deny");
+      expect(write?.reason).toContain("connection_autonomous_read_only");
+      const read = await policy(asAgent(SPACE));
+      expect(read?.action).toBe("allow");
+    });
+
+    it("does not care who connected the account", async () => {
+      // `connected_by` is audit only: a colleague's sign-in serves the whole
+      // Space, and a person who connected elsewhere gets nothing here.
+      const policy = createConnectionsProfilePolicy(
+        repo(connection({ connected_by: "someone-else" })),
+        allowSpace
+      );
+      expect((await policy(asAgent(SPACE)))?.action).toBe("allow");
     });
   });
 
   it("abstains on operations that are not connector actions", async () => {
-    const policy = createConnectionsProfilePolicy(repo());
+    const policy = createConnectionsProfilePolicy(repo(), allowSpace);
     expect(
       await policy(
         policyInput({ callOrigin: "app", operationId: "tasks_create" })
       )
     ).toBeNull();
-  });
-});
-
-describe("personal-space owner resolution no longer widens reach", () => {
-  beforeEach(() => {
-    __resetConnectorRegistryForTests();
-    registerTestConnector();
-    handler.mockClear();
-  });
-
-  afterEach(() => {
-    __resetConnectorRegistryForTests();
-  });
-
-  const SPACE = "00000000-0000-4000-8000-00000000aaaa";
-  const TRIGGER = "00000000-0000-4000-8000-00000000bbbb";
-
-  it("denies a headless run on an unmounted personal account", async () => {
-    const policy = createConnectionsProfilePolicy(repo());
-    const decision = await policy(
-      policyInput({ principalId: "svc-1", principalType: "service" })
-    );
-    expect(decision?.action).toBe("deny");
-  });
-
-  it("does not treat a verified space owner as extra account reach", async () => {
-    const seen: unknown[] = [];
-    const policy = createConnectionsProfilePolicy(
-      repo(),
-      undefined,
-      (params) => {
-        seen.push(params);
-        return Promise.resolve(USER);
-      }
-    );
-    const decision = await policy(
-      policyInput({
-        principalId: "svc-1",
-        principalType: "service",
-        spaceId: SPACE,
-        triggerId: TRIGGER,
-      })
-    );
-    expect(seen).toEqual([
-      {
-        principalType: "service",
-        spaceId: SPACE,
-        tenantId: TENANT,
-        triggerId: TRIGGER,
-      },
-    ]);
-    expect(decision?.action).toBe("deny");
-  });
-
-  it("lets a space-mounted account through for a headless run — asks stay", async () => {
-    const mounted = () =>
-      Promise.resolve(
-        new Map<string, SpaceConnectionAccess | null>([[CONNECTION_ID, null]])
-      );
-    const policy = createConnectionsProfilePolicy(repo(), mounted, () =>
-      Promise.resolve(USER)
-    );
-    const decision = await policy(
-      policyInput({
-        principalId: "svc-1",
-        principalType: "service",
-        spaceId: SPACE,
-        triggerId: TRIGGER,
-      })
-    );
-    expect(decision?.action).toBe("require_approval");
-    expect(decision?.reason).toContain("connection_approval_pending");
-  });
-
-  it("reads freely when the mounted account's ceiling allows it", async () => {
-    const mounted = () =>
-      Promise.resolve(
-        new Map<string, SpaceConnectionAccess | null>([[CONNECTION_ID, null]])
-      );
-    const policy = createConnectionsProfilePolicy(repo(), mounted, () =>
-      Promise.resolve(USER)
-    );
-    const decision = await policy(
-      policyInput({
-        operationId: "testmail_list_messages",
-        principalId: "svc-1",
-        principalType: "service",
-        spaceId: SPACE,
-        triggerId: TRIGGER,
-      })
-    );
-    expect(decision?.action).toBe("allow");
   });
 });

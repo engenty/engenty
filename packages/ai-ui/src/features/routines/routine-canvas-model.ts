@@ -50,6 +50,8 @@ const TRIGGER_HEIGHT = 58;
 const OUTCOME_BASE_HEIGHT = 74;
 /** line-clamp-4 promise text at xs/relaxed. */
 const OUTCOME_TEXT_HEIGHT = 60;
+const OUTCOME_BINDING_HEIGHT = 16;
+const OUTCOME_HOLD_HEIGHT = 16;
 
 function reportLine(mode: RoutineReportMode, isDe: boolean): string {
   const prefix = isDe ? "Rückmeldung: " : "Reporting: ";
@@ -113,7 +115,12 @@ export function routineShapeToCanvas(
     estimateNodeHeight({ subtitle: step.subtitle ?? undefined })
   );
   const outcomeHeight = shape.outcome
-    ? OUTCOME_BASE_HEIGHT + (shape.outcome.text ? OUTCOME_TEXT_HEIGHT : 0)
+    ? OUTCOME_BASE_HEIGHT +
+      (shape.outcome.text ? OUTCOME_TEXT_HEIGHT : 0) +
+      (shape.outcome.bindings.length > 0
+        ? 10 + shape.outcome.bindings.length * OUTCOME_BINDING_HEIGHT
+        : 0) +
+      (shape.outcome.holdLine ? OUTCOME_HOLD_HEIGHT : 0)
     : 0;
 
   const triggers = shape.triggers;
@@ -196,11 +203,20 @@ export function routineShapeToCanvas(
   if (shape.outcome) {
     nodes.push({
       data: {
+        bindings: shape.outcome.bindings.map((binding) => ({
+          enabled: binding.enabled,
+          id: binding.id,
+          label: binding.label,
+          modeLabel: binding.modeLabel,
+        })),
+        holdLine: shape.outcome.bindings.length ? shape.outcome.holdLine : null,
         label: isDe ? "Ergebnis" : "Outcome",
         placeholder: isDe
           ? "Noch kein Ergebnis festgelegt."
           : "No outcome declared yet.",
-        reportLine: reportLine(shape.outcome.report, isDe),
+        reportLine: shape.outcome.bindings.length
+          ? null
+          : reportLine(shape.outcome.report, isDe),
         text: shape.outcome.text,
       } satisfies OutcomeNodeData,
       id: "outcome",

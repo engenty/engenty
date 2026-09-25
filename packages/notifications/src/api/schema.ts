@@ -33,6 +33,7 @@ export const notificationRecordSchema = z.object({
   actor_kind: z.enum(["agent", "user", "system"]).nullable(),
   audience_id: z.string().nullable(),
   audience_kind: z.enum(["tenant", "user", "stream", "space"]),
+  body: z.string().nullable().optional(),
   class: notificationClassSchema,
   coalesced_count: z.number(),
   created_at: z.string(),
@@ -51,7 +52,13 @@ export const notificationRecordSchema = z.object({
   subject_id: z.string().nullable(),
   subject_type: z.string().nullable(),
   summary: z.string(),
+  target: z.string().nullable().optional(),
   tenant_id: z.string(),
+  title_key: z.string().nullable().optional(),
+  title_params: z
+    .record(z.string(), z.union([z.string(), z.number()]))
+    .nullable()
+    .optional(),
   updated_at: z.string(),
 });
 
@@ -59,7 +66,7 @@ export const listNotificationsResponseSchema = z.object({
   notifications: z.array(notificationRecordSchema),
 });
 
-export const unseenCountResponseSchema = z.object({
+export const attentionCountResponseSchema = z.object({
   in_space: z.number().nullable(),
   total: z.number(),
 });

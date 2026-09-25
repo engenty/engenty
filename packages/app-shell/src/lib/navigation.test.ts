@@ -387,7 +387,7 @@ describe("navigation", () => {
       ]);
     });
 
-    it("places Engenty first in the bottom admin rail for admins", () => {
+    it("places Engenty first in the bottom admin rail for superadmins in developer mode", () => {
       const EngentyIcon = () => null;
       const contributions = {
         routes: [],
@@ -429,7 +429,8 @@ describe("navigation", () => {
       };
 
       const adminSections = buildNavigationSections(contributions, {
-        isTenantAdmin: true,
+        developerModeEnabled: true,
+        isSuperAdmin: true,
       });
       expect(adminSections[0]?.items.map((item) => item.to)).toEqual([
         "/mdl/inbox",
@@ -460,6 +461,18 @@ describe("navigation", () => {
           .find((section) => section.label === "navigation.admin")
           ?.items.map((item) => item.to) ?? [];
       expect(memberAdmin).not.toContain("/admin/engenty");
+
+      for (const options of [
+        { isTenantAdmin: true, developerModeEnabled: true },
+        { isSuperAdmin: true },
+      ]) {
+        const rail =
+          buildNavigationSections(contributions, options)
+            .find((section) => section.label === "navigation.admin")
+            ?.items.map((item) => item.to) ?? [];
+        expect(rail).toContain("/admin/files");
+        expect(rail).not.toContain("/admin/engenty");
+      }
     });
 
     it("shows Setup admin nav for superadmins only", () => {

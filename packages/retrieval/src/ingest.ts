@@ -11,7 +11,8 @@ import { splitDocument } from "./splitter.js";
 import type { RetrievalStore } from "./store.js";
 
 export interface IngestDeps {
-  resolveEmbedder(tenantId: string): Promise<SearchEmbedder>;
+  /** The embedder for the one platform embedding model. */
+  resolveEmbedder(): Promise<SearchEmbedder>;
   source: RetrievalSourceRegistration;
   store: RetrievalStore;
 }
@@ -35,7 +36,7 @@ export async function ingestDocument(
     });
     return;
   }
-  const embedder = await deps.resolveEmbedder(tenantId);
+  const embedder = await deps.resolveEmbedder();
   const embeddings = await embedTexts(
     embedder,
     chunks.map((chunk) => chunk.text)

@@ -1,11 +1,10 @@
 import type { Contact } from "../schema/types.js";
 
 // Per-document embedding is owned by the central retrieval service via the
-// `contacts.contact` source (see `dal/contacts-retrieval-source.ts`). This
-// module only owns the canonical document-text builder, which is shared by
-// the source's buildDocument and any future backfill / inspection tooling.
-
-export const DEFAULT_CONTACT_EMBEDDING_MODEL = "openai/text-embedding-3-small";
+// `contacts.contact` source (see `dal/contacts-retrieval-source.ts`), on the
+// platform `embedding` role. This module only owns the canonical
+// document-text builder, which is shared by the source's buildDocument and
+// any future backfill / inspection tooling.
 
 function addLine(lines: string[], label: string, value: unknown): void {
   if (typeof value === "string" && value.trim()) {

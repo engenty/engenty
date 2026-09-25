@@ -27,15 +27,11 @@ export function SpaceResourcePicker({
   return (
     <div className="grid gap-x-6 md:grid-cols-2">
       {byCategory(items).map(([category, groupItems]) => {
-        const mountable = groupItems.filter((item) => !item.needsConnect);
-        if (mountable.length === 0) {
-          return null;
-        }
-        const packIds = mountable.map((item) => item.id);
+        const packIds = groupItems.map((item) => item.id);
         const isLibraryPack =
           kind === "skill" &&
-          mountable.length > 0 &&
-          mountable.every((item) => item.source === "library");
+          groupItems.length > 0 &&
+          groupItems.every((item) => item.source === "library");
         const packSelected = skillPackFullySelected(selection, packIds);
         return (
           <div className="mb-3" key={category}>
@@ -63,7 +59,7 @@ export function SpaceResourcePicker({
                 </Button>
               ) : null}
             </div>
-            {mountable.map((item) => {
+            {groupItems.map((item) => {
               const key = spaceMountKey({
                 resourceKey: item.id,
                 resourceType: kind,

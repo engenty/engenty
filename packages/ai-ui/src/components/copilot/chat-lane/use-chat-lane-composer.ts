@@ -19,6 +19,7 @@ import {
   type CopilotRunStatus,
   useCopilotMessageQueue,
 } from "../../../copilot/use-copilot-message-queue.js";
+import { hasRenderableOpenInterrupt } from "../interrupts/copilot-open-interrupt-banner.js";
 import { pendingInterruptFromTranscript } from "../interrupts/pending-interrupt-from-transcript.js";
 import type { CopilotPanelContentProps } from "../panel/copilot-panel-content-types.js";
 
@@ -257,14 +258,15 @@ export function useChatLaneComposer(
   // pending-tool-call set from the stream. Fall back to the persisted open
   // interrupt for server-driven gates that never enter the transcript — e.g.
   // the tool-approval gate, whose suspended `engenty_tool_execute` call has no
-  // artifact result to render from.
-  const dockInterrupt = useMemo(
-    () =>
-      host.pendingInterruptToolCallIds.size > 0
-        ? (pendingInterruptFromTranscript(messages) ?? openInterrupt)
-        : null,
-    [host.pendingInterruptToolCallIds, messages, openInterrupt]
-  );
+  // artifact result to render from. An interrupt the dock has no card for
+  // (a frontend-tool suspend) stays null — any dock element opens the flap.
+  const dockInterrupt = useMemo(() => {
+    if (host.pendingInterruptToolCallIds.size === 0) {
+      return null;
+    }
+    const open = pendingInterruptFromTranscript(messages) ?? openInterrupt;
+    return open && hasRenderableOpenInterrupt(open) ? open : null;
+  }, [host.pendingInterruptToolCallIds, messages, openInterrupt]);
 
   return {
     dockInterrupt,

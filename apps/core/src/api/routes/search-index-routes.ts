@@ -122,6 +122,11 @@ function serializeRegistration(registration: SearchIndexRegistration) {
 export interface RegisterSearchIndexRoutesParams {
   app: OpenAPIHono;
   config: Record<string, unknown>;
+  /**
+   * The embedding model every managed source uses (the platform `embedding`
+   * role, via the retrieval service); null when no retrieval source exists.
+   */
+  resolveEmbeddingModel: () => Promise<string | null>;
   // Lazy lookup so dynamically-attached registries (e.g. test harness) work
   // without re-registering routes.
   resolveRegistry: () => SearchIndexRegistry | undefined;
@@ -130,7 +135,7 @@ export interface RegisterSearchIndexRoutesParams {
 export function registerSearchIndexRoutes(
   params: RegisterSearchIndexRoutesParams
 ) {
-  const { app, config, resolveRegistry } = params;
+  const { app, config, resolveEmbeddingModel, resolveRegistry } = params;
 
   app.get("/api/search-index/providers", async (c) => {
     const auth = await resolveRouteAuth(c, config);
@@ -151,6 +156,26 @@ export function registerSearchIndexRoutes(
       .filter((reg) => isVisibleToCaller(reg, isAdmin, auth.isSuperAdmin))
       .map(serializeRegistration);
     return jsonApiSuccess(c, { providers });
+  });
+
+  // Read-only: the model is a platform role binding, changed in the binding
+  // console, never per source or per tenant.
+  app.get("/api/search-index/embedding-model", async (c) => {
+    const auth = await resolveRouteAuth(c, config);
+    if (!auth) {
+      return jsonApiError(c, 401, { message: "Unauthorized" });
+    }
+    const isAdmin = await isTenantAdminOrSuperAdmin(
+      auth,
+      config,
+      readBearer(c)
+    );
+    if (!(isAdmin || auth.isSuperAdmin)) {
+      return jsonApiError(c, 403, { message: "Forbidden" });
+    }
+    return jsonApiSuccess(c, {
+      embedding_model: await resolveEmbeddingModel(),
+    });
   });
 
   app.get("/api/search-index/providers/:id/status", async (c) => {

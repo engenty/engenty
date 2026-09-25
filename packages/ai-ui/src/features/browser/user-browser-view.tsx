@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import type { BrowserTarget } from "./browser-target.js";
 import {
   mintUserBrowserTicket,
   resolveUserBrowserWsUrl,
@@ -96,6 +97,7 @@ export function UserBrowserView({
   onSeatChange,
   onStop,
   stopPending,
+  target,
 }: {
   /**
    * Pane top bar to put the tab strip in. Present = the view drops its own
@@ -108,6 +110,8 @@ export function UserBrowserView({
   /** Present = the toolbar carries a Stop (sleep) button. */
   onStop?: () => void;
   stopPending?: boolean;
+  /** The Space's browser and the agent window to show. */
+  target: BrowserTarget;
 }) {
   const { t } = useTranslation("ai-ui");
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -130,7 +134,7 @@ export function UserBrowserView({
   }, []);
 
   const connect = useMutation({
-    mutationFn: () => mintUserBrowserTicket(),
+    mutationFn: () => mintUserBrowserTicket(target),
     onError: () => {
       setStatus("error");
       setError(t("browser.view.unavailable"));

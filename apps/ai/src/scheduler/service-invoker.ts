@@ -94,9 +94,12 @@ const verifiedTokenTenants = new Map<string, string>();
  * the tenant stamped in its metadata, never the credential's default) and is
  * ASSERTED against the token's actual tenant: a tenant-bound credential would
  * otherwise execute tenant B's operation inside tenant A without any error —
- * the same belt the task-job path wears (task-job-scope.ts). */
+ * the same belt the task-job path wears (task-job-scope.ts). `run` names the
+ * routine and its Space when the call acts for one — connections belong to a
+ * Space, so a routine's connector calls reach that Space's accounts only. */
 export function createSchedulerOperationInvoker(
-  tenantId?: string
+  tenantId?: string,
+  run?: { routineId?: string; spaceId?: string }
 ): SchedulerOperationInvoker {
   return async (operationId, input) => {
     const serviceJwt = await getServiceAccessToken(
@@ -134,6 +137,8 @@ export function createSchedulerOperationInvoker(
     const client = new EngentyCoreClient({
       coreBaseUrl,
       accessToken: serviceJwt,
+      ...(run?.routineId ? { routineId: run.routineId } : {}),
+      ...(run?.spaceId ? { spaceId: run.spaceId } : {}),
     });
     return client.invokeTool(operationId, input ?? {});
   };

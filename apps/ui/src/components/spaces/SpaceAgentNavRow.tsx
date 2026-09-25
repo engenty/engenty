@@ -11,6 +11,9 @@
  * or waiting for an answer only this person can give — with a dot beside the
  * name, because a row that says "vor 3 Minuten" while the agent is mid-job
  * reads as an agent that stopped.
+ *
+ * Its open attention rows (Wichtig) sit bottom-right as a pill beside the
+ * link, not in it: the pill opens the bell on that agent, the row the desk.
  */
 import {
   AgentFace,
@@ -25,12 +28,14 @@ import { type ReactNode, useState } from "react";
 import { Link } from "react-router-dom";
 import type { SpaceAgentActivity } from "@/lib/space-agent-activity";
 import type { SpaceRosterAgent } from "@/lib/use-space-roster-agents";
+import { AgentAttentionPill } from "./AgentAttentionPill";
 import { openSpaceConversationNavMenu } from "./space-conversation-nav-menu";
 
 export function SpaceAgentNavRow({
   active,
   activity,
   agent,
+  attentionCount,
   destination,
   live,
   menu,
@@ -39,6 +44,8 @@ export function SpaceAgentNavRow({
   active: boolean;
   activity: SpaceAgentActivity | undefined;
   agent: SpaceRosterAgent;
+  /** Open attention rows whose actor is this agent. */
+  attentionCount: number;
   destination: string;
   /** What this agent's runs say it is doing right now, if anything. */
   live: AgentLiveActivity | null;
@@ -102,7 +109,13 @@ export function SpaceAgentNavRow({
             size={38}
           />
         </span>
-        <span className="flex min-w-0 flex-1 flex-col gap-0 leading-none">
+        <span
+          className={cn(
+            "flex min-w-0 flex-1 flex-col gap-0 leading-none",
+            // Line 2 stops short of the pill below the timestamp.
+            attentionCount > 0 && "[&>*:last-child]:pr-[4.75rem]"
+          )}
+        >
           <span className="flex min-w-0 items-center gap-1.5 leading-snug">
             <ChatVisibilityMarker kind="desk" visibility={visibility} />
             <span className="min-w-0 flex-1 truncate" title={agent.name}>
@@ -153,6 +166,12 @@ export function SpaceAgentNavRow({
           ) : null}
         </span>
       </Link>
+      <AgentAttentionPill
+        agentId={agent.id}
+        agentName={agent.name}
+        className="absolute right-2 bottom-2 z-10"
+        count={attentionCount}
+      />
       <span
         className="pointer-events-none absolute top-1 right-1 z-10 group-focus-within/item:pointer-events-auto group-hover/item:pointer-events-auto has-data-[state=open]:pointer-events-auto"
         onClick={(event) => event.stopPropagation()}

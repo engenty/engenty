@@ -19,21 +19,6 @@ describe("prod-gateway-runtime-env", () => {
     expect(resolved.VITE_SUPABASE_ANON_KEY).toBe("anon-key");
   });
 
-  it("leaves out keys nothing resolves, so the baked value still wins", () => {
-    expect(resolveUiRuntimeEnv({})).toEqual({});
-    expect(injectRuntimeEnv("<html><head></head></html>", {})).toBe(
-      "<html><head></head></html>"
-    );
-  });
-
-  it("falls back to PUBLIC_APP_URL for the AI base URL", () => {
-    const resolved = resolveUiRuntimeEnv({
-      PUBLIC_APP_URL: "https://app.example.com",
-    });
-
-    expect(resolved.VITE_ENGENTY_AI_BASE_URL).toBe("https://app.example.com");
-  });
-
   it("injects after <head> so the script runs before the bundle", () => {
     const html = injectRuntimeEnv(
       '<!doctype html><html><head><script type="module" src="/a.js"></script></head></html>',

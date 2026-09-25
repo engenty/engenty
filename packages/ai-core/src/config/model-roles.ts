@@ -14,8 +14,21 @@
  *   `model.low` / `model.medium` / `model.high`. This is the only axis an end
  *   user ever picks along, and it is deliberately not called `chat` because the
  *   same role serves tasks and agents.
- * - **Fixed** — a specialist job with its own requirements (`router`,
- *   `safeguard`, `ocr`, `embedding`, `rerank`). Never surfaced to end users.
+ * - **Fixed** — a job class with its own requirements, never surfaced to end
+ *   users:
+ *   - `classifier` — pick one of N options / a score / yes-no, with a
+ *     confidence (Jev-like models; an LLM answers via structured output).
+ *     Effort routing, inbox categories, KB verification, tool discovery,
+ *     guardrails.
+ *   - `fast_text` — short plain text or light markdown with simple format
+ *     rules, parsed by the caller. No tools, no JSON schema. Titles,
+ *     summaries, starters, observational memory.
+ *   - `image` — image generation and editing.
+ *   - `embedding` — vectors for the search index (fixed 1536 dimensions).
+ *   - `video` — video generation.
+ *   - `realtime` — the platform default realtime voice model; a workspace's
+ *     own voice settings override it.
+ *   - `transcription` — speech to text for recorded audio (dictation).
  *
  * Modules may declare their own roles (`coder.plan`, `coder.edit`), which is why
  * a role id is a plain string rather than a closed union: the platform must not
@@ -23,13 +36,6 @@
  */
 
 import { bindingPackFor, seedGatewayFromEnv } from "./model-binding-packs.js";
-import {
-  DEFAULT_AI_CHAT_MODEL_ID,
-  DEFAULT_AI_CLASSIFIER_MODEL_ID,
-  DEFAULT_AI_LOW_MODEL_ID,
-  DEFAULT_AI_PLANNING_CODING_MODEL_ID,
-  DEFAULT_AI_SAFEGUARD_MODEL_ID,
-} from "./model-defaults.js";
 import { DEFAULT_MODEL_GATEWAY_ID, parseModelRef } from "./model-ref.js";
 
 /** How much thinking a piece of work deserves. The only user-facing axis. */
@@ -38,7 +44,7 @@ export type AiEffort = (typeof AI_EFFORT_LEVELS)[number];
 
 /**
  * `auto` is not an effort level — it is the absence of a choice, resolved per
- * turn (heuristics first; cheap `router` role only when ambiguous). Kept
+ * turn (heuristics first; the `classifier` role only when ambiguous). Kept
  * separate so "the user picked high" and "Auto chose high" stay distinguishable
  * in provenance.
  */
@@ -65,7 +71,7 @@ export function effortOfRole(role: string): AiEffort | null {
 export interface AiRoleSpec {
   /** Which module declared it; null for platform roles. */
   declaredBy: string | null;
-  /** Seed model id, used when nothing has been bound yet. */
+  /** Seed model id, written when the role is first bound (never a fallback). */
   defaultModelId: string;
   /** Human label for the binding console. */
   label: string;
@@ -77,104 +83,97 @@ export interface AiRoleSpec {
 /**
  * Platform roles and their seeds.
  *
- * Graded and fixed seeds come from `data/model-bindings/<gateway>.json`.
- * `defaultModelId` here is the Vercel pack (and the unbound fallback).
+ * Seeds come from `data/model-bindings/<gateway>.json`; `defaultModelId` here
+ * is the Vercel pack's value. Every pack must cover every platform role.
  */
 const vercelRoles = bindingPackFor(DEFAULT_MODEL_GATEWAY_ID).roles;
+
+function packSeed(role: string): string {
+  const seed = vercelRoles[role];
+  if (!seed) {
+    throw new Error(`data/model-bindings/vercel.json has no "${role}" role`);
+  }
+  return seed;
+}
 
 export const AI_PLATFORM_ROLES: readonly AiRoleSpec[] = [
   {
     declaredBy: null,
-    defaultModelId: vercelRoles["model.low"] ?? DEFAULT_AI_LOW_MODEL_ID,
+    defaultModelId: packSeed("model.low"),
     label: "General · low effort",
     role: "model.low",
     surface: "graded",
   },
   {
     declaredBy: null,
-    defaultModelId: vercelRoles["model.medium"] ?? DEFAULT_AI_CHAT_MODEL_ID,
+    defaultModelId: packSeed("model.medium"),
     label: "General · medium effort",
     role: "model.medium",
     surface: "graded",
   },
   {
     declaredBy: null,
-    defaultModelId: vercelRoles["model.high"] ?? DEFAULT_AI_CHAT_MODEL_ID,
+    defaultModelId: packSeed("model.high"),
     label: "General · high effort",
     role: "model.high",
     surface: "graded",
   },
   {
     declaredBy: null,
-    defaultModelId: vercelRoles.router ?? DEFAULT_AI_CLASSIFIER_MODEL_ID,
-    label: "Router",
-    role: "router",
-    surface: "fixed",
-  },
-  {
-    declaredBy: null,
-    defaultModelId: vercelRoles.classifier ?? DEFAULT_AI_CLASSIFIER_MODEL_ID,
+    defaultModelId: packSeed("classifier"),
     label: "Classifier",
     role: "classifier",
     surface: "fixed",
   },
   {
     declaredBy: null,
-    defaultModelId: vercelRoles.safeguard ?? DEFAULT_AI_SAFEGUARD_MODEL_ID,
-    label: "Safeguard",
-    role: "safeguard",
+    defaultModelId: packSeed("fast_text"),
+    label: "Fast text",
+    role: "fast_text",
     surface: "fixed",
   },
   {
     declaredBy: null,
-    defaultModelId:
-      vercelRoles.planning_coding ?? DEFAULT_AI_PLANNING_CODING_MODEL_ID,
-    label: "Planning & coding",
-    role: "planning_coding",
+    defaultModelId: packSeed("image"),
+    label: "Image generation",
+    role: "image",
     surface: "fixed",
   },
   {
     declaredBy: null,
-    defaultModelId: vercelRoles.research ?? DEFAULT_AI_CHAT_MODEL_ID,
-    label: "Research",
-    role: "research",
+    defaultModelId: packSeed("embedding"),
+    label: "Embeddings",
+    role: "embedding",
     surface: "fixed",
   },
   {
     declaredBy: null,
-    // Chat-tier, NOT the classifier seed. Observational memory reads a whole
-    // conversation and rewrites a condensed set of observations — long input,
-    // structured output. On 2026-08-28 it was resolving through `routing` and
-    // landing on the bound 20B router: 4 of 6 reflection calls died on
-    // `finishReason: "length"` with the model still narrating its plan, so
-    // nothing was ever written back and the observation pile only grew. Same
-    // failure the coordinator hit on 2026-08-22 — see PURPOSE_TO_ROLE below.
-    defaultModelId: vercelRoles.memory ?? DEFAULT_AI_CHAT_MODEL_ID,
-    label: "Memory",
-    role: "memory",
+    defaultModelId: packSeed("video"),
+    label: "Video generation",
+    role: "video",
+    surface: "fixed",
+  },
+  {
+    declaredBy: null,
+    defaultModelId: packSeed("realtime"),
+    label: "Voice (realtime)",
+    role: "realtime",
+    surface: "fixed",
+  },
+  {
+    declaredBy: null,
+    defaultModelId: packSeed("transcription"),
+    label: "Transcription",
+    role: "transcription",
     surface: "fixed",
   },
 ];
 
-/**
- * Legacy purpose → role. The five purposes were already roles in all but name;
- * mapping them keeps every existing caller working while the binding table
- * becomes the source of truth underneath.
- */
+/** Purpose → role: which binding a purpose resolves through. */
 export const PURPOSE_TO_ROLE: Readonly<Record<string, string>> = {
   chat: "model.medium",
-  routing: "router",
-  // Chat-tier, never "router": the coordinator writes plans, not route picks.
-  coordinator: "model.high",
-  // Dedicated fixed role — not model.low (graded chat effort is a different job).
   classifier: "classifier",
-  research: "research",
-  planning_coding: "planning_coding",
-  safeguard: "safeguard",
-  // Its own role, never "router": the reflector condenses a conversation, it
-  // does not pick a route. Bound separately so raising it costs nothing on
-  // thread titles and tool search, which legitimately want the cheap tier.
-  memory: "memory",
+  fast_text: "fast_text",
 };
 
 export interface ModelBinding {
@@ -202,60 +201,23 @@ export function seedBindings(
       DEFAULT_MODEL_GATEWAY_ID
   );
   return roles.map((spec) => {
-    // Env vars seeded the platform layer before bindings existed. They are read
-    // once, here, so an existing deployment keeps its behaviour on upgrade —
-    // and then never again, so there is exactly one place to look afterwards.
-    // A seed may name its gateway (`openrouter:openai/gpt-4o`), which is how a
-    // fresh install can come up on OpenRouter without a manual rebind.
-    const fromEnv = envSeedFor(spec.role, readEnv);
-    if (fromEnv) {
-      const ref = parseModelRef(fromEnv);
+    // A pack value may name its own gateway (`vercel:openai/…`) for a job the
+    // pack's gateway cannot do, e.g. embeddings on an Anthropic install.
+    const packed = pack.roles[spec.role];
+    const ref = packed ? parseModelRef(packed) : null;
+    if (ref && ref.modelId !== packed?.trim()) {
       return { gateway: ref.gateway, modelId: ref.modelId, role: spec.role };
     }
-    const modelId = pack.roles[spec.role] ?? spec.defaultModelId;
+    const modelId = packed ?? spec.defaultModelId;
     return { gateway: pack.gateway, modelId, role: spec.role };
   });
 }
 
 /**
- * One env var per role — the value that seeds a role's binding when the table
- * is empty. Each role had a second, older key here as a fallback; those were
- * aliases of aliases (a legacy name feeding a renamed role feeding a binding)
- * and are gone, so a role's seed has exactly one source.
- */
-const ROLE_ENV_KEYS: Readonly<Record<string, readonly string[]>> = {
-  "model.low": ["AI_CLASSIFIER_MODEL"],
-  "model.medium": ["AI_CHAT_MODEL"],
-  "model.high": ["AI_CHAT_MODEL"],
-  router: ["AI_ROUTING_MODEL"],
-  classifier: ["AI_CLASSIFIER_MODEL"],
-  safeguard: ["AI_SAFEGUARD_MODEL"],
-  planning_coding: ["AI_PLANNING_CODING_MODEL"],
-  research: ["AI_RESEARCH_MODEL"],
-  memory: ["AI_MEMORY_MODEL"],
-};
-
-function envSeedFor(
-  role: string,
-  readEnv?: (key: string) => string | undefined
-): string | undefined {
-  if (!readEnv) {
-    return;
-  }
-  for (const key of ROLE_ENV_KEYS[role] ?? []) {
-    const value = readEnv(key)?.trim();
-    if (value) {
-      return value;
-    }
-  }
-  return;
-}
-
-/**
  * Merge module-declared roles into the platform set for seeding.
  *
- * A module may not redefine a platform role — if `coder` shipped a `router`
- * role it would silently retarget every routing call in the product. First
+ * A module may not redefine a platform role — if `coder` shipped a
+ * `classifier` role it would silently retarget every classification call. First
  * declaration wins for module-vs-module collisions, which is arbitrary but
  * deterministic; the binding console surfaces `declaredBy` so a collision is
  * visible rather than mysterious.

@@ -113,11 +113,14 @@ export function opperTags(model: OpperApiModel): string[] {
 }
 
 const CHAT_AVAILABILITY: GatewayModelAvailabilityFlags = {
-  available_for_chat: true,
+  available_for_agent: true,
   available_for_embedding: false,
   available_for_image: false,
+  available_for_realtime: false,
   available_for_rerank: false,
-  available_for_routing: true,
+  available_for_classification: false,
+  available_for_text: true,
+  available_for_transcription: false,
   available_for_video: false,
 };
 
@@ -163,6 +166,7 @@ export function normalizeOpperModel(
     provider,
     providers: [provider],
     raw_json: model as unknown as Record<string, unknown>,
+    regions: [],
     released_at: unixSecondsToIso(model.created),
     source_url: opts.sourceUrl ?? OPPER_MODELS_URL,
     tags,

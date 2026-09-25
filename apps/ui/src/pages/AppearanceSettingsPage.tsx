@@ -5,6 +5,7 @@ import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { RotateCcw, Save } from "lucide-react";
 import { useMemo } from "react";
 import {
+  AppearanceChatSection,
   AppearanceColorsSection,
   AppearanceFontSection,
   AppearanceFontSizeSection,
@@ -115,6 +116,11 @@ export function AppearanceSettingsPage() {
           onChange={(id) => updateSettings("themeMode", id)}
           resolvedTheme={resolvedTheme}
           value={settings.themeMode}
+        />
+
+        <AppearanceChatSection
+          onChange={(style) => updateSettings("chatStyle", style)}
+          value={settings.chatStyle}
         />
 
         <div className="border-t pt-6">

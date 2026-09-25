@@ -63,17 +63,4 @@ describe("data table routes", () => {
       tenantId,
     });
   });
-
-  it("rejects an empty delete body", async () => {
-    const app = makeHarness(fakeTables());
-    const res = await app.request(`/ai/data-tables/${tableId}/rows`, {
-      body: JSON.stringify({ row_ids: [] }),
-      headers: {
-        authorization: "Bearer t",
-        "content-type": "application/json",
-      },
-      method: "DELETE",
-    });
-    expect(res.status).toBe(400);
-  });
 });

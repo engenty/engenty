@@ -1,6 +1,6 @@
 {
   "name": "engenty",
-  "version": "0.2.16",
+  "version": "0.2.19",
   "private": true,
   "license": "FSL-1.1-MIT",
   "type": "module",
@@ -102,6 +102,8 @@
     "test:all": "vitest run",
     "test:scripts": "vitest run scripts/",
     "test:smoke": "playwright test",
+    "test:smoke:interaction": "playwright test e2e/smoke/interaction.smoke.spec.ts",
+    "test:smoke:prod": "node scripts/e2e-prod-preview.mjs",
     "test:smoke:mobile": "playwright test --project=mobile-safari --project=mobile-chrome",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",

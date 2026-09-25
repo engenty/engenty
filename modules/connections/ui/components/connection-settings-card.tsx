@@ -17,7 +17,6 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Switch,
 } from "@engenty/ui-core";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -44,7 +43,7 @@ export interface ConnectionSettingsCardProps {
 }
 
 /**
- * All-spaces / autonomous-mode / display-name settings plus the disconnect
+ * Autonomous-mode / display-name settings plus the disconnect
  * action for one connection.
  */
 export function ConnectionSettingsCard({
@@ -114,28 +113,6 @@ export function ConnectionSettingsCard({
             placeholder={t("settings.displayNamePlaceholder")}
             value={displayName}
           />
-        </div>
-
-        <div className="flex items-start gap-4">
-          <Label
-            className="w-44 shrink-0 pt-2.5 text-sm"
-            htmlFor={fieldId("all-spaces")}
-          >
-            {t("sharing.allSpaces")}
-          </Label>
-          <div className="max-w-[320px] flex-1 space-y-1">
-            <Switch
-              checked={connection.all_spaces === true}
-              disabled={busy || connector.auth_kind === "browser"}
-              id={fieldId("all-spaces")}
-              onCheckedChange={(checked) =>
-                saveSettings({ all_spaces: checked })
-              }
-            />
-            <p className="text-muted-foreground text-xs">
-              {t("sharing.allSpacesHelp")}
-            </p>
-          </div>
         </div>
 
         <div className="flex items-start gap-4">

@@ -17,8 +17,6 @@ const AI_PATH = "/ai/v1/search-index";
 export type ProviderOrigin = "ai" | "core";
 
 export interface SearchIndexProviderConfig {
-  embeddingModel?: string | null;
-  embeddingModelDynamic?: boolean;
   fastPathMaxTerms?: number | null;
   splitter?: string;
   useTrigram?: boolean;
@@ -130,6 +128,20 @@ export async function listAllProviders(): Promise<
   return [...byId.values()].sort((a, b) => a.id.localeCompare(b.id));
 }
 
+/**
+ * The embedding model every managed index uses: the platform `embedding` role
+ * binding, read-only here. Null when no retrieval source is registered.
+ */
+export async function getSearchIndexEmbeddingModel(
+  signal?: AbortSignal
+): Promise<string | null> {
+  const response = await requestApiJson<{ embedding_model: string | null }>(
+    `${CORE_PATH}/embedding-model`,
+    { method: "GET", signal }
+  );
+  return response.embedding_model;
+}
+
 export async function getProviderStatus(
   provider: Pick<SearchIndexProviderSummary, "id" | "origin">,
   signal?: AbortSignal
@@ -232,7 +244,6 @@ export interface KbSearchSettings {
   chunk_max_length: number;
   chunk_overlap: number;
   chunk_strategy: string;
-  embedding_model: string;
   search_vector_min_similarity: number;
   search_verifier_max_candidates: number;
   search_verifier_min_query_terms: number;

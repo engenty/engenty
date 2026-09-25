@@ -1,6 +1,7 @@
 // Opt-in Mastra semantic recall (vector RAG over chat turns). Off by default:
 // enabling embeds on every save and every chat turn. Thread-scoped only.
 
+import { resolvePlatformEmbeddingModelId } from "@engenty/ai-core";
 import type { MastraVector } from "@mastra/core/vector";
 import { PgVector } from "@mastra/pg";
 import {
@@ -9,7 +10,6 @@ import {
 } from "../workspace/workspace-search.js";
 
 export const MEMORY_MESSAGE_VECTOR_STORE_ID = "engenty-memory-messages";
-export const MEMORY_MESSAGE_EMBEDDER = "openai/text-embedding-3-small";
 
 export function semanticRecallEnabled(
   env: NodeJS.ProcessEnv = process.env
@@ -34,7 +34,8 @@ export function createSemanticRecallBindings(
     return null;
   }
   return {
-    embedder: MEMORY_MESSAGE_EMBEDDER,
+    // The `embedding` role, read per memory: the snapshot loads after boot.
+    embedder: resolvePlatformEmbeddingModelId(),
     vector: new PgVector({
       connectionString,
       id: MEMORY_MESSAGE_VECTOR_STORE_ID,

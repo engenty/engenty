@@ -1,4 +1,5 @@
 export { AppearanceAccessibilitySection } from "./AppearanceAccessibilitySection";
+export { AppearanceChatSection } from "./AppearanceChatSection";
 export { AppearanceColorsSection } from "./AppearanceColorsSection";
 export { AppearanceFontSection } from "./AppearanceFontSection";
 export { AppearanceFontSizeSection } from "./AppearanceFontSizeSection";

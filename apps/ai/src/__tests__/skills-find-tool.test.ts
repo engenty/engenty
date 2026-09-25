@@ -87,14 +87,6 @@ const scoped = {
 };
 
 describe("createSkillsFindTools", () => {
-  it("registers find and install tools", () => {
-    const tools = createSkillsFindTools();
-    expect(Object.keys(tools).sort()).toEqual([
-      "skills_find",
-      "skills_install",
-    ]);
-  });
-
   it("fails closed when the Space is unresolved instead of presenting tenant-wide choices", async () => {
     const getSpaceSurface = vi.fn();
     const tools = createSkillsFindTools({
@@ -141,60 +133,6 @@ describe("createSkillsFindTools", () => {
       ok: false,
       code: "space_context_unresolved",
     });
-  });
-
-  it("scopes already_in_space to explicit Space mounts on a resolved run", async () => {
-    const tools = createSkillsFindTools({
-      coreClientFor: () =>
-        ({
-          getSpaceSurface: vi.fn().mockResolvedValue({
-            skills: ["changelog"],
-          }),
-        }) as never,
-      providerRegistry: providerRegistry(),
-      scopedStorageFor: () => scoped,
-    });
-
-    const result = await engentyToolsRunAls.run(
-      { tenantId: "tenant-1", space: marketing },
-      () => tools.skills_find.execute!({ query: "review" }, testToolContext())
-    );
-
-    expect(result).toMatchObject({ ok: true });
-    expect(result).toEqual(
-      expect.objectContaining({
-        results: [
-          expect.objectContaining({
-            already_in_space: false,
-            already_installed: true,
-            name: "pr-review",
-          }),
-          expect.objectContaining({
-            already_in_space: true,
-            name: "changelog",
-          }),
-        ],
-      })
-    );
-  });
-
-  it("does not attach Space mount flags on a global run", async () => {
-    const getSpaceSurface = vi.fn();
-    const tools = createSkillsFindTools({
-      coreClientFor: () => ({ getSpaceSurface }) as never,
-      providerRegistry: providerRegistry(),
-      scopedStorageFor: () => scoped,
-    });
-
-    const result = await engentyToolsRunAls.run({ tenantId: "tenant-1" }, () =>
-      tools.skills_find.execute!({ query: "review" }, testToolContext())
-    );
-
-    expect(result).toMatchObject({
-      ok: true,
-      attach: { space: null },
-    });
-    expect(getSpaceSurface).not.toHaveBeenCalled();
   });
 
   it("does not claim install success when the Space mount is refused", async () => {

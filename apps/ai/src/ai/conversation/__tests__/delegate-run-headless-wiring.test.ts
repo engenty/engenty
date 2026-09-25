@@ -260,7 +260,6 @@ describe("runDelegatedConversation over the headless AG-UI lane", () => {
       childThreadId: `thread-${seq}`,
       modelConfig: {
         chatModelId: "openai/gpt-4.1-mini",
-        routingModelId: "openai/gpt-4.1-nano",
       },
       observe: { runStore: runStore as never, tenantId: "tenant-1" },
       registry: { getAgentConfig: async () => null } as never,

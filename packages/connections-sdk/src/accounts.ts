@@ -1,11 +1,10 @@
-import type { ConnectionSharing, ConnectionSummary } from "./types.js";
+import type { ConnectionSummary } from "./types.js";
 
 /** Account-facing label for one candidate connection (agent discovery). */
 export interface ConnectionAccountLabel {
   account: string | null;
   connection_id: string;
   display_name: string | null;
-  sharing: ConnectionSharing;
 }
 
 export function connectionAccountLabel(
@@ -15,7 +14,6 @@ export function connectionAccountLabel(
     account: connection.external_account,
     connection_id: connection.id,
     display_name: connection.display_name,
-    sharing: connection.sharing,
   };
 }
 

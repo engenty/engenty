@@ -128,6 +128,7 @@ export {
   useAgentHostConfig,
   useEngentyAIContext,
   useOptionalAgentHost,
+  useSetTurnContext,
 } from "./agent-provider/index.js";
 export {
   WorkflowButton,
@@ -176,7 +177,6 @@ export {
   createEmptyCopilotLayoutSnapshot,
   type FieldSuggestion,
   FileDownloadsToolCallCard,
-  formatCopilotRouteStatusLabel,
   formatCopilotThreadCopyText,
   HitlApprovalCard,
   isFileDownloadsOfferOutput,
@@ -251,8 +251,8 @@ export type { InboxNotificationDto } from "./features/inbox/inbox-api.js";
 export { listInbox } from "./features/inbox/inbox-api.js";
 export {
   inboxKeys,
+  useInboxAttentionCountQuery,
   useInboxListQuery,
-  useInboxUnseenCountQuery,
   useMarkAllInboxSeenMutation,
   useMarkInboxNotificationMutation,
 } from "./features/inbox/inbox-queries.js";
@@ -293,8 +293,18 @@ export {
   validateRoutineForm,
 } from "./features/routines/routine-form-value.js";
 export {
+  RoutineOutcomeList,
+  type RoutineOutcomeListProps,
+} from "./features/routines/routine-outcome-list.js";
+export {
+  RoutineOutcomesDialog,
+  type RoutineOutcomesDialogProps,
+} from "./features/routines/routine-outcomes-dialog.js";
+export {
   buildRoutineShape,
   type RoutineShape,
+  type RoutineShapeBinding,
+  type RoutineShapeOutcome,
   type RoutineShapeStep,
   type RoutineShapeTrigger,
   routineBelongsToAgent,
@@ -312,10 +322,15 @@ export {
   type CustomRoutineInput,
   createCustomRoutine,
   deleteCustomRoutine,
+  listOutcomeProviders,
   listRoutineRuns,
   listRoutines,
+  type OutcomeProviderDto,
   patchRoutineState,
   type RoutineDto,
+  type RoutineOutcomeDto,
+  type RoutineOutcomeInput,
+  type RoutineOutcomeMode,
   type RoutineReportMode,
   type RoutineRunDto,
   type RoutineSkipReason,
@@ -326,12 +341,16 @@ export {
   routinesKeys,
   routinesListOptions,
   useCreateCustomRoutineMutation,
+  useCreateRoutineOutcomeMutation,
   useDeleteCustomRoutineMutation,
+  useDeleteRoutineOutcomeMutation,
+  useOutcomeProvidersQuery,
   usePatchRoutineStateMutation,
   useRoutineRunsQuery,
   useRoutinesListQuery,
   useRunRoutineNowMutation,
   useUpdateCustomRoutineMutation,
+  useUpdateRoutineOutcomeMutation,
 } from "./features/routines/routines-queries.js";
 export {
   type UseRoutineRunResult,

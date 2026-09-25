@@ -49,35 +49,36 @@ describe("parseEngentySandboxId", () => {
     });
   });
 
-  it("parses a user browser id into tenant and user — no space", () => {
+  it("parses a space browser id into its tenant and space", () => {
     const tenant = "00000000-0000-4000-8000-0000000000aa";
-    const user = "00000000-0000-4000-8000-0000000000cc";
-    expect(
-      parseEngentySandboxId(`engenty-browser-${tenant}-${user}`)
-    ).toMatchObject({
+    const space = "00000000-0000-4000-8000-0000000000bb";
+    const parsed = parseEngentySandboxId(`engenty-browser-${tenant}-${space}`);
+    expect(parsed).toMatchObject({
+      agent_id: null,
       lifecycle: "browser",
-      space_id: null,
+      space_id: space,
       tenant_id: tenant,
-      user_id: user,
+      thread_id: null,
     });
+    expect(parsed).not.toHaveProperty("user_id");
   });
 
-  it("does not read a per-space browser id from before the per-user cut", () => {
+  it("does not read a browser id with more than two UUIDs", () => {
     const tenant = "00000000-0000-4000-8000-0000000000aa";
     const space = "00000000-0000-4000-8000-0000000000bb";
-    const user = "00000000-0000-4000-8000-0000000000cc";
+    const extra = "00000000-0000-4000-8000-0000000000cc";
     expect(
-      parseEngentySandboxId(`engenty-browser-${tenant}-${space}-${user}`)
-    ).toMatchObject({ lifecycle: "browser", tenant_id: null, user_id: null });
+      parseEngentySandboxId(`engenty-browser-${tenant}-${space}-${extra}`)
+    ).toMatchObject({ lifecycle: "browser", space_id: null, tenant_id: null });
   });
 
-  it("never reports a user for a space computer", () => {
+  it("does not read a space computer id with more than two UUIDs", () => {
     const tenant = "00000000-0000-4000-8000-0000000000aa";
     const space = "00000000-0000-4000-8000-0000000000bb";
-    const user = "00000000-0000-4000-8000-0000000000cc";
+    const extra = "00000000-0000-4000-8000-0000000000cc";
     expect(
-      parseEngentySandboxId(`engenty-space-${tenant}-${space}-${user}`)
-    ).toMatchObject({ lifecycle: "space", space_id: null, user_id: null });
+      parseEngentySandboxId(`engenty-space-${tenant}-${space}-${extra}`)
+    ).toMatchObject({ lifecycle: "space", space_id: null, tenant_id: null });
   });
 
   it("rejects non-engenty ids", () => {

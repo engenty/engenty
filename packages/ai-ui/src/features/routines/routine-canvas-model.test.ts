@@ -18,7 +18,12 @@ function baseShape(): RoutineShape {
         },
       ],
     },
-    outcome: { report: "desk_card", text: "Inbox is empty." },
+    outcome: {
+      bindings: [],
+      holdLine: null,
+      report: "desk_card",
+      text: "Inbox is empty.",
+    },
     triggers: [
       {
         detail: "Every day at 07:00",
@@ -124,5 +129,37 @@ describe("routineShapeToCanvas", () => {
     expect(trigger && agent && outcome).toBeTruthy();
     expect((trigger?.position.x ?? 0) < (agent?.position.x ?? 0)).toBe(true);
     expect((agent?.position.x ?? 0) < (outcome?.position.x ?? 0)).toBe(true);
+  });
+
+  it("lists destination bindings on the outcome node instead of the desk-post line", () => {
+    const shape = baseShape();
+    shape.outcome = {
+      bindings: [
+        {
+          enabled: true,
+          id: "o1",
+          label: "High-priority update",
+          mode: "agent",
+          modeLabel: "When the run calls it",
+        },
+      ],
+      holdLine: "Holds the run for review",
+      report: "ask",
+      text: "Inbox is empty.",
+    };
+    const model = routineShapeToCanvas(shape);
+    const node = model.nodes.find((entry) => entry.type === "outcome");
+    expect(node?.data).toMatchObject({
+      bindings: [
+        {
+          enabled: true,
+          id: "o1",
+          label: "High-priority update",
+          modeLabel: "When the run calls it",
+        },
+      ],
+      holdLine: "Holds the run for review",
+      reportLine: null,
+    });
   });
 });

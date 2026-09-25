@@ -4,11 +4,14 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   activateArtifact,
   clearArtifactsForTests,
+  closeA2uiSurfacePaneTab,
   closeObjectPaneTab,
   closeWorkFilePaneTab,
   getArtifactPaneOpen,
+  LIVE_A2UI_SURFACE_TAB_KEY,
   markUnseenArtifacts,
   objectPaneTabKey,
+  openA2uiSurfacePaneTab,
   openArtifactPane,
   openObjectPaneTab,
   openWorkFilePaneTab,
@@ -353,5 +356,46 @@ describe("work-file pane tabs", () => {
     act(() => closeWorkFilePaneTab(HOST, FILE_KEY, []));
     expect(result.current.paneOpen).toBe(false);
     expect(result.current.activeId).toBeNull();
+  });
+});
+
+describe("live A2UI surface tabs", () => {
+  beforeEach(() => {
+    clearArtifactsForTests(HOST);
+  });
+
+  it("replaces one spec in place", () => {
+    const { result } = renderHook(() => useArtifacts(HOST));
+    act(() =>
+      openA2uiSurfacePaneTab(HOST, {
+        catalog_id: "engenty:core/v1",
+        live: {
+          included: ["mail"],
+          kind: "inbox_dashboard",
+          layout: "list-only",
+        },
+        messages: [{ version: "v0.9" }],
+        surface_id: "s1",
+        title: "Inbox",
+      })
+    );
+    expect(result.current.activeId).toBe(LIVE_A2UI_SURFACE_TAB_KEY);
+    expect(result.current.surfaceTabs).toHaveLength(1);
+
+    act(() =>
+      openA2uiSurfacePaneTab(HOST, {
+        catalog_id: "engenty:core/v1",
+        messages: [{ version: "v0.9", update: true }],
+        surface_id: "s1",
+        title: "Inbox",
+      })
+    );
+    expect(result.current.surfaceTabs).toHaveLength(1);
+    expect(result.current.surfaceTabs[0]?.messages).toEqual([
+      { version: "v0.9", update: true },
+    ]);
+
+    act(() => closeA2uiSurfacePaneTab(HOST, LIVE_A2UI_SURFACE_TAB_KEY, []));
+    expect(result.current.paneOpen).toBe(false);
   });
 });

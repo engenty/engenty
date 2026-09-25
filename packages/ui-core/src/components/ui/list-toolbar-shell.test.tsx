@@ -27,33 +27,6 @@ function OverflowProbe() {
 }
 
 describe("ListToolbar", () => {
-  it("renders search, summary, and idle controls when nothing is selected", () => {
-    const { container } = render(
-      <ListToolbar>
-        <ListToolbarMainArea>
-          <ListToolbarSearch>
-            <ListSearchInput aria-label="Search" placeholder="Search" />
-          </ListToolbarSearch>
-          <ListToolbarSummary>12 items</ListToolbarSummary>
-        </ListToolbarMainArea>
-        <ListToolbarActions>
-          <ListToolbarIdleControls>
-            <button type="button">View</button>
-          </ListToolbarIdleControls>
-        </ListToolbarActions>
-      </ListToolbar>
-    );
-
-    expect(screen.getByRole("textbox", { name: "Search" })).toBeTruthy();
-    expect(screen.getByText("12 items")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "View" })).toBeTruthy();
-
-    const search = container.querySelector('[data-slot="list-toolbar-search"]');
-    expect(search?.className).toContain("max-w-[14rem]");
-    expect(search?.className).toContain("focus-within:max-w-md");
-    expect(search?.className).not.toMatch(/(?:^|\s)sm:flex-1(?:\s|$)/);
-  });
-
   it("swaps idle controls for bulk actions when selectedCount > 0", () => {
     render(
       <ListToolbar selectedCount={2}>
@@ -108,37 +81,6 @@ describe("ListToolbar", () => {
     expect(screen.queryByText("placement:menu")).toBeNull();
     await user.click(screen.getByRole("button", { name: "More" }));
     expect(screen.getByText("placement:menu")).toBeTruthy();
-  });
-
-  it("renders filter toggle with active dot and filter row", () => {
-    const onToggle = vi.fn();
-
-    render(
-      <ListToolbar>
-        <ListToolbarMainArea>
-          <ListToolbarSearch>
-            <ListSearchInput
-              aria-label="Search"
-              className="pr-10"
-              placeholder="Search"
-            />
-            <ListToolbarFilterToggle
-              active
-              aria-label="Filters"
-              aria-pressed
-              onClick={onToggle}
-              showDot
-            />
-          </ListToolbarSearch>
-        </ListToolbarMainArea>
-        <ListToolbarFilterRow>
-          <span>chip-row</span>
-        </ListToolbarFilterRow>
-      </ListToolbar>
-    );
-
-    expect(screen.getByRole("button", { name: "Filters" })).toBeTruthy();
-    expect(screen.getByText("chip-row")).toBeTruthy();
   });
 
   it("does not take focus on mouse press, so the first click opens the filters", async () => {

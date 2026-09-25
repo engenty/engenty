@@ -22,7 +22,7 @@ function stubMessage(id: string): InboxMessage {
     from_name: "A",
     has_attachments: false,
     id,
-    owner_user_id: null,
+    space_id: "space-1",
     provider_message_id: id,
     provider_thread_id: null,
     received_at: "2026-01-01T00:00:00.000Z",
@@ -139,7 +139,7 @@ describe("classifyInboxMessages with Jev", () => {
           model: "jev-test",
         };
       },
-    } as unknown as import("@engenty/typesafe-client").TypeSafeClient;
+    } as unknown as import("@engenty/typesafe-client").ClassifierClient;
     const result = await classifyInboxMessages(
       [stubMessage("a"), stubMessage("b")],
       jev,

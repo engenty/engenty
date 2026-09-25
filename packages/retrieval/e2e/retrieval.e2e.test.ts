@@ -1,7 +1,7 @@
 // End-to-end: real local Supabase, real schema + fusion RPC, deterministic
 // hand-built embeddings (axis-aligned unit vectors ⇒ exact cosine
 // expectations). No AI API. Covers: lexical/semantic/hybrid fusion math,
-// owner/tenant visibility, tenant isolation, filters, cascade delete.
+// user/tenant visibility, tenant isolation, filters, cascade delete.
 //
 // Prereq: local stack up + retrieval_core migration applied.
 
@@ -57,7 +57,7 @@ interface E2eDoc {
 function makeE2eSource(input: {
   docs: E2eDoc[];
   source_type: string;
-  visibility: "owner" | "tenant" | "user";
+  visibility: "space" | "tenant" | "user";
 }): RetrievalSourceRegistration {
   const byId = new Map(input.docs.map((doc) => [doc.doc_id, doc]));
   return {
@@ -120,7 +120,7 @@ describe("retrieval E2E (local Supabase)", () => {
       },
     ],
     source_type: "e2e.note",
-    visibility: "owner",
+    visibility: "user",
   });
 
   beforeAll(async () => {
@@ -147,6 +147,7 @@ describe("retrieval E2E (local Supabase)", () => {
 
     service = createRetrievalService({
       createEmbedder: () => fakeEmbedder,
+      resolveEmbeddingModel: () => Promise.resolve(fakeEmbedder.modelId),
       supabase,
     });
     service.registerSource(orgSource);
@@ -232,7 +233,7 @@ describe("retrieval E2E (local Supabase)", () => {
     );
   });
 
-  it("owner visibility: user B never sees user A's personal doc; owner and service do", async () => {
+  it("user visibility: user B never sees user A's personal doc; owner and service do", async () => {
     const asUser2 = await service.search({
       filters: { tenant_id: TENANT_A, user_id: USER_2 },
       limit: 10,

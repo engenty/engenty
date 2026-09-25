@@ -14,13 +14,11 @@ export interface ParsedEngentySandboxId {
   sandbox_id: string;
   scope_key: string;
   scope_suffix: string;
-  /** The space a `space` service belongs to; null otherwise. */
+  /** The space a `space` computer or `browser` belongs to; null otherwise. */
   space_id: string | null;
   /** The tenant a `space`/`browser` service belongs to; null otherwise. */
   tenant_id: string | null;
   thread_id: string | null;
-  /** The person a `browser` belongs to; null for every other lifecycle. */
-  user_id: string | null;
 }
 
 const ENGENTY_SANDBOX_ID_PATTERN =
@@ -48,8 +46,8 @@ function splitSessionSuffix(
 const UUID_PATTERN_SOURCE =
   "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
 
-// A `space` suffix is `<tenantId>-<spaceId>` and a `browser` suffix is
-// `<tenantId>-<userId>`: two UUIDs either way, so the split is by their
+// A `space` and a `browser` suffix are both `<tenantId>-<spaceId>`: two
+// UUIDs, so the split is by their
 // fixed shape — same approach as the session suffix.
 function splitTwoUuidSuffix(
   suffix: string
@@ -86,9 +84,8 @@ export function parseEngentySandboxId(
     sandbox_id: trimmed,
     scope_key: scopeKey,
     scope_suffix: scopeSuffix,
-    space_id: lifecycle === "space" ? (split?.second ?? null) : null,
+    space_id: split?.second ?? null,
     tenant_id: split?.first ?? null,
     thread_id: session?.threadId ?? null,
-    user_id: lifecycle === "browser" ? (split?.second ?? null) : null,
   };
 }

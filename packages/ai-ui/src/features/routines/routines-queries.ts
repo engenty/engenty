@@ -8,15 +8,20 @@ import { useWorkspaceContext } from "@engenty/ui-plugin-sdk";
 import {
   type CustomRoutineInput,
   createCustomRoutine,
+  createRoutineOutcome,
   createRoutineTrigger,
   deleteCustomRoutine,
+  deleteRoutineOutcome,
   deleteRoutineTrigger,
+  listOutcomeProviders,
   listRoutineRuns,
   listRoutines,
   patchRoutineState,
+  type RoutineOutcomeInput,
   type RoutineTriggerInput,
   runRoutineNow,
   updateCustomRoutine,
+  updateRoutineOutcome,
   updateRoutineTrigger,
 } from "./routines-api.js";
 
@@ -32,6 +37,7 @@ export const routinesKeys = {
     spaceId
       ? ([...routinesKeys.all, "list", spaceId] as const)
       : ([...routinesKeys.all, "list"] as const),
+  outcomeProviders: ["routines", "outcome-providers"] as const,
   runs: (routineId: string) =>
     [...routinesKeys.all, "runs", routineId] as const,
 };
@@ -186,6 +192,51 @@ export function useDeleteRoutineTriggerMutation() {
   return useMutation({
     mutationFn: (input: { routineId: string; triggerId: string }) =>
       deleteRoutineTrigger(input.routineId, input.triggerId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: routinesKeys.list() });
+    },
+  });
+}
+
+export function useOutcomeProvidersQuery(enabled = true) {
+  return useQuery({
+    enabled,
+    queryFn: ({ signal }) => listOutcomeProviders(signal),
+    queryKey: routinesKeys.outcomeProviders,
+    staleTime: 60_000,
+  });
+}
+
+export function useCreateRoutineOutcomeMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { body: RoutineOutcomeInput; routineId: string }) =>
+      createRoutineOutcome(input.routineId, input.body),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: routinesKeys.list() });
+    },
+  });
+}
+
+export function useUpdateRoutineOutcomeMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      body: Partial<RoutineOutcomeInput>;
+      outcomeId: string;
+      routineId: string;
+    }) => updateRoutineOutcome(input.routineId, input.outcomeId, input.body),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: routinesKeys.list() });
+    },
+  });
+}
+
+export function useDeleteRoutineOutcomeMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { outcomeId: string; routineId: string }) =>
+      deleteRoutineOutcome(input.routineId, input.outcomeId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: routinesKeys.list() });
     },

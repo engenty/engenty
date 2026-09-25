@@ -133,12 +133,10 @@ export interface SearchProviderCapabilities {
 // (thresholds, splitter, visibility) without reading code. Static values are
 // reported as numbers; a value resolved per-tenant at query time (e.g. KB reads
 // its similarity floor from kb_settings) is reported with `*Dynamic: true` and a
-// null literal, since there is no single value to show. Hand-rolled providers
-// leave this unset.
+// null literal, since there is no single value to show. The embedding model is
+// not here: it is one platform-wide role binding, not a per-source setting.
+// Hand-rolled providers leave this unset.
 export interface SearchIndexProviderConfig {
-  // Effective embedding model, or null when resolved per-tenant.
-  embeddingModel?: string | null;
-  embeddingModelDynamic?: boolean;
   // Lexical fast-path term ceiling; null when the source has no fast path.
   fastPathMaxTerms?: number | null;
   // Splitter mode: "none" | "fixed" | "paragraph" | "custom".

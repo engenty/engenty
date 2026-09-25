@@ -608,6 +608,70 @@ function normalizeI18nNamespaces(items: UiI18nNamespaceContribution[]) {
   };
 }
 
+interface EligibleUiPlugin {
+  entry: UiPluginCatalogEntry;
+  plugin: UiPluginRuntimeSummary | undefined;
+}
+
+function collectOptionalPeerDiagnostics(params: {
+  catalogIds: Set<string>;
+  diagnostics: UiResolutionDiagnostic[];
+  entry: UiPluginCatalogEntry;
+  pluginsById: Map<string, UiPluginRuntimeSummary>;
+}) {
+  for (const pluginId of params.entry.optionalPluginIds ?? []) {
+    if (!params.catalogIds.has(pluginId)) {
+      params.diagnostics.push(
+        diagnostic({
+          code: "plugin.ui.optional_peer_missing",
+          level: "warn",
+          pluginId: params.entry.id,
+          message: `Optional UI peer "${pluginId}" declared by "${params.entry.id}" is not present in the UI plugin catalog.`,
+          remediation:
+            "Add the peer UI plugin to the generated catalog or remove the optional dependency declaration.",
+          sourceInfo: params.entry.sourceInfo,
+        })
+      );
+      continue;
+    }
+
+    const peer = params.pluginsById.get(pluginId);
+    if (peer?.enabled && !peer.loaded) {
+      params.diagnostics.push(
+        diagnostic({
+          code: "plugin.ui.optional_peer_not_loaded",
+          level: "warn",
+          pluginId: params.entry.id,
+          message: `Optional UI peer "${pluginId}" declared by "${params.entry.id}" is enabled but not loaded.`,
+          remediation:
+            "Check the peer plugin's server diagnostics before relying on its exposed UI API.",
+          sourceInfo: params.entry.sourceInfo,
+        })
+      );
+    }
+  }
+}
+
+async function importEligibleUiPlugins(params: {
+  eligible: readonly EligibleUiPlugin[];
+  pluginsById: Map<string, UiPluginRuntimeSummary>;
+}) {
+  return await Promise.all(
+    params.eligible.map(async ({ entry, plugin }) => {
+      try {
+        const registerUiPlugin = await entry.loadUiPlugin({
+          generationId: plugin?.generationId,
+          isGenerationCurrent: (generationId, pluginId) =>
+            params.pluginsById.get(pluginId)?.generationId === generationId,
+        });
+        return { ok: true as const, entry, plugin, registerUiPlugin };
+      } catch (error) {
+        return { ok: false as const, entry, error, plugin };
+      }
+    })
+  );
+}
+
 export async function resolveUiPlugins(params: {
   catalog: UiPluginCatalogEntry[];
   plugins: UiPluginRuntimeSummary[];
@@ -634,6 +698,7 @@ export async function resolveUiPlugins(params: {
   const runtime = createUiPluginRuntime(loadedEnabledIds);
   const diagnostics: UiResolutionDiagnostic[] = [];
 
+  const eligible: EligibleUiPlugin[] = [];
   const loadedPluginIds: string[] = [];
   for (const entry of params.catalog) {
     const plugin = pluginsById.get(entry.id);
@@ -654,57 +719,48 @@ export async function resolveUiPlugins(params: {
       continue;
     }
 
-    for (const pluginId of entry.optionalPluginIds ?? []) {
-      if (!catalogIds.has(pluginId)) {
-        diagnostics.push(
-          diagnostic({
-            code: "plugin.ui.optional_peer_missing",
-            level: "warn",
-            pluginId: entry.id,
-            message: `Optional UI peer "${pluginId}" declared by "${entry.id}" is not present in the UI plugin catalog.`,
-            remediation:
-              "Add the peer UI plugin to the generated catalog or remove the optional dependency declaration.",
-            sourceInfo: entry.sourceInfo,
-          })
-        );
-        continue;
-      }
+    collectOptionalPeerDiagnostics({
+      catalogIds,
+      diagnostics,
+      entry,
+      pluginsById,
+    });
+    loadedPluginIds.push(entry.id);
+    eligible.push({ entry, plugin });
+  }
 
-      const plugin = pluginsById.get(pluginId);
-      if (plugin?.enabled && !plugin.loaded) {
-        diagnostics.push(
-          diagnostic({
-            code: "plugin.ui.optional_peer_not_loaded",
-            level: "warn",
-            pluginId: entry.id,
-            message: `Optional UI peer "${pluginId}" declared by "${entry.id}" is enabled but not loaded.`,
-            remediation:
-              "Check the peer plugin's server diagnostics before relying on its exposed UI API.",
-            sourceInfo: entry.sourceInfo,
-          })
-        );
-      }
+  const i18nApi = params.i18nApi ?? null;
+  const importedPlugins = await importEligibleUiPlugins({
+    eligible,
+    pluginsById,
+  });
+
+  for (const imported of importedPlugins) {
+    if (!imported.ok) {
+      diagnostics.push(
+        loadFailureDiagnostic({
+          entry: imported.entry,
+          error: imported.error,
+        })
+      );
+      continue;
     }
 
-    loadedPluginIds.push(entry.id);
-
-    const i18nApi = params.i18nApi ?? null;
-    const expectedGenerationId = plugin?.generationId;
     try {
-      const registerUiPlugin = await entry.loadUiPlugin({
-        generationId: expectedGenerationId,
-        isGenerationCurrent: (generationId, pluginId) =>
-          pluginsById.get(pluginId)?.generationId === generationId,
-      });
-      const catalogSourceInfo = catalogSourceInfoFor(entry, plugin);
-      registerUiPlugin({
-        UI: createEngentyUiApi(entry.id, runtime, catalogSourceInfo),
-        plugins: createEngentyPluginsApi(entry.id, runtime),
+      const catalogSourceInfo = catalogSourceInfoFor(
+        imported.entry,
+        imported.plugin
+      );
+      imported.registerUiPlugin({
+        UI: createEngentyUiApi(imported.entry.id, runtime, catalogSourceInfo),
+        plugins: createEngentyPluginsApi(imported.entry.id, runtime),
         i18n: i18nApi ?? createStubI18nApi(),
       });
-      void runtime.hooks.emit("ui.pluginRegistered", { pluginId: entry.id });
+      void runtime.hooks.emit("ui.pluginRegistered", {
+        pluginId: imported.entry.id,
+      });
     } catch (error) {
-      diagnostics.push(loadFailureDiagnostic({ entry, error }));
+      diagnostics.push(loadFailureDiagnostic({ entry: imported.entry, error }));
     }
   }
 

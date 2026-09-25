@@ -8,7 +8,12 @@ import {
   useSyncExternalStore,
 } from "react";
 import { createPortal } from "react-dom";
-import { AnchoredGuidePopout, ModalGuideCard } from "./guide-card.js";
+import {
+  AnchoredGuidePopout,
+  type GuideCardText,
+  GuideCardTextContext,
+  ModalGuideCard,
+} from "./guide-card.js";
 import {
   HighlightRing,
   ModalBackdrop,
@@ -29,10 +34,13 @@ export interface GuideOverlayHostProps {
    * Pure dismiss / Esc does not call this.
    */
   onFollowUpMessage?: (text: string) => void;
+  /** The close button's label and the body's Markdown renderer. */
+  text?: GuideCardText;
 }
 
 export function GuideOverlayHost({
   onFollowUpMessage,
+  text,
 }: GuideOverlayHostProps): ReactNode {
   const session = useSyncExternalStore(
     subscribeUiGuide,
@@ -114,6 +122,9 @@ export function GuideOverlayHost({
           guide_id: outcome.result.guide_id,
           input_value: inputValue,
           input_values: inputValues,
+          label: session.actions.find((action) => action.id === workflowId)
+            ?.label,
+          title: session.title,
         })
       );
     }
@@ -122,6 +133,22 @@ export function GuideOverlayHost({
   const handleDismiss = () => {
     resolveUiGuideAction({ action_id: "dismiss", dismiss: true });
   };
+
+  const card =
+    session.presentation === "modal" ? (
+      <ModalGuideCard
+        onAction={handleAction}
+        onDismiss={handleDismiss}
+        session={session}
+      />
+    ) : targetRect ? (
+      <AnchoredGuidePopout
+        onAction={handleAction}
+        onDismiss={handleDismiss}
+        session={session}
+        targetRect={targetRect}
+      />
+    ) : null;
 
   return createPortal(
     <div className="pointer-events-none fixed inset-0 z-[180]">
@@ -145,20 +172,13 @@ export function GuideOverlayHost({
         <HighlightRing rect={targetRect} />
       ) : null}
       <div className="pointer-events-auto">
-        {session.presentation === "modal" ? (
-          <ModalGuideCard
-            onAction={handleAction}
-            onDismiss={handleDismiss}
-            session={session}
-          />
-        ) : targetRect ? (
-          <AnchoredGuidePopout
-            onAction={handleAction}
-            onDismiss={handleDismiss}
-            session={session}
-            targetRect={targetRect}
-          />
-        ) : null}
+        {text ? (
+          <GuideCardTextContext.Provider value={text}>
+            {card}
+          </GuideCardTextContext.Provider>
+        ) : (
+          card
+        )}
       </div>
     </div>,
     document.body

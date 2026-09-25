@@ -1,5 +1,6 @@
 import { getApiBaseUrl, getCurrentAccessToken } from "@engenty/api-client";
 import { useSettingsSecondaryShellNav } from "@engenty/app-shell";
+import { usePersonalSpaceId } from "@engenty/connections/ui/space";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
   Badge,
@@ -135,6 +136,7 @@ export function BrowserBridgeSettingsPage() {
     return () => clearInterval(interval);
   }, [refresh]);
 
+  const personalSpaceId = usePersonalSpaceId();
   const installation = status?.installation ?? null;
   const linked = installation !== null && status?.session?.status === "active";
   useBrowserBridgeSettingsAgentUiSlice({
@@ -144,6 +146,9 @@ export function BrowserBridgeSettingsPage() {
 
   const handleLink = async () => {
     const targetExtensionId = extensionId.trim();
+    if (!personalSpaceId) {
+      return;
+    }
     if (!targetExtensionId) {
       toast.error(
         "Enter the extension id (chrome://extensions, Developer mode)."
@@ -158,7 +163,13 @@ export function BrowserBridgeSettingsPage() {
       // The web app holds the Supabase session, so IT creates the link server
       // side and hands the result plus an access token to the extension. The
       // extension shows its own confirm UI before persisting anything.
-      const link = await linkInstallation({ allowedOrigins, deviceLabel });
+      // The extension drives the person's own Chrome, so the connection is
+      // their personal Space's.
+      const link = await linkInstallation({
+        allowedOrigins,
+        deviceLabel,
+        spaceId: personalSpaceId,
+      });
       const token = await getCurrentAccessToken();
       if (!token) {
         throw new Error("No active session token available.");

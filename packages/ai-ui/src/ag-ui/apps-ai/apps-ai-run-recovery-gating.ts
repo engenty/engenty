@@ -81,6 +81,28 @@ function lastAssistantMessage(
   return null;
 }
 
+/**
+ * Recovery reads only the thread's tail, not the whole transcript: a long
+ * thread would otherwise pull hundreds of rows per mount and snap the lane to
+ * all of them. What the lane holds from BEFORE the tail stays in front of it;
+ * from the tail's first row on, the persisted rows are the truth. A lane that
+ * never saw that row (empty, or opened on a newer stretch) takes the tail as is.
+ */
+export function withLanePrefixBeforeTail(input: {
+  liveMessages: readonly EngentyAgUiMessage[];
+  tailMessages: readonly EngentyAgUiMessage[];
+}): EngentyAgUiMessage[] {
+  const first = input.tailMessages[0];
+  if (!first) {
+    return [...input.liveMessages];
+  }
+  const at = input.liveMessages.findIndex((message) => message.id === first.id);
+  if (at <= 0) {
+    return [...input.tailMessages];
+  }
+  return [...input.liveMessages.slice(0, at), ...input.tailMessages];
+}
+
 /** Prefer DB transcript during recovery when it is ahead of the in-memory lane. */
 export function shouldApplyRecoveryMessagesSnapshot(input: {
   liveMessages: readonly EngentyAgUiMessage[];

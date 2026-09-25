@@ -3,6 +3,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
   formatUiGuideFollowUpMessage,
+  readUiGuideFollowUp,
   resolveUiGuideTarget,
 } from "./resolve-target.js";
 import {
@@ -101,6 +102,37 @@ describe("formatUiGuideFollowUpMessage", () => {
     ).toBe(
       '[ui_guide] guide_id=g1 action=next input.note="hello" input.city="Wien"'
     );
+  });
+});
+
+describe("readUiGuideFollowUp", () => {
+  it("reads back what formatUiGuideFollowUpMessage wrote", () => {
+    expect(
+      readUiGuideFollowUp(
+        formatUiGuideFollowUpMessage({
+          action_id: "next",
+          guide_id: "g1",
+          input_values: { city: 'Wien "Mitte"' },
+          label: "Weiter",
+          title: "1 von 4 · Die linke Leiste",
+        })
+      )
+    ).toEqual({
+      action_id: "next",
+      inputs: [{ key: "city", value: 'Wien "Mitte"' }],
+      label: "Weiter",
+      title: "1 von 4 · Die linke Leiste",
+    });
+    expect(readUiGuideFollowUp("[ui_guide] guide_id=g1 action=next")).toEqual({
+      action_id: "next",
+      inputs: [],
+      label: null,
+      title: null,
+    });
+  });
+
+  it("leaves ordinary text alone", () => {
+    expect(readUiGuideFollowUp("zeig mir [ui_guide] bitte")).toBeNull();
   });
 });
 

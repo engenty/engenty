@@ -2,7 +2,7 @@ import type {
   AgentConfig,
   InstructionDocumentDefinition,
 } from "@engenty/ai-core";
-import { DEFAULT_AI_CHAT_MODEL_ID, readAgentTextAsset } from "@engenty/ai-core";
+import { readAgentTextAsset } from "@engenty/ai-core";
 
 export const KB_ANSWERS_AGENT_ID = "knowledge-base.answers";
 
@@ -32,7 +32,6 @@ export const kbAnswersAgentConfig: AgentConfig = {
     "Answers questions strictly from the knowledge base — read-only, scoped retrieval.",
   id: KB_ANSWERS_AGENT_ID,
   instructions: readKbAnswersAgentsMarkdown(),
-  model: DEFAULT_AI_CHAT_MODEL_ID,
   name: "KB Answers",
   skillIds: [...KB_ANSWERS_SKILL_IDS],
   source: "module",

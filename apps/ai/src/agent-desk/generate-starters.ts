@@ -2,7 +2,6 @@ import { createHash } from "node:crypto";
 import {
   AGENT_STARTER_MAX,
   type AgentConfig,
-  agentStarterSchema,
   type ResolvedAgentStarter,
   readAiGatewayApiKeyFromEnv,
   resolvePurposeModelId,
@@ -10,14 +9,14 @@ import {
   type TenantAiSettings,
 } from "@engenty/ai-core";
 import { createLogger } from "@engenty/telemetry";
-import { generateText, Output } from "ai";
-import { z } from "zod";
+import { generateText } from "ai";
 import type {
   EngentySpace,
   EngentySpaceSurface,
 } from "../ai/core-http-client.js";
 import type { ThreadRow } from "../dal/threads/types.js";
 import { TtlLruCache } from "./starter-cache.js";
+import { parseGeneratedStarterLines } from "./starter-lines.js";
 
 const logger = createLogger({ name: "apps/ai/agent-desk-starters" });
 
@@ -27,18 +26,6 @@ const CACHE_MAX = 256;
 const MAX_INSTRUCTIONS_CHARS = 800;
 const MAX_SKILL_SUMMARY_CHARS = 160;
 const MAX_FIRST_MESSAGES = 15;
-
-const generatedStartersOutputSchema = z.object({
-  starters: z
-    .array(
-      z.object({
-        id: agentStarterSchema.shape.id,
-        label: agentStarterSchema.shape.label,
-        prompt: agentStarterSchema.shape.prompt,
-      })
-    )
-    .max(AGENT_STARTER_MAX),
-});
 
 const generatedStartersCache = new TtlLruCache<ResolvedAgentStarter[]>(
   CACHE_MAX,
@@ -53,9 +40,12 @@ export function resetGeneratedStartersCacheForTests(): void {
 const SYSTEM_PROMPT = [
   "You write empty-state starter chips for an AI specialist's start page.",
   "Each starter is a job the agent can actually do with its tools and skills, not a greeting.",
-  "Chip label ≤ 40 characters. Prompt is one full sentence in the requested locale.",
-  `Do not reuse an id from the declared catalogue. Return at most ${String(AGENT_STARTER_MAX)} chips.`,
-].join(" ");
+  "Chip label ≤ 40 characters. Prompt is one full sentence. Both in the requested locale.",
+  "Do not repeat a declared starter.",
+  `Answer with at most ${String(AGENT_STARTER_MAX)} lines, one starter per line, formatted exactly as:`,
+  "<label> | <prompt>",
+  "No numbering, no headings, no JSON, nothing else.",
+].join("\n");
 
 export interface GenerateAgentDeskStartersDependencies {
   generate?: (input: {
@@ -140,9 +130,8 @@ export async function generateAgentDeskStarters(input: {
     const spaceName =
       spaces.find((space) => space.id === spaceId)?.name ?? spaceId;
     const modelId = resolvePurposeModelId({
-      purpose: "routing",
-      readEnv: (key) => process.env[key],
-      tenantDefault: settings.coordinator_model_id,
+      purpose: "fast_text",
+      tenantDefault: settings.fast_text_model_id,
     });
     const prompt = buildGeneratedStartersPrompt({
       agent,
@@ -243,8 +232,8 @@ function buildGeneratedStartersPrompt(input: {
   surface: EngentySpaceSurface;
 }): string {
   const declared = (input.agent.starters ?? [])
-    .map((starter) => starter.id)
-    .join(", ");
+    .map((starter) => starter.label)
+    .join(" | ");
   const modules = input.surface.modules
     .filter((module) => module.agentAccess !== "none")
     .map((module) => `${module.moduleId}:${module.agentAccess}`)
@@ -259,7 +248,7 @@ function buildGeneratedStartersPrompt(input: {
     `Tools: ${input.agent.toolIds.join(", ") || "none"}`,
     `Mounted connectors: ${(input.surface.connectors ?? []).join(", ") || "none"}`,
     `Mounted modules: ${modules || "none"}`,
-    `Declared starter ids (do not reuse): ${declared || "none"}`,
+    `Declared starters (do not repeat): ${declared || "none"}`,
     `Recent first messages:\n${
       input.firstMessages
         .slice(0, MAX_FIRST_MESSAGES)
@@ -273,15 +262,14 @@ async function callGeneratedStartersModel(input: {
   modelId: string;
   prompt: string;
 }): Promise<ResolvedAgentStarter[]> {
-  const { output } = await generateText({
+  const { text } = await generateText({
     instructions: SYSTEM_PROMPT,
     maxOutputTokens: 800,
     model: input.modelId,
-    output: Output.object({ schema: generatedStartersOutputSchema }),
     prompt: input.prompt,
     temperature: 0.3,
   });
-  return output?.starters ?? [];
+  return parseGeneratedStarterLines(text, AGENT_STARTER_MAX);
 }
 
 function sleepReject(timeoutMs: number): Promise<never> {

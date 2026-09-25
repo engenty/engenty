@@ -196,6 +196,8 @@ export async function buildOwnRoutinesInstructions(input: {
 export interface SessionRuntimeInstructionsInput {
   agentId: string;
   agentUi?: AgentUiProducerContext | null;
+  /** The run's "Your computer" section, when it has a sandbox. */
+  computeInstructions?: string;
   /**
    * Declared workspace mounts this run does not have. Named in the runtime
    * block so a dropped `/data` reads as "not mounted, here is why" and not as
@@ -298,6 +300,7 @@ export async function buildSessionRuntimeInstructions(
   return [
     SPACE_CONTRACT_PROMPT,
     workspaceNote ? `${runtimeContext}\n${workspaceNote}` : runtimeContext,
+    input.computeInstructions ?? "",
     sharedStyle,
     agentUiContext,
     ownRoutines,

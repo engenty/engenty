@@ -22,7 +22,11 @@ export interface InboxSyncDeps {
   log?: (message: string, data?: Record<string, unknown>) => void;
   maxPagesPerRun?: number;
   pullLimit?: number;
-  /** Service-scoped repo (userId null — sync sees personal connections too). */
+  /**
+   * Service repo (no Space narrowing): the sync runs as the service, not as
+   * whoever connected the mailbox, and stamps every row with the mailbox's
+   * Space.
+   */
   repo: InboxRepo;
   tenantId: string;
 }
@@ -61,12 +65,10 @@ async function syncConnection(
     return result;
   }
 
+  const mailbox = { id: connection.id, space_id: connection.space_id };
   const state =
     (await repo.syncState.get(connection.id)) ??
-    (await repo.syncState.upsertSettings(connection.id, {
-      owner_user_id:
-        connection.all_spaces === true ? null : connection.owner_user_id,
-    }));
+    (await repo.syncState.upsertSettings(mailbox, {}));
   if (!state.sync_enabled) {
     result.skipped = "sync_disabled";
     return result;
@@ -104,14 +106,7 @@ async function syncConnection(
         throw error;
       }
 
-      const upserted = await repo.sync.upsertInbound(
-        {
-          id: connection.id,
-          owner_user_id: connection.owner_user_id,
-          sharing: connection.sharing,
-        },
-        pull.items
-      );
+      const upserted = await repo.sync.upsertInbound(mailbox, pull.items);
       result.new_messages += upserted.new_messages;
       cursor = pull.nextCursor;
       // Persist after every page so an interrupted backfill resumes instead
@@ -146,14 +141,20 @@ async function syncConnection(
  */
 export async function runInboxSync(
   deps: InboxSyncDeps,
-  options: { connectionId?: string } = {}
+  options: {
+    connectionId?: string;
+    /** Only the mailboxes of these Spaces (a caller's); absent = all. */
+    spaceIds?: ReadonlySet<string>;
+  } = {}
 ): Promise<InboxSyncRunResult> {
   const all = await deps.connectionsClient.listConnections({
     tenantId: deps.tenantId,
   });
-  const targets = options.connectionId
-    ? all.filter((connection) => connection.id === options.connectionId)
-    : all;
+  const targets = all.filter(
+    (connection) =>
+      (!options.connectionId || connection.id === options.connectionId) &&
+      (!options.spaceIds || options.spaceIds.has(connection.space_id))
+  );
   const connections: InboxSyncRunResult["connections"] = [];
   for (const connection of targets) {
     connections.push(await syncConnection(deps, connection));

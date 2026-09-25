@@ -126,7 +126,7 @@ async function enforceAccountMounted(
   }
   throw forbiddenError(
     "connection_not_in_space",
-    "That account is not mounted in the active Space. Mount it in Space settings; do not retry.",
+    "That account belongs to a different Space than the active one. Use an account of this Space; do not retry.",
     { connection_id: connectionId }
   );
 }

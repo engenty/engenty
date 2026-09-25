@@ -35,6 +35,7 @@ function AppBarChromeRoot({ children }: { children: ReactNode }) {
 }
 
 export function AppLayout({
+  appMenu,
   appMenuActions,
   sections,
   shell,
@@ -75,6 +76,7 @@ export function AppLayout({
             <AppLayoutFrame
               appBarPositionPersistence={appBarPositionPersistence}
               appBarThemes={appBarThemes}
+              appMenu={appMenu}
               appMenuActions={appMenuActions}
               defaultTopbarTitle={defaultTopbarTitle}
               fetchResolvedFeatureFlags={fetchResolvedFeatureFlags}

@@ -81,7 +81,7 @@ async function stageScope(
 describe("reapSandboxStagingDirs", () => {
   beforeEach(() => {
     root = mkdtempSync(path.join(os.tmpdir(), "engenty-reaper-"));
-    vi.stubEnv("ENGENTY_LOCAL_WORKSPACE_ROOT", root);
+    vi.stubEnv("ENGENTY_SPACES_DIR", root);
     // The suite defaults to `local` (vitest.config.ts); the reaper only ever
     // runs against a `remote`-backed root, so state that explicitly here.
     vi.stubEnv("ENGENTY_WORKSPACE_FS", "remote");

@@ -60,6 +60,7 @@ describe("inboxAiRegistration", () => {
     const capability = inboxDynamicAiCapability({
       invokeInboxOperation: noopInvokeInboxOperation,
     });
+    expect(capability.tools).toHaveProperty("inbox_show_dashboard");
     expect(capability.tools).toHaveProperty("inbox_list_threads");
     expect(capability.tools).toHaveProperty("inbox_get_thread");
     expect(capability.tools).toHaveProperty("inbox_set_status");

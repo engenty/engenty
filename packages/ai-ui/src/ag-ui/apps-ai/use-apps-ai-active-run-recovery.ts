@@ -31,8 +31,10 @@ import {
   shouldAttemptAppsAiRunRecovery,
   shouldContinueAppsAiRunRecovery,
   transcriptMissingAssistantMessage,
+  withLanePrefixBeforeTail,
 } from "./apps-ai-run-recovery-gating.js";
 import {
+  APPS_AI_THREAD_MESSAGES_PAGE_SIZE,
   getAppsAiThread,
   listAppsAiThreadMessages,
 } from "./apps-ai-thread-api.js";
@@ -259,17 +261,20 @@ export function useAppsAiActiveRunRecovery(
         const terminalRecords = await listAppsAiThreadMessages({
           serviceBaseUrl: options.serviceBaseUrl,
           threadId,
-          limit: 500,
+          limit: APPS_AI_THREAD_MESSAGES_PAGE_SIZE,
           signal,
         });
         if (signal.aborted) {
           return false;
         }
-        const terminalSnapshot = buildAgUiMessagesFromSessionMessages(
-          terminalRecords as Parameters<
-            typeof buildAgUiMessagesFromSessionMessages
-          >[0]
-        );
+        const terminalSnapshot = withLanePrefixBeforeTail({
+          liveMessages: options.messagesRef.current,
+          tailMessages: buildAgUiMessagesFromSessionMessages(
+            terminalRecords as Parameters<
+              typeof buildAgUiMessagesFromSessionMessages
+            >[0]
+          ),
+        });
         // Cancelled/failed runs cut off before the coalescer drained may hold
         // partial assistant text only in the event log — that replay applies a
         // MERGED snapshot itself. Otherwise prefer the persisted transcript
@@ -324,7 +329,7 @@ export function useAppsAiActiveRunRecovery(
       const messageRecords = await listAppsAiThreadMessages({
         serviceBaseUrl: options.serviceBaseUrl,
         threadId,
-        limit: 500,
+        limit: APPS_AI_THREAD_MESSAGES_PAGE_SIZE,
         signal,
       });
       // Rows persisted BY the attached run stay out of the lane — the replay
@@ -332,11 +337,14 @@ export function useAppsAiActiveRunRecovery(
       // keeping both doubles the current turn (see partitionSnapshotForRunAttach).
       const { kept: snapshotMessages, replayOwned } =
         partitionSnapshotForRunAttach({
-          messages: buildAgUiMessagesFromSessionMessages(
-            messageRecords as Parameters<
-              typeof buildAgUiMessagesFromSessionMessages
-            >[0]
-          ),
+          messages: withLanePrefixBeforeTail({
+            liveMessages: options.messagesRef.current,
+            tailMessages: buildAgUiMessagesFromSessionMessages(
+              messageRecords as Parameters<
+                typeof buildAgUiMessagesFromSessionMessages
+              >[0]
+            ),
+          }),
           runStartedAt: activeRun?.created_at ?? null,
         });
       if (
@@ -426,14 +434,17 @@ export function useAppsAiActiveRunRecovery(
             const finalRecords = await listAppsAiThreadMessages({
               serviceBaseUrl: options.serviceBaseUrl,
               threadId,
-              limit: 500,
+              limit: APPS_AI_THREAD_MESSAGES_PAGE_SIZE,
               signal,
             });
-            const finalSnapshot = buildAgUiMessagesFromSessionMessages(
-              finalRecords as Parameters<
-                typeof buildAgUiMessagesFromSessionMessages
-              >[0]
-            );
+            const finalSnapshot = withLanePrefixBeforeTail({
+              liveMessages: options.messagesRef.current,
+              tailMessages: buildAgUiMessagesFromSessionMessages(
+                finalRecords as Parameters<
+                  typeof buildAgUiMessagesFromSessionMessages
+                >[0]
+              ),
+            });
             if (
               !signal.aborted &&
               shouldApplyTerminalRunMessagesSnapshot({

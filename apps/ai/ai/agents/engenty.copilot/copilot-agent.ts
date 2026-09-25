@@ -10,6 +10,7 @@ import {
 import { createTool } from "@mastra/core/tools";
 import { createAgentLookTools } from "../../tools/agent-look-tool.js";
 import { createAgentProposeTools } from "../../tools/agent-propose-tool.js";
+import { createAgentRemoveTools } from "../../tools/agent-remove-tool.js";
 import { createAgentSelfReviseTools } from "../../tools/agent-self-revise-tool.js";
 import { createAgentStatusTools } from "../../tools/agent-status-tool.js";
 import { createAnalyzeFileTool } from "../../tools/analyze-file/index.js";
@@ -17,6 +18,7 @@ import { createAppBuildTools } from "../../tools/app-build-tool.js";
 import { createArtifactTools } from "../../tools/artifact-tools.js";
 import { createChatThreadSearchTool } from "../../tools/chat-thread-search/index.js";
 import { createCleanupCsvTool } from "../../tools/cleanup-csv/index.js";
+import { createConnectorImportRequestTools } from "../../tools/connector-import-request-tool.js";
 import { createConvertImageTool } from "../../tools/convert-image/index.js";
 import { createDeskPostTools } from "../../tools/desk-post-tool.js";
 import { createEngentyCatalogTools } from "../../tools/engenty-tools/create-engenty-tools.js";
@@ -74,6 +76,7 @@ export function createEngentyCopilotAgentTools() {
     ...createEngentyCatalogTools(),
     ...createSkillProposeTools(),
     ...createSkillsFindTools(),
+    ...createConnectorImportRequestTools(),
     ...createSpaceSetupTools(),
     ...createVaultFileTools(),
     ...createArtifactTools(),
@@ -97,6 +100,10 @@ export function createBuiltinRegistryTools() {
     // the coordinator and the copilot declare it: hiring is how "run this every
     // morning" acquires an owner that isn't a live chat surface.
     ...createAgentProposeTools(),
+    // Its counterpart: whoever may hire into the Space may also delete a
+    // hired specialist there (or take a module agent out of the Space) —
+    // always behind a card a person approves.
+    ...createAgentRemoveTools(),
     // Multi-step action writer. Registered for resolution only, same as
     // agent_propose — an agent gets it by declaring it in toolIds.
     //

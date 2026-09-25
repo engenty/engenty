@@ -15,7 +15,11 @@ import {
 } from "./agents/agent-starters.js";
 // Type-only import — contracts.ts imports AgentConfig from this file, so keep
 // this cycle erased at runtime.
-import type { RoutineDefinition, WorkflowDefinition } from "./contracts.js";
+import type {
+  OutcomeProviderDefinition,
+  RoutineDefinition,
+  WorkflowDefinition,
+} from "./contracts.js";
 // Type-only (no runtime cycle): hooks/types.ts imports AgentConfig from here.
 import type { AgentFnDescriptor } from "./hooks/types.js";
 
@@ -220,17 +224,6 @@ export const agentWorkspaceConfigSchema = z.object({
 
 export type AgentWorkspaceConfig = z.infer<typeof agentWorkspaceConfigSchema>;
 
-/** Purpose an agent binds to for tenant model resolution (Phase 4). */
-export const agentModelPurposeSchema = z.enum([
-  "chat",
-  "routing",
-  "coordinator",
-  "research",
-  "planning_coding",
-  "safeguard",
-]);
-export type AgentModelPurpose = z.infer<typeof agentModelPurposeSchema>;
-
 // Per-agent operational limits. A governance dial on a single agent, layered
 // over the global/tenant defaults. `max_steps` caps the agent's reasoning
 // iterations per run (hard ceiling 60 — a per-agent value can only tighten);
@@ -316,7 +309,12 @@ export const agentConfigSchema = z.object({
   interfaceRole: z.enum(["live", "background", "remote"]).optional(),
   /** Per-agent operational limits (iteration cap, …). */
   limits: agentLimitsConfigSchema.optional(),
-  model: z.string().min(1),
+  /**
+   * A model the agent was authored with (database agents). Absent: the agent
+   * runs on its effort tier's role binding — the usual case; module and
+   * function agents never carry one.
+   */
+  model: z.string().min(1).optional(),
   /**
    * Owning module id; null/absent = platform. The single ownership signal —
    * `source` stays provider provenance (builtin/module/database) and never
@@ -324,15 +322,11 @@ export const agentConfigSchema = z.object({
    */
   moduleId: z.string().min(1).nullish(),
   /**
-   * Explicit per-agent model pin. When set, it beats the tenant/purpose default
-   * (precedence flip). Absent = inherit via {@link purpose}.
+   * Explicit per-agent model pin. When set, it beats the tenant default
+   * (precedence flip). Absent = the {@link effort} tier, else the tenant's
+   * chat model.
    */
   modelOverride: z.string().min(1).nullish(),
-  /**
-   * Which tenant model tier this agent inherits when not pinned. Defaults by
-   * structure (supervisors → routing, leaves → chat) when absent.
-   */
-  purpose: agentModelPurposeSchema.optional(),
   name: z.string().min(1),
   /**
    * Reachable from a remote channel (Slack, Telegram, …) as itself, not only
@@ -482,6 +476,8 @@ export interface DynamicAiModuleCapability {
   // Serializable COMMAND.md chat slash commands declared by the module.
   chatCommands?: import("./chat-commands/contracts.js").ChatCommandDefinition[];
   moduleId: string;
+  /** Plugin outcome destinations; built-ins live in apps/ai. */
+  outcomeProviders?: OutcomeProviderDefinition[];
   // Trigger declarations from agent.json `triggers:` (plain JSON data).
   routines?: RoutineDefinition[];
   // Raw SKILL.md markdown by skill name. Seed channel only: published into the

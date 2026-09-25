@@ -19,6 +19,10 @@ import {
   createEngentyToolPrimitive,
   ENGENTY_TOOL_PRIMITIVE_ID,
 } from "./engenty-tool.js";
+import {
+  createPickSurfacePrimitive,
+  PICK_SURFACE_PRIMITIVE_ID,
+} from "./pick-surface.js";
 import { createShowObjectsPrimitive, createShowUiPrimitive } from "./render.js";
 import {
   createRunSpecialistPrimitive,
@@ -48,6 +52,7 @@ export {
   SHOW_ARTIFACT_PRIMITIVE_ID,
 } from "./artifacts.js";
 export { ENGENTY_TOOL_PRIMITIVE_ID } from "./engenty-tool.js";
+export { PICK_SURFACE_PRIMITIVE_ID } from "./pick-surface.js";
 export { RUN_SPECIALIST_PRIMITIVE_ID } from "./run-specialist.js";
 export { WAIT_UNTIL_PRIMITIVE_ID } from "./wait-until.js";
 
@@ -61,6 +66,7 @@ export function createGraphActionPrimitives() {
     [RUN_SPECIALIST_PRIMITIVE_ID]: createRunSpecialistPrimitive(),
     [ENGENTY_TOOL_PRIMITIVE_ID]: createEngentyToolPrimitive(),
     [APPROVAL_GATE_PRIMITIVE_ID]: createApprovalGatePrimitive(),
+    [PICK_SURFACE_PRIMITIVE_ID]: createPickSurfacePrimitive(),
     [APPLY_FIELD_UPDATES_PRIMITIVE_ID]: createApplyFieldUpdatesPrimitive(),
     [WAIT_UNTIL_PRIMITIVE_ID]: createWaitUntilPrimitive(),
     ...createArtifactPrimitives(),

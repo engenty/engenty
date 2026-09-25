@@ -16,9 +16,9 @@ const APPEARANCE_KEYS = {
   colorBackground: "appearance.color_background",
   contrast: "appearance.contrast",
   colorBlind: "appearance.colorblind",
+  chatStyle: "appearance.chat_style",
 } as const;
 
-const DEFAULT_LANGUAGE = "en";
 const DEFAULT_THEME_MODE = "system";
 const DEFAULT_FONT = "geist";
 const DEFAULT_FONT_SIZE = "100";
@@ -30,6 +30,7 @@ const DEFAULT_COLOR_BACKGROUND = "#faf8f5";
 const DEFAULT_CONTRAST = "normal";
 const DEFAULT_TENANT_CONTRAST = "1.0";
 const DEFAULT_COLOR_BLIND = "none";
+const DEFAULT_CHAT_STYLE = "canvas";
 
 const KNOWN_FONT_IDS = new Set([
   "geist",
@@ -45,6 +46,8 @@ function normalizeFontId(id: string): string {
 }
 
 export interface ResolvedAppearance {
+  /** Agent messages on the canvas, or in bubbles like a messenger. */
+  chatStyle: string;
   colorBackground?: string;
   colorBlind?: string;
   colorPrimary?: string;
@@ -52,7 +55,11 @@ export interface ResolvedAppearance {
   contrast?: string;
   font: string;
   fontSize: string;
-  language: string;
+  /**
+   * Only when the user or tenant chose one. Unset, the browser's language
+   * stands — a hardcoded "en" here overrode it on every first visit.
+   */
+  language?: string;
   sidebarColor?: string;
   sidebarVisibility?: string;
   tenantContrast?: string;
@@ -93,6 +100,20 @@ function pick(
   return fallback;
 }
 
+/** The first map that has the key, or undefined — no hardcoded fallback. */
+function pickSet(
+  key: string,
+  ...maps: Map<string, string>[]
+): string | undefined {
+  for (const map of maps) {
+    const value = map.get(key);
+    if (value !== undefined) {
+      return value;
+    }
+  }
+  return;
+}
+
 /** Get resolved appearance when user has no tenant (onboarded: false). */
 export async function getResolvedAppearanceWithoutTenant(
   client: SupabaseClient,
@@ -105,9 +126,10 @@ export async function getResolvedAppearanceWithoutTenant(
   const user = toStringMap(await userRepo.list(APPEARANCE_PREFIX));
 
   return {
+    chatStyle: pick(APPEARANCE_KEYS.chatStyle, DEFAULT_CHAT_STYLE, user),
     font: DEFAULT_FONT,
     fontSize: pick(APPEARANCE_KEYS.fontSize, DEFAULT_FONT_SIZE, user),
-    language: pick(APPEARANCE_KEYS.language, DEFAULT_LANGUAGE, user),
+    language: pickSet(APPEARANCE_KEYS.language, user),
     themeMode: pick(APPEARANCE_KEYS.themeMode, DEFAULT_THEME_MODE, user),
     sidebarVisibility: DEFAULT_SIDEBAR_VISIBILITY,
     sidebarColor: DEFAULT_SIDEBAR_COLOR,
@@ -158,9 +180,15 @@ export async function getResolvedAppearance(
 
   // Precedence for each key: user override → tenant default → hardcoded default.
   return {
+    chatStyle: pick(
+      APPEARANCE_KEYS.chatStyle,
+      DEFAULT_CHAT_STYLE,
+      user,
+      tenant
+    ),
     font: normalizeFontId(pick(APPEARANCE_KEYS.font, DEFAULT_FONT, tenant)),
     fontSize: pick(APPEARANCE_KEYS.fontSize, DEFAULT_FONT_SIZE, user, tenant),
-    language: pick(APPEARANCE_KEYS.language, DEFAULT_LANGUAGE, user, tenant),
+    language: pickSet(APPEARANCE_KEYS.language, user, tenant),
     themeMode: pick(
       APPEARANCE_KEYS.themeMode,
       DEFAULT_THEME_MODE,

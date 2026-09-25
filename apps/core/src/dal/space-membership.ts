@@ -13,8 +13,8 @@
  * The access rule, stated once: **you may enter a space iff it is open, or you
  * own it, or you have a member row.** It is spelled out twice on purpose — here
  * in SQL-over-PostgREST for the server lane, and in the RLS policy for the
- * browser lane — and `space-membership-sql-pin.test.ts` plus the tests beside
- * this file exist to keep the two saying the same thing.
+ * browser lane — and `spaces.integration.test.ts` (the RLS policy, on a real
+ * database) plus the tests beside this file keep the two saying the same thing.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -234,6 +234,47 @@ export async function canAccessSpace(
     throw result.error;
   }
   return result.data != null;
+}
+
+/**
+ * Whether this person owns the space: the personal space's owner, or an
+ * `owner` member row on a shared one. Owners decide what the space's
+ * connections may do (PLAN-space-owned-connections.md).
+ */
+export async function isSpaceOwner(
+  client: SupabaseClient,
+  tenantId: string,
+  spaceId: string,
+  userId: string
+): Promise<boolean> {
+  const space = await spacesTable(client)
+    .select("owner_user_id")
+    .eq("tenant_id", tenantId)
+    .eq("id", spaceId)
+    .maybeSingle();
+  if (space.error) {
+    throw space.error;
+  }
+  if (!space.data) {
+    return false;
+  }
+  // A personal space has exactly one owner and no member rows.
+  const personalOwner = (space.data as { owner_user_id: string | null })
+    .owner_user_id;
+  if (personalOwner) {
+    return personalOwner === userId;
+  }
+  const member = await memberTable(client)
+    .select("user_id")
+    .eq("tenant_id", tenantId)
+    .eq("space_id", spaceId)
+    .eq("user_id", userId)
+    .eq("role", "owner")
+    .maybeSingle();
+  if (member.error) {
+    throw member.error;
+  }
+  return member.data != null;
 }
 
 /**

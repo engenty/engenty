@@ -4,7 +4,7 @@ Default guide for contributors and coding agents in this repository.
 
 - Active development — no production data yet; no fallback or stranded code
 - **Biome** for lint/format — run `pnpm fix` at the end of tasks
-- **Vitest** — add tests and run `pnpm test`
+- **Tests** — follow [testing-policy.mdc](./docs/agent/rules/testing-policy.mdc) before writing any test; run `pnpm test`
 - **Agent rules:** canonical content lives in [`docs/agent/rules/`](./docs/agent/rules/). Cursor symlinks them under `.cursor/rules/`. Claude reads this file + linked rules. Load a rule when the task matches its description — do not load everything every turn.
 
 ## Chat with the User / Developer
@@ -178,6 +178,17 @@ whether or not the code filters correctly.
 ## File size
 
 If a file exceeds ~250 lines and mixes concerns, split before adding features.
+
+## Testing
+
+Fewer, stronger tests. Read [testing-policy.mdc](./docs/agent/rules/testing-policy.mdc) before adding one.
+
+- Tautological tests and change-detector tests are defects — do not write them
+- Expected values come from the requirement, never from reading the implementation
+- Isolated test: list the ways it can fail **first**, then write the code
+- Bug fix: no regression test unless no existing test could have caught the bug
+- Whole features (UI → API → DB): prove them with an E2E spec in `e2e/smoke/`
+- Cleaning up existing tests: `prune-tests` skill
 
 ## PR checklist
 

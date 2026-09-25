@@ -1,28 +1,30 @@
 import { createAgUiSseParser, EventType } from "@engenty/ag-ui-bridge";
 import {
   getDeveloperModePreference,
-  isEngentyDevelopmentEnvironment,
   subscribeDeveloperModePreference,
 } from "@engenty/environment";
+import { useWorkspaceContext } from "@engenty/ui-plugin-sdk";
 import { useCallback, useEffect, useState } from "react";
 import type { EngentyAgUiEvent } from "../../ag-ui/conversation.js";
 
 const DEBUG_EVENT_LIMIT = 600;
 
+/**
+ * Reactive developer-mode flag: the user-menu toggle, gated to superadmins
+ * (same rule as apps/ui `useDeveloperModeEnabled`). Not tied to `ENV` —
+ * deployed workspaces have it too.
+ */
 export function useDeveloperModeEnabled() {
-  const [enabled, setEnabled] = useState(
-    () => isEngentyDevelopmentEnvironment() && getDeveloperModePreference()
+  const { isSuperAdmin } = useWorkspaceContext();
+  const [enabled, setEnabled] = useState(getDeveloperModePreference);
+  useEffect(
+    () =>
+      subscribeDeveloperModePreference(() => {
+        setEnabled(getDeveloperModePreference());
+      }),
+    []
   );
-  useEffect(() => {
-    if (!isEngentyDevelopmentEnvironment()) {
-      setEnabled(false);
-      return;
-    }
-    return subscribeDeveloperModePreference(() => {
-      setEnabled(getDeveloperModePreference());
-    });
-  }, []);
-  return enabled;
+  return enabled && isSuperAdmin;
 }
 
 /**

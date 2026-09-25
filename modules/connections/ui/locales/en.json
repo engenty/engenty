@@ -1,10 +1,4 @@
 {
-  "agentAccess": {
-    "title": "Used by",
-    "description": "Agents allowed to act on this account in background work. Grant access from the agent itself.",
-    "revoke": "Remove access",
-    "revokeFailed": "Could not remove access. Try again."
-  },
   "menu": {
     "connections": "Connections"
   },
@@ -24,7 +18,8 @@
     "addAccount": "Add account",
     "connecting": "Connecting…",
     "empty": "No connectors available",
-    "emptyDescription": "Install a connector module (Google, Microsoft, Slack, …) to connect external services."
+    "emptyDescription": "Install a connector module (Google, Microsoft, Slack, …) to connect external services.",
+    "spaceHint": "Accounts of {{name}}. Every agent and member of this Space uses them."
   },
   "toasts": {
     "connected": "Connection established.",
@@ -57,14 +52,6 @@
     "error": "Error",
     "revoked": "Revoked"
   },
-  "sharing": {
-    "label": "Where this account is used",
-    "personal": "This account",
-    "org": "All spaces",
-    "orgBadge": "All spaces",
-    "allSpaces": "Available in every space",
-    "allSpacesHelp": "When on, every space in this tenant may use this account. When off, share it by mounting it on a space, or grant it to one agent."
-  },
   "policy": {
     "allow": "Always allow",
     "ask": "Ask first",
@@ -81,7 +68,7 @@
     "customBadge": "Custom",
     "reset": "Reset to inherited",
     "noActions": "This connector exposes no tools yet.",
-    "readOnlyNotice": "You can use this shared connection, but only its owner or an admin can change permissions."
+    "readOnlyNotice": "Every member of this Space uses this account. Only the Space's owners or an admin can change its permissions and settings."
   },
   "settings": {
     "title": "Connection settings",
@@ -94,14 +81,6 @@
       "off": "Off",
       "read_only": "Read-only",
       "full": "Full access"
-    },
-    "nonOwnerMaxGroup": "Non-owner limit",
-    "nonOwnerMaxGroupHelp": "Cap what other members of the organization may do with this connection.",
-    "nonOwnerCap": {
-      "none": "No cap",
-      "read": "Read-only tools",
-      "write": "Up to write tools",
-      "destructive": "All tools"
     },
     "disconnect": "Disconnect",
     "disconnectTitle": "Disconnect {{name}}?",
@@ -123,12 +102,13 @@
     "title": "Connections",
     "newConnection": "New connection",
     "listTitle": "All connections",
-    "listDescription": "Every connection you can see: accounts you own and accounts shared with every space.",
+    "listDescription": "Every connection you can see, with the Space it belongs to. Every agent and member of that Space uses it.",
     "listEmpty": "No connections yet",
     "listEmptyDescription": "Connect a service under Settings → Connections to see it here.",
     "listColumns": {
       "connector": "Service",
       "account": "Account",
+      "space": "Space",
       "status": "Status"
     },
     "approvalsTitle": "Pending approvals",
@@ -151,10 +131,8 @@
   },
   "marketplace": {
     "title": "Connections",
-    "titleAgent": "Connections for {{name}}",
-    "hintSpace": "Install a plugin once for this tenant, then enable it here. Authenticate an account to use it.",
-    "hintNamedSpace": "Plugins enabled in {{name}}. Add one to make it available to every specialist in this space.",
-    "hintAgent": "Adding a plugin here attaches its account to this agent, not to the space.",
+    "hintSpace": "Plugins and accounts of your personal Space. The Copilot uses these.",
+    "hintNamedSpace": "Plugins and accounts of {{name}}. Every agent and member of this Space uses them.",
     "search": "Search connections",
     "searchCatalog": "Search integrations.sh",
     "filterMarketplace": "Marketplace",
@@ -171,7 +149,6 @@
     "needsAuth": "Needs authentication",
     "authenticate": "Authenticate",
     "addAccount": "Add another account",
-    "accounts": "Accounts",
     "defaultAccount": "default",
     "sectionApps": "Apps {{count}}",
     "sectionIntegrations": "Integrations {{count}}",
@@ -199,10 +176,6 @@
     "uninstallDescription": "Removes this tenant install. Built-in plugins cannot be uninstalled. Existing accounts for it stop working.",
     "removeFromSpace": "Remove from this space",
     "usedThisSpace": "This space",
-    "usedAllSpaces": "All spaces",
-    "usedThisAgent": "This agent",
-    "useOnAgent": "Use on this agent",
-    "revokeAgent": "Remove from this agent",
     "registry": "Integrations catalog",
     "catalogEmpty": "Nothing in the integrations catalog matches.",
     "needsAuthToAdd": "This server needs a sign-in before it can be added.",
@@ -226,7 +199,9 @@
     "open": "Add connections",
     "subsetLabel": "Plugins this agent uses",
     "subsetHint": "Empty means every plugin enabled on the space, plus this agent’s personal accounts. A non-empty list is the subset it actually uses.",
-    "subsetAll": "All plugins enabled on the space"
+    "subsetAll": "All plugins enabled on the space",
+    "spaceAccounts": "Accounts in this Space",
+    "noSpace": "No Space to connect into. Open a Space and connect from there."
   },
   "credentials": {
     "description": "Enter the credentials for this service. They are stored encrypted and never shown again.",

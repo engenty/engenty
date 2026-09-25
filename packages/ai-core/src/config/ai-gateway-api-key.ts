@@ -2,9 +2,11 @@ import { env } from "@engenty/telemetry";
 import {
   ANTHROPIC_GATEWAY_ID,
   DEFAULT_MODEL_GATEWAY_ID,
+  MISTRAL_GATEWAY_ID,
   OPENAI_GATEWAY_ID,
   OPENROUTER_GATEWAY_ID,
   OPPER_GATEWAY_ID,
+  SPACEXAI_GATEWAY_ID,
 } from "./model-ref.js";
 
 const AI_GATEWAY_API_KEY_ENV = "AI_GATEWAY_API_KEY";
@@ -12,6 +14,9 @@ const OPENROUTER_API_KEY_ENV = "OPENROUTER_API_KEY";
 const OPENAI_API_KEY_ENV = "OPENAI_API_KEY";
 const ANTHROPIC_API_KEY_ENV = "ANTHROPIC_API_KEY";
 const OPPER_API_KEY_ENV = "OPPER_API_KEY";
+// Shared with document OCR and realtime voice, which read it directly.
+const MISTRAL_API_KEY_ENV = "MISTRAL_API_KEY";
+const XAI_API_KEY_ENV = "XAI_API_KEY";
 
 /**
  * Which env var holds each gateway's credential.
@@ -29,6 +34,8 @@ const GATEWAY_API_KEY_ENV: Readonly<Record<string, string>> = {
   [OPENAI_GATEWAY_ID]: OPENAI_API_KEY_ENV,
   [ANTHROPIC_GATEWAY_ID]: ANTHROPIC_API_KEY_ENV,
   [OPPER_GATEWAY_ID]: OPPER_API_KEY_ENV,
+  [MISTRAL_GATEWAY_ID]: MISTRAL_API_KEY_ENV,
+  [SPACEXAI_GATEWAY_ID]: XAI_API_KEY_ENV,
 };
 
 function read(envKey: string): string | null {

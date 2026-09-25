@@ -105,7 +105,9 @@ export interface ToolApprovalDecisionArtifact {
 }
 
 // Approve THIS action for the current turn only (no persisted grant → re-prompts
-// next time). "Always" additionally persists a thread grant (no re-prompt in chat).
+// next time). "Always" persists a grant on the AGENT: every later run of that
+// agent — any user's chat, its routines and tasks — may repeat exactly this
+// operation without asking.
 export const TOOL_APPROVAL_CHOICE_APPROVE_ONCE = "approve_once";
 export const TOOL_APPROVAL_CHOICE_APPROVE_ALWAYS = "approve_always";
 export const TOOL_APPROVAL_CHOICE_DENY = "deny";
@@ -204,12 +206,12 @@ export function isToolApprovalArtifactId(
 
 /**
  * Build the decision-shaped artifact the gate returns INSTEAD of invoking. The
- * user sees Approve once / Approve always / Deny. "Once" runs this turn only;
- * "always" also persists a thread grant; both re-run so the tool executes.
+ * user sees Approve once / Approve for this agent / Deny. "Once" runs this turn
+ * only; "always" also persists an agent grant; both re-run so the tool executes.
  *
  * A BULK card (`operationIds` set — engenty_tools_preapprove) covers several
  * operations at once: the grant context carries every id so the approve hook
- * persists each, and the choice labels speak in run/chat scope ("once" grants
+ * persists each, and the choice labels speak in run/agent scope ("once" grants
  * clear on the next fresh user turn, which is exactly "this run").
  */
 export function buildToolApprovalArtifact(input: {
@@ -237,7 +239,7 @@ export function buildToolApprovalArtifact(input: {
     : `This action is ${input.riskLevel}-risk and needs your approval before it runs.`;
   const body = bulkIds
     ? `${input.body?.trim() || reason}\n\nOperations: ${bulkIds.join(", ")}`
-    : `${input.body?.trim() || reason}\n\nOperation: ${input.operationId}`;
+    : input.body?.trim() || `${reason}\n\nOperation: ${input.operationId}`;
   return {
     artifact_id: artifactId,
     artifact_type: "decision",
@@ -250,7 +252,7 @@ export function buildToolApprovalArtifact(input: {
           },
           {
             id: TOOL_APPROVAL_CHOICE_APPROVE_ALWAYS,
-            label: "Approve for this chat",
+            label: "Approve for this agent",
           },
           { id: TOOL_APPROVAL_CHOICE_DENY, label: "Deny" },
         ]
@@ -258,7 +260,7 @@ export function buildToolApprovalArtifact(input: {
           { id: TOOL_APPROVAL_CHOICE_APPROVE_ONCE, label: "Approve once" },
           {
             id: TOOL_APPROVAL_CHOICE_APPROVE_ALWAYS,
-            label: "Approve always (this chat)",
+            label: "Approve for this agent",
           },
           { id: TOOL_APPROVAL_CHOICE_DENY, label: "Deny" },
         ],

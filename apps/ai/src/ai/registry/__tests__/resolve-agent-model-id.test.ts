@@ -19,14 +19,11 @@ function agent(overrides: Partial<AgentConfig> = {}): AgentConfig {
 
 const runtime: RuntimeModelConfig = {
   chatModelId: "t/chat",
-  routingModelId: "t/routing",
-  researchModelId: "t/research",
-  planningCodingModelId: "t/planning",
-  safeguardModelId: "t/safeguard",
+  gradedModelIds: { low: "t/low", medium: "t/medium", high: "t/high" },
 };
 
 describe("resolveAgentModelId", () => {
-  it("explicit modelOverride beats tenant/purpose resolution", () => {
+  it("explicit modelOverride beats tenant resolution", () => {
     expect(
       resolveAgentModelId(agent({ modelOverride: "pin/model" }), runtime)
     ).toBe("pin/model");
@@ -36,35 +33,47 @@ describe("resolveAgentModelId", () => {
     expect(resolveAgentModelId(agent(), undefined)).toBe("static/model");
   });
 
-  it("routes by explicit purpose", () => {
-    expect(resolveAgentModelId(agent({ purpose: "research" }), runtime)).toBe(
-      "t/research"
+  it("places an unpinned run on the agent's declared effort tier", () => {
+    expect(resolveAgentModelId(agent({ effort: "high" }), runtime)).toBe(
+      "t/high"
     );
-    expect(
-      resolveAgentModelId(agent({ purpose: "planning_coding" }), runtime)
-    ).toBe("t/planning");
-    expect(resolveAgentModelId(agent({ purpose: "safeguard" }), runtime)).toBe(
-      "t/safeguard"
+    expect(resolveAgentModelId(agent({ effort: "low" }), runtime)).toBe(
+      "t/low"
     );
   });
 
-  it("defaults to routing for supervisors and chat for leaves", () => {
+  it("keeps the resolved chat model when the run's tier is pinned", () => {
+    expect(
+      resolveAgentModelId(agent({ effort: "high" }), {
+        ...runtime,
+        effortPinned: true,
+      })
+    ).toBe("t/chat");
+  });
+
+  it("uses the chat model for supervisors and leaves without an effort", () => {
     expect(
       resolveAgentModelId(
         agent({ subAgents: [{ id: "child" }] }) as AgentConfig,
         runtime
       )
-    ).toBe("t/routing");
+    ).toBe("t/chat");
     expect(resolveAgentModelId(agent(), runtime)).toBe("t/chat");
   });
 
-  it("falls back to chat when a purpose tier is unset", () => {
-    const partial: RuntimeModelConfig = {
-      chatModelId: "t/chat",
-      routingModelId: "t/routing",
-    };
-    expect(resolveAgentModelId(agent({ purpose: "research" }), partial)).toBe(
+  it("falls back to chat when the effort tier is unbound", () => {
+    const partial: RuntimeModelConfig = { chatModelId: "t/chat" };
+    expect(resolveAgentModelId(agent({ effort: "high" }), partial)).toBe(
       "t/chat"
     );
+  });
+
+  it("skips an effort tier outside the tenant grants", () => {
+    expect(
+      resolveAgentModelId(agent({ effort: "high" }), {
+        ...runtime,
+        grants: { allowed_models: ["t/chat"] },
+      })
+    ).toBe("t/chat");
   });
 });

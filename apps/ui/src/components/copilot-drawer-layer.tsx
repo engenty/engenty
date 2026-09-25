@@ -12,17 +12,25 @@ import {
   useCopilotAssistantTurnFinish,
 } from "@engenty/ai-ui";
 import type { CopilotDockMode } from "@engenty/app-shell";
-import { useCopilotShellOrNull } from "@engenty/app-shell";
+import { useCopilotLayoutOrNull } from "@engenty/app-shell";
 import { CopilotEffortControl } from "@engenty/engenty-copilot/ui/effort-control";
 import { useTranslation } from "@engenty/i18n/ui";
 import type { UiCopilotContribution } from "@engenty/ui-plugin-sdk";
 import { usePageHeader } from "@engenty/ui-plugin-sdk";
 import { useCallback, useMemo } from "react";
 import type { Location } from "react-router-dom";
+import { CopilotApprovalModeControl } from "@/components/copilot-approval-mode-control";
 import { CopilotSurfaceErrorBoundary } from "@/components/copilot-surface-error-boundary";
 import { parseSpacePath } from "@/lib/space-routes";
 import { useSpacesQuery } from "@/lib/spaces-queries";
 import { useSpaceRosterAgents } from "@/lib/use-space-roster-agents";
+
+export const CLOSED_COPILOT_CONTEXT: CopilotRouteContext = {
+  moduleId: "engenty-copilot",
+  pathname: "/",
+  routeKey: "chat",
+  scope: {},
+};
 
 interface CopilotShellLike {
   copilotDockRef?: { current: HTMLDivElement | null };
@@ -50,7 +58,7 @@ export interface CopilotDrawerLayerProps {
 export function CopilotDrawerLayer(props: CopilotDrawerLayerProps) {
   const { t } = useTranslation("common");
   const { topbarChrome } = usePageHeader();
-  const shellCtx = useCopilotShellOrNull();
+  const layout = useCopilotLayoutOrNull();
   const spacePath = parseSpacePath(props.location.pathname);
   const spacesQuery = useSpacesQuery();
   const space = useMemo(
@@ -82,12 +90,11 @@ export function CopilotDrawerLayer(props: CopilotDrawerLayerProps) {
     [rosterAgents, t]
   );
 
-  // The who chooser's other answer: a specialist of this Space, in the
-  // companion's place.
+  // A hired Engenty of this Space, in the companion's place.
   const workPanelContent =
-    shellCtx?.companionWho.kind === "engenty" && space?.id ? (
+    props.open && layout?.companionWho.kind === "engenty" && space?.id ? (
       <CompanionWorkChat
-        agentId={shellCtx.companionWho.agentId}
+        agentId={layout.companionWho.agentId}
         spaceId={space.id}
       />
     ) : undefined;
@@ -114,7 +121,12 @@ export function CopilotDrawerLayer(props: CopilotDrawerLayerProps) {
         agentChooserLabels={agentChooserLabels}
         attachLabel={t("copilot.position.sidebar")}
         closeLabel={t("copilot.position.heading")}
-        composerLeadingControl={<CopilotEffortControl />}
+        composerLeadingControl={
+          <>
+            <CopilotEffortControl />
+            <CopilotApprovalModeControl />
+          </>
+        }
         composerPlaceholder={t("copilot.typeMessage")}
         copilotContext={props.copilotContext}
         copilotDockRef={props.shell?.copilotDockRef as never}
@@ -142,6 +154,71 @@ export function CopilotDrawerLayer(props: CopilotDrawerLayerProps) {
         title={props.contribution?.title ?? t("copilot.title")}
         whoOptions={whoOptions}
         workPanelContent={workPanelContent}
+      />
+    </CopilotSurfaceErrorBoundary>
+  );
+}
+
+/** FAB / dock chrome only — no page header, space roster, or live path. */
+export function CopilotClosedDrawerChrome({
+  dockMode,
+  setOpen,
+  setPreferredDockMode,
+  shell,
+}: {
+  dockMode: CopilotDockMode | undefined;
+  setOpen: (open: boolean) => void;
+  setPreferredDockMode?: (mode: CopilotDockMode | null) => void;
+  shell: CopilotShellLike | null;
+}) {
+  const { t } = useTranslation("common");
+  const onClose = useCallback(() => {
+    setOpen(false);
+  }, [setOpen]);
+
+  return (
+    <CopilotSurfaceErrorBoundary
+      debugContext={{
+        dockMode,
+        moduleId: CLOSED_COPILOT_CONTEXT.moduleId,
+        pathname: "/",
+        routeKey: CLOSED_COPILOT_CONTEXT.routeKey,
+      }}
+      onClose={onClose}
+      resetKey={`${dockMode ?? "local"}:false`}
+    >
+      <CopilotDrawer
+        attachLabel={t("copilot.position.sidebar")}
+        closeLabel={t("copilot.position.heading")}
+        composerLeadingControl={
+          <>
+            <CopilotEffortControl />
+            <CopilotApprovalModeControl />
+          </>
+        }
+        composerPlaceholder={t("copilot.typeMessage")}
+        copilotContext={CLOSED_COPILOT_CONTEXT}
+        copilotDockRef={shell?.copilotDockRef as never}
+        copilotLayout={(shell?.copilotLayout ?? null) as never}
+        copilotSidebarRef={shell?.copilotSidebarRef as never}
+        dockMode={dockMode}
+        headerChrome="default"
+        mainContentReady={shell?.mainContentReady ?? false}
+        mainContentRef={shell?.mainContentRef}
+        module={CLOSED_COPILOT_CONTEXT.moduleId}
+        onOpenChange={setOpen}
+        open={false}
+        positionDrawerLabel={t("copilot.position.drawer")}
+        positionFullscreenLabel={t("copilot.position.fullscreen")}
+        positionHeadingLabel={t("copilot.position.heading")}
+        positionMenuAriaLabel={t("copilot.position.menu")}
+        positionSidebarLabel={t("copilot.position.sidebar")}
+        positionWindowLabel={t("copilot.position.window")}
+        preferredDockMode={shell?.preferredDockMode ?? null}
+        routeKey={CLOSED_COPILOT_CONTEXT.routeKey}
+        scope={null}
+        setPreferredDockMode={setPreferredDockMode}
+        title={t("copilot.title")}
       />
     </CopilotSurfaceErrorBoundary>
   );

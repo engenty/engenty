@@ -13,6 +13,7 @@ import {
 } from "@engenty/ui-core";
 import type { LucideIcon } from "lucide-react";
 import { BookOpen, Globe, Search, Zap } from "lucide-react";
+import type { ReactNode } from "react";
 import { resolveTranscriptToolDisplay } from "../../../ag-ui/resolve-transcript-tool-display.js";
 import {
   ChainOfThoughtSearchResult,
@@ -20,6 +21,7 @@ import {
   ChainOfThoughtStep,
   type ChainOfThoughtStepStatus,
 } from "../../ai-elements/chain-of-thought";
+import { FullToolOutput } from "../tool-call/full-tool-output.js";
 import {
   asRecord,
   coerceToolOutput,
@@ -476,15 +478,42 @@ function resolveSkillName(part: ToolPartLike): string | null {
   );
 }
 
-export function SkillStep({
-  part,
-  toolName,
-  isStreaming,
-}: {
+interface ToolStepProps {
   isStreaming: boolean;
   part: ToolPartLike;
   toolName: string;
-}) {
+}
+
+/**
+ * The step with its full result: a slim transcript page carries a placeholder
+ * for a large result, and a step only mounts once its list is opened — so
+ * this is where the full row loads.
+ */
+function withFullToolPart(
+  props: ToolStepProps,
+  render: (props: ToolStepProps) => ReactNode
+) {
+  return (
+    <FullToolOutput
+      output={props.part.output}
+      toolCallId={props.part.toolCallId}
+    >
+      {(output) =>
+        render(
+          output === props.part.output
+            ? props
+            : { ...props, part: { ...props.part, output } }
+        )
+      }
+    </FullToolOutput>
+  );
+}
+
+export function SkillStep(props: ToolStepProps) {
+  return withFullToolPart(props, (full) => <SkillStepView {...full} />);
+}
+
+function SkillStepView({ part, toolName, isStreaming }: ToolStepProps) {
   const { errorMessage, images, status } = resolveStepContent(part);
   const label = resolveSkillStepLabel(part, toolName);
   const preview =
@@ -503,15 +532,11 @@ export function SkillStep({
   );
 }
 
-export function GenericToolStep({
-  part,
-  toolName,
-  isStreaming,
-}: {
-  isStreaming: boolean;
-  part: ToolPartLike;
-  toolName: string;
-}) {
+export function GenericToolStep(props: ToolStepProps) {
+  return withFullToolPart(props, (full) => <GenericToolStepView {...full} />);
+}
+
+function GenericToolStepView({ part, toolName, isStreaming }: ToolStepProps) {
   const { errorMessage, images, snippet, status } = resolveStepContent(part);
   const label = resolveToolStepLabel(part, toolName);
   const resolvedName = part.resolvedToolName?.trim() || toolName;

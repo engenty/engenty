@@ -6,6 +6,7 @@
 // fingerprint so as-you-type pickers do not re-embed a stable catalog.
 
 import { createHash } from "node:crypto";
+import { resolvePlatformEmbeddingModelId } from "@engenty/ai-core";
 import {
   buildCatalogSearchText,
   type CatalogFieldWeights,
@@ -22,7 +23,6 @@ import { embed, embedMany } from "ai";
 
 const logger = createLogger({ name: "ai-catalog-record-ranking" });
 
-export const DEFAULT_CATALOG_EMBEDDING_MODEL = "openai/text-embedding-3-small";
 const CATALOG_EMBEDDING_VECTOR_DIM = 1536;
 
 interface CatalogEmbeddingCacheEntry {
@@ -63,14 +63,6 @@ function createFingerprint(value: string) {
 
 function toNumberArray(vector: readonly number[]) {
   return Array.from(vector);
-}
-
-function resolveEmbeddingModel(modelId?: string) {
-  return (
-    modelId?.trim() ||
-    process.env.ENGENTY_API_CATALOG_EMBEDDING_MODEL?.trim() ||
-    DEFAULT_CATALOG_EMBEDDING_MODEL
-  );
 }
 
 /**
@@ -164,7 +156,6 @@ function asSearchEntry(entry: unknown): CatalogSearchEntry {
 }
 
 export interface RankCatalogRecordsParams<T> {
-  embeddingModel?: string;
   idOf: (entry: T) => string;
   minSemantic?: number;
   query: string;
@@ -208,7 +199,8 @@ export async function rankCatalogRecords<T>(
     return lexicallyRanked;
   }
 
-  const modelId = resolveEmbeddingModel(params.embeddingModel);
+  // The platform `embedding` role — the same model the search index uses.
+  const modelId = resolvePlatformEmbeddingModelId();
   const identified = entries
     .map((entry) => ({
       id: params.idOf(entry),

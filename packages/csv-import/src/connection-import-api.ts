@@ -2,11 +2,13 @@
  * Browser helpers for connection-backed import: catalog, connect, browse, read,
  * and list_records via the tools gateway. Tokens stay in the connections
  * module — this package only calls HTTP / tools.
+ *
+ * Accounts belong to a Space (PLAN-space-owned-connections.md): the catalog
+ * lists the current Space's accounts and a connect lands in it.
  */
 
-import { requestApiJson } from "@engenty/api-client";
+import { currentRequestSpaceId, requestApiJson } from "@engenty/api-client";
 
-export type ConnectionSharing = "personal" | "org";
 export type ConnectorAuthKind = "oauth2" | "api_key" | "browser";
 export type ConnectionStatus = "active" | "error" | "revoked";
 
@@ -15,8 +17,8 @@ export interface CatalogConnection {
   display_name: string | null;
   external_account: string | null;
   id: string;
-  owner_user_id: string | null;
-  sharing: ConnectionSharing;
+  /** The Space that owns the account. */
+  space_id: string;
   status: ConnectionStatus;
 }
 
@@ -70,20 +72,45 @@ async function invokeTool<T>(
   });
 }
 
+/**
+ * The Space the caller works in — where its accounts live and connect to.
+ * Outside any Space it is the caller's personal Space (`/s/me`): core lists
+ * only the caller's own personal Space among the Spaces it returns.
+ */
+async function requireCurrentSpaceId(signal?: AbortSignal): Promise<string> {
+  const spaceId = currentRequestSpaceId();
+  if (spaceId) {
+    return spaceId;
+  }
+  const spaces = await requestApiJson<
+    Array<{ id: string; ownerUserId: string | null }>
+  >("/api/spaces", { signal });
+  const personal = spaces.find((space) => space.ownerUserId);
+  if (!personal) {
+    throw new Error("connections.spaceRequired");
+  }
+  return personal.id;
+}
+
+/** Connectors and the current Space's accounts. */
 export async function getConnectionsCatalog(
   signal?: AbortSignal
 ): Promise<ConnectionsCatalog> {
-  return invokeTool<ConnectionsCatalog>("connections_catalog", {}, signal);
+  return invokeTool<ConnectionsCatalog>(
+    "connections_catalog",
+    { space_id: await requireCurrentSpaceId(signal) },
+    signal
+  );
 }
 
+/** Start an OAuth connect into the current Space. */
 export async function getConnectUrl(params: {
   connectorId: string;
   redirectTo: string;
-  sharing: ConnectionSharing;
 }): Promise<{ authUrl: string; connectorId: string }> {
   const query = new URLSearchParams({
-    sharing: params.sharing,
     redirect_to: params.redirectTo,
+    space_id: await requireCurrentSpaceId(),
   });
   return requestApiJson<{ authUrl: string; connectorId: string }>(
     `/api/connections/${params.connectorId}/connect?${query.toString()}`,
@@ -91,16 +118,17 @@ export async function getConnectUrl(params: {
   );
 }
 
+/** Connect an api_key account into the current Space. */
 export async function connectWithCredentials(
   connectorId: string,
-  input: {
-    credentials: Record<string, string>;
-    sharing: ConnectionSharing;
-  }
+  input: { credentials: Record<string, string> }
 ): Promise<{ connection_id: string }> {
   return requestApiJson(`/api/connections/${connectorId}/connect_credentials`, {
     method: "POST",
-    body: input,
+    body: {
+      credentials: input.credentials,
+      space_id: await requireCurrentSpaceId(),
+    },
   });
 }
 

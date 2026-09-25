@@ -66,6 +66,7 @@ import { useSyncAgentUiRunState } from "../use-sync-agent-ui-run-state.js";
 import {
   appsAiThreadsListQueryKeyPrefix,
   dismissAppsAiThreadInterrupt,
+  refreshAppsAiThreadMessages,
 } from "./apps-ai-thread-api.js";
 import {
   createAppsAiThread,
@@ -160,6 +161,7 @@ export interface UseEngentyAgUiAppsAiSessionOptions {
   formatRequestError: (message: string) => string;
   formatTransportBlocker: (blocker: "scope" | "ai_base_url") => string;
   frontendTools: FrontendToolDefinition[];
+  getStateSnapshot?: () => RunAgentInput["state"] | undefined;
   /** Persisted on `route_context.host_key` when creating a thread. */
   hostKey?: string | null;
   /** When false, never apply TanStack `initialMessages` (inactive mounted lane). Default true. */
@@ -184,6 +186,16 @@ export interface UseEngentyAgUiAppsAiSessionOptions {
   threadId: string | null;
   threadsListQueryKey?: readonly unknown[];
   transportBlocker: "scope" | "ai_base_url" | null;
+  /**
+   * Live path and route for the next turn. A space switch writes this ref
+   * instead of rendering the host again. Absent in tests that pass pathname.
+   */
+  turnContextRef?: {
+    readonly current: {
+      pathname: string;
+      routeContext: EngentyAgUiRouteContext;
+    };
+  };
 }
 
 function createUserMessage(
@@ -396,6 +408,24 @@ export { wouldSnapshotDropLiveDecisionTools } from "./decision-snapshot-guard.js
  * Unified AG-UI session lifecycle for `apps/ai` transport.
  * Owns submit/stream/hydration — consumers pass URL thread id and server messages.
  */
+function readTurnContext(options: UseEngentyAgUiAppsAiSessionOptions): {
+  pathname: string;
+  routeContext: EngentyAgUiRouteContext;
+} {
+  return (
+    options.turnContextRef?.current ?? {
+      pathname: options.pathname,
+      routeContext: options.routeContext,
+    }
+  );
+}
+
+function readStateSnapshot(
+  options: UseEngentyAgUiAppsAiSessionOptions
+): RunAgentInput["state"] | undefined {
+  return options.getStateSnapshot?.() ?? options.stateSnapshot;
+}
+
 export function useEngentyAgUiAppsAiSession(
   options: UseEngentyAgUiAppsAiSessionOptions
 ) {
@@ -490,7 +520,9 @@ export function useEngentyAgUiAppsAiSession(
   conversationStateRef.current = conversation.state;
 
   useSyncAgentUiRunState({
+    active: submitStatus === "submitted" || submitStatus === "streaming",
     applyEvent: conversation.applyEvent,
+    getStateSnapshot: options.getStateSnapshot,
     stateSnapshot: options.stateSnapshot,
   });
 
@@ -583,8 +615,9 @@ export function useEngentyAgUiAppsAiSession(
         });
       }
       if (options.messagesQueryKey) {
-        void options.queryClient.invalidateQueries({
-          queryKey: options.messagesQueryKey,
+        void refreshAppsAiThreadMessages(options.queryClient, {
+          serviceBaseUrl: options.serviceBaseUrl,
+          threadId,
         });
       }
       if (options.threadDetailQueryKey) {
@@ -1106,7 +1139,7 @@ export function useEngentyAgUiAppsAiSession(
             const thread = await createAppsAiThread({
               agentId: options.agentId,
               hostKey: options.hostKey,
-              routeContext: options.routeContext,
+              routeContext: readTurnContext(options).routeContext,
               serviceBaseUrl: options.serviceBaseUrl,
               signal: abortController.signal,
               stableSessionKey: options.stableSessionKey,
@@ -1159,10 +1192,10 @@ export function useEngentyAgUiAppsAiSession(
             frontendTools: options.frontendTools,
             message: userMessage,
             modelId: options.modelId,
-            pathname: options.pathname,
-            routeContext: options.routeContext,
+            pathname: readTurnContext(options).pathname,
+            routeContext: readTurnContext(options).routeContext,
             threadId,
-            state: options.stateSnapshot ?? conversationStateRef.current,
+            state: readStateSnapshot(options) ?? conversationStateRef.current,
           }),
           threadId,
         });
@@ -1234,7 +1267,7 @@ export function useEngentyAgUiAppsAiSession(
         effort: options.effort,
         frontendTools: options.frontendTools,
         modelId: options.modelId,
-        pathname: options.pathname,
+        pathname: readTurnContext(options).pathname,
         resume: [
           {
             interruptId,
@@ -1245,9 +1278,9 @@ export function useEngentyAgUiAppsAiSession(
                 : "resolved",
           },
         ],
-        routeContext: options.routeContext,
+        routeContext: readTurnContext(options).routeContext,
         threadId,
-        state: options.stateSnapshot ?? conversationStateRef.current,
+        state: readStateSnapshot(options) ?? conversationStateRef.current,
       });
 
       // Drain the next queued approval only after this resume fully settles —
@@ -1466,11 +1499,11 @@ export function useEngentyAgUiAppsAiSession(
             frontendTools: options.frontendTools,
             message: userMessage,
             modelId: options.modelId,
-            pathname: options.pathname,
-            routeContext: options.routeContext,
+            pathname: readTurnContext(options).pathname,
+            routeContext: readTurnContext(options).routeContext,
             steerOnly: true,
             threadId,
-            state: options.stateSnapshot ?? conversationStateRef.current,
+            state: readStateSnapshot(options) ?? conversationStateRef.current,
           }),
           onEvent: (event) => {
             const custom = event as { name?: unknown; type?: unknown };

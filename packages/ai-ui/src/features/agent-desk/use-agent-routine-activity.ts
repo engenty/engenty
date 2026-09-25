@@ -10,7 +10,7 @@
 // behind it, and HOLDS it through its terminal state — a run leaves the
 // in-flight list at exactly the moment the person needs to be told how it went.
 
-import { useQuery } from "@engenty/query-client";
+import { staggeredRefetchInterval, useQuery } from "@engenty/query-client";
 import { useEffect, useState } from "react";
 import { resolveEngentyAiServiceBaseUrl } from "../../ag-ui/apps-ai/apps-ai-api.js";
 import { getAppsAiThread } from "../../ag-ui/apps-ai/apps-ai-thread-api.js";
@@ -23,7 +23,10 @@ import { getAiSessionRuns, listAgentRuns } from "../../lib/runtime/runs-api.js";
  * with nobody at the keyboard. Once a run is found its SSE stream carries
  * every step, so this interval only decides how late the FIRST line appears.
  */
-const DISCOVERY_INTERVAL_MS = 10_000;
+const DISCOVERY_INTERVAL_MS = staggeredRefetchInterval(
+  10_000,
+  "agent-routine-discovery"
+);
 
 /** Runs to look at: the newest handful, so a busy agent still discovers one. */
 const DISCOVERY_LIMIT = 5;
@@ -77,6 +80,7 @@ export function useAgentRoutineActivity(input: {
       listAgentRuns(input.agentId, { limit: DISCOVERY_LIMIT, signal }),
     queryKey: ["ai", "agent-runs", "unattended", input.agentId],
     refetchInterval: DISCOVERY_INTERVAL_MS,
+    refetchIntervalInBackground: false,
   });
   const inFlight = runsQuery.data
     ? pickUnattendedRunInFlight(runsQuery.data.runs)

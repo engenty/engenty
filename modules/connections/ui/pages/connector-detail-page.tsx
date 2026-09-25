@@ -16,38 +16,23 @@ import {
   Separator,
   Skeleton,
 } from "@engenty/ui-core";
-import {
-  type PageBreadcrumb,
-  usePageConfig,
-  useWorkspaceContext,
-} from "@engenty/ui-plugin-sdk";
+import { type PageBreadcrumb, usePageConfig } from "@engenty/ui-plugin-sdk";
 import { Fragment, useMemo } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import type { CatalogConnection } from "../api.js";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ConnectButton } from "../components/connect-button.js";
 import { ConnectionPanel } from "../components/connection-panel.js";
+import {
+  useCanManageSpaceConnections,
+  useConnectSpaceId,
+} from "../hooks/use-connection-space.js";
 import { useConnectionsConnectorDetailAgentUiSlice } from "../hooks/use-connections-agent-ui-slice.js";
+import { connectionsInSpace } from "../lib/connection-space.js";
 import { useConnectionsCatalogQuery } from "../queries.js";
 import {
   CONNECTIONS_SETTINGS_PATH,
   ConnectorIcon,
   useConnectResultToast,
-  visibleConnections,
 } from "./connections-settings-page.js";
-
-/**
- * Whether the caller may manage this connection. Mirrors the server's
- * `assertOwnerOrThrow`: owner, or all-spaces plus tenant admin.
- */
-export function canManageConnection(
-  connection: Pick<CatalogConnection, "all_spaces" | "owner_user_id">,
-  currentUserId: string | null
-): boolean {
-  if (connection.owner_user_id === currentUserId) {
-    return true;
-  }
-  return connection.all_spaces === true;
-}
 
 /**
  * Connector detail body, shared by the settings-context and workspace-context
@@ -59,13 +44,23 @@ function ConnectorDetailBody({ basePath }: { basePath: string }) {
   const { t } = useTranslation("connections");
   const { connectorId } = useParams<{ connectorId: string }>();
   const navigate = useNavigate();
-  const { currentUserId } = useWorkspaceContext();
   const { data, isLoading } = useConnectionsCatalogQuery();
+  // The Space whose accounts these are: `?space=` or the personal Space.
+  const [searchParams] = useSearchParams();
+  const explicitSpaceId = searchParams.get("space")?.trim() || null;
+  const spaceId = useConnectSpaceId(explicitSpaceId);
+  // Space owners (and tenant admins) change settings, policies, disconnect.
+  const editable = useCanManageSpaceConnections(spaceId);
 
   useConnectResultToast();
 
   const connector = data?.connectors.find((c) => c.id === connectorId) ?? null;
-  const redirectTo = `${basePath}/${connectorId ?? ""}`;
+  const connections = connector
+    ? connectionsInSpace(connector.connections, spaceId)
+    : [];
+  const redirectTo = `${basePath}/${connectorId ?? ""}${
+    explicitSpaceId ? `?space=${encodeURIComponent(explicitSpaceId)}` : ""
+  }`;
 
   return (
     <section className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto p-page pb-10">
@@ -87,16 +82,14 @@ function ConnectorDetailBody({ basePath }: { basePath: string }) {
               </div>
               <ConnectButton
                 connectorId={connector.id}
-                hasConnections={
-                  visibleConnections(connector, currentUserId).length > 0
-                }
+                hasConnections={connections.length > 0}
                 redirectTo={redirectTo}
+                spaceId={spaceId}
                 variant="outline"
               />
             </div>
 
             {(() => {
-              const connections = visibleConnections(connector, currentUserId);
               if (connections.length === 0) {
                 return (
                   <Empty>
@@ -113,6 +106,7 @@ function ConnectorDetailBody({ basePath }: { basePath: string }) {
                         connectorId={connector.id}
                         redirectTo={redirectTo}
                         size="default"
+                        spaceId={spaceId}
                       />
                     </EmptyContent>
                   </Empty>
@@ -124,7 +118,7 @@ function ConnectorDetailBody({ basePath }: { basePath: string }) {
                   <ConnectionPanel
                     connection={connection}
                     connector={connector}
-                    editable={canManageConnection(connection, currentUserId)}
+                    editable={editable}
                   />
                 </Fragment>
               ));

@@ -14,15 +14,12 @@ export interface ConnectorConnectButtonProps {
   hasConnections: boolean;
   /**
    * Marketplace (and other inline connect surfaces): called after a successful
-   * connect so the caller can enable/mount on a space or grant on an agent.
+   * connect so the caller can enable the plugin on the Space.
    */
   onConnected?: (connectionId?: string) => void | Promise<void>;
   /** Where to return to after connecting (for redirect-style flows). */
   redirectTo: string;
-  /**
-   * Mount the new account into this space (PLAN-spaces.md CN.4 Flow A).
-   * Set when the connect started from inside a space.
-   */
+  /** The Space the new account belongs to; absent = personal Space. */
   spaceId?: string | null;
 }
 
@@ -76,9 +73,17 @@ export function getConnectionExtras(
   return registry().extras.get(connectorId);
 }
 
-/** Agent Capabilities / desk Connections card — one marketplace, two entry points. */
+/**
+ * Agent desk "Connect" dialog — the marketplace for the agent's Space. The
+ * agent uses that Space's accounts; there is no per-agent grant.
+ */
 export interface AgentPluginPanelProps {
-  agentId: string;
+  /** Set when the agent's preferred-plugin list may be edited. */
+  agentId?: string | null;
+  detailsId?: string | null;
+  onDetailsIdChange?: (id: string | null) => void;
+  /** The agent's Space; null = the viewer's personal Space (Copilot). */
+  spaceId: string | null;
 }
 
 const AGENT_PLUGIN_PANEL_KEY = Symbol.for(

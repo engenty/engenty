@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@engenty/query-client";
+import { keepPreviousData, useQuery } from "@engenty/query-client";
 import { useMemo } from "react";
 import {
   type AppsAiThreadRecord,
@@ -68,6 +68,7 @@ export function useSpaceChats(input: {
       serviceBaseUrl,
       spaceId,
     }),
+    placeholderData: keepPreviousData,
   });
 
   // The rooms the viewer may read but is not in: the thread list is by

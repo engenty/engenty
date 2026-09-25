@@ -19,6 +19,7 @@ const agentManagementBindings: readonly ModuleLiveBinding[] = [
   {
     agentToolIds: [
       "agent_propose",
+      "agent_remove",
       "routines_create",
       "routines_update",
       "routines_run",

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { bindTestModelsPerTest } from "../../../__tests__/helpers/test-model-bindings.js";
 import { ensureHireWelcome } from "../hire-welcome.js";
 import { HIRE_WELCOME_SOURCE } from "../hire-welcome-text.js";
 
@@ -13,6 +14,8 @@ const agent = {
 };
 
 const THREAD_CREATED_AT = "2026-09-14T12:00:00.000Z";
+
+bindTestModelsPerTest();
 
 describe("ensureHireWelcome", () => {
   it("posts the fallback at once, pinned to the thread's creation, then upgrades the text", async () => {

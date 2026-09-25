@@ -1,36 +1,30 @@
 // Copilot transcript — renders AG-UI message parts, tool rows, and thinking shimmer.
 "use client";
 
-import type {
-  AgentTurnMessageLike,
-  AgUiOpenInterruptMetadata,
-} from "@engenty/ag-ui-bridge";
+import type { AgUiOpenInterruptMetadata } from "@engenty/ag-ui-bridge";
 import { isSandboxCommandOpenInterrupt } from "@engenty/ag-ui-bridge";
-import {
-  conversationEngagement,
-  parseAgentMessageHeader,
-  resolveAgentEngenty,
-} from "@engenty/ai-core/browser";
-import { useTranslation } from "@engenty/i18n/ui";
 import { cn } from "@engenty/ui-core";
-import { useWorkspaceContext } from "@engenty/ui-plugin-sdk";
-import { Fragment, useMemo } from "react";
-import { Link } from "react-router-dom";
-import { InlineAppArtifact } from "../../../artifacts/inline-app-artifact.js";
-import { spaceAgentDeskPath } from "../../../features/agent-form/hire-spaces.js";
+import {
+  memo,
+  startTransition,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { readChatReferencePart } from "../../../lib/chat-reference-part.js";
 import {
   resolveMemoryBreakIndex,
   useThreadMemoryObservationsQuery,
 } from "../../../threads/thread-memory-observations.js";
+import { useDeveloperModeEnabled } from "../../ag-ui-inspector/ag-ui-inspector-hooks.js";
 import {
   Message,
   MessageContent,
   MessageResponse,
 } from "../../ai-elements/message";
 import { Shimmer } from "../../ai-elements/shimmer";
-import { alterEgoLabel } from "../../alter-ego-label.js";
-import { AgentNamePill } from "../agent-name-pill.js";
 import { formatElapsedSeconds } from "../composer/agent-status-ticker/format-elapsed-seconds.js";
 import { useElapsedSeconds } from "../composer/agent-status-ticker/use-elapsed-seconds.js";
 import { useCopilotToolCallActions } from "../interrupts/copilot-tool-call-actions";
@@ -38,21 +32,20 @@ import { SandboxCommandConfirmCard } from "../interrupts/sandbox-command-confirm
 import type { SubAgentRunSectionLabels } from "../sub-agent-run/sub-agent-run-sections.js";
 import { transcriptHasActiveSandboxCommandToolPart } from "../tool-call/sandbox-command-transcript-utils";
 import type { ToolCallCardProps } from "../tool-call/tool-call-card.types";
-import { AgentReplyPreview } from "./agent-reply-preview.js";
+import { ChatAgentsProvider } from "./chat-agent-face.js";
+import { useChatStyle } from "./chat-style.js";
 import {
-  type ChatBubbleCluster,
-  chatBubbleCluster,
-  chatMessageStackClassName,
-  chatSpeakerKey,
   chatUserBubbleClassName,
   softenUserInlineCode,
 } from "./chat-user-bubble.js";
 import { CopilotAttachmentPreview } from "./copilot-attachment-preview.js";
-import { CopilotMessageContent } from "./copilot-message-content";
-import { CopilotMessageHoverBody } from "./copilot-message-hover-actions.js";
 import { shouldShowCopilotThinkingShimmer } from "./copilot-thinking-shimmer";
-import { MemoryBreakDivider } from "./memory-break-divider.js";
 import { MentionInlineText } from "./mention-inline-text.js";
+import {
+  layoutTranscriptRows,
+  type TranscriptMessage,
+} from "./transcript-layout.js";
+import { TranscriptMessageRow } from "./transcript-message-row.js";
 
 export interface CopilotTranscriptProps {
   awaitingInterrupt?: boolean;
@@ -60,7 +53,7 @@ export interface CopilotTranscriptProps {
   containerClassName?: string;
   /** `tool_call_id` of a decision/feedback chooser rendered in the docked surface; its inline copy is suppressed. */
   dockedInterruptToolCallId?: string | null;
-  messages: readonly (AgentTurnMessageLike & { id: string })[];
+  messages: readonly TranscriptMessage[];
   openInterrupt?: AgUiOpenInterruptMetadata | null;
   /** Insert index for the pending user bubble while assistant content streams after submit. */
   pendingUserInsertIndex?: number | null;
@@ -103,83 +96,71 @@ function ThinkingShimmerRow({ thinkingLabel }: { thinkingLabel: string }) {
   );
 }
 
-type TranscriptMessage = AgentTurnMessageLike & { id: string };
+const EMPTY_PARTS: readonly unknown[] = [];
 
-type VisualRow =
-  | { filteredIndex: number; kind: "message"; raw: TranscriptMessage }
-  | { kind: "pending" };
+/** A transcript longer than this opens with its tail first… */
+const TAIL_FIRST_ABOVE_ROWS = 20;
+/** …this many rows, the rest drawn right after without moving the view. */
+const TAIL_FIRST_ROWS = 15;
+/** The newest rows are always drawn in full (see `deferPaint`). */
+const ALWAYS_PAINTED_ROWS = 2;
 
-/**
- * A user turn that is really a colleague's message (see
- * `formatAgentMessageHeader`): the sender, and the message with the header
- * taken off its first text part.
- */
-function splitAgentMessage(
-  msg: TranscriptMessage
-): { message: TranscriptMessage; senderId: string; senderName: string } | null {
-  const parts = msg.parts ?? [];
-  const index = parts.findIndex(
-    (part) =>
-      Boolean(part) &&
-      typeof part === "object" &&
-      (part as { type?: unknown }).type === "text" &&
-      typeof (part as { text?: unknown }).text === "string"
+function scrollViewportOf(element: HTMLElement | null): HTMLElement | null {
+  return (
+    element?.closest<HTMLElement>('[data-slot="scroll-area-viewport"]') ?? null
   );
-  if (index < 0) {
-    return null;
+}
+
+function isTranscriptRole(msg: TranscriptMessage): boolean {
+  return (
+    msg.role === "user" || msg.role === "assistant" || msg.role === "system"
+  );
+}
+
+function shallowEqualRecord(a: object | undefined, b: object | undefined) {
+  if (a === b) {
+    return true;
   }
-  const textPart = parts[index] as { text: string };
-  const header = parseAgentMessageHeader(textPart.text);
-  if (!header) {
-    return null;
+  if (!(a && b)) {
+    return false;
   }
-  const nextParts = [...parts];
-  nextParts[index] = { ...textPart, text: header.body };
-  return {
-    message: { ...msg, parts: nextParts },
-    senderId: header.senderId,
-    senderName: header.senderName,
-  };
+  const aRecord = a as Record<string, unknown>;
+  const bRecord = b as Record<string, unknown>;
+  const keys = Object.keys(aRecord);
+  return (
+    keys.length === Object.keys(bRecord).length &&
+    keys.every(
+      (key) => Object.hasOwn(bRecord, key) && aRecord[key] === bRecord[key]
+    )
+  );
+}
+
+function areTranscriptPropsEqual(
+  prev: CopilotTranscriptProps,
+  next: CopilotTranscriptProps
+): boolean {
+  const keys = new Set([...Object.keys(prev), ...Object.keys(next)]) as Set<
+    keyof CopilotTranscriptProps
+  >;
+  for (const key of keys) {
+    // Hosts build the label map inline; equal labels are the same labels.
+    const equal =
+      key === "subAgentSectionLabels"
+        ? shallowEqualRecord(prev[key], next[key])
+        : prev[key] === next[key];
+    if (!equal) {
+      return false;
+    }
+  }
+  return true;
 }
 
 /**
- * "Message from <colleague>" — a pointer, not a post. The colleague never
- * speaks in this room; the exchange lives in the pair thread. Drawn like
- * "Messaged <colleague>" (centered context), not like a user bubble.
+ * Memoized: the host re-renders on every composer keystroke, and a
+ * transcript whose props did not change has nothing to redraw. Rows are
+ * memoized too, so a streaming token redraws the row it lands in.
  */
-function AgentMessageLabel(props: {
-  fromLabel: string;
-  marker: { agentId: string; threadId: string } | null;
-  senderId: string;
-  senderName: string;
-}) {
-  const { currentSpace } = useWorkspaceContext();
-  const body = (
-    <>
-      <span>{props.fromLabel}</span>
-      <AgentNamePill
-        kind={resolveAgentEngenty(props.senderId)}
-        name={props.senderName}
-      />
-    </>
-  );
-  const className =
-    "inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-muted-foreground text-xs";
-  const row =
-    props.marker && currentSpace?.key ? (
-      <Link
-        className={cn(className, "hover:bg-muted/60")}
-        to={`${spaceAgentDeskPath(currentSpace.key, props.marker.agentId)}?engagement=${encodeURIComponent(conversationEngagement(props.marker.threadId))}`}
-      >
-        {body}
-      </Link>
-    ) : (
-      <span className={className}>{body}</span>
-    );
-  return <div className="my-4 flex w-full justify-center">{row}</div>;
-}
-
-export function CopilotTranscript({
+export const CopilotTranscript = memo(function CopilotTranscript({
   containerClassName,
   messages,
   pendingUserInsertIndex,
@@ -197,17 +178,16 @@ export function CopilotTranscript({
   openInterrupt = null,
   dockedInterruptToolCallId = null,
 }: CopilotTranscriptProps) {
-  const { t } = useTranslation("ai-ui");
-  const agentMessageFromLabel = t("agentMessage.from");
-  const filteredMessages = messages.filter(
-    (msg) =>
-      msg.role === "user" || msg.role === "assistant" || msg.role === "system"
+  // A person sees what the agent did as clips; the step list is for
+  // developers.
+  const toolDetail = useDeveloperModeEnabled() ? "developer" : "person";
+  const chatStyle = useChatStyle();
+  const filteredMessages = useMemo(
+    () => messages.filter(isTranscriptRole),
+    [messages]
   );
   const pendingText = pendingUserText?.trim() || null;
-  const pendingParts = pendingUserParts ?? [];
-  const pendingRefs = pendingParts.flatMap(
-    (part) => readChatReferencePart(part) ?? []
-  );
+  const pendingParts = pendingUserParts ?? EMPTY_PARTS;
   const showPending = pendingText != null || pendingParts.length > 0;
   const pendingInsertIndex = showPending
     ? Math.max(
@@ -221,12 +201,6 @@ export function CopilotTranscript({
         )
       )
     : filteredMessages.length;
-  const messagesBeforePending = showPending
-    ? filteredMessages.slice(0, pendingInsertIndex)
-    : filteredMessages;
-  const messagesAfterPending = showPending
-    ? filteredMessages.slice(pendingInsertIndex)
-    : [];
 
   const lastAssistantMessage = useMemo(() => {
     for (let i = filteredMessages.length - 1; i >= 0; i--) {
@@ -237,6 +211,7 @@ export function CopilotTranscript({
     }
     return null;
   }, [filteredMessages]);
+  const lastMessageId = filteredMessages.at(-1)?.id ?? null;
 
   const showThinkingShimmer = shouldShowCopilotThinkingShimmer({
     awaitingInterrupt,
@@ -244,7 +219,7 @@ export function CopilotTranscript({
     lastAssistantIsLastMessage:
       !showPending &&
       lastAssistantMessage !== null &&
-      filteredMessages.at(-1)?.id === lastAssistantMessage.id,
+      lastMessageId === lastAssistantMessage.id,
     lastAssistantParts: lastAssistantMessage?.parts,
     openInterrupt,
     status,
@@ -263,209 +238,125 @@ export function CopilotTranscript({
     threadId,
     filteredMessages.length
   );
-  const memoryBreakIndex = resolveMemoryBreakIndex(
-    filteredMessages,
-    memoryQuery.data ?? null
+  const memory = memoryQuery.data ?? null;
+  const memoryBreakIndex = useMemo(
+    () => resolveMemoryBreakIndex(filteredMessages, memory),
+    [filteredMessages, memory]
   );
 
-  const visualRows: VisualRow[] = [
-    ...messagesBeforePending.map((raw, filteredIndex) => ({
-      filteredIndex,
-      kind: "message" as const,
-      raw,
-    })),
-    ...(showPending ? [{ kind: "pending" as const }] : []),
-    ...messagesAfterPending.map((raw, offset) => ({
-      filteredIndex: pendingInsertIndex + offset,
-      kind: "message" as const,
-      raw,
-    })),
-  ];
-  const speakerKeys = visualRows.map((row) =>
-    row.kind === "pending" ? "user" : chatSpeakerKey(row.raw)
+  const rows = useMemo(
+    () =>
+      layoutTranscriptRows({
+        memoryBreakIndex,
+        messages: filteredMessages,
+        pendingInsertIndex,
+        showPending,
+        surface,
+        toolDetail,
+      }),
+    [
+      filteredMessages,
+      memoryBreakIndex,
+      pendingInsertIndex,
+      showPending,
+      surface,
+      toolDetail,
+    ]
   );
-  const clusterBarriers = new Set<number>();
-  if (memoryQuery.data) {
-    visualRows.forEach((row, visualIndex) => {
-      if (row.kind === "message" && row.filteredIndex === memoryBreakIndex) {
-        clusterBarriers.add(visualIndex);
-      }
-    });
+
+  // The same object while the labels read the same, so rows stay memoized.
+  const sectionLabelsRef = useRef(subAgentSectionLabels);
+  if (!shallowEqualRecord(sectionLabelsRef.current, subAgentSectionLabels)) {
+    sectionLabelsRef.current = subAgentSectionLabels;
   }
-  const clusters = chatBubbleCluster(speakerKeys, clusterBarriers);
+  const sectionLabels = sectionLabelsRef.current;
 
-  const renderMessage = (
-    raw: TranscriptMessage,
-    cluster: ChatBubbleCluster,
-    stackClassName?: string
-  ) => {
-    // A built App waiting to be activated: the row IS the App, review banner
-    // and all, so the decision sits in the conversation that asked for it. The
-    // row's text is written for the model's next turn; printing it above the
-    // card would say the same thing twice.
-    if (raw.appRelease) {
-      return (
-        <div className="w-full py-2" key={raw.id}>
-          <InlineAppArtifact artifactId={raw.appRelease.artifactId} />
-        </div>
-      );
-    }
-    // The desk agent's answer to a colleague, cut to a preview: a quote with
-    // a way into the pair thread, not a full assistant bubble.
-    if (raw.role === "assistant" && raw.agentMessage?.kind === "reply") {
-      return (
-        <AgentReplyPreview
-          agentId={raw.agentMessage.agentId}
-          agentName={raw.authorName ?? null}
-          className={stackClassName}
-          key={raw.id}
-          marker={raw.agentMessage}
-          parts={raw.parts}
-        />
-      );
-    }
-    // A colleague's message lands as a user turn with a header naming the
-    // sender; draw the sender instead of the person whose room it is.
-    const agentMessage = raw.role === "user" ? splitAgentMessage(raw) : null;
-    const msg = agentMessage?.message ?? raw;
-    const showSenderLabel = !cluster.meetsAbove;
-    // Stored as a user row so the model sees it, but it is not the person
-    // speaking — keep it out of the user lane so it cannot look like a post.
-    const isColleagueMarker = Boolean(agentMessage);
-    const from = isColleagueMarker
-      ? "assistant"
-      : (msg.role as "user" | "assistant" | "system");
-    return (
-      <Message
-        className={cn(
-          isColleagueMarker
-            ? "ml-0 w-full max-w-full"
-            : msg.role === "user" && "ml-auto",
-          surface === "chat" &&
-            (isColleagueMarker ||
-              msg.role === "user" ||
-              msg.role === "assistant") &&
-            "w-full max-w-full",
-          stackClassName
-        )}
-        from={from}
-        id={`message-${msg.id}`}
-        key={msg.id}
-      >
-        {showSenderLabel && agentMessage ? (
-          <AgentMessageLabel
-            fromLabel={agentMessageFromLabel}
-            marker={raw.agentMessage ?? null}
-            senderId={agentMessage.senderId}
-            senderName={agentMessage.senderName}
-          />
-        ) : showSenderLabel && showAuthorLabels && msg.authorName ? (
-          <span
-            className={cn(
-              "px-1 text-muted-foreground text-xs",
-              msg.role === "user" ? "self-end" : "self-start"
-            )}
-          >
-            {msg.alterEgoUserName
-              ? alterEgoLabel(msg.alterEgoUserName, t)
-              : msg.authorName}
-          </span>
-        ) : null}
-        {/* Attachments render as separate tiles ABOVE the bubble (AI SDK
-          Elements message layout) — the bubble carries only the text. */}
-        {msg.role === "user" && !isColleagueMarker ? (
-          <CopilotAttachmentPreview parts={msg.parts ?? []} />
-        ) : null}
-        <CopilotMessageHoverBody
-          align={isColleagueMarker ? "start" : undefined}
-          msg={msg}
-          surface={surface}
-        >
-          <MessageContent
-            className={cn(
-              surface === "chat" &&
-                (msg.role === "assistant" || isColleagueMarker) &&
-                "w-full max-w-full px-1 py-0",
-              surface === "chat" &&
-                msg.role === "user" &&
-                !isColleagueMarker &&
-                chatUserBubbleClassName(cluster),
-              surface === "chat" &&
-                msg.role === "system" &&
-                "rounded-lg border border-border border-dashed bg-muted/25 px-3 py-2 text-muted-foreground text-xs"
-            )}
-          >
-            <CopilotMessageContent
-              dockedInterruptToolCallId={dockedInterruptToolCallId}
-              messages={filteredMessages}
-              msg={msg}
-              status={status}
-              subAgentFullViewLabel={subAgentFullViewLabel}
-              subAgentSectionLabels={subAgentSectionLabels}
-              threadId={threadId}
-              toolCardDensity={toolCardDensity}
-            />
-          </MessageContent>
-        </CopilotMessageHoverBody>
-      </Message>
-    );
-  };
-
-  const renderPendingUserMessage = (
-    cluster: ChatBubbleCluster,
-    stackClassName?: string
-  ) => (
-    <Message
-      className={cn(
-        "ml-auto",
-        surface === "chat" && "w-full max-w-full",
-        stackClassName
-      )}
-      from="user"
-      id="message-pending-send"
-      key="pending-send"
-    >
-      {pendingParts.length > 0 ? (
-        <CopilotAttachmentPreview parts={pendingParts} />
-      ) : null}
-      {pendingText ? (
-        <MessageContent
-          className={cn(surface === "chat" && chatUserBubbleClassName(cluster))}
-        >
-          {pendingRefs.length > 0 ? (
-            <MentionInlineText refs={pendingRefs} text={pendingText} />
-          ) : (
-            <MessageResponse>
-              {softenUserInlineCode(pendingText)}
-            </MessageResponse>
-          )}
-        </MessageContent>
-      ) : null}
-    </Message>
+  // A long transcript opens with its tail: the rows a person sees first are
+  // drawn first, the rest in a transition right after. The distance to the
+  // bottom is kept across that, so the view does not move when the older
+  // rows land above it.
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [drawAll, setDrawAll] = useState(
+    () => rows.length <= TAIL_FIRST_ABOVE_ROWS
   );
+  const bottomOffsetRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (drawAll) {
+      return;
+    }
+    const viewport = scrollViewportOf(containerRef.current);
+    bottomOffsetRef.current = viewport
+      ? viewport.scrollHeight - viewport.scrollTop
+      : null;
+    startTransition(() => setDrawAll(true));
+  }, [drawAll]);
+  useLayoutEffect(() => {
+    const bottomOffset = bottomOffsetRef.current;
+    if (!drawAll || bottomOffset === null) {
+      return;
+    }
+    bottomOffsetRef.current = null;
+    const viewport = scrollViewportOf(containerRef.current);
+    if (viewport) {
+      viewport.scrollTop = viewport.scrollHeight - bottomOffset;
+    }
+  }, [drawAll]);
+  const firstDrawnRow = drawAll
+    ? 0
+    : Math.max(0, rows.length - TAIL_FIRST_ROWS);
+  const drawnRows = firstDrawnRow > 0 ? rows.slice(firstDrawnRow) : rows;
 
   const thread = (
-    <>
-      {visualRows.map((row, visualIndex) => {
-        const cluster = clusters[visualIndex] ?? {
-          meetsAbove: false,
-          meetsBelow: false,
-        };
-        const stackClassName =
-          surface === "chat"
-            ? chatMessageStackClassName(cluster, visualIndex === 0)
-            : undefined;
+    <ChatAgentsProvider
+      // Faces show only beside messenger bubbles.
+      enabled={chatStyle === "bubbles" && lastAssistantMessage !== null}
+    >
+      {drawnRows.map((row, drawnIndex) => {
         if (row.kind === "pending") {
-          return renderPendingUserMessage(cluster, stackClassName);
+          return (
+            <PendingUserMessage
+              key="pending-send"
+              meetsAbove={row.meetsAbove}
+              meetsBelow={row.meetsBelow}
+              parts={pendingParts}
+              stackClassName={row.stackClassName}
+              surface={surface}
+              text={pendingText}
+            />
+          );
         }
-        const message = renderMessage(row.raw, cluster, stackClassName);
-        return row.filteredIndex === memoryBreakIndex && memoryQuery.data ? (
-          <Fragment key={`memory-break-${row.raw.id}`}>
-            <MemoryBreakDivider memory={memoryQuery.data} />
-            {message}
-          </Fragment>
-        ) : (
-          message
+        const isLastMessage = row.raw.id === lastMessageId;
+        const streaming = status === "streaming" && isLastMessage;
+        return (
+          <TranscriptMessageRow
+            dateDividerClassName={row.dateDividerClassName}
+            deferPaint={
+              !streaming &&
+              firstDrawnRow + drawnIndex < rows.length - ALWAYS_PAINTED_ROWS
+            }
+            dockedInterruptToolCallId={dockedInterruptToolCallId}
+            isLastMessage={isLastMessage}
+            key={row.raw.id}
+            meetsAbove={row.meetsAbove}
+            meetsBelow={row.meetsBelow}
+            memory={
+              row.memoryDividerClassName !== undefined && memory
+                ? memory
+                : undefined
+            }
+            memoryDividerClassName={row.memoryDividerClassName}
+            raw={row.raw}
+            showAuthorLabels={showAuthorLabels}
+            showSenderLabel={row.showSenderLabel}
+            stackClassName={row.stackClassName}
+            streaming={streaming}
+            subAgentFullViewLabel={subAgentFullViewLabel}
+            subAgentSectionLabels={sectionLabels}
+            surface={surface}
+            threadId={threadId}
+            toolCardDensity={toolCardDensity}
+            toolDetail={toolDetail}
+          />
         );
       })}
       {showTrailingSandboxConfirm ? (
@@ -474,7 +365,7 @@ export function CopilotTranscript({
       {showThinkingShimmer ? (
         <ThinkingShimmerRow thinkingLabel={thinkingLabel} />
       ) : null}
-    </>
+    </ChatAgentsProvider>
   );
 
   if (containerClassName?.trim()) {
@@ -487,6 +378,7 @@ export function CopilotTranscript({
           // owns spacing per row, so consecutive bubbles can sit flush.
           surface === "chat" && "gap-0"
         )}
+        ref={containerRef}
       >
         {thread}
       </div>
@@ -494,6 +386,51 @@ export function CopilotTranscript({
   }
 
   return thread;
+}, areTranscriptPropsEqual);
+
+function PendingUserMessage(props: {
+  meetsAbove: boolean;
+  meetsBelow: boolean;
+  parts: readonly unknown[];
+  stackClassName: string | undefined;
+  surface: "default" | "chat";
+  text: string | null;
+}) {
+  const refs = props.parts.flatMap((part) => readChatReferencePart(part) ?? []);
+  return (
+    <Message
+      className={cn(
+        "ml-auto",
+        props.surface === "chat" && "w-full max-w-full",
+        props.stackClassName
+      )}
+      from="user"
+      id="message-pending-send"
+    >
+      {props.parts.length > 0 ? (
+        <CopilotAttachmentPreview parts={props.parts} />
+      ) : null}
+      {props.text ? (
+        <MessageContent
+          className={cn(
+            props.surface === "chat" &&
+              chatUserBubbleClassName({
+                meetsAbove: props.meetsAbove,
+                meetsBelow: props.meetsBelow,
+              })
+          )}
+        >
+          {refs.length > 0 ? (
+            <MentionInlineText refs={refs} text={props.text} />
+          ) : (
+            <MessageResponse>
+              {softenUserInlineCode(props.text)}
+            </MessageResponse>
+          )}
+        </MessageContent>
+      ) : null}
+    </Message>
+  );
 }
 
 function CopilotTranscriptSandboxInterruptInline(props: {

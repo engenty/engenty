@@ -39,15 +39,11 @@ export type SpaceSelection = Map<string, SpaceSelectionEntry>;
 export const DEFAULT_MODULE_ACCESS: SpaceAccessLevel = "write";
 
 /**
- * A mount kind that carries an engenty access level
- * (PLAN-connections-ux.md B1/C1).
- *
- * Modules and accounts both do; agents and skills are availability only. The
- * account's own `autonomous_mode` stays the owner's ceiling — the level here is
- * what THIS space grants, and the server raises the ceiling to match.
+ * A mount kind that carries an engenty access level. Only modules do;
+ * agents, skills and plugins are availability only.
  */
 export function carriesAccessLevel(kind: SpaceResourceKind): boolean {
-  return kind === "module" || kind === "connection";
+  return kind === "module";
 }
 
 export function selectionFromMounts(
@@ -62,14 +58,10 @@ export function selectionFromMounts(
     selection.set(spaceMountKey(mount), {
       resourceKey: mount.resourceKey,
       resourceType: mount.resourceType,
-      // A module always stores a level (`none` when nobody chose). An account
-      // may have none yet — null there means "this space has not decided", and
-      // flattening it to `none` would claim a decision nobody made.
+      // A module always stores a level (`none` when nobody chose).
       ...(mount.resourceType === "module"
         ? { agentAccess: mount.agentAccess ?? "none" }
-        : mount.resourceType === "connection" && mount.agentAccess
-          ? { agentAccess: mount.agentAccess }
-          : {}),
+        : {}),
     });
   }
   return selection;
@@ -105,9 +97,8 @@ export function toggleSelection(
   next.set(key, {
     resourceKey: entry.resourceKey,
     resourceType: entry.resourceType,
-    // Adding an account means this space should be able to work with it, same
-    // reasoning as a module: `none` would place it here and leave engentys
-    // blind, which is the state this whole flow exists to stop producing.
+    // Adding a module means this space should be able to work with it:
+    // `none` would place it here and leave engentys blind.
     ...(carriesAccessLevel(entry.resourceType)
       ? { agentAccess: DEFAULT_MODULE_ACCESS }
       : {}),
@@ -262,20 +253,7 @@ export function setModuleAccess(
   moduleId: string,
   agentAccess: SpaceAccessLevel
 ): SpaceSelection {
-  return setMountAccess(
-    selection,
-    { resourceKey: moduleId, resourceType: "module" },
-    agentAccess
-  );
-}
-
-/** The same edit for an account (PLAN-connections-ux.md C1). */
-export function setMountAccess(
-  selection: SpaceSelection,
-  entry: { resourceKey: string; resourceType: SpaceResourceKind },
-  agentAccess: SpaceAccessLevel
-): SpaceSelection {
-  const key = spaceMountKey(entry);
+  const key = spaceMountKey({ resourceKey: moduleId, resourceType: "module" });
   const current = selection.get(key);
   if (!current) {
     return selection;
@@ -315,14 +293,9 @@ export function selectionToPayload(selection: SpaceSelection): Array<{
   return [...selection.values()].map((entry) => ({
     resource_key: entry.resourceKey,
     resource_type: entry.resourceType,
-    // An account posts its level only when this space has one. Sending a
-    // default would decide for a space that never did — and the server reads
-    // an absent level as "fall back to the account's own setting".
     ...(entry.resourceType === "module"
       ? { agent_access: entry.agentAccess ?? DEFAULT_MODULE_ACCESS }
-      : entry.resourceType === "connection" && entry.agentAccess
-        ? { agent_access: entry.agentAccess }
-        : {}),
+      : {}),
   }));
 }
 

@@ -5,9 +5,10 @@ import {
 } from "../../core-http-client.js";
 import type { AiSessionScope } from "../types.js";
 
-const { constructed, invokeTool, request } = vi.hoisted(() => ({
+const { constructed, invokeTool, listSpaces, request } = vi.hoisted(() => ({
   constructed: [] as Record<string, unknown>[],
   invokeTool: vi.fn(),
+  listSpaces: vi.fn(),
   request: vi.fn(),
 }));
 
@@ -22,6 +23,7 @@ vi.mock("../../core-http-client.js", async (importOriginal) => {
         constructed.push(options);
       }
       invokeTool = invokeTool;
+      listSpaces = listSpaces;
       request = request;
     },
   };
@@ -154,6 +156,50 @@ describe("resolveRunSpace", () => {
     expect(resolution).toEqual({ kind: "global" });
     expect(request).not.toHaveBeenCalled();
     expect(toolsSpaceFromResolution(resolution)).toBeNull();
+  });
+
+  it("puts the copilot where the person stands, its resources in /s/me", async () => {
+    // Hiring, apps, routines, the computer and the browser are the Space the
+    // person is in; the copilot's connections stay their personal Space's.
+    listSpaces.mockResolvedValue([
+      { id: SPACE_A, ownerUserId: null },
+      { id: SPACE_B, ownerUserId: USER },
+    ]);
+    request.mockImplementation((path: string) =>
+      Promise.resolve(
+        path.includes(SPACE_B)
+          ? surfaceFixture({ connectors: ["google-gmail"] })
+          : surfaceFixture({
+              browserGrant: { autostart: true, unattended: true },
+              connectors: [],
+            })
+      )
+    );
+    const resolution = await resolveRunSpace({
+      scope: userScope,
+      thread: {
+        agent_id: "engenty.copilot",
+        route_context: { scope: { space_id: SPACE_A } },
+        space_id: null,
+      },
+    });
+    const space = resolvedRunSpace(resolution);
+    expect(space?.spaceId).toBe(SPACE_A);
+    expect(space?.resourceSpaceId).toBe(SPACE_B);
+    expect([...(space?.connectorPrefixes ?? [])]).toEqual(["gmail"]);
+    expect(space?.browser.unattended).toBe(true);
+  });
+
+  it("puts the copilot in /s/me when the person stands in no Space", async () => {
+    listSpaces.mockResolvedValue([{ id: SPACE_B, ownerUserId: USER }]);
+    request.mockResolvedValue(surfaceFixture());
+    const resolution = await resolveRunSpace({
+      scope: userScope,
+      thread: { agent_id: "engenty.copilot", space_id: null },
+    });
+    const space = resolvedRunSpace(resolution);
+    expect(space?.spaceId).toBe(SPACE_B);
+    expect(space?.resourceSpaceId).toBeUndefined();
   });
 
   it("returns resolved for an open Space the caller can enter", async () => {
@@ -343,62 +389,54 @@ describe("actingUserIdFromTask", () => {
 describe("applyAgentConnectorReach", () => {
   const all = new Set(["gmail", "gdrive", "slack"]);
 
-  it("unions grants onto a resolved space (river rule)", () => {
-    const space = toolsSpaceFromResolution({
+  function resolvedSpace() {
+    return toolsSpaceFromResolution({
       kind: "resolved",
       space: {
         agentIds: new Set(),
         allConnectorPrefixes: all,
-        browser: null,
-        connectorPrefixes: new Set(["gdrive"]),
+        browser: { autostart: false, unattended: false },
+        connectorPrefixes: new Set(["gdrive", "slack"]),
         moduleIds: new Set(),
-        mountedConnectionIds: new Set(),
         readOnlyModuleIds: new Set(),
         spaceId: SPACE_A,
         surface: surfaceFixture(),
         topLevelAgentIds: new Set(),
       },
     });
+  }
+
+  function prefixes(next: ReturnType<typeof applyAgentConnectorReach>) {
+    return next && "connectorPrefixes" in next
+      ? [...(next.connectorPrefixes ?? [])].sort()
+      : [];
+  }
+
+  it("gives an agent with no preference everything the space enables", () => {
     const next = applyAgentConnectorReach({
       allConnectorPrefixes: all,
-      allSpacesPrefixes: new Set(),
-      grantPrefixes: new Set(["gmail"]),
       preferredPrefixes: new Set(),
-      space,
+      space: resolvedSpace(),
     });
-    expect(
-      next && !("kind" in next) ? [...next.connectorPrefixes].sort() : []
-    ).toEqual(["gdrive", "gmail"]);
+    expect(prefixes(next)).toEqual(["gdrive", "slack"]);
   });
 
-  it("turns a missing space into a global gate of grants plus all-spaces", () => {
+  it("narrows to the agent's preferred list, never beyond the space", () => {
     const next = applyAgentConnectorReach({
       allConnectorPrefixes: all,
-      allSpacesPrefixes: new Set(["slack"]),
-      grantPrefixes: new Set(["gmail"]),
-      preferredPrefixes: new Set(),
+      preferredPrefixes: new Set(["gmail", "slack"]),
+      space: resolvedSpace(),
+    });
+    expect(prefixes(next)).toEqual(["slack"]);
+  });
+
+  it("gives a run with no space no connector at all", () => {
+    const next = applyAgentConnectorReach({
+      allConnectorPrefixes: all,
+      preferredPrefixes: new Set(["gmail"]),
       space: null,
     });
     expect(next && "kind" in next && next.kind === "global").toBe(true);
-    expect(
-      next && "connectorPrefixes" in next
-        ? [...next.connectorPrefixes].sort()
-        : []
-    ).toEqual(["gmail", "slack"]);
-  });
-
-  it("intersects a preferred plugin list then re-adds grants", () => {
-    const next = applyAgentConnectorReach({
-      allConnectorPrefixes: all,
-      allSpacesPrefixes: new Set(["slack"]),
-      grantPrefixes: new Set(["gmail"]),
-      preferredPrefixes: new Set(["gdrive"]),
-      space: null,
-    });
-    expect(
-      next && "connectorPrefixes" in next
-        ? [...next.connectorPrefixes].sort()
-        : []
-    ).toEqual(["gmail"]);
+    expect(prefixes(next)).toEqual([]);
   });
 });

@@ -15,16 +15,6 @@ vi.mock("@mastra/core/processors", () => {
     }
   }
   return {
-    PromptInjectionDetector: class extends FakeProcessor {
-      constructor(options: unknown) {
-        super("prompt-injection-detector", options);
-      }
-    },
-    ModerationProcessor: class extends FakeProcessor {
-      constructor(options: unknown) {
-        super("moderation", options);
-      }
-    },
     PIIDetector: class extends FakeProcessor {
       constructor(options: unknown) {
         super("pii-detector", options);
@@ -46,22 +36,33 @@ vi.mock("@mastra/core/processors", () => {
 vi.mock("ai", () => ({
   // Wrap the model id so we can distinguish "did we go through gateway?"
   gateway: (modelId: string) => ({ __gateway: true, modelId }),
-  // The safeguard model now shares the one `resolveLanguageModel` factory with
-  // the agent path, so it also picks up the gateway file-data middleware. That
-  // is a no-op for the text-only prompts a guardrail classifies, and it removes
-  // the third private copy of "is this a gateway id?".
+  // The fast-text model shares the one `resolveLanguageModel` factory with the
+  // agent path, so it also picks up the gateway file-data middleware. That is
+  // a no-op for the text-only prompts a guardrail redacts.
   wrapLanguageModel: ({ model }: { model: unknown }) => ({
     __wrapped: true,
     model,
   }),
 }));
 
+import type { ClassifierClient } from "@engenty/typesafe-client";
 import { buildGuardrailProcessors } from "../build-guardrail-processors.js";
+import { ClassifierGuardrailProcessor } from "../classifier-guardrail-processor.js";
 
-const SAFEGUARD_MODEL = "openai/gpt-oss-safeguard-20b";
+const TEXT_MODEL = "openai/gpt-5.4-nano";
 
-function options() {
-  return { agentId: "chatbot.test", safeguardModelId: SAFEGUARD_MODEL };
+const classifier: ClassifierClient = {
+  systemOne: async () => ({ answers: {}, model: "test" }),
+};
+
+function options(overrides: { classifier?: ClassifierClient | null } = {}) {
+  return {
+    agentId: "chatbot.test",
+    classifier,
+    classifierModelId: "typesafe-ai/jev",
+    textModelId: TEXT_MODEL,
+    ...overrides,
+  };
 }
 
 function ids(processors: Array<{ id: string }>): string[] {
@@ -174,7 +175,7 @@ describe("buildGuardrailProcessors", () => {
     ]);
   });
 
-  it("passes safeguard model through gateway and forwards processor config", () => {
+  it("passes the fast-text model through gateway and forwards PII config", () => {
     const cfg: AgentGuardrailsConfig = {
       enabled: true,
       input: {
@@ -197,7 +198,7 @@ describe("buildGuardrailProcessors", () => {
     ).options;
     expect(opts.model).toEqual({
       __wrapped: true,
-      model: { __gateway: true, modelId: SAFEGUARD_MODEL },
+      model: { __gateway: true, modelId: TEXT_MODEL },
     });
     expect(opts.lastMessageOnly).toBe(true);
     expect(opts.strategy).toBe("redact");
@@ -206,7 +207,64 @@ describe("buildGuardrailProcessors", () => {
     expect(opts.detectionTypes).toEqual(["email"]);
   });
 
-  it("attaches an onViolation hook to LLM-classifier processors", () => {
+  it("runs moderation and prompt injection on the classifier with Mastra's defaults", () => {
+    const cfg: AgentGuardrailsConfig = {
+      enabled: true,
+      input: {
+        moderation: { enabled: true, strategy: "warn" },
+        promptInjection: { enabled: true, strategy: "rewrite" },
+      },
+      output: { moderation: { enabled: true, categories: ["hate"] } },
+    };
+    const { inputProcessors, outputProcessors } = buildGuardrailProcessors(
+      cfg,
+      options()
+    );
+    for (const processor of [...inputProcessors, ...outputProcessors]) {
+      expect(processor).toBeInstanceOf(ClassifierGuardrailProcessor);
+    }
+    const [injection, moderation] = inputProcessors as unknown as {
+      options: Record<string, unknown>;
+    }[];
+    expect(injection?.options).toMatchObject({
+      lastMessageOnly: true,
+      // A classifier cannot rewrite, so rewrite blocks.
+      strategy: "block",
+      threshold: 0.7,
+    });
+    expect(injection?.options.categories).toContain("jailbreak");
+    expect(moderation?.options).toMatchObject({
+      strategy: "warn",
+      threshold: 0.5,
+    });
+    expect(moderation?.options.categories).toContain("violence/graphic");
+    expect(
+      (outputProcessors[0] as unknown as { options: Record<string, unknown> })
+        .options
+    ).toMatchObject({
+      categories: ["hate"],
+      lastMessageOnly: false,
+      strategy: "block",
+    });
+  });
+
+  it("skips classifier checks when no classifier is reachable, keeps the rest", () => {
+    const cfg: AgentGuardrailsConfig = {
+      enabled: true,
+      input: {
+        moderation: { enabled: true },
+        pii: { enabled: true, strategy: "redact" },
+        promptInjection: { enabled: true },
+      },
+    };
+    const { inputProcessors } = buildGuardrailProcessors(
+      cfg,
+      options({ classifier: null })
+    );
+    expect(ids(inputProcessors)).toEqual(["pii-detector"]);
+  });
+
+  it("attaches an onViolation hook to classifying processors", () => {
     const cfg: AgentGuardrailsConfig = {
       enabled: true,
       input: {

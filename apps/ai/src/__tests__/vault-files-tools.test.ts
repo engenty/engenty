@@ -10,9 +10,11 @@ describe("resolveScopedVaultKey", () => {
     );
   });
 
-  it("preserves fully scoped tenant keys", () => {
-    const key = `tenants/${tenantId}/inbox/msg/a.pdf`;
-    expect(resolveScopedVaultKey(tenantId, key)).toBe(key);
+  it("keeps another tenant's full key under the caller's tenant", () => {
+    const otherTenant = "22222222-2222-4222-8222-222222222222";
+    expect(
+      resolveScopedVaultKey(tenantId, `tenants/${otherTenant}/a.pdf`)
+    ).toBe(`tenants/${tenantId}/tenants/${otherTenant}/a.pdf`);
   });
 
   it("rejects traversal", () => {

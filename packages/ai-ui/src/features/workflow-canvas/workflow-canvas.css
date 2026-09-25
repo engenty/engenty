@@ -48,12 +48,16 @@
 }
 
 /* Step nodes are click targets everywhere they're drawn (inspect / open the
-   flow editor); the outcome band is not. The wake-source node is one only
-   where the host wires the triggers dialog. */
+   flow editor). The wake-source and outcome nodes are clickable only where
+   the host wires the matching dialog. */
 .engenty-workflow-canvas .react-flow__node-action {
   cursor: pointer;
 }
 
 .engenty-workflow-canvas--triggers-clickable .react-flow__node-trigger {
+  cursor: pointer;
+}
+
+.engenty-workflow-canvas--outcomes-clickable .react-flow__node-outcome {
   cursor: pointer;
 }

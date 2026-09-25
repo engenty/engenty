@@ -86,16 +86,18 @@ function fetchedFilesToInputs(files?: FetchedSkillFile[]): SkillFileInput[] {
 
 export function annotateRegistryHits(input: {
   agentPreferred?: ReadonlySet<string>;
+  browseUrl?: (ref: SkillSearchResult["ref"]) => string;
   installed: ReadonlySet<string>;
   results: SkillSearchResult[];
   spaceMounted?: ReadonlySet<string>;
 }): SkillsFindHit[] {
+  const browseUrl = input.browseUrl ?? ((ref) => skillsShUrl(ref.id));
   return input.results.map((hit) => ({
     ...hit,
     already_in_space: input.spaceMounted?.has(hit.name) ?? false,
     already_installed: input.installed.has(hit.name),
     already_preferred: input.agentPreferred?.has(hit.name) ?? false,
-    url: skillsShUrl(hit.ref.id),
+    url: browseUrl(hit.ref),
   }));
 }
 
@@ -124,6 +126,9 @@ export async function buildSkillsFindPayload(input: {
     query: input.query,
     results: annotateRegistryHits({
       agentPreferred,
+      ...(input.provider.browseUrl
+        ? { browseUrl: input.provider.browseUrl.bind(input.provider) }
+        : {}),
       installed,
       results,
       spaceMounted,

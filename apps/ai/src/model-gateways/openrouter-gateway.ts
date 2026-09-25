@@ -173,11 +173,14 @@ function defaultAvailabilityForUseCases(
 ): GatewayModelAvailabilityFlags {
   const conversational = useCases.includes("text") || useCases.includes("code");
   return {
-    available_for_chat: conversational,
+    available_for_agent: conversational,
+    available_for_classification: false,
     available_for_embedding: false,
     available_for_image: useCases.includes("image"),
+    available_for_realtime: false,
     available_for_rerank: false,
-    available_for_routing: conversational,
+    available_for_text: conversational,
+    available_for_transcription: false,
     available_for_video: false,
   };
 }
@@ -281,6 +284,7 @@ export function normalizeOpenRouterModel(
     provider,
     providers: [provider],
     raw_json: model as unknown as Record<string, unknown>,
+    regions: [],
     released_at: unixSecondsToIso(model.created),
     source_url: opts.sourceUrl ?? OPENROUTER_MODELS_URL,
     tags,

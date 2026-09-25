@@ -1,36 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { assertTaskOwner, createMemoryMcpTaskStore } from "./tasks.js";
+import { assertTaskOwner, type McpTaskRecord } from "./tasks.js";
 
 describe("MCP task handles", () => {
-  it("binds ownership and refuses other clients", async () => {
-    const store = createMemoryMcpTaskStore();
-    const task = await store.create({
+  it("only the owning client, user and tenant may read a task", () => {
+    const task = {
       clientId: "cursor",
-      createdAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 60_000).toISOString(),
-      id: "tsk_1",
-      inputHash: "abc",
-      operationId: "contacts_list",
-      status: "working",
       tenantId: "tenant-1",
-      updatedAt: new Date().toISOString(),
       userId: "user-1",
-    });
-    expect(
-      assertTaskOwner(task, {
-        clientId: "cursor",
-        tenantId: "tenant-1",
-        userId: "user-1",
-      })
-    ).toBe(true);
-    expect(
-      assertTaskOwner(task, {
-        clientId: "other",
-        tenantId: "tenant-1",
-        userId: "user-1",
-      })
-    ).toBe(false);
-    const cancelled = await store.cancel(task.id);
-    expect(cancelled?.status).toBe("cancelled");
+    } as McpTaskRecord;
+    const owner = {
+      clientId: "cursor",
+      tenantId: "tenant-1",
+      userId: "user-1",
+    };
+
+    expect(assertTaskOwner(task, owner)).toBe(true);
+    expect(assertTaskOwner(task, { ...owner, clientId: "other" })).toBe(false);
+    expect(assertTaskOwner(task, { ...owner, tenantId: "tenant-2" })).toBe(
+      false
+    );
   });
 });

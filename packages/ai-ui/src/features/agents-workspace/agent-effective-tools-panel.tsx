@@ -1,6 +1,6 @@
-import { isEngentyDeveloperModeUiEnabled } from "@engenty/environment";
 import { useQuery } from "@engenty/query-client";
 import { useMemo, useState } from "react";
+import { useDeveloperModeEnabled } from "../../components/ag-ui-inspector/ag-ui-inspector-hooks.js";
 import {
   type AiAgentEntry,
   type AiAgentToolSchemaSnapshot,
@@ -34,7 +34,7 @@ export function AgentEffectiveToolsPanel({
   spaceId,
   t,
 }: AgentEffectiveToolsPanelProps) {
-  const devTools = isEngentyDeveloperModeUiEnabled();
+  const devTools = useDeveloperModeEnabled();
   const [schemaOpen, setSchemaOpen] = useState<Record<string, boolean>>({});
   const capabilities = useAgentEffectiveCapabilitiesQuery({
     agentId: agent?.id,

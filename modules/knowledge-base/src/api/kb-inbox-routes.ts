@@ -1,3 +1,4 @@
+import { resolveChatModelId } from "@engenty/ai-core";
 import { createApiError } from "@engenty/api-contracts";
 import type { PluginEventsApi } from "@engenty/plugin-sdk";
 import { createLogger } from "@engenty/telemetry";
@@ -235,6 +236,7 @@ export function registerKbInboxRoutes(
         const result = await ingestUrlToMarkdown(sourceUrl, {
           fetchUserAgent: `EngentyKnowledgeBase/1.0 (+${process.env.ENGENTY_UI_BASE_URL?.trim() || "engenty"}; inbox URL fetch)`,
           firecrawlApiKey: process.env.FIRECRAWL_API_KEY?.trim() || undefined,
+          llmModel: resolveChatModelId({ purpose: "fast_text" }),
         });
         const mergedMeta = {
           ...baseMeta,

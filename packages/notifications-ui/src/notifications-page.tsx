@@ -38,7 +38,13 @@ import {
   VIEWS_SETTING,
 } from "./user-prefs.js";
 
-const LANES: NotificationLaneFilter[] = ["all", "hitl", "errors", "updates"];
+const LANES: NotificationLaneFilter[] = [
+  "all",
+  "attention",
+  "hitl",
+  "errors",
+  "updates",
+];
 
 export function NotificationsPage() {
   const { t, i18n } = useTranslation("common");
@@ -140,6 +146,9 @@ export function NotificationsPage() {
   const laneLabel = (value: NotificationLaneFilter) =>
     ({
       all: t("notifications.filter.all", { defaultValue: "All" }),
+      attention: t("notifications.filter.attention", {
+        defaultValue: "Important",
+      }),
       errors: t("notifications.filter.errors", { defaultValue: "Errors" }),
       hitl: t("notifications.filter.hitl", {
         defaultValue: "Needs your input",

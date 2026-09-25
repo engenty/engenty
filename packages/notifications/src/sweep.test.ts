@@ -21,6 +21,7 @@ function record(
     actor_kind: null,
     audience_id: null,
     audience_kind: "tenant",
+    body: null,
     class: "decision",
     coalesce_key: null,
     coalesced_count: 1,
@@ -37,7 +38,10 @@ function record(
     space_id: null,
     status: "pending",
     summary: "s",
+    target: null,
     tenant_id: "t1",
+    title_key: null,
+    title_params: null,
     updated_at: NOW.toISOString(),
     ...overrides,
   };

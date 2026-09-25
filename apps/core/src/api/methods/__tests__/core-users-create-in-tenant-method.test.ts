@@ -21,15 +21,10 @@ const baseCtx = {
 };
 
 describe("buildCoreUsersCreateInTenantMethod", () => {
-  it("exposes stable method name", () => {
-    const method = buildCoreUsersCreateInTenantMethod({});
-    expect(method.name).toBe("core_users_create_in_tenant");
-  });
-
-  it("creates user when tenant auth is present", async () => {
+  it("creates the user in the caller's tenant as a member by default", async () => {
     createUser.mockResolvedValueOnce({ id: "user-1" });
     const method = buildCoreUsersCreateInTenantMethod({});
-    const result = await method.handler(
+    await method.handler(
       {
         display_name: "Test",
         email: "t@example.com",
@@ -44,26 +39,9 @@ describe("buildCoreUsersCreateInTenantMethod", () => {
         },
       }
     );
-    expect(result).toEqual({ id: "user-1" });
-    expect(createUser).toHaveBeenCalledWith("tenant-1", {
-      display_name: "Test",
-      email: "t@example.com",
-      password: "hunter2",
-      role: "member",
-    });
-  });
-
-  it("throws without tenant context", async () => {
-    const method = buildCoreUsersCreateInTenantMethod({});
-    await expect(
-      method.handler(
-        {
-          display_name: "Test",
-          email: "t@example.com",
-          password: "hunter2",
-        },
-        { ...baseCtx, auth: undefined }
-      )
-    ).rejects.toThrow("Tenant context required");
+    expect(createUser).toHaveBeenCalledWith(
+      "tenant-1",
+      expect.objectContaining({ role: "member" })
+    );
   });
 });

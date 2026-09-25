@@ -28,6 +28,8 @@ const RECONCILE_RETRIES = 3;
 
 const SCOPE_RETRY_DELAY_MS = 5000;
 const SCOPE_RETRY_MAX_DELAY_MS = 60_000;
+/** How often a fresh install checks for its first tenant (first login). */
+const FIRST_TENANT_POLL_MS = 10_000;
 
 /**
  * Start schedule/scheduler workers and schedule the trigger reconcile.
@@ -39,7 +41,9 @@ const SCOPE_RETRY_MAX_DELAY_MS = 60_000;
  * core disables it too (a rejected token never heals on its own), while any
  * other failed resolution (core unreachable — e.g. the AI app won the
  * dev-stack boot race — or a transient sign-in failure) is retried
- * indefinitely on a capped backoff.
+ * indefinitely on a capped backoff. An install without a tenant yet (a fresh
+ * database before the first login) is not a failure: a platform credential
+ * cannot mint without one, so the scheduler waits quietly for it.
  *
  * The reconcile is DEFERRED past boot: the module capability loader blocks
  * until plugin registration settles (awaiting it inside createApp deadlocks
@@ -188,15 +192,31 @@ export async function startScheduler(options: {
     }, RECONCILE_DELAY_MS).unref?.();
   };
 
+  let waitingForFirstTenant = false;
   const resolveAndStart = async (attempt: number): Promise<void> => {
     // Boot probe: a platform credential refuses a tenant-less mint, so probe
     // against a concrete tenant id first. When that fails and a tenant was
     // named, fall back to the tenant-less resolve — a tenant-bound
     // credential whose own tenant is not the first row must still come
     // online. The last result drives the disable/retry decision.
-    const probeTenantId = await listTenantIds()
-      .then((ids) => ids[0])
-      .catch(() => undefined);
+    const tenantIds = await listTenantIds().catch(() => null);
+    if (tenantIds?.length === 0) {
+      if (!waitingForFirstTenant) {
+        waitingForFirstTenant = true;
+        logger.info(
+          "scheduler waiting for the first tenant (created on first login)"
+        );
+      }
+      setTimeout(() => {
+        resolveAndStart(attempt).catch((err) => {
+          logger.error("trigger scheduler failed to start", {
+            message: err instanceof Error ? err.message : String(err),
+          });
+        });
+      }, FIRST_TENANT_POLL_MS).unref?.();
+      return;
+    }
+    const probeTenantId = tenantIds?.[0];
     let resolved = await resolveSchedulerServiceScope(probeTenantId);
     if (
       !resolved.ok &&

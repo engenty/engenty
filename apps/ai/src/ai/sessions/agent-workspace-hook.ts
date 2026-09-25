@@ -28,6 +28,7 @@ import { createEngentyCoreFileStorageClient } from "../workspace/core-file-stora
 import { initEngentyAgentWorkspace } from "../workspace/loader.js";
 import { syncTenantManagedSkills } from "../workspace/tenant-skills-seed.js";
 import { DEFAULT_SKILL_DISCOVERY_PATHS } from "../workspace/workspace-presets.js";
+import { buildComputeInstructions } from "./compute-instructions.js";
 import {
   type RunSpace,
   type RunSpaceResolution,
@@ -185,6 +186,7 @@ export async function buildAgentWorkspaceForRun(input: {
   const runSpace = input.spaceResolution
     ? resolvedRunSpace(input.spaceResolution)
     : undefined;
+  // The computer is the Space the run stands in — the copilot's too.
   const sandboxSpaceId = runSpace?.spaceId;
   const sandboxLifecycle = resolveRunSandboxLifecycle({
     declared: declaredLifecycle,
@@ -236,7 +238,13 @@ export async function buildAgentWorkspaceForRun(input: {
             timeoutMs: input.workspaceConfig.sandbox.timeoutMs,
           }
         : undefined,
-      ...(sandboxLifecycle === "space" ? { spaceComputerNetwork } : {}),
+      ...(sandboxLifecycle === "space"
+        ? {
+            spaceComputerEgressHosts:
+              runSpace?.surface.computerEgressHosts ?? [],
+            spaceComputerNetwork,
+          }
+        : {}),
       sandboxIdentity: sandboxEnabled
         ? {
             runId: input.runId,
@@ -262,12 +270,14 @@ export async function buildAgentWorkspaceForRun(input: {
     workspace,
     ...(sandboxEnabled
       ? {
-          computeInstructions: buildComputeInstructions(
-            sandboxLifecycle === "space"
-              ? spaceComputerNetwork
-              : (input.workspaceConfig.sandbox?.network ?? "none"),
-            sandboxLifecycle === "space"
-          ),
+          computeInstructions: buildComputeInstructions({
+            lifecycle: sandboxLifecycle,
+            mounts: input.mounts,
+            network:
+              sandboxLifecycle === "space"
+                ? spaceComputerNetwork
+                : (input.workspaceConfig.sandbox?.network ?? "none"),
+          }),
         }
       : {}),
   };
@@ -291,33 +301,4 @@ export function resolveRunSandboxLifecycle(input: {
     return "space";
   }
   return input.declared;
-}
-
-function buildComputeInstructions(
-  network: string,
-  onSpaceComputer = false
-): string {
-  const networkLine =
-    network === "egress"
-      ? "- Network: outbound through an allowlist proxy (package registries " +
-        "work; arbitrary hosts may be refused — report a refused host " +
-        "instead of retrying it)."
-      : "- Network: NONE. Package installs and web requests from the sandbox " +
-        "will fail — do not retry them; use your tools for external data " +
-        "and prebaked libraries (httpx, requests, zod) for code.";
-  const executionLine = onSpaceComputer
-    ? "- Execution: this Space's shared computer (node, bun, python3, uv, " +
-      "jq). It persists between runs — installed packages and files in " +
-      "/sandbox stay — and is shared with the Space's other agents, so " +
-      "commands may briefly queue behind theirs."
-    : "- Execution: a per-run sandbox (node, bun, python3, uv, jq). Created " +
-      "on your first command, destroyed when the run ends; anything worth " +
-      "keeping goes to your mounted folders, never the sandbox scratch.";
-  return [
-    "## Your computer",
-    executionLine,
-    networkLine,
-    "- Package caches are warm per Space — a second install of the same " +
-      "package is fast.",
-  ].join("\n");
 }

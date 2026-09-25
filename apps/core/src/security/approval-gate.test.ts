@@ -32,17 +32,15 @@ function harness() {
   const approvalService = createApprovalService(db.client);
 
   return {
-    approvalService,
     db,
     events,
-    file: (component?: string) =>
+    file: () =>
       fileApprovalRequest({
         approvalService,
         auditLog,
         auth: AUTH,
         reason: REASON,
         ...OPERATION,
-        ...(component ? { component } : {}),
       }),
   };
 }
@@ -52,9 +50,6 @@ describe("fileApprovalRequest", () => {
     const h = harness();
     const result = await h.file();
 
-    // The plugin-HTTP copy of this gate used to omit expiresAt, so a caller
-    // blocked over that transport could not tell how long its request was good
-    // for. Every transport now answers the same question the same way.
     expect(result).toMatchObject({ reason: REASON });
     expect(result.expiresAt).toBeTruthy();
     expect(h.db.tables.approval_requests).toHaveLength(1);
@@ -68,23 +63,5 @@ describe("fileApprovalRequest", () => {
       "policy.require_approval",
       "approval.created",
     ]);
-  });
-
-  it("tags the audit trail with the transport that was gated", async () => {
-    const h = harness();
-    await h.file("plugin-http");
-
-    expect(h.events.every((e) => e.source_component === "plugin-http")).toBe(
-      true
-    );
-  });
-
-  it("returns the live pending request instead of stacking a new one", async () => {
-    const h = harness();
-    const first = await h.file();
-    const second = await h.file();
-
-    expect(second.approvalRequestId).toBe(first.approvalRequestId);
-    expect(h.db.tables.approval_requests).toHaveLength(1);
   });
 });

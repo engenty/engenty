@@ -19,6 +19,7 @@ function collectOperations() {
     },
     {
       onApprovalDecided: async () => undefined,
+      resolveSpaceAccess: async () => new Map(),
       settings: { clientEnv: () => async () => undefined },
     }
   );
@@ -49,9 +50,6 @@ describe("connections operations spacePolicy", () => {
     expect(byId.connections_set_policy).toEqual({
       kind: "account_mounted",
     });
-    expect(byId.connections_agent_grant_set).toEqual(
-      byId.connections_files_write
-    );
     expect(byId.connections_catalog).toEqual({ kind: "account_mounted" });
     expect(byId.connections_list_accounts).toEqual({
       kind: "account_mounted",

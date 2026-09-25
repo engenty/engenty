@@ -161,11 +161,10 @@ export const runSpecialistStep = createStep({
 
     // Same mechanism as the graph lane (run-specialist.ts): a delegated run
     // handed no modelConfig short-circuits to the agent's compiled-in default,
-    // bypassing the tenant's bindings and AI settings entirely — so the
-    // coordinator ignored ai.config.coordinator_model_id and specialists
-    // ignored chat_model_id. Each agent then resolves within it by its OWN
-    // purpose (coordinator = routing). The envelope's `model_id` fills the
-    // chain's override slot and wins when set.
+    // bypassing the tenant's bindings and AI settings entirely — so
+    // specialists ignored chat_model_id. Each agent then resolves within it
+    // by its OWN effort tier, else the chat model. The envelope's `model_id`
+    // fills the chain's override slot and wins when set.
     const modelConfig = await resolveGraphRunModelConfig(
       scope,
       inputData.model_id ?? null

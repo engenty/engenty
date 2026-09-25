@@ -2,6 +2,7 @@
 // same speaker sit close with square corners where they meet.
 
 import { parseAgentMessageHeader } from "@engenty/ai-core/browser";
+import { readUiGuideFollowUp } from "@engenty/app-shell";
 import { cn } from "@engenty/ui-core";
 
 export interface ChatBubbleCluster {
@@ -21,6 +22,31 @@ export function isLongInlineToken(text: string): boolean {
     return true;
   }
   return value.includes("/") && value.split("/").filter(Boolean).length >= 2;
+}
+
+/**
+ * Display-only: a click in a Copilot guide reaches the model as
+ * `[ui_guide] guide_id=… action=next label="Weiter"`; the person sees the
+ * button they pressed, and what they typed into the guide's fields.
+ */
+export function humanizeUiGuideFollowUp(
+  text: string,
+  t: (key: string, values: Record<string, string>) => string
+): string {
+  const followUp = readUiGuideFollowUp(text);
+  if (!followUp) {
+    return text;
+  }
+  const action = `**${followUp.label ?? followUp.action_id.replaceAll("_", " ")}**`;
+  const lines = [
+    followUp.title
+      ? t("uiGuideFollowUp.withTitle", { action, title: followUp.title })
+      : t("uiGuideFollowUp.plain", { action }),
+  ];
+  for (const { key, value } of followUp.inputs) {
+    lines.push(key === "input" ? value : `${key}: ${value}`);
+  }
+  return lines.join("\n\n");
 }
 
 /** Display-only: long IDs and paths stay type, not chips. */
@@ -105,12 +131,38 @@ export function chatUserBubbleClassName(cluster: ChatBubbleCluster): string {
   );
 }
 
-export function chatMessageStackClassName(
-  cluster: ChatBubbleCluster,
-  isFirst: boolean
-): string {
-  return cn(
-    "relative gap-1",
-    cluster.meetsAbove ? "mt-1" : isFirst ? null : "mt-6"
-  );
+/**
+ * What a row of the transcript is, for spacing: a `bubble` of words, a
+ * `line` of clips (an agent's actions with no words of their own), or a
+ * `divider` (date, memory break).
+ */
+export type ChatRowKind = "bubble" | "divider" | "line";
+
+/**
+ * The one spacing rule of a chat transcript: the gap above a row follows
+ * from it and the row before — the pieces themselves carry no outer margin.
+ * A new speaker or a divider opens with 16px; within one speaker, bubbles
+ * that touch sit 2px apart and a line of clips sits as close to its
+ * neighbours as clips sit to the words inside a turn (8px, plus the
+ * clip block's own padding).
+ */
+export function chatRowGapClassName(
+  previous: ChatRowKind | null,
+  current: ChatRowKind,
+  relation: { joined: boolean; sameSpeaker: boolean }
+): string | null {
+  if (previous === null) {
+    return null;
+  }
+  if (
+    previous === "divider" ||
+    current === "divider" ||
+    !relation.sameSpeaker
+  ) {
+    return "mt-4";
+  }
+  if (previous === "line" || current === "line") {
+    return "mt-2";
+  }
+  return relation.joined ? "mt-0.5" : "mt-4";
 }

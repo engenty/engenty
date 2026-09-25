@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   buildHabboAvatarPrompt,
-  DEFAULT_HABBO_IMAGE_MODEL,
   HABBO_AVATAR_VARIATIONS,
 } from "./habbo-avatar-prompt.js";
 
@@ -29,6 +28,5 @@ describe("buildHabboAvatarPrompt", () => {
 describe("HABBO_AVATAR_VARIATIONS", () => {
   it("provides three labelled variants", () => {
     expect(HABBO_AVATAR_VARIATIONS).toHaveLength(3);
-    expect(DEFAULT_HABBO_IMAGE_MODEL).toContain("gemini");
   });
 });

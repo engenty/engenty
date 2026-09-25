@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { StoredGraph } from "../workflow-canvas/graph-model.js";
-import { buildRoutineShape } from "./routine-shape.js";
-import type { RoutineDto, RoutineTriggerDto } from "./routines-api.js";
+import {
+  buildRoutineShape,
+  routineOutcomeLine,
+  routineTriggerLine,
+} from "./routine-shape.js";
+import type {
+  RoutineDto,
+  RoutineOutcomeDto,
+  RoutineTriggerDto,
+} from "./routines-api.js";
 
 const scheduleTrigger: RoutineTriggerDto = {
   created_at: "2026-08-01T07:00:00.000Z",
@@ -37,6 +45,7 @@ const routine: RoutineDto = {
   name: "Daily contact import",
   next_due_at: null,
   outcome: "Every genuine correspondent is a contact, with no duplicates.",
+  outcomes: [],
   quiet_hours: null,
   report: "desk_card",
   source: "custom",
@@ -65,9 +74,54 @@ describe("buildRoutineShape", () => {
     expect(
       buildRoutineShape({ graph: singleStepGraph, routine }).outcome
     ).toEqual({
+      bindings: [],
+      holdLine: null,
       report: "desk_card",
       text: "Every genuine correspondent is a contact, with no duplicates.",
     });
+  });
+
+  it("lists destination bindings under the promise", () => {
+    const shape = buildRoutineShape({
+      locale: "en",
+      routine: {
+        ...routine,
+        outcomes: [
+          {
+            config: {},
+            created_at: "2026-08-01T07:00:00.000Z",
+            enabled: true,
+            id: "out-1",
+            mode: "always",
+            provider_id: "notification.high",
+            routine_id: "routine-1",
+            tenant_id: "tenant-1",
+            updated_at: "2026-08-01T07:00:00.000Z",
+          },
+          {
+            config: { agent_id: "chief-of-staff" },
+            created_at: "2026-08-01T07:00:00.000Z",
+            enabled: true,
+            id: "out-2",
+            mode: "agent",
+            provider_id: "agent.message",
+            routine_id: "routine-1",
+            tenant_id: "tenant-1",
+            updated_at: "2026-08-01T07:00:00.000Z",
+          },
+        ],
+        report: "ask",
+      },
+    });
+    expect(shape.outcome?.holdLine).toBe("Holds the run for review");
+    expect(shape.outcome?.bindings.map((binding) => binding.label)).toEqual([
+      "High-priority update",
+      "Engenty message",
+    ]);
+    expect(shape.outcome?.bindings.map((binding) => binding.mode)).toEqual([
+      "always",
+      "agent",
+    ]);
   });
 
   it("labels a schedule wake source with its human cron reading", () => {
@@ -127,5 +181,74 @@ describe("buildRoutineShape", () => {
     // An Action may be a graph with ONE node: the picture must not change
     // kind as the Action grows steps — it only gets longer.
     expect(shape.middle.steps).toHaveLength(1);
+  });
+});
+
+function outcomeRow(
+  providerId: string,
+  overrides: Partial<RoutineOutcomeDto> = {}
+): RoutineOutcomeDto {
+  return {
+    config: {},
+    created_at: "2026-08-01T07:00:00.000Z",
+    enabled: true,
+    id: `outcome-${providerId}`,
+    mode: "always",
+    provider_id: providerId,
+    routine_id: "routine-1",
+    tenant_id: "tenant-1",
+    updated_at: "2026-08-01T07:00:00.000Z",
+    ...overrides,
+  };
+}
+
+describe("routineTriggerLine", () => {
+  it("joins enabled triggers, detail first, kind name otherwise", () => {
+    const line = routineTriggerLine(
+      {
+        ...routine,
+        triggers: [
+          scheduleTrigger,
+          { ...scheduleTrigger, cron: null, id: "t-2", kind: "manual" },
+          { ...scheduleTrigger, cron: null, id: "t-3", kind: "agent" },
+          {
+            ...scheduleTrigger,
+            enabled: false,
+            id: "t-4",
+            kind: "event",
+            resource: "mail.received",
+          },
+        ],
+      },
+      "de"
+    );
+    expect(line?.split(" · ").slice(1)).toEqual(["Manuell", "Agent"]);
+    expect(line).not.toContain("Europe/Vienna");
+    expect(line).not.toContain("mail.received");
+  });
+
+  it("is null when nothing wakes the routine", () => {
+    expect(routineTriggerLine({ ...routine, triggers: [] })).toBeNull();
+  });
+});
+
+describe("routineOutcomeLine", () => {
+  it("lists enabled destinations by their labels", () => {
+    const line = routineOutcomeLine(
+      {
+        ...routine,
+        outcomes: [
+          outcomeRow("notification.high"),
+          outcomeRow("email", { enabled: false }),
+          outcomeRow("notification.update"),
+        ],
+      },
+      "de"
+    );
+    expect(line).toBe("Update mit Priorität · Inbox-Update");
+  });
+
+  it("is null without destinations", () => {
+    expect(routineOutcomeLine(routine)).toBeNull();
   });
 });

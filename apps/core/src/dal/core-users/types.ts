@@ -49,7 +49,8 @@ export interface WorkspaceContextResult {
   resolvedAppearance: {
     font: string;
     fontSize: string;
-    language: string;
+    /** Unset when nobody chose one — the browser's language stands. */
+    language?: string;
     themeMode: string;
   };
   tenantRole: TenantRole | "service" | null;

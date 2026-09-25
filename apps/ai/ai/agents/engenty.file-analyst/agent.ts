@@ -3,7 +3,7 @@
 // instructions stay in their own file (files are the content medium, D7).
 // Conversion note: the old static `model` column carried a routing-flavored
 // fallback that only applied on modelConfig-less dev paths; runtime
-// resolution (no purpose, no subAgents → chat tier) is unchanged.
+// resolution (no pin, no effort → the tenant chat model) is unchanged.
 import type { AgentFnDescriptor } from "@engenty/ai-core";
 import { useRegisteredTool } from "@engenty/ai-core";
 import { ENGENTY_FILE_ANALYST_INSTRUCTIONS } from "./instructions.js";

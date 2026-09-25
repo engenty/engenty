@@ -1,6 +1,11 @@
-import { createConnectionsModuleClient } from "@engenty/connections-sdk";
+import {
+  createConnectionsModuleClient,
+  resolveSpaceRecordAccounts,
+} from "@engenty/connections-sdk";
 import {
   createNativeFileSource,
+  type FileSourceContext,
+  FileSourceNotFoundError,
   type NativeBlobStore,
 } from "@engenty/file-storage";
 import { type EngentyPluginFactory, foreignSelect } from "@engenty/plugin-sdk";
@@ -105,7 +110,28 @@ const registerFilesPlugin: EngentyPluginFactory = (engenty) => {
       updatedAt: row.updatedAt,
     };
   };
+  // A drive belongs to one Space: only that Space's own Files may use it
+  // (PLAN-space-owned-connections.md). Project and other file spaces mount no
+  // drives.
+  const assertConnectionUsable = async (
+    ctx: FileSourceContext,
+    connectionId: string
+  ): Promise<void> => {
+    const owned =
+      ctx.owner.type === "space"
+        ? await resolveSpaceRecordAccounts(getDb(ctx), {
+            spaceId: ctx.owner.id,
+            tenantId: ctx.tenantId,
+          })
+        : null;
+    if (!owned?.has(connectionId)) {
+      throw new FileSourceNotFoundError(
+        "That connected drive belongs to another Space"
+      );
+    }
+  };
   const connector = createConnectorFileSource({
+    assertConnectionUsable,
     client: connectionsClient,
     getMount,
   });

@@ -6,7 +6,6 @@ import {
   type AgentModelPriceTier,
   getAgentModelConfig,
   listAgentModelOptions,
-  resolveConfiguredAgentModelId,
 } from "../../../src/lib/agent-model-options-client.js";
 import { formatModelPricingSummary } from "../../../src/lib/format-model-pricing.js";
 
@@ -74,8 +73,10 @@ export function useAgentChatModelOptions(params: {
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
 
   const configQuery = useQuery({
-    queryKey: ["copilot", "model-config"],
-    queryFn: ({ signal }) => getAgentModelConfig(signal),
+    enabled: params.isTransportReady,
+    queryKey: ["copilot", "model-config", params.serviceBaseUrl],
+    queryFn: ({ signal }) =>
+      getAgentModelConfig({ serviceBaseUrl: params.serviceBaseUrl, signal }),
     staleTime: 60_000,
   });
   const optionsQuery = useQuery({
@@ -89,10 +90,8 @@ export function useAgentChatModelOptions(params: {
     staleTime: 60_000,
   });
 
-  const configuredModelId = useMemo(
-    () => resolveConfiguredAgentModelId(configQuery.data),
-    [configQuery.data]
-  );
+  // Server-resolved (tenant pin → role binding); null until known.
+  const configuredModelId = configQuery.data?.chat_model_id ?? null;
   const activeModelId = selectedModelId ?? configuredModelId;
 
   useEffect(() => {
@@ -104,7 +103,7 @@ export function useAgentChatModelOptions(params: {
     for (const model of optionsQuery.data?.items ?? []) {
       byValue.set(model.model_id, buildModelOption(model, t));
     }
-    if (!byValue.has(activeModelId)) {
+    if (activeModelId && !byValue.has(activeModelId)) {
       byValue.set(activeModelId, {
         group: "unknown",
         groupLabel: t("chat.modelChooser.priceTier.unknown"),

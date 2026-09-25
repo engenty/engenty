@@ -58,7 +58,6 @@ import { useCopilotComposerSpeech } from "./use-copilot-composer-speech";
 export interface CopilotComposerSectionProps {
   compact?: boolean;
   compactCardChrome?: ReactNode;
-  compactContextControl?: ReactNode;
   compactLeadingControl?: ReactNode;
   composerOverride?: ReactNode;
   composerPlaceholder: string;
@@ -110,7 +109,6 @@ export interface PressWizardCommandRequest {
 export function CopilotComposerSection({
   compact = false,
   dense = false,
-  compactContextControl,
   compactLeadingControl,
   composerOverride,
   composerPlaceholder,
@@ -487,7 +485,7 @@ export function CopilotComposerSection({
 
   if (compact) {
     // No footer controls -> everything fits one row (bottom dock).
-    const singleRow = !(compactContextControl || compactLeadingControl);
+    const singleRow = !compactLeadingControl;
     const actionMenu = (
       <PromptInputActionMenu>
         <PromptInputActionMenuTrigger
@@ -655,7 +653,6 @@ export function CopilotComposerSection({
                 <PromptInputTools className="gap-1">
                   {compactLeadingControl}
                   {actionMenu}
-                  {compactContextControl}
                 </PromptInputTools>
                 {actionButton}
               </PromptInputFooter>

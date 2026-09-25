@@ -10,6 +10,7 @@
 // Live refresh needs nothing extra here: `ai.thread_message` inserts bump
 // `thread.updated_at` (trigger `thread_message_bump_thread`), the desk
 // watches its thread row and re-reads history on every UPDATE.
+import type { NotificationTitle } from "@engenty/notifications";
 import { createLogger } from "@engenty/telemetry";
 import type { ThreadStore } from "../../dal/threads/thread-store.js";
 import { emitInboxNotification } from "../../notifications/inbox.js";
@@ -34,7 +35,16 @@ export interface SpeakOnDeskInput {
    * Tell the Space: an `update` for the people who were not watching. Off by
    * default — a welcome does not need an inbox row, a report does.
    */
-  notify?: boolean | { summary?: string };
+  notify?:
+    | boolean
+    | {
+        /** The line under the title; defaults to the post's first line. */
+        body?: string | null;
+        /** English fallback line, said whole when the title misses a name. */
+        summary?: string;
+        /** Overrides the default "{actor} posted an update". */
+        title?: NotificationTitle;
+      };
   /**
    * The person the post is for — owns the conversation when this call has to
    * open the specialist's first one. Null with no Space thread yet = silence.
@@ -106,9 +116,12 @@ export async function speakOnDesk(
     threadId,
   });
   if (input.notify && input.spaceId) {
+    const notify = typeof input.notify === "object" ? input.notify : {};
+    const line = notify.body?.trim() ? firstLine(notify.body) : firstLine(text);
+    const name = input.agentName?.trim();
+    // Fallback only — the title below is what the row says. Never the id.
     const summary =
-      (typeof input.notify === "object" && input.notify.summary?.trim()) ||
-      `${input.agentName?.trim() || input.agentId}: ${firstLine(text)}`;
+      notify.summary?.trim() || (name ? `${name}: ${line}` : line);
     try {
       await emitInboxNotification({
         actor: { id: input.agentId, kind: "agent" },
@@ -119,6 +132,7 @@ export async function speakOnDesk(
         metadata: {
           agent_id: input.agentId,
           message_id: message.id,
+          thread_agent_id: input.agentId,
           thread_id: threadId,
         },
         priority: "low",
@@ -127,6 +141,9 @@ export async function speakOnDesk(
         subject: { id: threadId, type: "thread" },
         summary,
         tenantId: input.tenantId,
+        ...(line ? { body: line } : {}),
+        // `{actor}` is the agent, resolved to its name at emit.
+        title: notify.title ?? { key: "agent_desk_post" },
       });
     } catch (error) {
       logger.warn("desk post notification failed", {

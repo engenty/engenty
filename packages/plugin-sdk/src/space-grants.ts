@@ -114,3 +114,21 @@ export const AI_SERVICE_PLAN_CAPABILITIES = capabilitiesForModuleAccess(
   "tasks",
   "write"
 );
+
+/**
+ * Everything a locked-down AI service credential needs for headless runs
+ * (routines, task jobs, remote channels):
+ * - module invocation, plus the Plan facets above;
+ * - `module.connections.*` — a routine calling a connector action (Gmail,
+ *   Slack, …) is checked against these, and `module.read` does not cover them;
+ * - `core.agents.manage` — provisioning an agent's `core.agents` identity on
+ *   its first run, without which connection policies cannot see the agent.
+ */
+export const AI_SERVICE_CAPABILITIES: readonly string[] = [
+  "module.read",
+  "module.write",
+  "module.execute",
+  ...AI_SERVICE_PLAN_CAPABILITIES,
+  ...capabilitiesForModuleAccess("connections", "write"),
+  "core.agents.manage",
+];

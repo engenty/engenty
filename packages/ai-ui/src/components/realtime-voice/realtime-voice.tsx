@@ -1,8 +1,8 @@
 "use client";
 
-import { Button, cn, InputGroupButton } from "@engenty/ui-core";
+import { Button, cn } from "@engenty/ui-core";
 import { AnimatedLoaderIcon } from "@engenty/ui-icons";
-import { Mic, MicOff, PhoneOff, Radio, Volume2 } from "lucide-react";
+import { Mic, MicOff, PhoneOff, Volume2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 export type RealtimeVoiceUiStatus =
@@ -171,45 +171,6 @@ function statusLabel(
     case "idle":
       return labels?.idle ?? "Voice";
   }
-}
-
-export interface RealtimeVoiceButtonProps {
-  className?: string;
-  disabled?: boolean;
-  labels?: RealtimeVoiceUiLabels;
-  onStart: () => void;
-  status?: RealtimeVoiceUiStatus;
-}
-
-export function RealtimeVoiceButton({
-  className,
-  disabled = false,
-  labels,
-  onStart,
-  status = "idle",
-}: RealtimeVoiceButtonProps) {
-  const isConnecting = status === "connecting";
-  return (
-    <InputGroupButton
-      aria-label={
-        isConnecting
-          ? (labels?.starting ?? "Connecting")
-          : (labels?.start ?? "Start voice chat")
-      }
-      className={cn("text-muted-foreground", className)}
-      disabled={disabled || isConnecting}
-      onClick={onStart}
-      size="icon-xs"
-      type="button"
-      variant="ghost"
-    >
-      {isConnecting ? (
-        <AnimatedLoaderIcon aria-hidden play="always" size="sm" />
-      ) : (
-        <Radio aria-hidden className="size-4" />
-      )}
-    </InputGroupButton>
-  );
 }
 
 export interface RealtimeVoiceCallStripProps {

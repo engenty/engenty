@@ -10,6 +10,7 @@ import {
   agentDeskCapabilityChips,
   formatAgentDeskCapabilityLabel,
 } from "@engenty/ai-core/browser";
+import { AgentProposalsCard } from "@engenty/ai-ui";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
   Badge,
@@ -209,6 +210,10 @@ export function SpaceAgentsPage() {
         variant="canvas"
       />
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-2.5 px-page pb-10">
+        {/* Proposed hires and revisions are decided here, where the roster
+            is — the bell only points at this page. Renders nothing when
+            nothing waits. */}
+        {canManage ? <AgentProposalsCard /> : null}
         {isPending || spacesQuery.isPending ? (
           <div className="flex items-center gap-2 text-muted-foreground text-sm">
             <Spinner className="size-4" />

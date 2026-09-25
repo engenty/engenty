@@ -412,7 +412,6 @@ function KbHubChatPageContent(props: {
         enableStatusFlap={false}
         error={session.error}
         messages={session.copilotMessages}
-        minimalChrome
         onClose={() => {}}
         onNewChat={() => {
           performFullSessionReset();

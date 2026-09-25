@@ -30,14 +30,8 @@ export function createTenantModelConfigResolverFromEnv(
     const settings = parseTenantAiSettings(result?.value);
     return {
       chatModelId: settings.chat_model_id?.trim() || null,
-      routingModelId:
-        settings.coordinator_model_id?.trim() ||
-        settings.chat_model_id?.trim() ||
-        null,
-      memoryModelId: settings.memory_model_id?.trim() || null,
-      researchModelId: settings.research_model_id?.trim() || null,
-      planningCodingModelId: settings.planning_coding_model_id?.trim() || null,
-      safeguardModelId: settings.safeguard_model_id?.trim() || null,
+      classifierModelId: settings.classifier_model_id?.trim() || null,
+      fastTextModelId: settings.fast_text_model_id?.trim() || null,
     };
   };
 }

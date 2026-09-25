@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   chatBubbleCluster,
-  chatMessageStackClassName,
+  chatRowGapClassName,
   chatSpeakerKey,
   chatUserBubbleClassName,
   isLongInlineToken,
@@ -72,11 +72,28 @@ describe("chatUserBubbleClassName", () => {
   });
 });
 
-describe("chatMessageStackClassName", () => {
-  it("sits consecutive same-speaker turns a pixel apart", () => {
+describe("chatRowGapClassName", () => {
+  it("spaces rows by what they are, not by where they come from", () => {
+    const same = { joined: false, sameSpeaker: true };
     expect(
-      chatMessageStackClassName({ meetsAbove: true, meetsBelow: false }, false)
-    ).toContain("mt-1");
+      chatRowGapClassName("bubble", "bubble", { ...same, joined: true })
+    ).toBe("mt-0.5");
+    expect(chatRowGapClassName("bubble", "bubble", same)).toBe("mt-4");
+    expect(chatRowGapClassName("bubble", "line", same)).toBe("mt-2");
+    expect(chatRowGapClassName("line", "line", same)).toBe("mt-2");
+    expect(chatRowGapClassName("line", "bubble", same)).toBe("mt-2");
+    expect(chatRowGapClassName("line", "divider", same)).toBe("mt-4");
+    expect(chatRowGapClassName("divider", "bubble", same)).toBe("mt-4");
+    expect(chatRowGapClassName(null, "bubble", same)).toBeNull();
+  });
+
+  it("opens a new speaker with the full gap, a line of clips included", () => {
+    expect(
+      chatRowGapClassName("bubble", "line", {
+        joined: false,
+        sameSpeaker: false,
+      })
+    ).toBe("mt-4");
   });
 });
 

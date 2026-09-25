@@ -9,6 +9,10 @@ export {
   type ConverterConfig,
   type ConverterProviderName,
 } from "./converter.js";
+export {
+  DEFAULT_DOC_CONVERTER_GEMINI_MODEL,
+  DEFAULT_DOC_CONVERTER_MISTRAL_MODEL,
+} from "./default-models.js";
 // Interface
 export type {
   ConversionOptions,

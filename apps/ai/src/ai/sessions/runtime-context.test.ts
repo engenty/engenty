@@ -120,9 +120,8 @@ function runSpaceFromSurface(
   return {
     agentIds: new Set(surface.agents),
     allConnectorPrefixes: new Set(extras?.allConnectorPrefixes ?? ["gmail"]),
-    browser: null,
+    browser: { autostart: false, unattended: false },
     connectorPrefixes: new Set(surface.connectors?.length ? ["gmail"] : []),
-    mountedConnectionIds: new Set(surface.connections),
     moduleIds,
     readOnlyModuleIds,
     spaceId: surface.spaceId,
@@ -227,7 +226,9 @@ describe("buildRuntimeContextInstructions", () => {
     );
     expect(result).toContain("  - tasks.assist — Tasks Assist");
     expect(result).not.toContain("not.mounted");
-    expect(result).toContain("- space_mounted_connections: 1");
+    expect(result).toContain(
+      "- space_connections: 1 (accounts this Space owns"
+    );
     expect(result).toContain("- space_mounted_skills: projects-management");
     expect(result).toContain(
       "- tenant_has_other_modules: true (not mounted here; do not treat as missing globally)"

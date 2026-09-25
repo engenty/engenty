@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_AI_CLASSIFIER_MODEL_ID } from "../model-defaults.js";
 import { resolvePurposeModel } from "../model-purposes.js";
 import {
   AI_PLATFORM_ROLES,
@@ -18,7 +17,7 @@ describe("graded roles", () => {
   });
 
   it("returns null for fixed roles and near-misses", () => {
-    expect(effortOfRole("router")).toBeNull();
+    expect(effortOfRole("classifier")).toBeNull();
     expect(effortOfRole("model.extreme")).toBeNull();
     // A module role that merely starts with the prefix is not graded.
     expect(effortOfRole("model.low.extra")).toBeNull();
@@ -26,35 +25,66 @@ describe("graded roles", () => {
 });
 
 describe("seedBindings", () => {
-  it("seeds cheap capable chat and an open-weight router on Vercel", () => {
+  it("seeds cheap capable chat, Jev and fast text on Vercel", () => {
     const seeded = seedBindings();
     expect(seeded.find((b) => b.role === "model.low")).toMatchObject({
       gateway: "vercel",
       modelId: "openai/gpt-5.4-nano",
     });
-    expect(seeded.find((b) => b.role === "router")?.modelId).toBe(
-      "openai/gpt-oss-20b"
+    expect(seeded.find((b) => b.role === "classifier")?.modelId).toBe(
+      "typesafe-ai/jev"
+    );
+    expect(seeded.find((b) => b.role === "fast_text")?.modelId).toBe(
+      "openai/gpt-5.4-nano"
     );
   });
 
-  it("seeds OpenRouter with a free router and cheap capable chat", () => {
+  it("seeds only the platform roles", () => {
+    expect(seedBindings().map((b) => b.role)).toEqual([
+      "model.low",
+      "model.medium",
+      "model.high",
+      "classifier",
+      "fast_text",
+      "image",
+      "embedding",
+      "video",
+      "realtime",
+      "transcription",
+    ]);
+  });
+
+  it("seeds image and embedding on Vercel from an OpenRouter pack", () => {
     const seeded = seedBindings(undefined, (k) =>
       k === "OPENROUTER_API_KEY" ? "sk-or-test" : undefined
     );
-    expect(seeded.find((b) => b.role === "router")).toMatchObject({
+    expect(seeded.find((b) => b.role === "embedding")).toEqual({
+      gateway: "vercel",
+      modelId: "openai/text-embedding-3-small",
+      role: "embedding",
+    });
+    expect(seeded.find((b) => b.role === "image")?.gateway).toBe("vercel");
+  });
+
+  it("seeds OpenRouter with Jev as classifier and cheap capable chat", () => {
+    const seeded = seedBindings(undefined, (k) =>
+      k === "OPENROUTER_API_KEY" ? "sk-or-test" : undefined
+    );
+    // Jev only: reached through TypeSafe's key whatever the pack's gateway.
+    expect(seeded.find((b) => b.role === "classifier")).toMatchObject({
       gateway: "openrouter",
-      modelId: "openai/gpt-oss-20b:free",
+      modelId: "typesafe-ai/jev",
     });
     expect(seeded.find((b) => b.role === "model.low")?.modelId).toBe(
       "z-ai/glm-5.3-flash"
     );
   });
 
-  it("honours AI_CHAT_MODEL when seeding", () => {
+  it("seeds from the pack only — model env vars are not read", () => {
     const seeded = seedBindings(undefined, (k) =>
       k === "AI_CHAT_MODEL" ? "anthropic/claude-sonnet-5" : undefined
     );
-    expect(seeded.find((b) => b.role === "model.medium")?.modelId).toBe(
+    expect(seeded.find((b) => b.role === "model.medium")?.modelId).not.toBe(
       "anthropic/claude-sonnet-5"
     );
   });
@@ -67,7 +97,7 @@ describe("resolvePurposeModel with bindings", () => {
       modelId: "anthropic/claude-sonnet-5",
       role: "model.medium",
     },
-    { gateway: "vercel", modelId: "vendor/fixture-router", role: "router" },
+    { gateway: "vercel", modelId: "vendor/fixture-fast", role: "fast_text" },
   ]);
 
   it("uses the bound model as the platform layer", () => {
@@ -126,22 +156,16 @@ describe("resolvePurposeModel with bindings", () => {
     });
   });
 
-  it("ignores env once a role is bound", () => {
-    // The binding IS the platform layer. Leaving env as a silent override would
-    // reintroduce the two-places-to-look problem the table exists to remove.
-    expect(
-      resolvePurposeModel({
-        purpose: "chat",
-        bindings,
-        readEnv: (k) => (k === "AI_CHAT_MODEL" ? "openai/gpt-5" : undefined),
-      }).value
-    ).toBe("anthropic/claude-sonnet-5");
+  it("resolves fast_text through its own binding", () => {
+    expect(resolvePurposeModel({ purpose: "fast_text", bindings }).value).toBe(
+      "vendor/fixture-fast"
+    );
   });
 
-  it("falls back to the authored default for an unbound role", () => {
-    expect(resolvePurposeModel({ purpose: "safeguard", bindings }).source).toBe(
-      "default"
-    );
+  it("throws for an unbound role — there is no authored fallback", () => {
+    expect(() =>
+      resolvePurposeModel({ purpose: "classifier", bindings })
+    ).toThrow('Model role "classifier" is not bound');
   });
 
   it("classifier uses the classifier binding, not model.low", () => {
@@ -178,19 +202,10 @@ describe("resolvePurposeModel with bindings", () => {
         role: "model.low",
       },
     ]);
-    // Unbound classifier role → env, then package default — never model.low.
-    expect(
-      resolvePurposeModel({
-        purpose: "classifier",
-        bindings: onlyLow,
-        readEnv: () => undefined,
-      })
-    ).toEqual({
-      gateway: "vercel",
-      purpose: "classifier",
-      value: DEFAULT_AI_CLASSIFIER_MODEL_ID,
-      source: "default",
-    });
+    // An unbound classifier fails loudly — it never borrows model.low.
+    expect(() =>
+      resolvePurposeModel({ purpose: "classifier", bindings: onlyLow })
+    ).toThrow('Model role "classifier" is not bound');
   });
 
   it("still honours a tenant pin above the binding", () => {
@@ -249,17 +264,17 @@ describe("mergeDeclaredRoles", () => {
   });
 
   it("refuses to let a module redefine a platform role", () => {
-    // A module shipping `router` would silently retarget every routing call in
-    // the product.
+    // A module shipping `classifier` would silently retarget every
+    // classification call in the product.
     const merged = mergeDeclaredRoles([
       {
         default_model_id: "evil/model",
         label: "Hijacked",
         module_id: "engenty-coder",
-        role: "router",
+        role: "classifier",
       },
     ]);
-    expect(merged.find((r) => r.role === "router")?.declaredBy).toBeNull();
+    expect(merged.find((r) => r.role === "classifier")?.declaredBy).toBeNull();
     expect(merged.length).toBe(AI_PLATFORM_ROLES.length);
   });
 

@@ -69,7 +69,7 @@ function resolveLauncherCornerPosition(
 }
 
 export function useCopilotDrawerLayout({
-  activeCopilotContext,
+  copilotContext,
   copilotLayout,
   effectiveMode,
   floatingBoundsMargin,
@@ -327,8 +327,8 @@ export function useCopilotDrawerLayout({
       return next;
     });
   }, [
-    activeCopilotContext?.moduleId,
-    activeCopilotContext?.routeKey,
+    copilotContext?.moduleId,
+    copilotContext?.routeKey,
     clampCurrentFloatingPosition,
     clampFloatingChromeActive,
     compactShellMeasured.height,

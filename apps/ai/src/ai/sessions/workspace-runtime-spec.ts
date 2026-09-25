@@ -58,6 +58,10 @@ export function resolveEngentyWorkspaceRuntimeSpec(input: {
   sandboxRequireApproval?: boolean;
   scope: AiSessionScope;
   skillDiscoveryPaths?: string[];
+  /** A Space computer's own egress hosts. */
+  spaceComputerEgressHosts?: readonly string[];
+  /** A Space computer's reach, from the Space (not the agent). */
+  spaceComputerNetwork?: "none" | "egress";
 }) {
   const coreBaseUrl = getEngentyCoreBaseUrlFromEnv();
   const accessToken = scopeAccessToken(input.scope)?.trim();
@@ -66,7 +70,6 @@ export function resolveEngentyWorkspaceRuntimeSpec(input: {
     agentConfig: {
       id: input.agentId,
       instructions: "",
-      model: "openai/gpt-4.1-mini",
       name: input.agentId,
       tenantId: input.scope.tenantId,
     },
@@ -85,6 +88,12 @@ export function resolveEngentyWorkspaceRuntimeSpec(input: {
     sandboxRequireApproval: input.sandboxRequireApproval ?? true,
     ...(input.skillDiscoveryPaths
       ? { skillDiscoveryPaths: input.skillDiscoveryPaths }
+      : {}),
+    ...(input.spaceComputerNetwork
+      ? { spaceComputerNetwork: input.spaceComputerNetwork }
+      : {}),
+    ...(input.spaceComputerEgressHosts
+      ? { spaceComputerEgressHosts: [...input.spaceComputerEgressHosts] }
       : {}),
     // Bearer-backed file storage adapter — when missing the loader falls back
     // to LocalFilesystem so dev/tests still work without a core token.

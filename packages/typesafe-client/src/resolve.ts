@@ -1,14 +1,12 @@
-// The one place that turns an environment into a Jev client. Every caller —
-// the browser fast loop, the effort router, inbox categories, the KB search
-// verifier — resolves the same door the same way, and tests hand in a client
-// instead of an environment.
+// The one place that turns a bound Jev model plus an environment into a
+// client. The classifier binding names the model; the environment only says
+// which door (TypeSafe's own key, or the Vercel AI Gateway key) is open.
 
 import {
   AI_GATEWAY_API_KEY_ENV,
   type ResolvedTypeSafeClientOptions,
   resolveTypeSafeClientOptions,
   TYPESAFE_API_KEY_ENV,
-  TYPESAFE_MODEL_ENV,
   TypeSafeClient,
   type TypeSafeClientOptions,
 } from "./client.js";
@@ -21,33 +19,38 @@ const defaultReadEnv: EnvReader = (key) =>
   (globalThis as { process?: { env?: Record<string, string | undefined> } })
     .process?.env?.[key];
 
-/** The env slice the client resolver reads. */
+/** The env slice the client resolver reads: the two keys, never a model. */
 export function readJevEnv(
   readEnv: EnvReader = defaultReadEnv
 ): Record<string, string | undefined> {
   return {
     [AI_GATEWAY_API_KEY_ENV]: readEnv(AI_GATEWAY_API_KEY_ENV),
     [TYPESAFE_API_KEY_ENV]: readEnv(TYPESAFE_API_KEY_ENV),
-    [TYPESAFE_MODEL_ENV]: readEnv(TYPESAFE_MODEL_ENV),
   };
 }
 
 export interface ResolvedJev {
   client: TypeSafeClient;
-  /** The model the client will name on every call. */
+  /** The model the client will name on every call, spelled for its route. */
   model: string;
   route: ResolvedTypeSafeClientOptions["route"];
 }
 
-/** A client on whichever door the environment opens, or null when neither key is set. */
+export type JevClientOptions = Pick<
+  TypeSafeClientOptions,
+  "fetchImpl" | "retries" | "timeoutMs"
+>;
+
+/**
+ * A client for the bound Jev model on whichever door the environment opens,
+ * or null when neither key is set.
+ */
 export function resolveJevClient(
+  modelId: string,
   readEnv: EnvReader = defaultReadEnv,
-  options: Pick<
-    TypeSafeClientOptions,
-    "fetchImpl" | "retries" | "timeoutMs"
-  > = {}
+  options: JevClientOptions = {}
 ): ResolvedJev | null {
-  const route = resolveTypeSafeClientOptions(readJevEnv(readEnv));
+  const route = resolveTypeSafeClientOptions(readJevEnv(readEnv), modelId);
   if (!route) {
     return null;
   }
@@ -63,11 +66,6 @@ export function resolveJevClient(
   };
 }
 
-/** Whether a Jev door is open, without building a client for it. */
-export function isJevConfigured(readEnv: EnvReader = defaultReadEnv): boolean {
-  return resolveTypeSafeClientOptions(readJevEnv(readEnv)) !== null;
-}
-
 /**
  * Open the connection before the first real question. A fresh process pays
  * ~1.4 s for its first call (module load + TLS), longer than any classifier
@@ -75,10 +73,11 @@ export function isJevConfigured(readEnv: EnvReader = defaultReadEnv): boolean {
  * Fire-and-forget: a failure here is the same as no warm-up.
  */
 export function warmJev(
+  modelId: string,
   readEnv: EnvReader = defaultReadEnv,
   options: Pick<TypeSafeClientOptions, "fetchImpl"> = {}
 ): boolean {
-  const jev = resolveJevClient(readEnv, options);
+  const jev = resolveJevClient(modelId, readEnv, options);
   if (!jev) {
     return false;
   }

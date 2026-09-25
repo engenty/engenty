@@ -6,7 +6,6 @@ import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { SubmitMessage } from "../../../agent-provider/types.js";
 import type { TranscribeSpeechAudio } from "../../../lib/speech/use-speech-to-text.js";
 import type { ChatKind } from "../chat-kind-badge.js";
-import type { CopilotCompactContextOption } from "../composer/copilot-compact-context-option";
 import type { StarterPromptItem } from "../composer/copilot-composer";
 import type { CopilotDecisionInterruptFeedback } from "../interrupts/copilot-tool-call-actions";
 import type { SubAgentRunSectionLabels } from "../sub-agent-run/sub-agent-run-sections.js";
@@ -42,8 +41,6 @@ export interface CopilotPanelContentProps {
   closeLabel: string;
   /** When true, show minimal UI (composer + compact transcript). Used for mini-floating. */
   compact?: boolean;
-  /** Toolbar control next to attach menu when `composerDockStyle` (e.g. context dropdown). */
-  compactContextControl?: ReactNode;
   /**
    * When true, composer matches bottom-dock chrome (compact plain input inside card).
    * Used for inline sidebar parity with floating dock.
@@ -66,9 +63,6 @@ export interface CopilotPanelContentProps {
    * so full-page chat can fill the shell without double gutters (shell padding + body padding).
    */
   contentBodyGutter?: "default" | "flush";
-  contextMenuLabel?: string;
-  /** When set with onSelectContext, header shows context dropdown (sidebar / drawer / docked). */
-  contextOptions?: CopilotCompactContextOption[];
   debugPayload?: unknown;
   detachLabel: string;
   /**
@@ -112,8 +106,6 @@ export interface CopilotPanelContentProps {
   /** Async typed-mention search (users/contacts/objects/artifacts) for reference chips. */
   mentionRefSearch?: import("../composer/use-copilot-composer-mention.js").MentionRefSearch;
   messages: readonly (AgentTurnMessageLike & { id: string })[];
-  /** When true, hide route status and "Review the prompt..." text. Used for bottom dock. */
-  minimalChrome?: boolean;
 
   onClose: () => void;
   /** When user picks an agent from the @ mention list, sync shell agent selection (e.g. full-page chat). */
@@ -130,7 +122,6 @@ export interface CopilotPanelContentProps {
   onSandboxCommandApprove?: (open: AgUiOpenInterruptMetadata) => void;
   /** Reject a pending sandbox command. */
   onSandboxCommandReject?: (open: AgUiOpenInterruptMetadata) => void;
-  onSelectContext?: (contextId: string) => void;
   /** Abort the in-flight AG-UI run from the composer stop control. */
   onStop?: () => void;
   /** Present = the header shows the monitor button. */
@@ -149,8 +140,6 @@ export interface CopilotPanelContentProps {
   pendingUserText?: string | null;
   /** Docked header: replaces detach/close with shell position menu (⋮). */
   positionMenu?: ReactNode;
-  recentContextMenuLabel?: string;
-  recentContextOptions?: CopilotCompactContextOption[];
   /** Resolve an interactive decision/feedback tool call: optimistic write + resume. */
   respond?: (
     toolCallId: string,
@@ -158,13 +147,7 @@ export interface CopilotPanelContentProps {
   ) => void;
   resumeInterrupt?: (feedback: CopilotDecisionInterruptFeedback) => void;
 
-  /**
-   * Optional status line when no context dropdown is shown (rare).
-   * Prefer `contextOptions` + header dropdown for normal surfaces.
-   */
-  routeStatusLabel?: string;
   selectedCandidateValues?: Record<string, string | null>;
-  selectedContextId?: string;
 
   setDraft: Dispatch<SetStateAction<string>>;
   setSelectedCandidateValues?: (
@@ -183,6 +166,12 @@ export interface CopilotPanelContentProps {
   starterPrompts?: StarterPromptItem[];
 
   status: "ready" | "streaming" | "submitted" | "error";
+  /**
+   * Pinned under the title bar, outside the scroller. The desk shows this
+   * band only once the identity has scrolled away; the window and the drawer
+   * keep it up even when the transcript is too short to need it.
+   */
+  stickyBand?: ReactNode;
   /** Count of received AG-UI stream events; any growth proves the stream is
    *  alive and restarts the no-response guard (reasoning/tool deltas don't
    *  change `messages`, so the guard cannot key on the transcript alone). */

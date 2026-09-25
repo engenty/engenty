@@ -4,6 +4,7 @@ import path from "node:path";
 import { DockerSandbox, type DockerSandboxOptions } from "@mastra/docker";
 
 import type { EngentyCoreFileStorageClient } from "../../workspace/core-file-storage-client.js";
+import { withEngentyCli } from "../engenty-cli-relay.js";
 import {
   releaseSandboxSlot,
   type SandboxAdmissionScope,
@@ -20,7 +21,10 @@ import type {
   CreateEngentySandboxProviderInput,
   EngentySandboxProvider,
 } from "../sandbox-provider.js";
-import { resolveSandboxScopeKey } from "../sandbox-storage-paths.js";
+import {
+  resolveSandboxScopeKey,
+  resolveSpaceComputerHomePath,
+} from "../sandbox-storage-paths.js";
 import type { SandboxExtraMount } from "../sandbox-types.js";
 import { withSpaceComputerExecSerialization } from "../space-computer.js";
 import {
@@ -75,6 +79,7 @@ export function buildDockerSandboxOptions(params: {
   input: CreateEngentySandboxProviderInput;
   mountPath?: string;
   network?: SandboxNetworkTier;
+  proxyAuth?: { password: string; username: string };
 }): DockerSandboxOptions {
   const stagingPath = params.input.layout.stagingPath;
   const containerWorkdir =
@@ -93,13 +98,20 @@ export function buildDockerSandboxOptions(params: {
   // drive state — so they survive Reset too. System paths stay root-owned
   // and unwritable either way; persistent installs go to $HOME or /sandbox.
   const isSpaceComputer = params.input.identity.lifecycle === "space";
-  if (isSpaceComputer) {
-    const homePath = path.join(stagingPath, "..", "home");
+  const spaceId = params.input.identity.spaceId;
+  if (isSpaceComputer && spaceId) {
+    const homePath = resolveSpaceComputerHomePath(
+      params.input.identity.tenantId,
+      spaceId
+    );
     stageBindSource(homePath);
     volumes[homePath] = "/opt/sandbox";
   }
   const limits = resolveSandboxResourceLimits();
-  const networkPlan = resolveSandboxNetworkPlan(params.network ?? "none");
+  const networkPlan = resolveSandboxNetworkPlan(
+    params.network ?? "none",
+    params.proxyAuth
+  );
   return {
     // Model-generated code needs no privileged operation: it reads and writes
     // its bind mounts and spawns processes. Dropping every capability costs it
@@ -140,10 +152,13 @@ export function createDockerSandboxInstance(
 ): DockerSandbox {
   // Every sandbox in the process is created here, so this is where the host's
   // concurrency ceiling is enforced — see `withSandboxAdmissionControl` — and
-  // where a space computer's exec serialization is applied. The teardown path
+  // where a space computer's exec serialization is applied, and where every
+  // command gets its `engenty` CLI session. The teardown path
   // passes no scope: it never starts the container, so it never takes a slot.
-  return withSpaceComputerExecSerialization(
-    withSandboxAdmissionControl(new DockerSandbox(options), scope)
+  return withEngentyCli(
+    withSpaceComputerExecSerialization(
+      withSandboxAdmissionControl(new DockerSandbox(options), scope)
+    )
   );
 }
 
@@ -223,6 +238,7 @@ export function createDockerEngentySandboxPair(params: {
   input: CreateEngentySandboxProviderInput;
   mountPath?: string;
   network?: SandboxNetworkTier;
+  proxyAuth?: { password: string; username: string };
   tenantId: string;
   useRemoteStorageSync: boolean;
 }): { dockerSandbox: DockerSandbox; provider: EngentySandboxProvider } {
@@ -236,6 +252,7 @@ export function createDockerEngentySandboxPair(params: {
       input: params.input,
       mountPath,
       network: params.network,
+      ...(params.proxyAuth ? { proxyAuth: params.proxyAuth } : {}),
     }),
     {
       runId: params.input.identity.runId,

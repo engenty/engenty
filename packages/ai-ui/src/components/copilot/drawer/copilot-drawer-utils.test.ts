@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  isCopilotCompanionSurfaceActive,
   isTalkConversationPathname,
   resolveCopilotCompanionOpen,
   resolveCopilotOpenDockMode,
@@ -167,6 +168,26 @@ describe("shouldShowCopilotFab", () => {
         isCollapsingToIcon: true,
         open: true,
       })
+    ).toBe(true);
+  });
+});
+
+describe("isCopilotCompanionSurfaceActive", () => {
+  it("does not mount companion content when closed", () => {
+    expect(
+      isCopilotCompanionSurfaceActive({ chromeHidden: false, open: false })
+    ).toBe(false);
+  });
+
+  it("does not mount companion content on a full-page chat route", () => {
+    expect(
+      isCopilotCompanionSurfaceActive({ chromeHidden: true, open: true })
+    ).toBe(false);
+  });
+
+  it("mounts companion content only when the drawer is open beside the page", () => {
+    expect(
+      isCopilotCompanionSurfaceActive({ chromeHidden: false, open: true })
     ).toBe(true);
   });
 });

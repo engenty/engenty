@@ -285,10 +285,12 @@ export function createMessageAgentTool(
         });
         // …and the person who was not watching learns it happened.
         await announceAgentMessage(deps, {
+          from: displayName(senderName, deps.parentAgentId),
           fromId: deps.parentAgentId,
           pairThread,
           spaceId,
-          summary: `${senderName} ${mode === "notify" ? "handed off to" : "asked"} ${alias}`,
+          to: displayName(alias, agentId),
+          verb: "handoff",
         });
       }
       let result: Record<string, unknown>;
@@ -367,10 +369,12 @@ export function createMessageAgentTool(
             spaceId,
           });
           await announceAgentMessage(deps, {
+            from: displayName(alias, agentId),
             fromId: agentId,
             pairThread,
             spaceId,
-            summary: `${alias} replied to ${senderName}`,
+            to: displayName(senderName, deps.parentAgentId),
+            verb: "reply",
           });
         }
       }
@@ -380,6 +384,11 @@ export function createMessageAgentTool(
         ...result,
         agent_engenty: resolveAgentEngenty(agentId, target?.engenty),
         agent_id: agentId,
+        // Where the pair thread lives, so the hand-off row links to it from
+        // a page outside that Space (the copilot's own page has none).
+        ...(pairThread
+          ? { room_host_agent_id: pairThread.agentId, space_id: spaceId }
+          : {}),
       } as never;
     },
   });
@@ -508,11 +517,21 @@ async function messageRoom(
     for (const agentId of input.ids) {
       await deps.store.addAgentMember({ agentId, tenantId, threadId: room.id });
     }
+    const memberNames = members
+      .map((member) => displayName(member.name, member.agent_id))
+      .filter((name): name is string => name !== null);
     await announceAgentMessage(deps, {
+      from: displayName(senderName, deps.parentAgentId),
       fromId: deps.parentAgentId,
       pairThread: { agentId: deps.parentAgentId, id: room.id },
+      // A room has its own page; the row opens it, not the host's desk.
+      roomThreadId: room.id,
       spaceId: input.spaceId,
-      summary: `${senderName} opened a room with ${members.map((member) => member.name).join(", ")}`,
+      to:
+        memberNames.length === members.length && memberNames.length > 0
+          ? memberNames.join(", ")
+          : null,
+      verb: "handoff",
     });
   }
   const delivered = await deliverToRoom({
@@ -702,6 +721,18 @@ async function isRoomMember(
 const ANNOUNCE_WINDOW_MS = 10 * 60 * 1000;
 
 /**
+ * A name fit for a notification: the display name when the registry had one,
+ * null when all that is known is the id (the lookups fall back to it).
+ */
+function displayName(
+  name: string | null | undefined,
+  id: string
+): string | null {
+  const trimmed = name?.trim();
+  return trimmed && trimmed !== id ? trimmed : null;
+}
+
+/**
  * An `update` for the person: agents talked and they were not watching.
  * One row per sender + space within a window, ×N — a busy pair does not
  * flood the inbox. Opening the pair thread marks it seen (read-sync in the
@@ -710,10 +741,16 @@ const ANNOUNCE_WINDOW_MS = 10 * 60 * 1000;
 async function announceAgentMessage(
   deps: DelegationToolDeps,
   input: {
+    /** The sender's display name; null when only its id is known. */
+    from: string | null;
     fromId: string;
     pairThread: { agentId: string; id: string };
+    /** Set when the exchange lives in a room: the row opens the room page. */
+    roomThreadId?: string | null;
     spaceId: string;
-    summary: string;
+    /** The receiver's display name(s); null when only an id is known. */
+    to: string | null;
+    verb: "handoff" | "reply";
   }
 ): Promise<void> {
   // Told to the person behind the run; a service run has nobody to tell.
@@ -728,6 +765,7 @@ async function announceAgentMessage(
     kind: "agent_message_received",
     metadata: {
       from_agent_id: input.fromId,
+      ...(input.roomThreadId ? { room_thread_id: input.roomThreadId } : {}),
       thread_agent_id: input.pairThread.agentId,
       thread_id: input.pairThread.id,
     },
@@ -735,8 +773,20 @@ async function announceAgentMessage(
     source: "agents",
     spaceId: input.spaceId,
     subject: { id: input.pairThread.id, type: "thread" },
-    summary: input.summary,
+    // Fallback only, said whole when a name is missing — never an agent id.
+    summary:
+      input.verb === "reply"
+        ? `${input.from ?? "An agent"} replied`
+        : `${input.from ?? "An agent"} handed work to a colleague`,
     tenantId: deps.scope.tenantId,
+    ...(input.from && input.to
+      ? {
+          title: {
+            key: input.verb === "reply" ? "agent_reply" : "agent_handoff",
+            params: { from: input.from, to: input.to },
+          },
+        }
+      : {}),
     userId,
   });
 }

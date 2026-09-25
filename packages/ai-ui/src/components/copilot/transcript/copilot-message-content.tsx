@@ -4,8 +4,9 @@
 // in docs/content/wip/roadmap/enhancing-copilot/reasoning-vertical.md.
 "use client";
 
+import { useTranslation } from "@engenty/i18n/ui";
 import { cn } from "@engenty/ui-core";
-import { useContext, useMemo } from "react";
+import { type ReactNode, useContext, useMemo } from "react";
 import { EngentyAIContext } from "../../../agent-provider/engenty-ai-provider.js";
 import { copilotRiverSubRunPath } from "../../../copilot/copilot-river-paths.js";
 import { readChatReferencePart } from "../../../lib/chat-reference-part.js";
@@ -34,7 +35,11 @@ import {
   SkillStep,
   WebSearchStep,
 } from "./chain-of-thought-steps";
-import { softenUserInlineCode } from "./chat-user-bubble.js";
+import { useChatStyle } from "./chat-style.js";
+import {
+  humanizeUiGuideFollowUp,
+  softenUserInlineCode,
+} from "./chat-user-bubble.js";
 import { CollapsibleMessageText } from "./collapsible-message-text.js";
 import {
   getToolDisplayLabel,
@@ -53,6 +58,12 @@ import {
   type ToolPartLike,
 } from "./copilot-message-parts";
 import { MentionInlineText } from "./mention-inline-text.js";
+import {
+  PersonThoughtDisclosure,
+  PersonWorkingLine,
+} from "./person-turn-status.js";
+import { ToolClipRows } from "./tool-clip-rows.js";
+import { resolveToolClip } from "./tool-clips.js";
 
 // Assistant messages that streamed during this page session. A tool part only
 // enters the transcript once its output is complete, so a card can never
@@ -206,18 +217,46 @@ function classifyPart(part: unknown): PartKind {
   return { kind: "skip" };
 }
 
+// A message's parts are classified once per parts array: the transcript asks
+// for them on every render of every row, and only the streaming row's parts
+// ever change.
+const classifiedPartsCache = new WeakMap<readonly unknown[], PartKind[]>();
+
+function classifyParts(parts: readonly unknown[]): PartKind[] {
+  const cached = classifiedPartsCache.get(parts);
+  if (cached) {
+    return cached;
+  }
+  const classified = parts.map(classifyPart);
+  classifiedPartsCache.set(parts, classified);
+  return classified;
+}
+
 // --- Main export ---
 
 export interface CopilotMessageContentProps {
+  /**
+   * The speaker's name in a messenger chat: it sits on the bubble it names,
+   * under any clips and cards above the words.
+   */
+  bubbleLabel?: ReactNode;
   /** Suppress the inline copy of the decision/feedback chooser docked above the composer. */
   dockedInterruptToolCallId?: string | null;
-  messages: Array<{ id: string }>;
+  /** The newest row of the transcript — its words never fold. */
+  isLastMessage?: boolean;
   msg: { id: string; role: string; parts?: readonly unknown[] };
-  status: string;
+  /** This message is being written right now. */
+  streaming?: boolean;
   subAgentFullViewLabel?: string;
   subAgentSectionLabels?: ToolCallCardProps["subAgentSectionLabels"];
   threadId?: string | null;
   toolCardDensity?: ToolCallCardProps["density"];
+  /**
+   * `developer`: every tool call as a step list. `person`: only clips — the
+   * calls that changed something a person can see — and one status line
+   * while the turn works.
+   */
+  toolDetail?: "developer" | "person";
 }
 
 // Full-page monitor only exists on module copilot chat; omit link when threadId
@@ -296,27 +335,99 @@ function renderToolCallCardRow(input: {
   );
 }
 
-export function CopilotMessageContent({
-  msg,
-  messages,
-  status,
-  subAgentFullViewLabel,
-  subAgentSectionLabels,
-  threadId = null,
-  toolCardDensity = "default",
-  dockedInterruptToolCallId = null,
-}: CopilotMessageContentProps) {
-  const parts = msg.parts ?? [];
-  const isLastMessage = msg.id === messages.at(-1)?.id;
-  const isCurrentlyStreaming = status === "streaming" && isLastMessage;
-  if (isCurrentlyStreaming) {
-    liveRunMessageIds.add(msg.id);
+/**
+ * Where an agent's row does not read as one bubble joined to its neighbours:
+ * `above` when something visible sits on top of its text — a clip, a card,
+ * the developer step list; `below` too when nothing but those shows. A face
+ * and a joined corner belong to bubbles that actually touch. Silent tools
+ * (a skill, a snapshot) draw nothing for a person, so they part nothing.
+ */
+export interface ChatBubbleBreaks {
+  above: boolean;
+  below: boolean;
+  words: boolean;
+}
+
+const WORDS_ONLY: ChatBubbleBreaks = {
+  above: false,
+  below: false,
+  words: true,
+};
+const NO_PARTS: readonly unknown[] = [];
+const bubbleBreaksCache = new WeakMap<
+  readonly unknown[],
+  Partial<Record<"developer" | "person", ChatBubbleBreaks>>
+>();
+
+export function chatBubbleBreaks(
+  msg: { parts?: readonly unknown[]; role: string },
+  toolDetail: "developer" | "person"
+): ChatBubbleBreaks {
+  if (msg.role !== "assistant") {
+    return WORDS_ONLY;
   }
-  const isLiveRun = liveRunMessageIds.has(msg.id);
+  const parts = msg.parts ?? NO_PARTS;
+  const cached = bubbleBreaksCache.get(parts);
+  const hit = cached?.[toolDetail];
+  if (hit) {
+    return hit;
+  }
+  const breaks = assistantBubbleBreaks(parts, toolDetail);
+  bubbleBreaksCache.set(parts, { ...cached, [toolDetail]: breaks });
+  return breaks;
+}
 
-  // Classify all parts
-  const classified = parts.map(classifyPart);
+function assistantBubbleBreaks(
+  parts: readonly unknown[],
+  toolDetail: "developer" | "person"
+): ChatBubbleBreaks {
+  const classified = classifyParts(parts);
+  const textIndices = classified.flatMap((c, index) =>
+    c.kind === "text" && c.text.trim() ? [index] : []
+  );
+  const tools = classified.flatMap((c, index) =>
+    c.kind === "tool" || c.kind === "web_search" || c.kind === "skill"
+      ? [{ c, index }]
+      : []
+  );
+  // Drawn like the message draws them: the step list and the clips always
+  // above the words; a card above them unless it comes after the last text.
+  const lastText = textIndices.at(-1) ?? -1;
+  const card = ({ c }: (typeof tools)[number]) =>
+    isStandaloneCardToolPart(c.part, c.toolName) ||
+    isInteractiveDecisionToolPart(c.part);
+  const aboveText = tools.some(
+    (tool) =>
+      (!card(tool) &&
+        (toolDetail === "developer" ||
+          resolveToolClip(tool.c.part) !== null)) ||
+      (card(tool) && (lastText === -1 || tool.index <= lastText))
+  );
+  if (textIndices.length === 0) {
+    return { above: aboveText, below: aboveText, words: false };
+  }
+  const belowText = tools.some((tool) => card(tool) && tool.index > lastText);
+  return { above: aboveText, below: belowText, words: true };
+}
 
+interface PartitionedParts {
+  /** HITL choosers (and late standalone cards) that stay outside the timeline. */
+  preTextCardParts: CardPart[];
+  textParts: Array<{ index: number; text: string }>;
+  thoughtParts: Array<{ index: number; kind: PartKind }>;
+  trailingToolParts: CardPart[];
+}
+
+interface CardPart {
+  index: number;
+  part: ToolPartLike;
+  toolName: string;
+}
+
+function partitionParts(
+  classified: readonly PartKind[],
+  dockedInterruptToolCallId: string | null
+): PartitionedParts {
   // ChainOfThought collects every regular tool in the turn as a step list
   // (AI Elements-style). Standalone / HITL cards escape the timeline; text
   // never splits the tool list — otherwise tools after an intermediate text
@@ -325,19 +436,11 @@ export function CopilotMessageContent({
   const thoughtParts: Array<{ index: number; kind: PartKind }> = [];
   const textParts: Array<{ index: number; text: string }> = [];
   // HITL choosers (and late standalone cards) that stay outside the timeline.
-  const trailingToolParts: Array<{
-    index: number;
-    part: ToolPartLike;
-    toolName: string;
-  }> = [];
+  const trailingToolParts: CardPart[] = [];
   // Tool parts whose card IS the answer — agent-* delegations
   // (SubAgentTaskToolCallCard) and object renders (contact/offer/task cards).
   // They render full-width above the text, never as a one-line thought step.
-  const preTextCardParts: Array<{
-    index: number;
-    part: ToolPartLike;
-    toolName: string;
-  }> = [];
+  const preTextCardParts: CardPart[] = [];
 
   // Boundary for whether a standalone card sits above vs below the answer text.
   const textIndices = classified
@@ -416,7 +519,37 @@ export function CopilotMessageContent({
     // Regular tools + (parked) reasoning → one expandable step list.
     thoughtParts.push({ index: i, kind: c });
   }
+  return { preTextCardParts, textParts, thoughtParts, trailingToolParts };
+}
 
+export function CopilotMessageContent({
+  msg,
+  isLastMessage = false,
+  streaming = false,
+  subAgentFullViewLabel,
+  subAgentSectionLabels,
+  threadId = null,
+  toolCardDensity = "default",
+  dockedInterruptToolCallId = null,
+  toolDetail = "developer",
+  bubbleLabel = null,
+}: CopilotMessageContentProps) {
+  const chatStyle = useChatStyle();
+  const parts = msg.parts ?? NO_PARTS;
+  const isCurrentlyStreaming = streaming;
+  if (isCurrentlyStreaming) {
+    liveRunMessageIds.add(msg.id);
+  }
+  const isLiveRun = liveRunMessageIds.has(msg.id);
+
+  const classified = classifyParts(parts);
+  const { preTextCardParts, textParts, thoughtParts, trailingToolParts } =
+    useMemo(
+      () => partitionParts(classified, dockedInterruptToolCallId),
+      [classified, dockedInterruptToolCallId]
+    );
+
+  const { t } = useTranslation("ai-ui");
   const citations = useCitations(textParts, parts);
   const userRefs = useMemo(
     () =>
@@ -442,6 +575,7 @@ export function CopilotMessageContent({
         // A user turn that starts with a slash command renders the token as an
         // inline code chip (display-only; the persisted text stays raw).
         if (msg.role === "user" && tpIndex === 0) {
+          text = humanizeUiGuideFollowUp(text, t);
           text = text.replace(/^(\/[a-z0-9][a-z0-9-]*)(\s|$)/, "`$1`$2");
         }
         if (msg.role === "user") {
@@ -449,7 +583,7 @@ export function CopilotMessageContent({
         }
         return { ...tp, text };
       }),
-    [textParts, citations, msg.role]
+    [textParts, citations, msg.role, t]
   );
 
   // Tool steps render in the ChainOfThought timeline. Reasoning parts (if any ever
@@ -492,7 +626,19 @@ export function CopilotMessageContent({
       : null;
   const thoughtElapsed = useElapsedSeconds(isThoughtStreaming);
 
-  const showChainOfThought = toolThoughtParts.length > 0;
+  const showChainOfThought =
+    toolDetail === "developer" && toolThoughtParts.length > 0;
+  const clips = toolThoughtParts.flatMap(({ index, kind }) => {
+    const clip = kind.kind === "tool" ? resolveToolClip(kind.part) : null;
+    return clip ? [{ clip, key: `${msg.id}-clip-${index}` }] : [];
+  });
+  const reasoningText = thoughtParts
+    .flatMap(({ kind }) =>
+      kind.kind === "reasoning" && kind.part.text?.trim()
+        ? [kind.part.text.trim()]
+        : []
+    )
+    .join("\n\n");
 
   return (
     <>
@@ -561,6 +707,14 @@ export function CopilotMessageContent({
         </ChainOfThought>
       ) : null}
 
+      {toolDetail === "person" && isThoughtStreaming ? (
+        <PersonWorkingLine elapsedSeconds={thoughtElapsed} />
+      ) : null}
+      {toolDetail === "person" && reasoningText && !isThoughtStreaming ? (
+        <PersonThoughtDisclosure text={reasoningText} />
+      ) : null}
+      <ToolClipRows clips={clips} />
+
       {preTextCardParts.map(({ index, part, toolName }) =>
         renderToolCallCardRow({
           index,
@@ -575,10 +729,20 @@ export function CopilotMessageContent({
         })
       )}
 
+      {msg.role === "assistant" && rewrittenTextParts.length > 0
+        ? bubbleLabel
+        : null}
       {msg.role === "assistant" && rewrittenTextParts.length > 0 ? (
         // The agent's words fold past a screenful — a chat, not a memo. The
         // text parts of one turn fold together so one "Show more" opens all.
-        <CollapsibleMessageText streaming={isCurrentlyStreaming}>
+        <CollapsibleMessageText
+          className={cn(
+            chatStyle === "bubbles" &&
+              "w-fit max-w-full rounded-2xl bg-foreground/[0.06] px-3.5 py-2.5"
+          )}
+          fold={!isLastMessage}
+          streaming={isCurrentlyStreaming}
+        >
           {rewrittenTextParts.map(({ index, text }) => (
             <MessageResponse key={`${msg.id}-${index}`}>{text}</MessageResponse>
           ))}

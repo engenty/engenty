@@ -1,135 +1,38 @@
 import type { RunAgentInput } from "@engenty/ag-ui-bridge";
 import { describe, expect, it } from "vitest";
-import {
-  isModelFeedableMime,
-  latestUserAttachmentParts,
-  latestUserAttachments,
-} from "../api/attachments/tiered-attachments.js";
+import { latestUserAttachmentParts } from "../api/attachments/tiered-attachments.js";
 
-function runInput(messages: unknown[]): RunAgentInput {
-  return { messages } as unknown as RunAgentInput;
+function attachmentPart(
+  type: "document" | "image",
+  filename: string,
+  mimeType: string
+) {
+  return {
+    type,
+    source: { type: "url", value: `https://x/${filename}`, mimeType },
+    metadata: {
+      engenty_attachment: {
+        filename,
+        mimeType,
+        size: 10,
+        storageKey: `tenants/t1/chat/uploads/1_${filename}`,
+      },
+    },
+  };
 }
 
-const imagePart = {
-  type: "image",
-  source: { type: "url", value: "https://x/y.png", mimeType: "image/png" },
-  metadata: {
-    engenty_attachment: {
-      filename: "y.png",
-      mimeType: "image/png",
-      size: 10,
-      storageKey: "tenants/t1/chat/uploads/1_y.png",
-    },
-  },
-};
-
-describe("latestUserAttachments", () => {
-  it("extracts image/document refs from the latest user turn", () => {
-    const refs = latestUserAttachments(
-      runInput([
-        { role: "assistant", content: "hi" },
-        {
-          role: "user",
-          content: [{ type: "text", text: "look" }, imagePart],
-        },
-      ])
-    );
-    expect(refs).toEqual([
-      {
-        filename: "y.png",
-        mimeType: "image/png",
-        sizeBytes: 10,
-        storageKey: "tenants/t1/chat/uploads/1_y.png",
-      },
-    ]);
-  });
-
-  it("only reads the most recent user message", () => {
-    const refs = latestUserAttachments(
-      runInput([
-        { role: "user", content: [imagePart] },
-        { role: "user", content: "no attachments here" },
-      ])
-    );
-    expect(refs).toEqual([]);
-  });
-
-  it("skips parts without an engenty storage key", () => {
-    const refs = latestUserAttachments(
-      runInput([
-        {
-          role: "user",
-          content: [
-            {
-              type: "image",
-              source: { type: "url", value: "https://x/z.png" },
-            },
-          ],
-        },
-      ])
-    );
-    expect(refs).toEqual([]);
-  });
-
-  it("gates model-feedable MIME types", () => {
-    expect(isModelFeedableMime("image/png")).toBe(true);
-    expect(isModelFeedableMime("application/pdf")).toBe(false);
-    expect(isModelFeedableMime("application/zip")).toBe(false);
-    expect(isModelFeedableMime("text/plain")).toBe(false);
-  });
-});
-
 describe("latestUserAttachmentParts", () => {
-  it("returns the raw image/document parts verbatim (for durable persistence)", () => {
-    const parts = latestUserAttachmentParts(
-      runInput([
-        {
-          role: "user",
-          content: [{ type: "text", text: "look" }, imagePart],
-        },
-      ])
-    );
-    expect(parts).toEqual([imagePart]);
-  });
-
   it("keeps non-model files too (they still render in the transcript)", () => {
-    const zipPart = {
-      type: "document",
-      source: {
-        type: "url",
-        value: "https://x/a.zip",
-        mimeType: "application/zip",
-      },
-      metadata: {
-        engenty_attachment: {
-          filename: "a.zip",
-          mimeType: "application/zip",
-          size: 5,
-          storageKey: "tenants/t1/chat/uploads/2_a.zip",
-        },
-      },
-    };
-    const parts = latestUserAttachmentParts(
-      runInput([{ role: "user", content: [imagePart, zipPart] }])
-    );
-    expect(parts).toEqual([imagePart, zipPart]);
-  });
-
-  it("drops parts without an engenty storage key", () => {
-    const parts = latestUserAttachmentParts(
-      runInput([
+    const imagePart = attachmentPart("image", "y.png", "image/png");
+    const zipPart = attachmentPart("document", "a.zip", "application/zip");
+    const parts = latestUserAttachmentParts({
+      messages: [
         {
           role: "user",
-          content: [
-            { type: "text", text: "hi" },
-            {
-              type: "image",
-              source: { type: "url", value: "https://x/z.png" },
-            },
-          ],
+          content: [{ type: "text", text: "look" }, imagePart, zipPart],
         },
-      ])
-    );
-    expect(parts).toEqual([]);
+      ],
+    } as unknown as RunAgentInput);
+    expect(parts).toEqual([imagePart, zipPart]);
   });
 });

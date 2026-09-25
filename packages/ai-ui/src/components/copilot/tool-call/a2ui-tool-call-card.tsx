@@ -6,7 +6,7 @@ import {
 } from "@engenty/a2ui-catalog";
 import { parseObjectRef, readA2uiRenderMeta } from "@engenty/ai-core/browser";
 import { cn } from "@engenty/ui-core";
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { EngentyA2uiHostBoundary } from "../../../a2ui/engenty-a2ui-host.js";
 import { useObjectDisplayIntent } from "../../../objects/object-display-intent.js";
 import { useCopilotToolCallActions } from "../interrupts/copilot-tool-call-actions";
@@ -35,8 +35,22 @@ function actionFallbackMessage(action: EngentyA2uiAction): string {
 export function A2uiToolCallCard(props: ToolCallCardProps) {
   const { toolName: _toolName, ...cardProps } = props;
   const meta = readA2uiRenderMeta(props.output);
-  const { openInPanel } = useObjectDisplayIntent();
+  const { openInPanel, openLiveSurface } = useObjectDisplayIntent();
   const { submitMessage } = useCopilotToolCallActions();
+  const metaRef = useRef(meta);
+  metaRef.current = meta;
+  const liveKey = meta?.live ? meta.surface_id : null;
+
+  useEffect(() => {
+    const current = metaRef.current;
+    if (
+      current?.live &&
+      openLiveSurface &&
+      (props.state ?? "completed") === "completed"
+    ) {
+      openLiveSurface(current);
+    }
+  }, [liveKey, openLiveSurface, props.state]);
 
   const handleAction = useCallback(
     (action: EngentyA2uiAction) => {

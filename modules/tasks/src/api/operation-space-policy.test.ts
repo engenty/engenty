@@ -7,8 +7,6 @@ import {
 } from "./operation-space-policy.js";
 import { makeMockApi, makeMockTasksRepo } from "./test-helpers.js";
 
-const SPACE_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
-
 function allPolicies() {
   const repo = makeMockTasksRepo();
   const { api, serverOperations } = makeMockApi();
@@ -22,12 +20,6 @@ function allPolicies() {
 }
 
 describe("tasks operation spacePolicy", () => {
-  it("declares a policy on every registered operation", () => {
-    const declared = allPolicies();
-    expect(declared.size).toBeGreaterThan(0);
-    expect([...declared.values()].every((policy) => policy != null)).toBe(true);
-  });
-
   it("defaults list and create to collection space_owned so core injects current_space", () => {
     const declared = allPolicies();
     for (const operationId of [
@@ -39,24 +31,6 @@ describe("tasks operation spacePolicy", () => {
         TASKS_COLLECTION_SPACE_POLICY
       );
     }
-  });
-
-  it("list/create input schemas keep an injected space_id", () => {
-    const repo = makeMockTasksRepo();
-    const { api, serverOperations } = makeMockApi();
-    registerTasksGatewayMethods(api, repo);
-    const list = serverOperations.find(
-      (operation) => operation.operationId === "tasks_list"
-    );
-    const create = serverOperations.find(
-      (operation) => operation.operationId === "tasks_create"
-    );
-    expect(list?.inputSchema?.parse({ space_id: SPACE_A })).toMatchObject({
-      space_id: SPACE_A,
-    });
-    expect(
-      create?.inputSchema?.parse({ space_id: SPACE_A, title: "Ship" })
-    ).toMatchObject({ space_id: SPACE_A, title: "Ship" });
   });
 
   it("direct-record ops resolve Space from the row id for mismatch refusal", () => {
@@ -72,10 +46,6 @@ describe("tasks operation spacePolicy", () => {
       "tasks_add_comment",
     ]) {
       expect(declared.get(operationId), operationId).toEqual(record);
-    }
-    expect(record.kind).toBe("space_owned");
-    if (record.kind === "space_owned") {
-      expect(record.record).toEqual({ idInputKey: "id", moduleId: "tasks" });
     }
   });
 

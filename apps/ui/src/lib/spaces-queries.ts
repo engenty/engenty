@@ -1,5 +1,10 @@
 import { useTranslation } from "@engenty/i18n/ui";
-import { useMutation, useQuery, useQueryClient } from "@engenty/query-client";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@engenty/query-client";
 import { toast } from "sonner";
 import {
   addSpaceMember,
@@ -86,6 +91,7 @@ export function useSpaceMountsQuery(spaceId: string | null) {
     enabled: spaceId != null,
     queryFn: ({ signal }) => getSpaceMounts(spaceId as string, signal),
     queryKey: spaceKeys.mounts(spaceId ?? ""),
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -94,6 +100,7 @@ export function useSpaceSurfaceQuery(spaceId: string | null) {
     enabled: spaceId != null,
     queryFn: ({ signal }) => getSpaceSurface(spaceId as string, signal),
     queryKey: spaceKeys.surface(spaceId ?? ""),
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -102,6 +109,7 @@ export function useSpaceMembersQuery(spaceId: string | null) {
     enabled: spaceId != null,
     queryFn: ({ signal }) => getSpaceMembers(spaceId as string, signal),
     queryKey: spaceKeys.members(spaceId ?? ""),
+    placeholderData: keepPreviousData,
   });
 }
 

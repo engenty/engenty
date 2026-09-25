@@ -198,6 +198,9 @@ export function makeMockTasksRepo(): TasksRepo {
       }
       return null;
     },
+    async loadTaskStatuses(ids: string[]) {
+      return new Map(ids.map((id) => [id, tasks.get(id)?.status]));
+    },
     async checkoutTask(taskId: string, input: TaskCheckoutInput) {
       const existing = tasks.get(taskId);
       if (!existing) {

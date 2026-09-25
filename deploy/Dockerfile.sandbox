@@ -96,6 +96,21 @@ RUN git config --system user.name "engenty agent" \
   && git config --system user.email "agent@engenty.local" \
   && git config --system --add safe.directory '*'
 
+# No browser here. A CLI that opens one to sign in gets this instead: the URL
+# is printed to stderr for the agent to hand to the person (browser_sign_in),
+# and the CLI keeps waiting for its callback. `BROWSER` covers Python's
+# webbrowser and the xdg-open scripts CLIs bundle; the xdg-open on PATH covers
+# the rest.
+RUN printf '#!/bin/sh\necho "Open this URL to continue: $1" >&2\n' > /usr/local/bin/engenty-open \
+  && chmod 755 /usr/local/bin/engenty-open \
+  && ln -sf /usr/local/bin/engenty-open /usr/local/bin/xdg-open
+ENV BROWSER=/usr/local/bin/engenty-open
+
+# `engenty tools list|schema|call` from bash: a client of the relay apps/ai
+# starts in each container (apps/ai/src/ai/sandbox/engenty-cli-relay.ts). No
+# token and no network needed — every command the agent runs carries a ticket.
+COPY --chmod=755 deploy/sandbox/engenty.mjs /usr/local/bin/engenty
+
 USER sandbox
 
 # DockerSandbox overrides workingDir to /sandbox at runtime; set it for parity.

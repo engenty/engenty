@@ -1,3 +1,4 @@
+import { useDeveloperModeEnabled } from "@engenty/ai-ui";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
   adminListCardsGridClassName,
@@ -20,6 +21,8 @@ import { teamAgentDetailPath } from "../team-paths.js";
 export function TeamAgentsListPage() {
   const { t } = useTranslation("team");
   const navigate = useNavigate();
+  // The admin catalog is a debugging area — superadmins in developer mode only.
+  const developerMode = useDeveloperModeEnabled();
   const shellNav = useTeamModuleSecondaryShellNav();
   const { agents, catalogAvailable, isLoading, isError } =
     useTeamAgentsCatalogQuery();
@@ -91,14 +94,16 @@ export function TeamAgentsListPage() {
           ))}
         </div>
       )}
-      <div className="mt-auto">
-        <Button asChild size="sm" variant="outline">
-          <Link to="/admin/engenty/agents">
-            <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-            {t("agents.openAdminCatalog")}
-          </Link>
-        </Button>
-      </div>
+      {developerMode ? (
+        <div className="mt-auto">
+          <Button asChild size="sm" variant="outline">
+            <Link to="/admin/engenty/agents">
+              <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+              {t("agents.openAdminCatalog")}
+            </Link>
+          </Button>
+        </div>
+      ) : null}
     </section>
   );
 }

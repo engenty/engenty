@@ -47,7 +47,12 @@ owner, an exact id from this turn's `registry_agents_list`. After
 `routines_list`: change a match with `routines_update`, else
 `routines_create` — every field flat on the Routine, no nested body:
 
-- `name`; `agent_id`; `outcome` (what a run must have achieved); `report`;
+- `name`; `agent_id`; `outcome` (what a run must have achieved);
+  `outcomes` (destinations — "notify me" = `notification.high`, a quiet
+  update = `notification.update`, email = `email` with `config.to`);
+  `report` only as the fallback when there are no destinations. The
+  notification carries the summary — a `show_widget` in a scheduled run
+  does not travel into it;
 - **`prompt`** for a single-step job, written to the owner — OR
   **`workflow_id`** when the job has more than one step, an approval, or a
   wait: `workflow_propose` the graph first (`run_by: "routine"`,

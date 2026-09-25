@@ -465,14 +465,25 @@ describe("emit", () => {
       ["user", "p1", "int:i1:p1"],
       ["user", "p2", "int:i1:p2"],
     ]);
-    // p1 is looking at the card: seen for them, new for p2.
+    // p1 is looking at the card: seen for them, new for p2 — and still
+    // open for both, so it counts for both until someone answers.
     expect(
-      (await service.count({ spaceId: null, tenantId: TENANT, userId: "p1" }))
-        .total
-    ).toBe(0);
+      (
+        await service.countAttention({
+          spaceId: null,
+          tenantId: TENANT,
+          userId: "p1",
+        })
+      ).total
+    ).toBe(1);
     expect(
-      (await service.count({ spaceId: null, tenantId: TENANT, userId: "p2" }))
-        .total
+      (
+        await service.countAttention({
+          spaceId: null,
+          tenantId: TENANT,
+          userId: "p2",
+        })
+      ).total
     ).toBe(1);
     expect(
       await service.resolve({
@@ -507,7 +518,7 @@ describe("emit", () => {
 });
 
 describe("count and list", () => {
-  it("counts badge classes only, split by space", async () => {
+  it("counts attention rows only, split by space", async () => {
     const { service } = serviceWith();
     await service.emit({
       kind: "task_failed",
@@ -537,7 +548,7 @@ describe("count and list", () => {
       tenantId: TENANT,
     });
     // A space count is that space's rows only — tenant-wide alerts stay on Tenant.
-    const counts = await service.count({
+    const counts = await service.countAttention({
       accessibleSpaceIds: ["s1"],
       spaceId: "s1",
       tenantId: TENANT,
@@ -545,13 +556,80 @@ describe("count and list", () => {
     });
     expect(counts).toEqual({ inSpace: 1, total: 2 });
     expect(
-      await service.count({
+      await service.countAttention({
         accessibleSpaceIds: ["s1", "s2"],
         spaceId: "s1",
         tenantId: TENANT,
         userId: "u1",
       })
     ).toEqual({ inSpace: 1, total: 3 });
+  });
+
+  it("counts high and urgent updates, not medium ones, until dismissed", async () => {
+    const { service } = serviceWith();
+    await service.emit({
+      kind: "task_completed",
+      priority: "medium",
+      source: "tasks",
+      spaceId: "s1",
+      summary: "done",
+      tenantId: TENANT,
+    });
+    const high = await service.emit({
+      kind: "agent_desk_post",
+      priority: "high",
+      source: "routines",
+      spaceId: "s1",
+      summary: "mail that matters",
+      tenantId: TENANT,
+    });
+    await service.emit({
+      kind: "stream_update",
+      priority: "urgent",
+      source: "routines",
+      spaceId: "s2",
+      summary: "urgent ping",
+      tenantId: TENANT,
+    });
+    expect(
+      await service.countAttention({
+        accessibleSpaceIds: ["s1"],
+        spaceId: "s1",
+        tenantId: TENANT,
+        userId: "u1",
+      })
+    ).toEqual({ inSpace: 1, total: 1 });
+    expect(
+      await service.countAttention({
+        accessibleSpaceIds: ["s1", "s2"],
+        spaceId: "s1",
+        tenantId: TENANT,
+        userId: "u1",
+      })
+    ).toEqual({ inSpace: 1, total: 2 });
+    // Seen is not handled: an attention FYI stays on the count.
+    await service.markSeen({
+      id: high.id,
+      tenantId: TENANT,
+      userId: "u1",
+    });
+    expect(
+      await service.countAttention({
+        accessibleSpaceIds: ["s1"],
+        spaceId: "s1",
+        tenantId: TENANT,
+        userId: "u1",
+      })
+    ).toEqual({ inSpace: 1, total: 1 });
+    expect(await service.dismiss({ id: high.id, tenantId: TENANT })).toBe("ok");
+    expect(
+      await service.countAttention({
+        accessibleSpaceIds: ["s1"],
+        spaceId: "s1",
+        tenantId: TENANT,
+        userId: "u1",
+      })
+    ).toEqual({ inSpace: 0, total: 0 });
   });
 
   it("shows a space row to its members and to nobody else", async () => {
@@ -616,11 +694,12 @@ describe("count and list", () => {
       userId: "u2",
     });
     expect(forU2.every((r) => r.seen === false)).toBe(true);
+    // Seen or not, both rows are still open: the count is the same for both.
     expect(
-      await service.count({ ...scope, spaceId: "s1", userId: "u1" })
-    ).toEqual({ inSpace: 1, total: 1 });
+      await service.countAttention({ ...scope, spaceId: "s1", userId: "u1" })
+    ).toEqual({ inSpace: 2, total: 2 });
     expect(
-      await service.count({ ...scope, spaceId: "s1", userId: "u2" })
+      await service.countAttention({ ...scope, spaceId: "s1", userId: "u2" })
     ).toEqual({ inSpace: 2, total: 2 });
     expect(await service.dismiss({ id: gate.id, tenantId: TENANT })).toBe(
       "decide_instead"

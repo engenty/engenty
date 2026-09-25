@@ -7,6 +7,7 @@ import {
   FileCode2,
   FileText,
   Folder,
+  LayoutGrid,
   type LucideIcon,
   Table2,
 } from "lucide-react";
@@ -28,6 +29,8 @@ export function iconForArtifactType(type: string): LucideIcon {
       return File;
     case "folder":
       return Folder;
+    case "surface":
+      return LayoutGrid;
     default:
       return FileText;
   }

@@ -7,12 +7,9 @@ import {
   EngentyCoreClient,
   getEngentyCoreBaseUrlFromEnv,
 } from "../ai/core-http-client.js";
-import {
-  createRoutineStoreFromEnv,
-  createWorkflowStoreFromEnv,
-} from "../ai/index.js";
 import { listAllWorkflows } from "../ai/module-workflows.js";
 import { buildAgentInstructions } from "../ai/registry/assemble-dynamic-agent.js";
+import { deleteRegistryAgent } from "../ai/registry/delete-agent.js";
 import { resolveEffectiveCapabilities } from "../ai/registry/effective-capabilities.js";
 import {
   AGENT_STARTER_MAX,
@@ -29,7 +26,6 @@ import {
   scopeCoversCapability,
 } from "../ai/sessions.js";
 import { mountAgentOnSpaces } from "../ai/space-mount-agent.js";
-import { listPublishedWorkflowsRunningAgent } from "../ai/workflows/graph-agents.js";
 import { AI_BASE_PATH } from "../config/constants.js";
 import type { RegistryStore } from "../dal/registry/index.js";
 import {
@@ -756,113 +752,32 @@ export function registerRegistryRoutes(
     }
     try {
       const agentId = c.req.param("id");
-      // Referential guard: a published Workflow that runs this agent keeps
-      // running after the row is gone — its next invocation fails with
-      // unknownAgentType at 03:00, which is the worst place to learn about a
-      // deletion. Deleting past the guard is a stated choice (?force=true),
-      // never a surprise. Live-hit 2026-08-28: an orphaned "Monthly
-      // Bookkeeping Intake" outlived its deleted specialist and failed on
-      // the next invoke. The agent's OWN workflows are exempt — they are
-      // deleted with it below, so they never outlive it.
-      if (c.req.query("force") !== "true") {
-        const referencing = await listPublishedWorkflowsRunningAgent({
+      const result = await deleteRegistryAgent(
+        {
           agentId,
-          excludeOwnedBy: agentId,
+          force: c.req.query("force") === "true",
           tenantId: resolved.scope.tenantId,
-        });
-        if (referencing.length > 0) {
-          return c.json(
-            {
-              error: "agent_registry.referencedByWorkflows",
-              workflows: referencing,
-              message: `Published workflows still run this agent: ${referencing
-                .map((entry) => entry.name)
-                .join(
-                  ", "
-                )}. Retarget or delete them first, or pass ?force=true to delete anyway.`,
-            },
-            409
-          );
+        },
+        {
+          core: coreClientForScope(resolved.scope, createCoreClient),
+          store,
         }
+      );
+      if (!result.ok) {
+        return c.json(
+          {
+            error: "agent_registry.referencedByWorkflows",
+            workflows: result.workflows,
+            message: `Published workflows still run this agent: ${result.workflows
+              .map((entry) => entry.name)
+              .join(
+                ", "
+              )}. Retarget or delete them first, or pass ?force=true to delete anyway.`,
+          },
+          409
+        );
       }
-      const deleted = await store.deleteAgent(resolved.scope.tenantId, agentId);
-      if (deleted) {
-        // The row is gone; nothing may keep pointing at it. Mount rows and
-        // trigger bindings are cleaned server-side — best-effort per space,
-        // because a mount that outlives its agent is inert (it names a
-        // resource that no longer resolves) while a failed delete here would
-        // resurrect nothing.
-        const core = coreClientForScope(resolved.scope, createCoreClient);
-        if (core) {
-          try {
-            const spaces = await core.listSpaces();
-            await Promise.allSettled(
-              spaces.map((space) =>
-                core.deleteSpaceMount(space.id, "agent", agentId)
-              )
-            );
-          } catch {
-            // Unreachable core: the mounts stay until the next cleanup.
-          }
-        }
-        // A routine whose specialist no longer exists can never run again —
-        // DELETED with the agent, not paused (pausing is the unmount case,
-        // where re-mounting brings a working setup back). Before the graphs:
-        // a routine row RESTRICTs the workflow it binds.
-        const routines = createRoutineStoreFromEnv();
-        if (routines) {
-          try {
-            const owned = await routines.list({
-              agentId,
-              tenantId: resolved.scope.tenantId,
-            });
-            await Promise.allSettled(
-              owned.map((routine) =>
-                routines.delete({
-                  id: routine.id,
-                  tenantId: resolved.scope.tenantId,
-                })
-              )
-            );
-          } catch {
-            // The scheduler sweep disables unresolvable owners as backstop.
-          }
-        }
-        // The agent's own workflows go with it. Run history pins a version
-        // (workflow_run RESTRICTs), and a foreign routine may still bind a
-        // graph — those rows are disabled instead of removed, so the audit
-        // trail survives and nothing can fire them.
-        const flowGraphs = createWorkflowStoreFromEnv();
-        if (flowGraphs) {
-          try {
-            const graphs = await flowGraphs.list({
-              tenantId: resolved.scope.tenantId,
-            });
-            await Promise.allSettled(
-              graphs
-                .filter((graph) => graph.owner_agent_id === agentId)
-                .map(async (graph) => {
-                  try {
-                    await flowGraphs.remove({
-                      id: graph.id,
-                      tenantId: resolved.scope.tenantId,
-                    });
-                  } catch {
-                    await flowGraphs.setStatus({
-                      id: graph.id,
-                      status: "disabled",
-                      tenantId: resolved.scope.tenantId,
-                    });
-                  }
-                })
-            );
-          } catch {
-            // Unreachable storage: disabled owners cannot fire regardless —
-            // dispatch resolves the agent and refuses an unknown one.
-          }
-        }
-      }
-      return c.json({ deleted });
+      return c.json({ deleted: result.deleted });
     } catch (err) {
       return handleRouteError(
         c,

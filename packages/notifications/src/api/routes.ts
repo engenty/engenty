@@ -1,7 +1,7 @@
 // /api/notifications/* on core.
 //
 // GET  /api/notifications                  list (query: scope, status, class, kind, source, actor, stream, subject_*, priority, limit)
-// GET  /api/notifications/unseen-count     { total, in_space } — the bell and the space card, one poll
+// GET  /api/notifications/attention-count  { total, in_space } — open attention rows (the bell, the Work tab), one poll
 // POST /api/notifications/seen-all         the caller's view; never a decision
 // POST /api/notifications/:id/seen         the caller's view of one row
 // POST /api/notifications/:id/dismiss      the row (alerts, FYI); a decision → 422
@@ -14,6 +14,7 @@ import type { NotificationsService } from "../service.js";
 import { notificationsInSpaceScope } from "../visibility.js";
 import { canManageStream } from "./manage.js";
 import {
+  attentionCountResponseSchema,
   listNotificationsQuerySchema,
   listNotificationsResponseSchema,
   okResponseSchema,
@@ -23,7 +24,6 @@ import {
   streamCreateSchema,
   streamRoutesSchema,
   streamUpdateSchema,
-  unseenCountResponseSchema,
 } from "./schema.js";
 
 const READ = ["notifications.read"];
@@ -137,7 +137,7 @@ export function registerNotificationsApi(
   server.registerHttpRoute({
     handler: async (ctx) => {
       const auth = requireAuth(ctx.auth);
-      const counts = await deps.service.count({
+      const counts = await deps.service.countAttention({
         ...(await audienceScopeOf(ctx)),
         spaceId: auth.spaceId ?? null,
         tenantId: auth.tenantId,
@@ -150,18 +150,19 @@ export function registerNotificationsApi(
     method: "get",
     operation: {
       idempotent: true,
-      operationId: "notifications_unseen_count",
+      operationId: "notifications_attention_count",
       requiredCapabilities: READ,
       riskLevel: "low",
     },
-    path: "/api/notifications/unseen-count",
+    path: "/api/notifications/attention-count",
     responses: {
       200: {
-        description: "Badge counts: tenant-wide and within the header's space",
-        schema: unseenCountResponseSchema,
+        description:
+          "Open attention rows, seen or not: tenant-wide and within the header's space",
+        schema: attentionCountResponseSchema,
       },
     },
-    summary: "Unseen notification counts",
+    summary: "Attention notification counts",
     tags: ["notifications"],
   });
 

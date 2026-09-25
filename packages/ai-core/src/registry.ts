@@ -5,6 +5,7 @@
 
 import type {
   AiRegistration,
+  OutcomeProviderDefinition,
   RoutineDefinition,
   SkillDefinition,
   WorkflowDefinition,
@@ -79,6 +80,7 @@ export interface ModuleDynamicCapabilitySeed {
   agentConfigs?: AgentConfig[];
   chatCommands?: import("./chat-commands/contracts.js").ChatCommandDefinition[];
   moduleId: string;
+  outcomeProviders?: OutcomeProviderDefinition[];
   routines?: RoutineDefinition[];
   skills?: Record<string, string>;
   workflows?: WorkflowDefinition[];
@@ -96,6 +98,7 @@ export function listModuleDynamicCapabilitySeeds(): ModuleDynamicCapabilitySeed[
       // COMMAND.md without sharing memory.
       workflows: registration.workflows,
       chatCommands: registration.chat_commands,
+      outcomeProviders: registration.outcome_providers,
       routines: registration.routines,
     }))
     .filter(
@@ -104,6 +107,7 @@ export function listModuleDynamicCapabilitySeeds(): ModuleDynamicCapabilitySeed[
         (capability.workflows?.length ?? 0) > 0 ||
         (capability.chatCommands?.length ?? 0) > 0 ||
         (capability.routines?.length ?? 0) > 0 ||
+        (capability.outcomeProviders?.length ?? 0) > 0 ||
         Object.keys(capability.skills ?? {}).length > 0
     );
 }
@@ -192,5 +196,12 @@ export function listRegisteredWorkflows(): WorkflowDefinition[] {
 export function listRegisteredChatCommands(): import("./chat-commands/contracts.js").ChatCommandDefinition[] {
   return Array.from(aiRegistrations.values()).flatMap(
     ({ registration }) => registration.chat_commands ?? []
+  );
+}
+
+/** List plugin-declared outcome providers across active registrations. */
+export function listRegisteredOutcomeProviders(): OutcomeProviderDefinition[] {
+  return Array.from(aiRegistrations.values()).flatMap(
+    ({ registration }) => registration.outcome_providers ?? []
   );
 }

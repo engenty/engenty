@@ -1,13 +1,16 @@
-// Overview tab: one card per registered provider across both registries
-// (core + apps/ai), each with its own health counts, effective config, and
-// rebuild control.
+// Overview tab: the platform embedding model every index shares, then one
+// card per registered provider across both registries (core + apps/ai), each
+// with its own health counts, effective config, and rebuild control.
 
 import { useTranslation } from "@engenty/i18n/ui";
 import { useQuery } from "@engenty/query-client";
 import { Button } from "@engenty/ui-core";
 import { AnimatedLoaderIcon } from "@engenty/ui-icons";
 import { RefreshCcw } from "lucide-react";
-import { listAllProviders } from "@/lib/search-index-admin-api";
+import {
+  getSearchIndexEmbeddingModel,
+  listAllProviders,
+} from "@/lib/search-index-admin-api";
 import { SearchIndexProviderCard } from "./search-index-provider-card";
 
 export const SEARCH_INDEX_PROVIDERS_QUERY_KEY = [
@@ -20,6 +23,11 @@ export function SearchIndexOverviewTab() {
   const providersQuery = useQuery({
     queryKey: SEARCH_INDEX_PROVIDERS_QUERY_KEY,
     queryFn: () => listAllProviders(),
+  });
+
+  const embeddingModelQuery = useQuery({
+    queryKey: ["search-index-admin", "embedding-model"],
+    queryFn: ({ signal }) => getSearchIndexEmbeddingModel(signal),
   });
 
   const providers = providersQuery.data ?? [];
@@ -44,6 +52,18 @@ export function SearchIndexOverviewTab() {
           )}
           {t("settings.searchIndex.overview.reloadProviders")}
         </Button>
+      </div>
+
+      <div className="space-y-0.5">
+        <div className="text-muted-foreground text-xs uppercase tracking-wide">
+          {t("settings.searchIndex.overview.embeddingModel")}
+        </div>
+        <div className="font-medium text-sm">
+          {embeddingModelQuery.data ?? "—"}
+        </div>
+        <p className="text-muted-foreground text-xs">
+          {t("settings.searchIndex.overview.embeddingModelHint")}
+        </p>
       </div>
 
       {providersQuery.isError ? (

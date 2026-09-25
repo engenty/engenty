@@ -252,28 +252,38 @@ export function AgentDeskActions(props: {
           ) : null}
           {props.canManage ? (
             <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onSelect={() => navigate(buildAgentDetailPath(props.agentId))}
-              >
-                <SlidersHorizontal className="mr-2 size-4" />
-                {t("agentDesk.actions.manageAgent")}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={() =>
-                  navigate(buildAgentCapabilitiesPath(props.agentId))
-                }
-              >
-                <Wrench className="mr-2 size-4" />
-                {t("agentDesk.actions.capabilities")}
-              </DropdownMenuItem>
-              {props.isCustomAgent ? (
-                <DropdownMenuItem
-                  onSelect={() => navigate(buildAgentEditPath(props.agentId))}
-                >
-                  <SquarePen className="mr-2 size-4" />
-                  {t("agentDesk.actions.editAgent")}
-                </DropdownMenuItem>
+              {/* The agent's admin pages live in the /admin/engenty debugging
+                  area — superadmins in developer mode only. */}
+              {developerMode ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onSelect={() =>
+                      navigate(buildAgentDetailPath(props.agentId))
+                    }
+                  >
+                    <SlidersHorizontal className="mr-2 size-4" />
+                    {t("agentDesk.actions.manageAgent")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() =>
+                      navigate(buildAgentCapabilitiesPath(props.agentId))
+                    }
+                  >
+                    <Wrench className="mr-2 size-4" />
+                    {t("agentDesk.actions.capabilities")}
+                  </DropdownMenuItem>
+                  {props.isCustomAgent ? (
+                    <DropdownMenuItem
+                      onSelect={() =>
+                        navigate(buildAgentEditPath(props.agentId))
+                      }
+                    >
+                      <SquarePen className="mr-2 size-4" />
+                      {t("agentDesk.actions.editAgent")}
+                    </DropdownMenuItem>
+                  ) : null}
+                </>
               ) : null}
               <DropdownMenuSeparator />
               <DropdownMenuItem onSelect={() => setRemoval("unmount")}>

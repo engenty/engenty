@@ -5,25 +5,25 @@ import {
   spaceAddAccountPath,
 } from "./space-home-extensions";
 
-const meta = (
+const account = (
   overrides: Partial<SpaceHomeExtensionAccount> = {}
 ): SpaceHomeExtensionAccount => ({
   connectorId: "google-gmail",
   connectorName: "Gmail",
+  id: "conn-gmail",
   label: "me@example.com",
   ...overrides,
 });
 
 describe("selectSpaceHomeExtensionRows", () => {
-  it("lists mounted accounts, plugins, and skills — not modules", () => {
+  it("lists the space's accounts, plugins, and skills — not modules", () => {
     const rows = selectSpaceHomeExtensionRows(
       [
         { resourceKey: "mod-tasks", resourceType: "module" },
-        { resourceKey: "conn-gmail", resourceType: "connection" },
         { resourceKey: "skill-custom", resourceType: "skill" },
         { resourceKey: "google-gmail", resourceType: "plugin" },
       ],
-      new Map([["conn-gmail", meta()]]),
+      [account()],
       {
         plugins: new Map([["google-gmail", "Gmail"]]),
         skills: new Map([["skill-custom", "Triage"]]),
@@ -41,32 +41,13 @@ describe("selectSpaceHomeExtensionRows", () => {
     ]);
   });
 
-  it("keeps a mount whose account the viewer cannot see", () => {
-    const rows = selectSpaceHomeExtensionRows(
-      [{ resourceKey: "conn-hidden", resourceType: "connection" }],
-      new Map()
-    );
-    expect(rows).toEqual([
-      {
-        connectorId: null,
-        connectorName: null,
-        id: "conn-hidden",
-        kind: "connection",
-        label: "conn-hidden",
-      },
-    ]);
-  });
-
   it("sorts by the label a person reads", () => {
     const rows = selectSpaceHomeExtensionRows(
+      [],
       [
-        { resourceKey: "b", resourceType: "connection" },
-        { resourceKey: "a", resourceType: "connection" },
-      ],
-      new Map([
-        ["a", meta({ label: "zeta@example.com" })],
-        ["b", meta({ label: "alpha@example.com" })],
-      ])
+        account({ id: "a", label: "zeta@example.com" }),
+        account({ id: "b", label: "alpha@example.com" }),
+      ]
     );
     expect(rows.map((row) => row.label)).toEqual([
       "alpha@example.com",

@@ -21,7 +21,7 @@ export function rowToThread(row: Record<string, unknown>): InboxThread {
     id: String(row.id),
     last_message_at: (row.last_message_at as string | null) ?? null,
     message_count: Number(row.message_count ?? 0),
-    owner_user_id: (row.owner_user_id as string | null) ?? null,
+    space_id: String(row.space_id),
     participants: Array.isArray(row.participants)
       ? (row.participants as string[])
       : [],
@@ -50,7 +50,7 @@ export function rowToMessage(row: Record<string, unknown>): InboxMessage {
     from_name: (row.from_name as string | null) ?? null,
     has_attachments: Boolean(row.has_attachments),
     id: String(row.id),
-    owner_user_id: (row.owner_user_id as string | null) ?? null,
+    space_id: String(row.space_id),
     provider_message_id: String(row.provider_message_id),
     provider_thread_id: (row.provider_thread_id as string | null) ?? null,
     received_at: (row.received_at as string | null) ?? null,
@@ -76,7 +76,7 @@ export function rowToSyncState(row: Record<string, unknown>): InboxSyncState {
     last_error: (row.last_error as string | null) ?? null,
     last_error_at: (row.last_error_at as string | null) ?? null,
     last_synced_at: (row.last_synced_at as string | null) ?? null,
-    owner_user_id: (row.owner_user_id as string | null) ?? null,
+    space_id: String(row.space_id),
     scope_id: String(row.scope_id),
     sync_enabled:
       row.sync_enabled === undefined ? true : Boolean(row.sync_enabled),

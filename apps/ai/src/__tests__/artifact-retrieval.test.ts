@@ -1,8 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import {
-  buildArtifactSearchText,
-  withArtifactIndexing,
-} from "../dal/artifacts/artifact-retrieval-source.js";
+import { withArtifactIndexing } from "../dal/artifacts/artifact-retrieval-source.js";
 import type { ArtifactStore } from "../dal/artifacts/index.js";
 
 const artifactRow = {
@@ -83,19 +80,5 @@ describe("withArtifactIndexing", () => {
     ).resolves.toBeTruthy();
     await flush();
     expect(log).toHaveBeenCalled();
-  });
-});
-
-describe("buildArtifactSearchText", () => {
-  it("joins title and content; strips tags for html artifacts", () => {
-    expect(
-      buildArtifactSearchText({ title: "Doc", type: "markdown" }, "# Hello")
-    ).toBe("Doc\n\n# Hello");
-    expect(
-      buildArtifactSearchText(
-        { title: "Page", type: "html" },
-        "<h1>Hi</h1><p>there</p>"
-      )
-    ).toBe("Page\n\nHi there");
   });
 });

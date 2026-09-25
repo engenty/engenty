@@ -19,21 +19,18 @@ import { ModelPickerDialog } from "./model-picker-dialog";
 
 type ModelField = Extract<
   keyof AiConfig,
-  | "chat_model_id"
-  | "coordinator_model_id"
-  | "classifier_model_id"
-  | "research_model_id"
-  | "planning_coding_model_id"
-  | "safeguard_model_id"
-  | "memory_model_id"
+  "chat_model_id" | "classifier_model_id" | "fast_text_model_id"
 >;
 
 interface PurposeRow {
   capable: boolean;
   field: ModelField;
-  options: "chat" | "routing";
+  options: MatrixCatalog;
   purpose: AiModelPurpose;
 }
+
+/** Which catalog availability a purpose picks from. */
+export type MatrixCatalog = "agent" | "classification" | "text";
 
 function modelsByRef(
   models: GatewayModelOption[]
@@ -49,55 +46,31 @@ function modelsByRef(
   );
 }
 
-/** Display order mirrors AI_MODEL_PURPOSES. Routing uses the routing catalog. */
+/**
+ * Display order mirrors AI_MODEL_PURPOSES. Each purpose picks from the models
+ * activated for its role class: agent (tools), classification (Jev), text
+ * (short text, no tools).
+ */
 const PURPOSE_ROWS: PurposeRow[] = [
-  { purpose: "chat", field: "chat_model_id", options: "chat", capable: true },
-  {
-    purpose: "routing",
-    field: "coordinator_model_id",
-    options: "routing",
-    capable: false,
-  },
+  { purpose: "chat", field: "chat_model_id", options: "agent", capable: true },
   {
     purpose: "classifier",
     field: "classifier_model_id",
-    options: "routing",
+    options: "classification",
     capable: false,
   },
   {
-    purpose: "research",
-    field: "research_model_id",
-    options: "chat",
-    capable: true,
-  },
-  {
-    purpose: "planning_coding",
-    field: "planning_coding_model_id",
-    options: "chat",
-    capable: true,
-  },
-  {
-    purpose: "safeguard",
-    field: "safeguard_model_id",
-    options: "chat",
+    purpose: "fast_text",
+    field: "fast_text_model_id",
+    options: "text",
     capable: false,
-  },
-  // Chat catalog, `capable`: the reflector has to finish a structured rewrite
-  // of a whole conversation. Offering the routing catalog here is what put it
-  // on a 20B model that truncated every reflection.
-  {
-    purpose: "memory",
-    field: "memory_model_id",
-    options: "chat",
-    capable: true,
   },
 ];
 
 interface ModelMatrixCardProps {
-  chatModels: GatewayModelOption[];
+  catalogs: Record<MatrixCatalog, GatewayModelOption[]>;
   effective: EffectiveAiSettings | undefined;
   maxPriceTier: "all" | GatewayModelPriceTier;
-  routingModels: GatewayModelOption[];
   settings: AiConfig;
   t: (key: string, opts?: Record<string, unknown>) => string;
   updateSettings: <K extends keyof AiConfig>(
@@ -107,10 +80,9 @@ interface ModelMatrixCardProps {
 }
 
 export function ModelMatrixCard({
-  chatModels,
+  catalogs,
   effective,
   maxPriceTier,
-  routingModels,
   settings,
   t,
   updateSettings,
@@ -122,14 +94,16 @@ export function ModelMatrixCard({
   // id-keyed map would both collapse the two gateways' rows for one model and
   // then fail to find either — the row would lose its price and capability
   // chips with nothing to say why.
-  const chatByRef = useMemo(() => modelsByRef(chatModels), [chatModels]);
-  const routingByRef = useMemo(
-    () => modelsByRef(routingModels),
-    [routingModels]
+  const byRef = useMemo(
+    () => ({
+      agent: modelsByRef(catalogs.agent),
+      classification: modelsByRef(catalogs.classification),
+      text: modelsByRef(catalogs.text),
+    }),
+    [catalogs]
   );
 
-  const editingModels =
-    editing?.options === "routing" ? routingModels : chatModels;
+  const editingModels = editing ? catalogs[editing.options] : [];
   const editingEff = editing ? effective?.models[editing.purpose] : undefined;
 
   return (
@@ -161,11 +135,10 @@ export function ModelMatrixCard({
               // A local (unsaved) pin wins over the server-resolved effective
               // value so the row reflects the pending change immediately.
               const modelId = pinned ?? eff?.value ?? "";
-              const catalog =
-                row.options === "routing" ? routingByRef : chatByRef;
+              const catalog = byRef[row.options];
               const model = catalog.get(modelId);
               const price = model ? formatModelPrice(model) : null;
-              const source = pinned ? "tenant" : (eff?.source ?? "default");
+              const source = pinned ? "tenant" : eff?.source;
 
               return (
                 <tr
@@ -203,13 +176,15 @@ export function ModelMatrixCard({
                       <Badge variant="default">
                         {t("matrix.source.pinned")}
                       </Badge>
-                    ) : (
+                    ) : source === "governance" ? (
                       <Badge variant="secondary">
-                        {source === "platform"
-                          ? t("matrix.source.inheritPlatform")
-                          : t("matrix.source.inheritDefault")}
+                        {t("matrix.source.governance")}
                       </Badge>
-                    )}
+                    ) : source ? (
+                      <Badge variant="secondary">
+                        {t("matrix.source.inheritPlatform")}
+                      </Badge>
+                    ) : null}
                   </td>
 
                   <td className="py-3 text-right">

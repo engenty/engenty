@@ -17,14 +17,26 @@ const TOOL_APPROVAL_CHOICE_LABEL_KEYS: Record<string, string> = {
   approve_once: "copilot.toolApproval.approveOnce",
   deny: "copilot.toolApproval.deny",
 };
-// A BULK pre-approval covers several operations at once, so "once"/"always"
-// (which read as "this one action" / "this action forever") are the wrong
-// promise: the grants are scoped to the RUN and to the CHAT respectively.
+// A BULK pre-approval covers several operations at once, so "once" (which
+// reads as "this one action") is the wrong promise: its grants live for the
+// RUN. "Always" is scoped to the agent either way.
 const TOOL_APPROVAL_BULK_CHOICE_LABEL_KEYS: Record<string, string> = {
-  approve_always: "copilot.toolApproval.approveChat",
+  approve_always: "copilot.toolApproval.approveAlways",
   approve_once: "copilot.toolApproval.approveRun",
   deny: "copilot.toolApproval.deny",
 };
+
+// Workspace calls carry their exact command / path as the server body; the
+// operation id (`workspace:<tool>:<target>`) only says which action it is.
+const WORKSPACE_APPROVAL_TITLE_KEYS: Record<string, string> = {
+  mastra_workspace_delete: "copilot.toolApproval.workspaceDelete",
+  mastra_workspace_execute_command: "copilot.toolApproval.workspaceCommand",
+};
+
+function workspaceToolOf(operationId: string): string | null {
+  const match = /^workspace:([a-z_]+)(?::|$)/.exec(operationId);
+  return match?.[1] ?? null;
+}
 
 export interface DecisionArtifactChoice {
   description?: string;
@@ -320,30 +332,47 @@ export function DecisionArtifactCard(props: {
   // grant context after the operation id — parsed, never printed raw.
   const toolApproval = parseToolApprovalArtifactId(props.artifact.artifactId);
   const isBulkApproval = (toolApproval?.operationIds.length ?? 0) > 1;
-  const displayTitle = toolApproval
-    ? t("copilot.toolApproval.title", {
-        action: props.artifact.title
-          .replace(/^Approve\s+/, "")
-          .replace(/\?$/, ""),
-        defaultValue: props.artifact.title,
-      })
-    : props.artifact.title;
+  // Only a direct workspace card carries the command / path as its body; a
+  // listed card (a delegated specialist's ask) carries a summary instead.
+  const workspaceTool =
+    toolApproval && !toolApproval.listed
+      ? workspaceToolOf(toolApproval.operationId)
+      : null;
+  const workspaceTitleKey = workspaceTool
+    ? WORKSPACE_APPROVAL_TITLE_KEYS[workspaceTool]
+    : undefined;
+  let displayTitle = props.artifact.title;
+  if (workspaceTitleKey) {
+    displayTitle = t(workspaceTitleKey, { defaultValue: props.artifact.title });
+  } else if (toolApproval) {
+    displayTitle = t("copilot.toolApproval.title", {
+      action: props.artifact.title
+        .replace(/^Approve\s+/, "")
+        .replace(/\?$/, ""),
+      defaultValue: props.artifact.title,
+    });
+  }
   // The server's own body already carries the agent's plan summary for a bulk
   // card; keep it and append the operation LIST rather than replacing it with
-  // the single-operation sentence.
-  const displayBody = toolApproval
-    ? t(
-        isBulkApproval
-          ? "copilot.toolApproval.bodyBulk"
-          : "copilot.toolApproval.body",
-        {
-          count: toolApproval.operationIds.length,
-          operation: toolApproval.operationId,
-          operations: toolApproval.operationIds.join(", "),
-          defaultValue: props.artifact.body ?? "",
-        }
-      )
-    : props.artifact.body;
+  // the single-operation sentence. A command is shown as code, verbatim.
+  let displayBody = props.artifact.body;
+  if (workspaceTool === "mastra_workspace_execute_command") {
+    displayBody = `\`\`\`sh\n${props.artifact.body ?? ""}\n\`\`\``;
+  } else if (workspaceTool) {
+    displayBody = `\`${props.artifact.body ?? ""}\``;
+  } else if (toolApproval) {
+    displayBody = t(
+      isBulkApproval
+        ? "copilot.toolApproval.bodyBulk"
+        : "copilot.toolApproval.body",
+      {
+        count: toolApproval.operationIds.length,
+        operation: toolApproval.operationId,
+        operations: toolApproval.operationIds.join(", "),
+        defaultValue: props.artifact.body ?? "",
+      }
+    );
+  }
   const displayChoiceLabel = (choice: DecisionArtifactChoice) => {
     if (!toolApproval) {
       return choice.label;

@@ -353,3 +353,55 @@ describe("runEventRecordsToAgUi", () => {
     ]);
   });
 });
+
+describe("row timings", () => {
+  it("stamps rows from stored created_at, model wait included", () => {
+    const at = (seconds: number) =>
+      new Date(Date.UTC(2026, 8, 23, 17, 0, seconds)).toISOString();
+    const rows = buildInspectorTrajectory(
+      runEventRecordsToAgUi([
+        {
+          created_at: at(0),
+          event_type: "TEXT_MESSAGE_START",
+          payload: { messageId: "u1", role: "user" },
+        },
+        {
+          created_at: at(1),
+          event_type: "TEXT_MESSAGE_CONTENT",
+          payload: { delta: "hi", messageId: "u1" },
+        },
+        {
+          created_at: at(1),
+          event_type: "TEXT_MESSAGE_END",
+          payload: { messageId: "u1" },
+        },
+        {
+          created_at: at(13),
+          event_type: "REASONING_MESSAGE_CONTENT",
+          payload: { delta: "think", messageId: "r1" },
+        },
+        {
+          created_at: at(14),
+          event_type: "TOOL_CALL_START",
+          payload: { toolCallId: "t1", toolCallName: "search" },
+        },
+        {
+          created_at: at(16),
+          event_type: "TOOL_CALL_RESULT",
+          payload: { content: "ok", toolCallId: "t1" },
+        },
+      ])
+    );
+    const spans = rows.map((row) => [
+      row.kind,
+      row.startedAt === undefined || row.endedAt === undefined
+        ? null
+        : (row.endedAt - row.startedAt) / 1000,
+    ]);
+    expect(spans).toEqual([
+      ["user", 1],
+      ["assistant", 12],
+      ["tool", 2],
+    ]);
+  });
+});

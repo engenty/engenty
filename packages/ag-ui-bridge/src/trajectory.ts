@@ -19,6 +19,8 @@ export type TrajectoryCellKind =
 
 export interface TrajectoryRow {
   detail: string;
+  /** Epoch ms of the row's last wire event; absent without event timestamps. */
+  endedAt?: number;
   id: string;
   /**
    * Role or tool name called out in the ledger (HISTORY `human` / `agent` /
@@ -34,6 +36,11 @@ export interface TrajectoryRow {
    * live turn that produced it.
    */
   sourceMessageId: string | null;
+  /**
+   * Epoch ms the row began. ASSISTANT starts when its input was ready (end of
+   * the previous row), so the model's wait before the first token counts.
+   */
+  startedAt?: number;
   text: string;
   turn: number | null;
   turnStart: boolean;
@@ -47,18 +54,21 @@ export interface TrajectorySpeechMessage {
 }
 
 export interface RunEventRecordLike {
+  created_at?: string;
   event_type: string;
   payload: Record<string, unknown>;
 }
 
 interface DraftRow {
   detail: string;
+  endedAt?: number;
   id: string;
   keyLabel?: string | null;
   kind: TrajectoryCellKind;
   result: string | null;
   resultDetail: string | null;
   sourceMessageId?: string | null;
+  startedAt?: number;
   text: string;
 }
 
@@ -74,6 +84,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function readString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function readTimestamp(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value)
+    ? value
+    : undefined;
 }
 
 function readDelta(value: unknown): string {
@@ -334,7 +350,25 @@ export function buildInspectorTrajectory(
   let openMessageId: string | null = null;
   let textBuf = "";
   let reasoningBuf = "";
+  let bufStartedAt: number | undefined;
+  let bufEndedAt: number | undefined;
+  let lastEndedAt: number | undefined;
   let rowSeq = 0;
+
+  const touchBuf = (time: number | undefined) => {
+    if (time === undefined) {
+      return;
+    }
+    bufStartedAt = Math.min(bufStartedAt ?? time, time);
+    bufEndedAt = Math.max(bufEndedAt ?? time, time);
+  };
+  const touchEnd = (row: DraftRow, time: number | undefined) => {
+    if (time === undefined) {
+      return;
+    }
+    row.endedAt = Math.max(row.endedAt ?? time, time);
+    lastEndedAt = Math.max(lastEndedAt ?? time, time);
+  };
 
   const nextId: NextId = (kind, key) => {
     rowSeq += 1;
@@ -345,23 +379,30 @@ export function buildInspectorTrajectory(
     const content = textBuf;
     const reasoning = reasoningBuf;
     const messageId = openMessageId;
+    const startedAt = bufStartedAt;
+    const endedAt = bufEndedAt;
     textBuf = "";
     reasoningBuf = "";
     openMessageId = null;
+    bufStartedAt = undefined;
+    bufEndedAt = undefined;
     const contentTrim = content.trim();
     const reasoningTrim = reasoning.trim();
     if (openRole === "user") {
       openRole = null;
       if (contentTrim) {
-        body.push({
+        const row: DraftRow = {
           detail: contentTrim,
           id: nextId("user", "text"),
           kind: "user",
           result: null,
           resultDetail: null,
           sourceMessageId: messageId,
+          startedAt,
           text: contentTrim,
-        });
+        };
+        touchEnd(row, endedAt);
+        body.push(row);
       }
       return;
     }
@@ -374,20 +415,29 @@ export function buildInspectorTrajectory(
       contentTrim && reasoningTrim
         ? `── thinking ──\n${reasoningTrim}\n\n── text ──\n${contentTrim}`
         : visible;
-    body.push({
+    const row: DraftRow = {
       detail,
       id: nextId("assistant", "text"),
       kind: "assistant",
       result: null,
       resultDetail: null,
       sourceMessageId: messageId,
+      startedAt:
+        lastEndedAt !== undefined &&
+        startedAt !== undefined &&
+        lastEndedAt < startedAt
+          ? lastEndedAt
+          : startedAt,
       text: visible,
-    });
+    };
+    touchEnd(row, endedAt);
+    body.push(row);
   };
 
   for (const event of events) {
     const record = event as Record<string, unknown>;
     const type = String(record.type);
+    const time = readTimestamp(record.timestamp);
 
     if (type === "TEXT_MESSAGE_START") {
       const role = record.role === "user" ? "user" : "assistant";
@@ -396,18 +446,26 @@ export function buildInspectorTrajectory(
       }
       openRole = role;
       openMessageId = readString(record.messageId);
+      touchBuf(time);
       continue;
     }
     if (type === "TEXT_MESSAGE_CONTENT") {
       textBuf += readDelta(record.delta);
+      touchBuf(time);
       continue;
     }
     if (type === "TEXT_MESSAGE_END") {
+      touchBuf(time);
       flushText();
       continue;
     }
     if (type === "REASONING_MESSAGE_CONTENT") {
       reasoningBuf += readDelta(record.delta);
+      touchBuf(time);
+      continue;
+    }
+    if (type.startsWith("REASONING_")) {
+      touchBuf(time);
       continue;
     }
     if (type === "TOOL_CALL_START") {
@@ -424,8 +482,10 @@ export function buildInspectorTrajectory(
         keyLabel: name,
         result: null,
         resultDetail: null,
+        startedAt: time,
         text: name,
       };
+      touchEnd(row, time);
       tools.set(id, { args: "", name, row });
       body.push(row);
       continue;
@@ -436,6 +496,15 @@ export function buildInspectorTrajectory(
       if (tool) {
         tool.args += readDelta(record.delta);
         syncToolRow(tool);
+        touchEnd(tool.row, time);
+      }
+      continue;
+    }
+    if (type === "TOOL_CALL_END") {
+      const id = readString(record.toolCallId);
+      const tool = id ? tools.get(id) : undefined;
+      if (tool) {
+        touchEnd(tool.row, time);
       }
       continue;
     }
@@ -443,6 +512,9 @@ export function buildInspectorTrajectory(
       const id = readString(record.toolCallId);
       const tool = id ? tools.get(id) : undefined;
       const content = readDelta(record.content) || readString(record.value);
+      if (tool) {
+        touchEnd(tool.row, time);
+      }
       if (tool && content) {
         tool.row.resultDetail = content;
         tool.row.result = oneLine(content, 72);
@@ -558,9 +630,21 @@ export function runEventRecordsToAgUi(
 ): AGUIEvent[] {
   return events.map((event) => {
     const payload = event.payload ?? {};
-    if (typeof payload.type === "string") {
-      return payload as AGUIEvent;
+    const base =
+      typeof payload.type === "string"
+        ? payload
+        : { ...payload, type: event.event_type };
+    // The stored row time is the only clock on the wire — carry it as the
+    // AG-UI `timestamp` so the ledger can show durations.
+    const createdAt = event.created_at
+      ? Date.parse(event.created_at)
+      : Number.NaN;
+    if (
+      readTimestamp(base.timestamp) !== undefined ||
+      Number.isNaN(createdAt)
+    ) {
+      return base as AGUIEvent;
     }
-    return { ...payload, type: event.event_type } as AGUIEvent;
+    return { ...base, timestamp: createdAt } as AGUIEvent;
   });
 }

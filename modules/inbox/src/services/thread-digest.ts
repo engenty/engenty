@@ -3,8 +3,7 @@
 // and keep a thread-level "current status" summary. Results are cached in
 // module_inbox.message_digests / thread_digests keyed by INBOX_DIGEST_VERSION;
 // bump the version whenever the prompts change materially.
-import { generateText, NoObjectGeneratedError, Output } from "ai";
-import { z } from "zod";
+import { generateText } from "ai";
 import type { InboxRepo } from "../dal/contracts.js";
 import { isLikelyDecorationAttachment } from "../lib/attachment-decoration.js";
 import {
@@ -34,13 +33,17 @@ import type {
   InboxThreadDigest,
   InboxThreadDigestResult,
 } from "../schema/types.js";
+import {
+  parseMessageDigestText,
+  parseThreadSummaryText,
+} from "./digest-text-output.js";
 
 /** @deprecated Prefer buildCategoryGuide(items) — default fixed-catalog prompt. */
 export const CATEGORY_GUIDE = buildCategoryGuide(
   defaultInboxCategories().items
 );
 
-export const INBOX_DIGEST_VERSION = 11;
+export const INBOX_DIGEST_VERSION = 12;
 
 const MAX_BODY_CHARS = 12_000;
 const MAX_DIGEST_CHARS = 20_000;
@@ -200,39 +203,6 @@ export function htmlToPromptMarkdown(html: string): string {
   );
 }
 
-// Built with the plain `zod` instance — the operation schemas use
-// `@hono/zod-openapi`'s, and mixing the two breaks the AI SDK's JSON-Schema
-// conversion. Category is a free string constrained by the tenant allowlist
-// at coerce / refine time (not a fixed enum).
-function messageDigestStrictSchemaFor(allowlist: readonly string[]) {
-  const fallback = allowlist.includes("conversation")
-    ? "conversation"
-    : (allowlist[0] ?? "conversation");
-  return z.object({
-    category: z
-      .string()
-      .refine((value) => allowlist.includes(value), {
-        message: `category must be one of: ${allowlist.join("|")}`,
-      })
-      .describe(`What kind of mail this is — one of: ${allowlist.join("|")}.`)
-      .catch(fallback),
-    content_markdown: z
-      .string()
-      .describe(
-        "The message body after light cleanup (mail chrome removed), as Markdown that preserves the writer's structure and formatting, in the original language."
-      ),
-    keep_attachment_indexes: z
-      .array(z.number().int().min(0))
-      .describe(
-        "Indexes (from the provided list) of attachments a human would consider real content."
-      ),
-  });
-}
-
-export type MessageDigestModelOutput = z.infer<
-  ReturnType<typeof messageDigestStrictSchemaFor>
->;
-
 function isAllowedCategory(
   value: unknown,
   allowlist: readonly string[]
@@ -246,88 +216,10 @@ function fallbackCategory(allowlist: readonly string[]): InboxMessageCategory {
     : (allowlist[0] ?? "conversation");
 }
 
-/**
- * Small models often rename fields (`body` / `classification`) or drop the
- * attachment index list. Normalize those aliases before schema validation.
- */
-export function coerceMessageDigestOutput(
-  raw: unknown,
-  allowlist: readonly string[] = INBOX_MESSAGE_CATEGORIES
-): MessageDigestModelOutput | null {
-  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
-    return null;
-  }
-  const obj = raw as Record<string, unknown>;
-  const content =
-    obj.content_markdown ??
-    obj.content_md ??
-    obj.body ??
-    obj.content ??
-    obj.markdown;
-  if (typeof content !== "string") {
-    return null;
-  }
-  const categoryRaw = obj.category ?? obj.classification ?? obj.ai_category;
-  const keepRaw =
-    obj.keep_attachment_indexes ??
-    obj.keep_attachments ??
-    obj.attachment_indexes;
-  const keep_attachment_indexes = Array.isArray(keepRaw)
-    ? keepRaw.filter(
-        (index): index is number =>
-          typeof index === "number" && Number.isInteger(index) && index >= 0
-      )
-    : [];
-  return {
-    category: isAllowedCategory(categoryRaw, allowlist)
-      ? categoryRaw
-      : fallbackCategory(allowlist),
-    content_markdown: content,
-    keep_attachment_indexes,
-  };
-}
-
-/** Pull a JSON value out of raw model text (fences, leading prose, etc.). */
-export function parseJsonFromModelText(text: string): unknown | null {
-  const trimmed = text.trim();
-  if (!trimmed) {
-    return null;
-  }
-  try {
-    return JSON.parse(trimmed);
-  } catch {
-    // continue
-  }
-  const fenced = /```(?:json)?\s*([\s\S]*?)```/i.exec(trimmed);
-  if (fenced?.[1]) {
-    try {
-      return JSON.parse(fenced[1].trim());
-    } catch {
-      // continue
-    }
-  }
-  const start = trimmed.search(/[{[]/);
-  const endObj = trimmed.lastIndexOf("}");
-  const endArr = trimmed.lastIndexOf("]");
-  const end = Math.max(endObj, endArr);
-  if (start >= 0 && end > start) {
-    try {
-      return JSON.parse(trimmed.slice(start, end + 1));
-    } catch {
-      return null;
-    }
-  }
-  return null;
-}
-
-function repairMessageDigestFromErrorText(
-  text: string | undefined,
-  allowlist: readonly string[]
-): MessageDigestModelOutput | null {
-  if (!text?.trim()) {
-    return null;
-  }
-  return coerceMessageDigestOutput(parseJsonFromModelText(text), allowlist);
+interface MessageDigestModelOutput {
+  category: InboxMessageCategory;
+  content_markdown: string;
+  keep_attachment_indexes: number[];
 }
 
 function deterministicMessageDigest(
@@ -343,35 +235,6 @@ function deterministicMessageDigest(
     content_md: normalizeDigestMarkdown(body).slice(0, MAX_DIGEST_CHARS),
   };
 }
-const threadSummaryOutputSchema = z.object({
-  participants: z.array(
-    z.object({
-      email: z.string(),
-      name: z.string().nullable(),
-      role: z
-        .string()
-        .nullable()
-        .describe("Very short role hint, e.g. 'customer', 'reports the bugs'."),
-    })
-  ),
-  headline: z
-    .string()
-    .describe(
-      "One sentence: what the latest message asks of the reader or tells them. The thread's language."
-    ),
-  open_points: z
-    .array(z.string())
-    .describe(
-      "Only what is still open right now, newest first. Empty when nothing is pending."
-    ),
-  suggested_actions: z
-    .array(z.string())
-    .min(2)
-    .max(3)
-    .describe(
-      "2–3 short next actions the reader could take, phrased as instructions to an assistant."
-    ),
-});
 
 function describeAttachments(attachments: InboxAttachmentMeta[]): string {
   if (attachments.length === 0) {
@@ -463,11 +326,6 @@ async function runMessageDigestModel(input: {
       ? categorySlugs(input.categoryItems)
       : INBOX_MESSAGE_CATEGORIES;
   const guide = buildCategoryGuide(input.categoryItems);
-  const strictSchema = messageDigestStrictSchemaFor(allowlist);
-  const outputSchema = z.preprocess(
-    (raw) => coerceMessageDigestOutput(raw, allowlist) ?? raw,
-    strictSchema
-  );
   const prompt = [
     "You prepare an email for a compact chat-style thread view.",
     "Clean the message lightly — remove mail chrome, keep the writer's content and formatting intact.",
@@ -491,22 +349,19 @@ async function runMessageDigestModel(input: {
     "  · if the Body already contains a `>` blockquoted forward (WG:/FW: mail), keep that blockquote",
     "",
     "Prefer fidelity over neatness. If unsure whether something is substance or chrome, keep it.",
-    "",
-    "Hard rules for content_markdown:",
-    '- Never replace the body with "..." / "…" / "empty" / a single punctuation mark.',
-    "- Use real line breaks inside the JSON string — do NOT write the two characters \\n.",
-    '- Do NOT backslash-escape quotes inside Markdown (write preload="none", not preload=\\"none\\").',
-    "- Do not re-attach earlier replies from the same thread — this view is a chat of direct answers.",
+    'Never replace the body with "..." / "…" / "empty" / a single punctuation mark.',
+    "Do not re-attach earlier replies from the same thread — this view is a chat of direct answers.",
     "",
     "Also pick which attachments are real content a human attached on purpose (documents, spreadsheets, real photos). Exclude signature logos, social-media icons, calendar/meeting boilerplate images, and decoration.",
     "",
     "Finally classify the message:",
     guide,
     "",
-    "Return JSON with exactly these keys:",
-    '- "content_markdown": string (cleaned body as Markdown — preserve formatting)',
-    `- "category": one of ${allowlist.join("|")}`,
-    '- "keep_attachment_indexes": number[] (indexes from the Attachments list; [] if none)',
+    "Answer in exactly this format — two label lines, then CONTENT: and the cleaned body. No JSON, no code fence, nothing else:",
+    `CATEGORY: <one of ${allowlist.join("|")}>`,
+    "ATTACHMENTS: <comma-separated indexes from the Attachments list, or none>",
+    "CONTENT:",
+    "<cleaned body as Markdown>",
     "",
     `From: ${input.message.from_name ?? ""} <${input.message.from_email ?? ""}>`,
     `Subject: ${input.message.subject ?? "(none)"}`,
@@ -520,36 +375,18 @@ async function runMessageDigestModel(input: {
     "---",
   ].join("\n");
 
-  try {
-    const { output } = await generateText({
-      model: input.modelId,
-      output: Output.object({ schema: outputSchema }),
-      prompt,
-    });
-    if (output) {
-      return output;
-    }
-  } catch (error) {
-    if (NoObjectGeneratedError.isInstance(error)) {
-      const repaired = repairMessageDigestFromErrorText(error.text, allowlist);
-      if (repaired) {
-        return repaired;
-      }
-    }
-    // Also try message text from generic AI errors ("No output generated").
-    const message =
-      error instanceof Error
-        ? // cause may carry the raw text on some providers
-          ((error as { text?: string }).text ??
-          (error.cause instanceof Error ? error.cause.message : undefined))
-        : undefined;
-    const repaired = repairMessageDigestFromErrorText(message, allowlist);
-    if (repaired) {
-      return repaired;
-    }
-    throw error;
+  const { text } = await generateText({ model: input.modelId, prompt });
+  const parsed = parseMessageDigestText(text);
+  if (!parsed) {
+    throw new Error("inbox digest model returned no content");
   }
-  throw new Error("inbox digest model returned no output");
+  return {
+    category: isAllowedCategory(parsed.category, allowlist)
+      ? parsed.category
+      : fallbackCategory(allowlist),
+    content_markdown: parsed.content_markdown,
+    keep_attachment_indexes: parsed.keep_attachment_indexes,
+  };
 }
 
 export interface GeneratedThreadSummary {
@@ -576,21 +413,28 @@ export async function generateThreadSummary(
     }>:\n${content}`;
   };
 
-  const { output } = await generateText({
+  const { text } = await generateText({
     model: modelId,
-    output: Output.object({ schema: threadSummaryOutputSchema }),
     prompt: [
       "You brief someone who just opened this email thread and wants to know where it stands RIGHT NOW.",
       "",
       "The latest message is what matters. Write:",
-      "- headline: one sentence stating what the latest message asks of the reader, or what it tells them. Concrete and specific — name the actual thing, never 'various topics' or 'several issues'.",
-      "- open_points: only what is still pending AS OF the latest message, newest first, at most 5 short entries. If an earlier request was answered, resolved, or superseded later in the thread, LEAVE IT OUT — a stale open point is worse than none. If nothing is pending, return an empty list.",
-      "- suggested_actions: ALWAYS propose 2–3 next actions the reader could take, each a short instruction to an assistant (e.g. 'Draft a reply confirming Monday 10:00', 'Turn the open bugs into a task list'). Base them on the latest message. Even a thread that needs no reply has useful actions (summarize, extract dates, file it) — never return an empty list.",
+      "- HEADLINE: one sentence stating what the latest message asks of the reader, or what it tells them. Concrete and specific — name the actual thing, never 'various topics' or 'several issues'.",
+      "- OPEN: only what is still pending AS OF the latest message, newest first, at most 5 short entries. If an earlier request was answered, resolved, or superseded later in the thread, LEAVE IT OUT — a stale open point is worse than none. If nothing is pending, write '- none'.",
+      "- ACTIONS: ALWAYS propose 2–3 next actions the reader could take, each a short instruction to an assistant (e.g. 'Draft a reply confirming Monday 10:00', 'Turn the open bugs into a task list'). Base them on the latest message. Even a thread that needs no reply has useful actions (summarize, extract dates, file it) — never leave it empty.",
+      "- PARTICIPANTS: one line per email address — the address, the display name if known, and a very short role hint inferred from the messages (e.g. 'customer', 'reports website bugs', 'cc'd colleague'). Only use the addresses provided.",
       "",
       "Use the earlier messages only as context for understanding the latest one — do not recap the thread's history and do not list what is already done.",
-      "Write in the thread's language. No filler, no preamble.",
+      "Write in the thread's language (the labels stay in English). No filler, no preamble.",
       "",
-      "Also map the participants: for each email address, the display name if known and a very short role hint inferred from the messages (e.g. 'customer', 'reports website bugs', 'cc'd colleague'). Only use the addresses provided.",
+      "Answer in exactly this format — no JSON, no code fence, nothing else:",
+      "HEADLINE: <one sentence>",
+      "OPEN:",
+      "- <point>",
+      "ACTIONS:",
+      "- <action>",
+      "PARTICIPANTS:",
+      "- <email> | <name or -> | <role hint or ->",
       "",
       `Subject: ${thread.subject ?? "(none)"}`,
       `Participant addresses: ${thread.participants.join(", ") || "(none)"}`,
@@ -606,13 +450,15 @@ export async function generateThreadSummary(
       "---",
     ].join("\n"),
   });
+  const output = parseThreadSummaryText(text);
+  if (!output.headline) {
+    throw new Error("inbox thread summary model returned no headline");
+  }
   const known = new Set(
     thread.participants.map((email) => email.toLowerCase())
   );
-  const headline = output.headline.trim();
-  const openPoints = output.open_points
-    .map((point) => point.trim())
-    .filter(Boolean);
+  const headline = output.headline;
+  const openPoints = output.open_points.slice(0, 5);
   const summary = [
     headline,
     ...(openPoints.length > 0
@@ -620,17 +466,10 @@ export async function generateThreadSummary(
       : []),
   ].join("\n");
   return {
-    participants: output.participants
-      .filter((participant) => known.has(participant.email.toLowerCase()))
-      .map((participant) => ({
-        email: participant.email.toLowerCase(),
-        name: participant.name?.trim() || null,
-        role: participant.role?.trim() || null,
-      })),
-    suggested_actions: output.suggested_actions
-      .map((action) => action.trim())
-      .filter(Boolean)
-      .slice(0, 3),
+    participants: output.participants.filter((participant) =>
+      known.has(participant.email)
+    ),
+    suggested_actions: output.suggested_actions.slice(0, 3),
     summary_md: normalizeDigestMarkdown(summary).slice(0, MAX_DIGEST_CHARS),
   };
 }
@@ -668,7 +507,7 @@ export interface EnsureThreadDigestOptions {
    */
   includeSummary?: boolean;
   messages: InboxMessage[];
-  /** Resolved classifier-tier model id (tenant → installation → env → default). */
+  /** Resolved fast-text model id (tenant → installation → env → default). */
   modelId: string;
   /** Regenerate everything, ignoring the cache. */
   refresh?: boolean;
@@ -692,7 +531,7 @@ export async function ensureThreadDigest(
     repo,
     thread,
   } = options;
-  const ownerUserId = thread.owner_user_id;
+  const spaceId = thread.space_id;
 
   const cached = refresh
     ? []
@@ -723,7 +562,7 @@ export async function ensureThreadDigest(
         digest_version: INBOX_DIGEST_VERSION,
         message_id: message.id,
         model_id: modelId,
-        owner_user_id: ownerUserId,
+        space_id: spaceId,
         thread_id: thread.id,
       });
       results.push(stored);
@@ -785,8 +624,8 @@ export async function ensureThreadDigest(
         digest_version: INBOX_DIGEST_VERSION,
         last_message_id: lastMessageId,
         model_id: modelId,
-        owner_user_id: ownerUserId,
         participants_json: summary.participants,
+        space_id: spaceId,
         suggested_actions: summary.suggested_actions,
         summarized_message_count: messages.length,
         summary_md: summary.summary_md,

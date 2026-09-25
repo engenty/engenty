@@ -3,14 +3,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ENGENTY_DEVELOPER_MODE_STORAGE_KEY,
   getDeveloperModePreference,
-  isEngentyDeveloperModeUiEnabled,
   setDeveloperModePreference,
   subscribeDeveloperModePreference,
 } from "./developer-mode-preference.js";
 
 describe("developer mode preference", () => {
   afterEach(() => {
-    vi.unstubAllEnvs();
     localStorage.clear();
   });
 
@@ -31,17 +29,5 @@ describe("developer mode preference", () => {
     unsub();
     setDeveloperModePreference(false);
     expect(spy).toHaveBeenCalledTimes(1);
-  });
-
-  it("isEngentyDeveloperModeUiEnabled combines ENV and preference", () => {
-    vi.stubEnv("ENV", "");
-    setDeveloperModePreference(true);
-    expect(isEngentyDeveloperModeUiEnabled()).toBe(false);
-
-    vi.stubEnv("ENV", "development");
-    expect(isEngentyDeveloperModeUiEnabled()).toBe(true);
-
-    setDeveloperModePreference(false);
-    expect(isEngentyDeveloperModeUiEnabled()).toBe(false);
   });
 });

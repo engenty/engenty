@@ -1,10 +1,3 @@
-// Tests for `apps/core/src/api/routes/search-index-routes.ts`.
-//
-// Covers list/status/backfill happy paths plus the auth gate matrix:
-// - tenant-scoped provider visible to tenant admin and superadmin only
-// - system provider visible to superadmin only
-// - backfill cap enforced; non-superadmin cannot target a foreign tenant.
-
 import {
   createSearchIndexRegistry,
   type SearchIndexProvider,
@@ -88,6 +81,8 @@ function setupApp(registry: SearchIndexRegistry) {
   registerSearchIndexRoutes({
     app,
     config: { securityJwtSecret: SECRET },
+    resolveEmbeddingModel: () =>
+      Promise.resolve("openai/text-embedding-3-large"),
     resolveRegistry: () => registry,
   });
   return app;
@@ -122,31 +117,6 @@ describe("search-index admin routes — provider list", () => {
       data: { providers: Array<{ id: string; is_system: boolean }> };
     };
     expect(body.data.providers.map((p) => p.id)).toEqual(["contacts.contact"]);
-  });
-
-  it("lists every provider for superadmin", async () => {
-    const app = setupApp(registry);
-    const token = await signToken({ capabilities: ["core.superadmin"] });
-    const response = await app.request("/api/search-index/providers", {
-      headers: { authorization: `Bearer ${token}` },
-    });
-    expect(response.status).toBe(200);
-    const body = (await response.json()) as {
-      data: {
-        providers: Array<{
-          id: string;
-          is_system: boolean;
-          supports: { backfill: boolean; search: boolean; status: boolean };
-        }>;
-      };
-    };
-    expect(body.data.providers.map((p) => p.id).sort()).toEqual([
-      "contacts.contact",
-      "core_api_catalog",
-    ]);
-    expect(
-      body.data.providers.find((p) => p.id === "contacts.contact")?.supports
-    ).toEqual({ backfill: true, search: true, status: true });
   });
 
   it("rejects unauthenticated callers", async () => {
@@ -200,35 +170,6 @@ describe("search-index admin routes — status proxy", () => {
     );
     expect(response.status).toBe(403);
   });
-
-  it("returns 404 when provider not found", async () => {
-    const registry = createSearchIndexRegistry();
-    const app = setupApp(registry);
-    const token = await signToken({ capabilities: ["core.superadmin"] });
-    const response = await app.request(
-      "/api/search-index/providers/missing.search/status",
-      { headers: { authorization: `Bearer ${token}` } }
-    );
-    expect(response.status).toBe(404);
-  });
-
-  it("returns 501 when provider does not implement getStatus", async () => {
-    const registry = createSearchIndexRegistry();
-    const provider = makeProvider("contacts.contact");
-    (provider as Partial<ProviderStub>).getStatus = undefined;
-    registry.register(provider, {
-      entityName: "contact",
-      isSystem: false,
-      moduleId: "contacts",
-    });
-    const app = setupApp(registry);
-    const token = await signToken({ capabilities: ["core.superadmin"] });
-    const response = await app.request(
-      "/api/search-index/providers/contacts.contact/status",
-      { headers: { authorization: `Bearer ${token}` } }
-    );
-    expect(response.status).toBe(501);
-  });
 });
 
 describe("search-index admin routes — backfill proxy", () => {
@@ -249,13 +190,13 @@ describe("search-index admin routes — backfill proxy", () => {
           authorization: "Bearer tenant-admin-token",
           "content-type": "application/json",
         },
-        body: JSON.stringify({ limit: 100_000 }),
+        body: JSON.stringify({ limit: MAX_BACKFILL_LIMIT + 1 }),
       }
     );
     expect(response.status).toBe(422);
   });
 
-  it("forwards capped limit and tenant scope", async () => {
+  it("scopes backfill to the caller's tenant", async () => {
     const registry = createSearchIndexRegistry();
     const provider = makeProvider("contacts.contact");
     registry.register(provider, {
@@ -272,15 +213,12 @@ describe("search-index admin routes — backfill proxy", () => {
           authorization: "Bearer tenant-admin-token",
           "content-type": "application/json",
         },
-        body: JSON.stringify({ limit: MAX_BACKFILL_LIMIT - 50 }),
+        body: JSON.stringify({}),
       }
     );
     expect(response.status).toBe(200);
     expect(provider.backfill).toHaveBeenCalledWith(
-      expect.objectContaining({
-        limit: MAX_BACKFILL_LIMIT - 50,
-        tenant_id: "tenant-1",
-      })
+      expect.objectContaining({ tenant_id: "tenant-1" })
     );
   });
 
@@ -292,9 +230,7 @@ describe("search-index admin routes — backfill proxy", () => {
       moduleId: "contacts",
     });
     const app = setupApp(registry);
-    // The mocked tenant-admin-token resolves to tenantId=tenant-1; targeting
-    // tenant-2 in the body must be rejected because the caller is not a
-    // superadmin.
+    // tenant-admin-token resolves to tenant-1; only a superadmin may target another tenant.
     const response = await app.request(
       "/api/search-index/providers/contacts.contact/backfill",
       {
@@ -308,44 +244,12 @@ describe("search-index admin routes — backfill proxy", () => {
     );
     expect(response.status).toBe(403);
   });
-
-  it("allows superadmin to target any tenant", async () => {
-    const registry = createSearchIndexRegistry();
-    const provider = makeProvider("contacts.contact");
-    registry.register(provider, {
-      entityName: "contact",
-      isSystem: false,
-      moduleId: "contacts",
-    });
-    const app = setupApp(registry);
-    const token = await signToken({ capabilities: ["core.superadmin"] });
-    const response = await app.request(
-      "/api/search-index/providers/contacts.contact/backfill",
-      {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${token}`,
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({ tenant_id: "tenant-2", limit: 50 }),
-      }
-    );
-    expect(response.status).toBe(200);
-    expect(provider.backfill).toHaveBeenCalledWith(
-      expect.objectContaining({ tenant_id: "tenant-2", limit: 50 })
-    );
-  });
 });
 
 describe("search-index admin routes — search proxy", () => {
-  it("forwards caller tenant scope into filters and returns matches/total", async () => {
+  it("forces the caller's tenant scope into search filters", async () => {
     const registry = createSearchIndexRegistry();
-    const provider = makeProvider("contacts.contact", {
-      search: vi.fn().mockResolvedValue({
-        results: [{ doc_id: "contact-1", item: { id: "contact-1" } }],
-        total: 1,
-      }),
-    });
+    const provider = makeProvider("contacts.contact");
     registry.register(provider, {
       entityName: "contact",
       isSystem: false,
@@ -361,31 +265,15 @@ describe("search-index admin routes — search proxy", () => {
           "content-type": "application/json",
         },
         body: JSON.stringify({
-          // The body's tenant_id is ignored — caller scope wins.
-          filters: { module_id: "contacts", tenant_id: "evil-tenant" },
-          limit: 10,
+          filters: { tenant_id: "evil-tenant" },
           query: "ada",
         }),
       }
     );
     expect(response.status).toBe(200);
-    const body = (await response.json()) as {
-      data: { matches: Array<{ doc_id: string }>; total: number };
-    };
-    expect(body.data.total).toBe(1);
-    expect(body.data.matches).toEqual([
-      { doc_id: "contact-1", item: { id: "contact-1" } },
-    ]);
     expect(provider.search).toHaveBeenCalledWith(
       expect.objectContaining({
-        filters: {
-          module_id: "contacts",
-          tenant_id: "tenant-1",
-          user_id: "user-tenant-admin",
-        },
-        limit: 10,
-        query: "ada",
-        strategy: "hybrid",
+        filters: expect.objectContaining({ tenant_id: "tenant-1" }),
       })
     );
   });

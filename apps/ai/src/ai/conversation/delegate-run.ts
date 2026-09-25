@@ -60,6 +60,8 @@ import type { EngentySandboxProvider } from "../sandbox/sandbox-provider.js";
 import { destroyRunSandboxes } from "../sandbox/sandbox-run-teardown.js";
 import { getServiceAccessToken } from "../service-credential.js";
 import { registerActiveThreadRun } from "../sessions/active-thread-runs.js";
+import { loadAgentApprovalGrants } from "../sessions/agent-approval-grants.js";
+import { mergeApprovalGrants } from "../sessions/connection-approval-grants.js";
 import {
   emitExecutionLaneRunStarted,
   executionSpaceId,
@@ -75,7 +77,7 @@ import {
 } from "../sessions/types.js";
 import { setTraceContext } from "../trace-context.js";
 import {
-  describeWorkspaceToolCall,
+  workspaceApprovalTitle,
   workspaceToolGrantId,
 } from "../workspace/workspace-tool-guards.js";
 import { inheritChildSpace } from "./child-space.js";
@@ -364,6 +366,12 @@ export async function runDelegatedConversation(
       input.scope.tenantId,
       input.childAgentId
     );
+    // The child's own standing "approve for this agent" grants — what makes an
+    // approval given in the agent's chat hold when its routine fires.
+    const childAgentGrants = await loadAgentApprovalGrants({
+      agentId: input.childAgentId,
+      tenantId: input.scope.tenantId,
+    });
     const childToolsContext = withEnvCoreBaseUrl({
       ...getEngentyToolsRunContext(),
       ...(childCoreAgentId ? { agentId: childCoreAgentId } : {}),
@@ -375,10 +383,12 @@ export async function runDelegatedConversation(
       // just because a sub-agent executes it — the child still has no way to
       // ASK (policy "deny"), so without the pass-down every granted write dies
       // in the leaf.
-      approvalGrants:
+      approvalGrants: mergeApprovalGrants(
         input.approvalGrants ??
-        getEngentyToolsRunContext().approvalGrants ??
-        [],
+          getEngentyToolsRunContext().approvalGrants ??
+          [],
+        childAgentGrants
+      ),
       // Leaf run — no interactive channel: a gated operation is denied with a
       // clear result instead of suspending (which would deadlock the parent).
       // Task jobs override to "defer" (core decides) or "request" (report a
@@ -501,7 +511,7 @@ export async function runDelegatedConversation(
             agentId: input.childAgentId,
             alterEgo: childAlterEgo,
             ...(childConfig?.name ? { agentName: childConfig.name } : {}),
-            observationalModelId: input.modelConfig?.memoryModelId,
+            observationalModelId: input.modelConfig?.fastTextModelId,
             scope: input.scope,
             sharedObservations: childConfig
               ? resolveSharedObservationsScope(childConfig)
@@ -576,9 +586,9 @@ export async function runDelegatedConversation(
         // without which a tool call that pauses can never be answered — the
         // resume reports "could not find a suspended run for runId".
         const runMastra = input.mastra ?? getHeadlessSnapshotMastra();
-        // The acting user's browser (D11): the run's space names whom the run
-        // acts for; outside any space the scope's own person does; a service
-        // principal is "headless" for the unattended gate.
+        // This agent's window in its Space's browser (D11); a run outside a
+        // Space has none. A service principal is "headless" for the
+        // unattended gate.
         const browserSpace = childToolsContext.space;
         const browserSource: RunBrowserSource = isUnresolvedSpaceGate(
           browserSpace
@@ -588,8 +598,8 @@ export async function runDelegatedConversation(
             ? { kind: "resolved", space: browserSpace }
             : { kind: "global" };
         const browserTools = await createUserBrowserTools({
-          browser: await resolveRunBrowser({
-            scope: input.scope,
+          browser: resolveRunBrowser({
+            agentId: input.childAgentId,
             source: browserSource,
           }),
           ...(tracker
@@ -606,6 +616,7 @@ export async function runDelegatedConversation(
           headless: scopeAttributionUserId(input.scope) === null,
           tenantId: input.scope.tenantId,
           textModelId: childModelConfig?.gradedModelIds?.low ?? null,
+          classifierModelId: childModelConfig?.classifierModelId ?? null,
         });
         const agent = await assembleDynamicAgent(
           input.registry,
@@ -698,7 +709,7 @@ export async function runDelegatedConversation(
             // wait for an answer that can never arrive, so the run declines it
             // itself and keeps going.
             declineApprovals: (input.approvalPolicy ?? "deny") !== "request",
-            describeCall: describeWorkspaceToolCall,
+            describeCall: workspaceApprovalTitle,
             grantIdOf: workspaceToolGrantId,
             maxSteps: resolveAgentMaxSteps(childConfig?.limits?.max_steps),
             requestContext,
@@ -811,7 +822,11 @@ export async function runDelegatedConversation(
           actorLabel: childConfig?.name ?? null,
           ask: {
             kind: "agent_run_suspended",
-            title: `${childConfig?.name ?? input.childAgentId} proposed changes that need a review`,
+            summary: childConfig?.name?.trim()
+              ? `${childConfig.name.trim()} proposed changes to review`
+              : "An agent proposed changes to review",
+            // `{actor}` is the child's name (actorLabel, else resolved).
+            title: { key: "agent_run_suspended" },
           },
           // The person behind the parent run gets the push; the space gets the row.
           initiatorUserId: input.scope.userId ?? null,

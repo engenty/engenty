@@ -6,6 +6,9 @@ import type { ConnectorMountRow } from "./connector-file-source.js";
 import { createConnectorFileSource } from "./connector-file-source.js";
 import { encodeConnectorNodeId } from "./connector-ref.js";
 
+/** The file space may use every connection in these tests. */
+const allowConnection = async () => undefined;
+
 const ctx: FileSourceContext = {
   owner: { id: "project-1", type: "project" },
   principalId: "user-1",
@@ -85,7 +88,11 @@ function build() {
   const getMount = vi.fn(async (_ctx: FileSourceContext, folderId: string) =>
     folderId === MOUNT_ID ? mountRow : null
   );
-  const connector = createConnectorFileSource({ client, getMount });
+  const connector = createConnectorFileSource({
+    assertConnectionUsable: allowConnection,
+    client,
+    getMount,
+  });
   const composite = createCompositeFileSource({ connector, getMount, native });
   return { client, composite, native };
 }
@@ -171,7 +178,11 @@ describe("composite file source", () => {
       })),
     };
     const getMount = vi.fn(async () => mountRow);
-    const connector = createConnectorFileSource({ client, getMount });
+    const connector = createConnectorFileSource({
+      assertConnectionUsable: allowConnection,
+      client,
+      getMount,
+    });
     const composite = createCompositeFileSource({
       connector,
       getMount,

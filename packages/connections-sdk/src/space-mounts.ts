@@ -1,42 +1,13 @@
 /**
- * "Which accounts may this space use?" plus tenant-wide all-spaces accounts.
- *
- * Space connection mounts name ACCOUNT ids. `all_spaces` accounts are treated
- * as mounted in every space (one flag, not a row per space). Agent grants are
- * NOT included here — the executor unions them so a copilot personal account
- * remains usable in a space that did not mount it.
+ * A Space's side of connections: which plugins are enabled on it (`plugin`
+ * mounts, before any account exists) and which accounts it owns.
  */
+import { capabilityCovers } from "@engenty/plugin-sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
- * What a space's engentys may do with an account mounted here — the per-space
- * half of the pair whose other half is the account's own `autonomous_mode`
- * (the owner's ceiling). Same three words `space_mount.agent_access` already
- * uses for modules.
- */
-export type SpaceConnectionAccess = "none" | "read" | "write";
-
-/**
- * Connection ids mounted in `spaceId`, or null when the space's mounts could
- * not be read.
- *
- * Null means "do not narrow" — the same reach the call had before Phase CN, and
- * every deny below this point still applies. Failing shut here would turn a
- * core hiccup into a dead connector for every space at once, and the mount is a
- * narrowing rather than the thing that authorizes the call.
- */
-export async function listMountedConnectionIds(
-  client: SupabaseClient,
-  tenantId: string,
-  spaceId: string
-): Promise<Set<string> | null> {
-  const access = await listMountedConnectionAccess(client, tenantId, spaceId);
-  return access === null ? null : new Set(access.keys());
-}
-
-/**
- * Connector ids enabled on this space with no account yet (`plugin` mounts).
- * Null when the space's mounts could not be read.
+ * Connector ids enabled on this space (`plugin` mounts). Null when the
+ * space's mounts could not be read.
  */
 export async function listMountedPluginIds(
   client: SupabaseClient,
@@ -58,139 +29,6 @@ export async function listMountedPluginIds(
       (row) => row.resource_key
     )
   );
-}
-
-/**
- * How far this space's engentys may go with each account mounted here
- * (PLAN-connections-ux.md B1).
- *
- * `null` for a mounted account means the space never decided, and the gate then
- * falls back to the account's own `autonomous_mode` — the behaviour every space
- * had before the level existed. `"none"` is the opposite and is a decision:
- * the account is available here, and engentys get nothing from it.
- *
- * Same query as {@link listMountedConnectionIds}, which is derived from this
- * one: "which accounts" and "how far" must never be two reads that can disagree
- * about what is mounted.
- */
-export async function listMountedConnectionAccess(
-  client: SupabaseClient,
-  tenantId: string,
-  spaceId: string
-): Promise<Map<string, SpaceConnectionAccess | null> | null> {
-  const result = await client
-    .schema("core")
-    .from("space_mount")
-    .select("resource_key, agent_access")
-    .eq("tenant_id", tenantId)
-    .eq("space_id", spaceId)
-    .eq("resource_type", "connection");
-  if (result.error) {
-    return null;
-  }
-  const rows = (result.data ?? []) as Array<{
-    agent_access: string | null;
-    resource_key: string;
-  }>;
-  const access = new Map(
-    rows.map((row) => [
-      row.resource_key,
-      toSpaceConnectionAccess(row.agent_access),
-    ])
-  );
-  const allSpaces = await client
-    .schema("module_connections")
-    .from("connections")
-    .select("id")
-    .eq("tenant_id", tenantId)
-    .eq("all_spaces", true)
-    .eq("status", "active");
-  if (!allSpaces.error) {
-    for (const row of (allSpaces.data ?? []) as Array<{ id: string }>) {
-      if (!access.has(row.id)) {
-        access.set(row.id, null);
-      }
-    }
-  }
-  return access;
-}
-
-function toSpaceConnectionAccess(
-  value: string | null
-): SpaceConnectionAccess | null {
-  return value === "none" || value === "read" || value === "write"
-    ? value
-    : null;
-}
-
-/**
- * The account filter a module should apply to its RECORDS in this run
- * (PLAN-connections-ux.md E1/E2).
- *
- * One definition of the rule, because three modules keep mail, files and time
- * entries against accounts and each would otherwise invent its own reading of
- * "in this space":
- *
- * - **no space named** → `null`, do not narrow. A run outside a space is
- *   intentionally tenant-wide, and every pre-space caller must behave exactly
- *   as it did.
- * - **mounts unreadable** → `null` too. The mount narrows; failing shut here
- *   would empty every space's records at once over a core hiccup, and the
- *   calls that name an account are re-checked anyway.
- * - **space with no accounts** → an EMPTY set, which is a decision and not an
- *   absence: that space has no records of this kind, and answering with the
- *   tenant's is the leak this exists to close.
- *
- * A narrowing only. Consumers intersect it with the visibility they already
- * resolved (owner, sharing, agent grants), so naming a space can remove rows
- * and never add one.
- */
-export async function resolveSpaceRecordAccounts(
-  client: SupabaseClient,
-  params: { spaceId?: string | null; tenantId: string }
-): Promise<ReadonlySet<string> | null> {
-  const spaceId = params.spaceId?.trim();
-  if (!spaceId) {
-    return null;
-  }
-  return await listMountedConnectionIds(client, params.tenantId, spaceId);
-}
-
-/**
- * Grant a freshly connected account to the space the connect started from
- * (CN.4 Flow A). Returns whether the mount now exists.
- *
- * Best-effort by contract, not by accident: the account IS connected by the
- * time this runs, so a failure here must not turn a successful OAuth round
- * trip into an error page. The user lands in the space, sees the account
- * missing, and can add it — annoying, and strictly better than being told the
- * connect failed when it did not.
- *
- * Idempotent — the same account connected twice from the same space is one
- * mount, which is what `onConflict` on the mount's natural key gives us.
- */
-export async function mountConnectionInSpace(
-  client: SupabaseClient,
-  params: { connectionId: string; spaceId: string; tenantId: string }
-): Promise<boolean> {
-  // `agent_access` is deliberately absent from the payload: an upsert only
-  // updates the columns it names, and re-connecting an account that is already
-  // mounted must not silently reset the level this space chose for it
-  // (PLAN-connections-ux.md B1). On insert it stays NULL — undecided.
-  const result = await client.schema("core").from("space_mount").upsert(
-    {
-      is_required: false,
-      resource_key: params.connectionId,
-      resource_type: "connection",
-      space_id: params.spaceId,
-      tenant_id: params.tenantId,
-    },
-    { onConflict: "tenant_id,space_id,resource_type,resource_key" }
-  );
-  if (result.error) {
-    throw new Error(result.error.message);
-  }
-  return true;
 }
 
 /**
@@ -218,69 +56,197 @@ export async function mountPluginInSpace(
 }
 
 /**
- * The user whose personal reach a run in this space may act with — the
- * PERSONAL-SPACE owner resolution (PLAN-space-computer.md §2.1).
+ * The account filter a module should apply to its RECORDS in this run (mail,
+ * files, calendar entries kept against an account):
  *
- * A personal space is `core.spaces.owner_user_id IS NOT NULL` (private, no
- * members). Runs in it should work with the owner's own accounts, but a
- * headless run executes as the AI service principal, so `owner_user_id ===
- * principalId` never matches. This resolves the stand-in — under verification,
- * because the space id itself is a narrowing-only header a caller could name
- * freely, and owner reach ADDS:
+ * - **no space named** → `null`, do not narrow (tenant-level callers such as
+ *   settings pages; record visibility then rests on the module's own rules).
+ * - **space named** → the ids of the accounts that Space owns. An EMPTY set is
+ *   a decision: that space has no records of this kind.
  *
- * - Only for NON-USER principals. A user in their own personal space already
- *   IS the owner; any other user cannot enter it at all.
- * - Only when the run's routine (x-engenty-trigger-id) is stored, tenant-
- *   scoped, as bound to EXACTLY this space. A forged trigger id unlocks
- *   nothing beyond what that routine already legitimizes — the same argument
- *   the routine space claim makes in core.
- *
- * The stand-in covers the sharing clamp ONLY (`actsForSpaceOwner`): the
- * owner's `autonomous_mode` ceiling, the space mount level, action policies
- * and approval asks (addressed to the owner) all still apply.
- *
- * Returns null whenever any link is missing — which is every call today that
- * predates the feature, so nothing widens by default.
+ * Throws when the accounts cannot be read — answering with the tenant's
+ * records instead would be the leak this exists to close.
  */
-export async function resolveVerifiedSpaceOwnerForRun(
+export async function resolveSpaceRecordAccounts(
+  client: SupabaseClient,
+  params: { spaceId?: string | null; tenantId: string }
+): Promise<ReadonlySet<string> | null> {
+  const spaceId = params.spaceId?.trim();
+  if (!spaceId) {
+    return null;
+  }
+  const result = await client
+    .schema("module_connections")
+    .from("connections")
+    .select("id")
+    .eq("tenant_id", params.tenantId)
+    .eq("space_id", spaceId);
+  if (result.error) {
+    throw new Error(`space accounts: ${result.error.message}`);
+  }
+  return new Set(
+    ((result.data ?? []) as Array<{ id: string }>).map((row) => row.id)
+  );
+}
+
+export interface SpaceAccessEntry {
+  isOwner: boolean;
+}
+
+/** Every Space a user may enter, keyed by id. */
+export type SpaceAccessMap = ReadonlyMap<string, SpaceAccessEntry>;
+
+/**
+ * Every Space this user may enter, keyed by id, with whether they own it.
+ *
+ * Core's rule for `/s/<key>`, stated once for connection code: you may enter
+ * a Space iff it is open, you own it (`spaces.owner_user_id`), or you have a
+ * `space_member` row; you OWN it via `owner_user_id` or a member row with role
+ * `owner`. Read on the tenant-locked server handle, whose JWT subject is not
+ * the user — so this is the enforcement on that lane, not a convenience over
+ * RLS.
+ */
+export async function readSpaceAccess(
+  client: SupabaseClient,
+  params: { tenantId: string; userId: string }
+): Promise<SpaceAccessMap> {
+  const [spaces, members] = await Promise.all([
+    client
+      .schema("core")
+      .from("spaces")
+      .select("id, owner_user_id, visibility")
+      .eq("tenant_id", params.tenantId)
+      .is("deleted_at", null),
+    client
+      .schema("core")
+      .from("space_member")
+      .select("space_id, role")
+      .eq("tenant_id", params.tenantId)
+      .eq("user_id", params.userId),
+  ]);
+  if (spaces.error) {
+    throw new Error(`space access: ${spaces.error.message}`);
+  }
+  if (members.error) {
+    throw new Error(`space access: ${members.error.message}`);
+  }
+  const roles = new Map(
+    ((members.data ?? []) as Array<{ role: string; space_id: string }>).map(
+      (row) => [row.space_id, row.role]
+    )
+  );
+  const access = new Map<string, SpaceAccessEntry>();
+  for (const space of (spaces.data ?? []) as Array<{
+    id: string;
+    owner_user_id: string | null;
+    visibility: string;
+  }>) {
+    const role = roles.get(space.id);
+    const isOwner = space.owner_user_id === params.userId || role === "owner";
+    if (isOwner || role !== undefined || space.visibility === "open") {
+      access.set(space.id, { isOwner });
+    }
+  }
+  return access;
+}
+
+/**
+ * May this person connect an account into, or use the accounts of, `spaceId`?
+ * Tenant admins (`core.users.manage`) may act in every Space of their tenant.
+ */
+export async function canEnterSpace(
   client: SupabaseClient,
   params: {
-    principalType: "user" | "agent" | "service";
-    spaceId: string | null | undefined;
+    capabilities?: readonly string[];
+    spaceId: string;
     tenantId: string;
-    triggerId: string | null | undefined;
+    userId: string;
   }
-): Promise<string | null> {
-  const spaceId = params.spaceId?.trim();
-  const triggerId = params.triggerId?.trim();
-  if (params.principalType === "user" || !spaceId || !triggerId) {
-    return null;
+): Promise<boolean> {
+  if (capabilityCovers([...(params.capabilities ?? [])], "core.users.manage")) {
+    return true;
   }
-  const routine = await client
-    .schema("ai")
-    .from("routines")
-    .select("space_id")
-    .eq("id", triggerId)
-    .eq("tenant_id", params.tenantId)
-    .maybeSingle();
-  const routineSpaceId = routine.error
-    ? null
-    : (routine.data as { space_id: string | null } | null)?.space_id;
-  if (!routineSpaceId || routineSpaceId !== spaceId) {
-    return null;
+  const access = await readSpaceAccess(client, {
+    tenantId: params.tenantId,
+    userId: params.userId,
+  });
+  return access.has(params.spaceId);
+}
+
+const RUN_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * May this call use the accounts of the Space it names (`x-engenty-space-id`)?
+ *
+ * The header decides which Space's accounts a call reaches, so it is a claim
+ * to check, not a narrowing to trust:
+ * - a PERSON must be able to enter the Space ({@link canEnterSpace});
+ * - an agent or service principal (a headless run) may use an OPEN Space, or
+ *   the Space its own routine (`x-engenty-trigger-id`) or task
+ *   (`x-engenty-task-id`) belongs to — read from that row, tenant-scoped, so a
+ *   forged id unlocks nothing beyond what that routine or task already
+ *   legitimizes. Same rule core applies to a headless run's space surface.
+ *
+ * Fails closed: an unreadable row answers no.
+ */
+export async function mayUseSpaceInRun(
+  client: SupabaseClient,
+  params: {
+    capabilities?: readonly string[];
+    principalId: string;
+    principalType: "user" | "agent" | "service";
+    spaceId: string;
+    taskId?: string | null;
+    tenantId: string;
+    triggerId?: string | null;
+  }
+): Promise<boolean> {
+  if (params.principalType === "user") {
+    return canEnterSpace(client, {
+      spaceId: params.spaceId,
+      tenantId: params.tenantId,
+      userId: params.principalId,
+      ...(params.capabilities ? { capabilities: params.capabilities } : {}),
+    });
   }
   const space = await client
     .schema("core")
     .from("spaces")
-    .select("owner_user_id")
-    .eq("id", spaceId)
+    .select("visibility")
     .eq("tenant_id", params.tenantId)
+    .eq("id", params.spaceId)
+    .is("deleted_at", null)
     .maybeSingle();
-  if (space.error) {
-    return null;
+  if (space.error || !space.data) {
+    return false;
   }
+  if ((space.data as { visibility: string }).visibility === "open") {
+    return true;
+  }
+  const bound = async (schema: string, table: string, id: string) => {
+    if (!RUN_ID_PATTERN.test(id)) {
+      return false;
+    }
+    const row = await client
+      .schema(schema)
+      .from(table)
+      .select("space_id")
+      .eq("tenant_id", params.tenantId)
+      .eq("id", id)
+      .maybeSingle();
+    return (
+      !row.error &&
+      (row.data as { space_id: string | null } | null)?.space_id ===
+        params.spaceId
+    );
+  };
+  const triggerId = params.triggerId?.trim();
+  if (triggerId && (await bound("ai", "routines", triggerId))) {
+    return true;
+  }
+  const taskId = params.taskId?.trim();
   return (
-    (space.data as { owner_user_id: string | null } | null)?.owner_user_id ??
-    null
+    Boolean(taskId) && (await bound("module_tasks", "tasks", taskId ?? ""))
   );
 }

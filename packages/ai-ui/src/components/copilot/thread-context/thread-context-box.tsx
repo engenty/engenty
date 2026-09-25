@@ -7,6 +7,7 @@ import { Brain, FileText, Sparkles } from "lucide-react";
 import { activateArtifact } from "../../../artifacts/artifact-store.js";
 import { spaceAgentDeskPath } from "../../../features/agent-form/hire-spaces.js";
 import { buildAgentFilesPath } from "../../../features/agents-workspace/agent-workspace-paths.js";
+import { useDeveloperModeEnabled } from "../../ag-ui-inspector/ag-ui-inspector-hooks.js";
 import {
   type ContextBoxSectionModel,
   ContextBoxView,
@@ -52,6 +53,8 @@ export function ThreadContextBox({
 
   const owned = useAgentOwnedContext(hostKey);
   const { currentSpace } = useWorkspaceContext();
+  // The files page lives in the /admin/engenty debugging area.
+  const developerMode = useDeveloperModeEnabled();
   const skillSourceLabel: Record<AgentSkillSource, string> = {
     agent: t("threadContext.skillSource.agent"),
     default: t("threadContext.skillSource.default"),
@@ -106,7 +109,9 @@ export function ThreadContextBox({
     {
       id: "files",
       items: owned.files.map((file) => ({
-        ...(owned.agentId ? { href: buildAgentFilesPath(owned.agentId) } : {}),
+        ...(developerMode && owned.agentId
+          ? { href: buildAgentFilesPath(owned.agentId) }
+          : {}),
         icon: FileText,
         key: file.path,
         label: file.name,

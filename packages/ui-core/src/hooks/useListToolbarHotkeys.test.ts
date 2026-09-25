@@ -3,10 +3,7 @@ import { HotkeyManager } from "@tanstack/react-hotkeys";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import type { RefObject } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  LIST_TOOLBAR_HOTKEYS,
-  useListToolbarHotkeys,
-} from "./useListToolbarHotkeys.js";
+import { useListToolbarHotkeys } from "./useListToolbarHotkeys.js";
 
 afterEach(() => {
   cleanup();
@@ -135,34 +132,5 @@ describe("useListToolbarHotkeys", () => {
       dispatchModKey("n", { target: field });
     });
     expect(onNewItem).not.toHaveBeenCalled();
-  });
-
-  it("registers list chords with Lists group metadata", () => {
-    const onNewItem = vi.fn();
-    const searchInputRef: RefObject<HTMLInputElement | null> = {
-      current: null,
-    };
-    renderHook(() =>
-      useListToolbarHotkeys({
-        onNewItem,
-        onOpenFilters: vi.fn(),
-        searchInputRef,
-      })
-    );
-    const registrations = [
-      ...HotkeyManager.getInstance().registrations.state.values(),
-    ];
-    const byHotkey = new Map(
-      registrations.map((entry) => [entry.hotkey, entry])
-    );
-    expect(byHotkey.get(LIST_TOOLBAR_HOTKEYS.search)?.options.meta?.group).toBe(
-      "Lists"
-    );
-    expect(byHotkey.get(LIST_TOOLBAR_HOTKEYS.filters)?.options.meta?.name).toBe(
-      "Open list filters"
-    );
-    expect(byHotkey.get(LIST_TOOLBAR_HOTKEYS.newItem)?.options.meta?.name).toBe(
-      "New item"
-    );
   });
 });

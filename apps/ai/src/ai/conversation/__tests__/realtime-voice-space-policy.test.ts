@@ -185,10 +185,9 @@ describe("realtime voice space policy", () => {
     const space: RunSpace = {
       agentIds: new Set(["engenty.copilot"]),
       allConnectorPrefixes: new Set(),
-      browser: null,
+      browser: { autostart: false, unattended: false },
       connectorPrefixes: new Set(),
       moduleIds: new Set(["projects", "contacts"]),
-      mountedConnectionIds: new Set(),
       readOnlyModuleIds: new Set(["contacts"]),
       spaceId,
       topLevelAgentIds: new Set(),

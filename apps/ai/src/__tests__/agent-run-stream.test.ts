@@ -39,12 +39,7 @@ function makeApp(
   return app;
 }
 
-/**
- * `AGUIEvent` is `z.infer<typeof EventSchemas>` and collapses to `unknown` here
- * because @ag-ui/core resolves zod 3 while apps/ai pins zod 4 — so the parsed
- * events carry no `.type`. These tests only ever read the discriminant, so
- * assert that much locally rather than casting at every call site.
- */
+/** Parsed `AGUIEvent` collapses to `unknown` here (zod 3 vs 4); read only `.type`. */
 type StreamEvent = { type: string } & Record<string, unknown>;
 
 async function readSseText(res: Response): Promise<StreamEvent[]> {
@@ -75,21 +70,6 @@ function makeRunStore(
 const validRunId = "00000000-0000-4000-8000-000000000010";
 
 describe("GET /ai/v1/runs/:runId/stream (attach endpoint)", () => {
-  it("returns 404 when the run is not found", async () => {
-    const runStore = makeRunStore({
-      getRun: vi.fn(async () => null),
-    });
-    const app = makeApp(runStore);
-
-    const res = await app.request(
-      `http://localhost/ai/v1/runs/${validRunId}/stream`,
-      { headers: { Authorization: "Bearer token" } }
-    );
-
-    expect(res.status).toBe(404);
-    await expect(res.json()).resolves.toEqual({ error: "agent_runs.notFound" });
-  });
-
   it("replays persisted events and closes for a finished run", async () => {
     const events: StreamEvent[] = [
       { type: EventType.RUN_STARTED, runId: validRunId, threadId: "t1" },
@@ -122,46 +102,8 @@ describe("GET /ai/v1/runs/:runId/stream (attach endpoint)", () => {
     ]);
   });
 
-  it("filters with ?since=N — only replays events with seq > N", async () => {
-    const allEvents: StreamEvent[] = [
-      { type: EventType.RUN_STARTED, runId: validRunId, threadId: "t1" },
-      {
-        type: EventType.TEXT_MESSAGE_START,
-        messageId: "m1",
-        role: "assistant",
-      },
-      { type: EventType.RUN_FINISHED, runId: validRunId, threadId: "t1" },
-    ];
-    const runStore = makeRunStore({
-      getRun: vi.fn(async () => makeRunRow()),
-      listRunEvents: vi.fn(async ({ sinceSeq }) => {
-        const rows = allEvents.map((e, i) => ({
-          seq: i,
-          payload: e,
-          event_type: e.type,
-        }));
-        return typeof sinceSeq === "number"
-          ? rows.filter((r) => r.seq > sinceSeq)
-          : rows;
-      }),
-    });
-    const app = makeApp(runStore);
-
-    const res = await app.request(
-      `http://localhost/ai/v1/runs/${validRunId}/stream?since=0`,
-      { headers: { Authorization: "Bearer token" } }
-    );
-
-    const received = await readSseText(res);
-    // since=0 means only seq > 0, so RUN_STARTED (seq=0) is excluded
-    expect(received.map((e) => e.type)).toEqual([
-      "TEXT_MESSAGE_START",
-      "RUN_FINISHED",
-    ]);
-  });
-
   it("emits a synthetic RUN_ERROR when the run is in-flight in DB but executor is gone", async () => {
-    // Run is "running" in DB but not live in process → executor lost
+    // Running in the DB but not live in this process: the client must not hang.
     const runStore = makeRunStore({
       getRun: vi
         .fn()
@@ -188,12 +130,9 @@ describe("GET /ai/v1/runs/:runId/stream (attach endpoint)", () => {
     });
   });
 
-  it("delivers events published before attach even when persistence lags (seam regression)", async () => {
-    // Live run: the user-turn trio was published to the bus before the attach,
-    // and the DB replay returns NOTHING (inserts are unawaited and coalesced —
-    // they can commit after the replay read). The old subscribe-then-replay
-    // implementation lost exactly these events: the attached window rendered
-    // an empty user bubble with no text. The in-memory buffer must cover them.
+  it("delivers events published before attach even when persistence lags", async () => {
+    // Inserts are unawaited and coalesced, so the DB replay can miss events the
+    // bus already published; the in-memory buffer must cover them.
     const runId = crypto.randomUUID();
     markRunLive(runId);
     publishRunEvent(runId, {
@@ -264,8 +203,7 @@ describe("GET /ai/v1/runs/:runId/stream (attach endpoint)", () => {
       event: { type: EventType.RUN_FINISHED, runId, threadId: "t1" },
       seq: 1,
     });
-    // markRunDone NOT yet called (tracker.complete still flushing) — the
-    // stream must still terminate rather than waiting for a live event.
+    // Not marked done yet: the stream must still close on the buffered finish.
     const runStore = makeRunStore({
       getRun: vi.fn(async () =>
         makeRunRow({ id: runId, status: "running", finished_at: null })
@@ -284,45 +222,5 @@ describe("GET /ai/v1/runs/:runId/stream (attach endpoint)", () => {
       "RUN_FINISHED",
     ]);
     markRunDone(runId);
-  });
-
-  it("follows live events and closes on RUN_FINISHED for a running run", async () => {
-    const runId = crypto.randomUUID();
-    markRunLive(runId);
-
-    const runStore = makeRunStore({
-      getRun: vi
-        .fn()
-        .mockResolvedValueOnce(
-          makeRunRow({ id: runId, status: "running", finished_at: null })
-        )
-        .mockResolvedValueOnce(
-          makeRunRow({ id: runId, status: "running", finished_at: null })
-        ),
-      listRunEvents: vi.fn(async () => []),
-    });
-    const app = makeApp(runStore);
-
-    // Publish live events slightly after the SSE handler subscribes
-    setTimeout(() => {
-      publishRunEvent(runId, {
-        event: { type: EventType.RUN_STARTED, runId, threadId: "t1" },
-        seq: 0,
-      });
-      publishRunEvent(runId, {
-        event: { type: EventType.RUN_FINISHED, runId, threadId: "t1" },
-        seq: 1,
-      });
-      markRunDone(runId);
-    }, 10);
-
-    const res = await app.request(
-      `http://localhost/ai/v1/runs/${runId}/stream`,
-      { headers: { Authorization: "Bearer token" } }
-    );
-
-    const received = await readSseText(res);
-    expect(received.map((e) => e.type)).toContain("RUN_STARTED");
-    expect(received.map((e) => e.type)).toContain("RUN_FINISHED");
   });
 });

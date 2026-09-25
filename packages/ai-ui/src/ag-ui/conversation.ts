@@ -233,6 +233,56 @@ function finalizeUnresolvedToolCalls(
   return [...messages, ...syntheticResults];
 }
 
+function isSameJson(a: unknown, b: unknown): boolean {
+  if (a === b) {
+    return true;
+  }
+  if (!(a && b && typeof a === "object" && typeof b === "object")) {
+    return false;
+  }
+  if (Array.isArray(a)) {
+    return (
+      Array.isArray(b) &&
+      a.length === b.length &&
+      a.every((item, index) => isSameJson(item, b[index]))
+    );
+  }
+  if (Array.isArray(b)) {
+    return false;
+  }
+  const aRecord = a as Record<string, unknown>;
+  const bRecord = b as Record<string, unknown>;
+  const keys = Object.keys(aRecord);
+  return (
+    keys.length === Object.keys(bRecord).length &&
+    keys.every(
+      (key) =>
+        Object.hasOwn(bRecord, key) && isSameJson(aRecord[key], bRecord[key])
+    )
+  );
+}
+
+/**
+ * A snapshot or a hydrate brings the whole list as new objects; a message it
+ * brings unchanged keeps the object it had, so nothing downstream of it has
+ * to redraw.
+ */
+function keepUnchangedMessages(
+  previous: readonly Message[],
+  next: readonly Message[]
+): Message[] {
+  if (previous.length === 0) {
+    return [...next];
+  }
+  const previousById = new Map(
+    previous.map((message) => [message.id, message])
+  );
+  return next.map((message) => {
+    const before = previousById.get(message.id);
+    return before && isSameJson(before, message) ? before : message;
+  });
+}
+
 function safeJson(value: string): unknown {
   try {
     return JSON.parse(value);
@@ -492,7 +542,10 @@ export function reduceEngentyAgUiConversationEvent(
         activeTextMessageId: null,
         events: [...current.events, event],
         messages: Array.isArray(record.messages)
-          ? sortAgUiMessagesForTranscript(record.messages as Message[])
+          ? keepUnchangedMessages(
+              current.messages,
+              sortAgUiMessagesForTranscript(record.messages as Message[])
+            )
           : [],
       };
     case "STATE_SNAPSHOT":
@@ -561,7 +614,7 @@ export function applyEngentyAgUiConversationAction(
     case "hydrate":
       return {
         ...current,
-        messages: [...action.messages],
+        messages: keepUnchangedMessages(current.messages, action.messages),
         ...(action.state ? { state: action.state } : {}),
       };
     case "reset":

@@ -30,7 +30,6 @@ interface RegistryAgentConfig {
   model?: string;
   modelOverride?: string | null;
   name: string;
-  purpose?: AiRegisteredAgent["purpose"];
   role?: AiAgentRole;
   skillIds?: string[];
   source?: AiAgentSource;
@@ -43,7 +42,6 @@ export interface AiAgentOverridesPatch {
   effort?: AiRegisteredAgent["effort"];
   limits?: AiRegisteredAgent["limits"];
   modelOverride?: string | null;
-  purpose?: AiRegisteredAgent["purpose"];
 }
 
 export function patchAiAgentOverrides(
@@ -90,7 +88,6 @@ export function mapRegistryAgentToRegisteredAgent(
     ...(agent.avatarUrl ? { avatarUrl: agent.avatarUrl } : {}),
     ...(agent.model ? { model: agent.model } : {}),
     ...(agent.modelOverride ? { modelOverride: agent.modelOverride } : {}),
-    ...(agent.purpose ? { purpose: agent.purpose } : {}),
     ...(agent.limits ? { limits: agent.limits } : {}),
     ...(agent.role ? { role: agent.role } : {}),
     ...(agent.source ? { source: agent.source } : {}),

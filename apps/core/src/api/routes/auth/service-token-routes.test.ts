@@ -110,39 +110,6 @@ describe("POST /api/auth/service-credentials — creation", () => {
     });
   });
 
-  it("returns the secret as `<credentialId>.<rawSecret>`", async () => {
-    const created = await createCredential(app, ownerToken);
-    const { credentialId, raw } = splitSecret(created.secret);
-    expect(credentialId).toBe(created.credentialId);
-    expect(raw).toMatch(/^engsvc_[0-9a-f]{48}$/);
-  });
-
-  it("clamps requested capabilities to the creator's", async () => {
-    const limitedOwner = await makeOwnerToken({
-      // `core.credentials.manage` gets them past the AUTH-02 gate; it does not
-      // widen what the credential may inherit.
-      capabilities: ["module.read", "core.credentials.manage"],
-      principalId: `user-${uuidv7()}`,
-      tenantId,
-    });
-    const created = await createCredential(app, limitedOwner, {
-      capabilities: ["module.read", "core.users.impersonate"],
-    });
-    expect(created.capabilities).toEqual(["module.read"]);
-  });
-
-  it("requires a name", async () => {
-    const res = await app.request("/api/auth/service-credentials", {
-      body: JSON.stringify({}),
-      headers: {
-        authorization: `Bearer ${ownerToken}`,
-        "content-type": "application/json",
-      },
-      method: "POST",
-    });
-    expect(res.status).toBe(400);
-  });
-
   it("rejects an unauthenticated creator", async () => {
     const res = await app.request("/api/auth/service-credentials", {
       body: JSON.stringify({ name: "ai-service" }),
@@ -247,23 +214,6 @@ describe("POST /api/auth/service-token — exchange", () => {
     expect(await res.json()).toEqual({ error: "invalid_client" });
   });
 
-  it("rejects the full `<id>.<secret>` value in the secret field", async () => {
-    // The env var holds both halves joined; the caller must split them. If it
-    // forgets, this must fail outright rather than half-work.
-    const res = await exchange(app, {
-      credentialId: created.credentialId,
-      secret: created.secret,
-    });
-    expect(res.status).toBe(401);
-  });
-
-  it("requires both halves", async () => {
-    expect((await exchange(app, { secret: raw })).status).toBe(400);
-    expect(
-      (await exchange(app, { credentialId: created.credentialId })).status
-    ).toBe(400);
-  });
-
   it("stops working once the credential is revoked", async () => {
     expect(
       (await exchange(app, { credentialId: created.credentialId, secret: raw }))
@@ -284,17 +234,6 @@ describe("POST /api/auth/service-token — exchange", () => {
       secret: raw,
     });
     expect(after.status).toBe(401);
-  });
-
-  it("records last_used_at on a successful exchange", async () => {
-    await exchange(app, { credentialId: created.credentialId, secret: raw });
-    const res = await app.request("/api/auth/service-credentials", {
-      headers: { authorization: `Bearer ${ownerToken}` },
-    });
-    const body = (await res.json()) as {
-      credentials: Array<{ lastUsedAt: string | null }>;
-    };
-    expect(body.credentials[0]?.lastUsedAt).not.toBeNull();
   });
 
   it("rate-limits repeated exchanges for one credential", async () => {

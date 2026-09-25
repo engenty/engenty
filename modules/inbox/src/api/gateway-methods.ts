@@ -1,13 +1,11 @@
+import { resolveModuleClassifier } from "@engenty/ai-core";
 import type {
   ConnectionsModuleClient,
   ConnectorDefinition,
 } from "@engenty/connections-sdk";
+import { resolveSpaceRecordAccounts } from "@engenty/connections-sdk";
 import {
-  connectionRecordOwnerUserId,
-  isAccountReachableInRun,
-  resolveSpaceRecordAccounts,
-} from "@engenty/connections-sdk";
-import {
+  actorUserIdFromAuth,
   createRecordLinker,
   type PluginAuthContext,
   type PluginServerApi,
@@ -15,7 +13,6 @@ import {
   withRecordLink,
   withRecordLinks,
 } from "@engenty/plugin-sdk";
-import { resolveJevClient } from "@engenty/typesafe-client";
 import { z } from "@hono/zod-openapi";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { InboxRepo } from "../dal/contracts.js";
@@ -51,42 +48,20 @@ import { answerThreadQuestion } from "../services/thread-chat.js";
 import { ensureThreadDigest } from "../services/thread-digest.js";
 import type { InboxSyncDeps } from "../sync/sync-service.js";
 import { runInboxSync } from "../sync/sync-service.js";
+import { resolveCallerSpaceIds } from "./caller-spaces.js";
 import { fetchInboxAttachment } from "./fetch-attachment.js";
-
-/**
- * The acting user for owner visibility. Core's runtime auth carries `userId`
- * for user tokens (same field the synthesized search op reads); `principalId`
- * is the fallback since it equals the auth user id on that path. Service
- * principals simply don't match any `owner_user_id`, so they see org-scoped
- * rows only — the service-wide view is reserved for the sync path, which
- * builds its repo with an explicit `null`.
- */
-function actingUserId(auth: PluginAuthContext | undefined): string | null {
-  const withUser = auth as
-    | (PluginAuthContext & { userId?: string })
-    | undefined;
-  return withUser?.userId ?? withUser?.principalId ?? null;
-}
 
 export interface RegisterInboxGatewayMethodsOptions {
   connectionsClient: ConnectionsModuleClient;
   getConnector: (connectorId: string) => ConnectorDefinition | undefined;
   /** Tenant-locked DB handle factory (for ai.config reads). */
   getDb: (auth: { tenantId: string }) => SupabaseClient;
-  /**
-   * Repo bound to the caller (owner visibility applied). The optional grant
-   * set widens visibility to the acting agent's granted connections (CN.5) —
-   * pass it only on paths where the agent reads mailbox rows.
-   */
+  /** Repo bound to the caller: rows of the given Spaces only. */
   repoForAuth: (
     auth: PluginAuthContext | undefined,
-    grantedConnectionIds?: ReadonlySet<string>,
-    /** Mailboxes the run's space placed (E1). Null/absent ⇒ do not narrow. */
-    spaceConnectionIds?: ReadonlySet<string> | null
+    spaceIds: ReadonlySet<string>
   ) => InboxRepo;
-  /** Service-role client — platform `ai.model_binding` has no tenant_id. */
-  serviceDb?: SupabaseClient | null;
-  /** Service repo for the sync path (sees personal connections too). */
+  /** Service repo for the sync/bind path (no Space narrowing). */
   serviceRepoFor: (tenantId: string) => InboxRepo;
   serviceTenantId?: never;
 }
@@ -100,74 +75,63 @@ export function registerInboxGatewayMethods(
     getConnector,
     getDb,
     repoForAuth,
-    serviceDb,
     serviceRepoFor,
   } = options;
 
-  /**
-   * The connections the acting AGENT was granted (CN.5), or null for a plain
-   * user call. Read off `auth.agentId` — the core.agents principal uuid the
-   * grant rows store, forwarded as x-engenty-agent-id on agent-driven calls —
-   * so a headless run sees the mailboxes it was deliberately granted, and
-   * nothing else changes for anyone.
-   */
-  async function agentGrantSet(
+  /** The Spaces whose mail this caller may see (see `resolveCallerSpaceIds`). */
+  async function callerSpaces(
     auth: PluginAuthContext | undefined
-  ): Promise<ReadonlySet<string> | undefined> {
-    const agentId = auth?.agentId?.trim();
-    if (!(auth && agentId)) {
-      return;
-    }
-    return connectionsClient.listAgentGrantedConnectionIds({
-      agentId,
-      tenantId: auth.tenantId,
-    });
-  }
-
-  /**
-   * The mailboxes the run's space placed, or null when there is no space to
-   * narrow to (PLAN-connections-ux.md E1).
-   *
-   * Null when the mounts cannot be read, deliberately: the mount is a
-   * narrowing, and a core hiccup must not empty every space's inbox at once.
-   * Core re-checks a call that names an account, so the window costs a stale
-   * LIST, never a stale permission.
-   */
-  async function spaceConnectionIds(
-    auth: PluginAuthContext | undefined
-  ): Promise<ReadonlySet<string> | null> {
+  ): Promise<ReadonlySet<string>> {
     if (!auth) {
-      return null;
+      throw new Error("Inbox operations require an authenticated context");
     }
-    return await resolveSpaceRecordAccounts(
-      getDb({ tenantId: auth.tenantId }),
-      {
-        spaceId: auth.spaceId,
-        tenantId: auth.tenantId,
-      }
-    );
+    return await resolveCallerSpaceIds(getDb(auth), auth);
   }
 
-  /**
-   * The repo every mail READ goes through: the acting agent's granted
-   * mailboxes widen it, the run's space narrows it. Both resolved here so no
-   * operation can accidentally get one rule and not the other.
-   */
-  async function agentAwareRepo(
+  /** The repo every mail read/write goes through: the caller's Spaces only. */
+  async function callerRepo(
     auth: PluginAuthContext | undefined
   ): Promise<InboxRepo> {
-    const [granted, space] = await Promise.all([
-      agentGrantSet(auth),
-      spaceConnectionIds(auth),
+    return repoForAuth(auth, await callerSpaces(auth));
+  }
+
+  /** An active connection of the tenant the caller's Spaces own, or throw. */
+  async function callerConnection(
+    auth: PluginAuthContext,
+    connectionId: string
+  ) {
+    const [connections, spaces] = await Promise.all([
+      connectionsClient.listConnections({ tenantId: auth.tenantId }),
+      callerSpaces(auth),
     ]);
-    return repoForAuth(auth, granted, space);
+    const connection = connections.find(
+      (candidate) =>
+        candidate.id === connectionId && spaces.has(candidate.space_id)
+    );
+    if (!connection) {
+      throw new Error(`inbox: unknown connection ${connectionId}`);
+    }
+    return connection;
   }
 
   async function inboxModel(auth: PluginAuthContext | undefined) {
     if (!auth) {
       throw new Error("Inbox AI operations require an authenticated context");
     }
-    return resolveInboxAiModel({ auth, getDb, serviceDb });
+    return resolveInboxAiModel({ auth, getDb });
+  }
+
+  /** The tenant's `classifier` binding (Jev or an LLM), or null without a credential. */
+  async function inboxClassifier(auth: PluginAuthContext | undefined) {
+    if (!auth) {
+      throw new Error("Inbox AI operations require an authenticated context");
+    }
+    const classifier = await resolveModuleClassifier({
+      scopeId: auth.scopeId ?? "default",
+      tenantDb: getDb(auth),
+      tenantId: auth.tenantId,
+    });
+    return classifier?.client ?? null;
   }
 
   async function inboxCategoryItems(auth: PluginAuthContext | undefined) {
@@ -178,13 +142,12 @@ export function registerInboxGatewayMethods(
     return config.items;
   }
 
-  // A mail thread has no space of its own; the link lands in the space the
-  // call runs in, where the mailbox is mounted.
+  // A mail thread lives in its mailbox's Space; the link lands there.
   const link = createRecordLinker(api);
   const threadLink = (
     auth: RecordLinkAuth | undefined,
-    thread: { id: string }
-  ) => link(auth, "inbox", [thread.id]);
+    thread: { id: string; space_id: string }
+  ) => link(auth, "inbox", [thread.id], thread.space_id);
 
   api.registerOperation({
     operationId: "inbox_threads_list",
@@ -194,14 +157,14 @@ export function registerInboxGatewayMethods(
       kind: "account_mounted",
     },
     summary:
-      "List inbox threads (account filter, status lanes, paging). In a Space, pass a mounted mailbox connection_id; an unmounted account is not part of this Space.",
+      "List inbox threads (account filter, status lanes, paging). In a Space, only that Space's mailboxes; a connection_id of another Space is not part of it.",
     requiredCapabilities: ["module.inbox.read"],
     riskLevel: "low",
     idempotent: true,
     inputSchema: inboxThreadsListInputSchema,
     outputSchema: inboxThreadsListResultSchema,
     handler: async (input, ctx) => {
-      const repo = await agentAwareRepo(ctx.auth);
+      const repo = await callerRepo(ctx.auth);
       const parsed = inboxThreadsListInputSchema.parse(input ?? {});
       const result = await repo.threads.listPaginated(parsed);
       return {
@@ -216,8 +179,7 @@ export function registerInboxGatewayMethods(
   api.registerOperation({
     operationId: "inbox_thread_get",
     moduleId: "inbox",
-    // Mail rows are narrowed to the mailboxes this space placed (E1), so the
-    // contract is the account mount — not "any row this user owns".
+    // Mail rows follow their mailbox's Space: narrowed to the caller's Spaces.
     spacePolicy: { kind: "account_mounted" },
     summary: "Get an inbox thread with all of its messages",
     requiredCapabilities: ["module.inbox.read"],
@@ -226,7 +188,7 @@ export function registerInboxGatewayMethods(
     inputSchema: inboxThreadGetInputSchema,
     outputSchema: inboxThreadDetailSchema.nullable(),
     handler: async (input, ctx) => {
-      const repo = await agentAwareRepo(ctx.auth);
+      const repo = await callerRepo(ctx.auth);
       const parsed = inboxThreadGetInputSchema.parse(input);
       const thread = await repo.threads.getById(parsed.id);
       if (!thread) {
@@ -245,8 +207,7 @@ export function registerInboxGatewayMethods(
   api.registerOperation({
     operationId: "inbox_thread_digest_get",
     moduleId: "inbox",
-    // Mail rows are narrowed to the mailboxes this space placed (E1), so the
-    // contract is the account mount — not "any row this user owns".
+    // Mail rows follow their mailbox's Space: narrowed to the caller's Spaces.
     spacePolicy: { kind: "account_mounted" },
     summary:
       "Get the optimized (AI-stripped) view of a thread: per-message digests, and — with include_summary — the thread status summary, participants and next actions",
@@ -255,7 +216,7 @@ export function registerInboxGatewayMethods(
     inputSchema: inboxThreadDigestGetInputSchema,
     outputSchema: inboxThreadDigestResultSchema.nullable(),
     handler: async (input, ctx) => {
-      const repo = await agentAwareRepo(ctx.auth);
+      const repo = await callerRepo(ctx.auth);
       const parsed = inboxThreadDigestGetInputSchema.parse(input);
       const thread = await repo.threads.getById(parsed.thread_id);
       if (!thread) {
@@ -281,8 +242,7 @@ export function registerInboxGatewayMethods(
   api.registerOperation({
     operationId: "inbox_thread_chat",
     moduleId: "inbox",
-    // Mail rows are narrowed to the mailboxes this space placed (E1), so the
-    // contract is the account mount — not "any row this user owns".
+    // Mail rows follow their mailbox's Space: narrowed to the caller's Spaces.
     spacePolicy: { kind: "account_mounted" },
     summary: "Ask a question about one thread, grounded in its digests",
     requiredCapabilities: ["module.inbox.read"],
@@ -290,7 +250,7 @@ export function registerInboxGatewayMethods(
     inputSchema: inboxThreadChatInputSchema,
     outputSchema: inboxThreadChatResultSchema,
     handler: async (input, ctx) => {
-      const repo = await agentAwareRepo(ctx.auth);
+      const repo = await callerRepo(ctx.auth);
       const parsed = inboxThreadChatInputSchema.parse(input);
       const thread = await repo.threads.getById(parsed.thread_id);
       if (!thread) {
@@ -316,8 +276,7 @@ export function registerInboxGatewayMethods(
   api.registerOperation({
     operationId: "inbox_classify_pending",
     moduleId: "inbox",
-    // Mail rows are narrowed to the mailboxes this space placed (E1), so the
-    // contract is the account mount — not "any row this user owns".
+    // Mail rows follow their mailbox's Space: narrowed to the caller's Spaces.
     spacePolicy: { kind: "account_mounted" },
     summary:
       "Classify messages that have no category yet (feeds the inbox category lanes)",
@@ -326,10 +285,7 @@ export function registerInboxGatewayMethods(
     inputSchema: inboxClassifyPendingInputSchema,
     outputSchema: inboxClassifyPendingResultSchema,
     handler: async (input, ctx) => {
-      // Mail rows, so the space narrows them like every other read (E1) —
-      // classifying another space's backlog from here would be the same leak
-      // the list had.
-      const repo = await agentAwareRepo(ctx.auth);
+      const repo = await callerRepo(ctx.auth);
       const parsed = inboxClassifyPendingInputSchema.parse(input ?? {});
       const pending = await repo.messages.listUnclassified(parsed.limit ?? 60);
       if (pending.length === 0) {
@@ -337,7 +293,7 @@ export function registerInboxGatewayMethods(
       }
       const categories = await classifyInboxMessages(
         pending,
-        resolveJevClient()?.client ?? null,
+        await inboxClassifier(ctx.auth),
         await inboxCategoryItems(ctx.auth)
       );
       const classified = await repo.messages.setCategories(categories);
@@ -351,8 +307,7 @@ export function registerInboxGatewayMethods(
   api.registerOperation({
     operationId: "inbox_set_status",
     moduleId: "inbox",
-    // Mail rows are narrowed to the mailboxes this space placed (E1), so the
-    // contract is the account mount — not "any row this user owns".
+    // Mail rows follow their mailbox's Space: narrowed to the caller's Spaces.
     spacePolicy: { kind: "account_mounted" },
     summary: "Set the mailbox status of inbox messages (new | read | archived)",
     requiredCapabilities: ["module.inbox.write"],
@@ -360,7 +315,7 @@ export function registerInboxGatewayMethods(
     inputSchema: inboxSetStatusInputSchema,
     outputSchema: inboxSetStatusResultSchema,
     handler: async (input, ctx) => {
-      const repo = await agentAwareRepo(ctx.auth);
+      const repo = await callerRepo(ctx.auth);
       const parsed = inboxSetStatusInputSchema.parse(input);
       const updated = await repo.messages.setStatus(
         parsed.ids,
@@ -376,7 +331,7 @@ export function registerInboxGatewayMethods(
     moduleId: "inbox",
     spacePolicy: { kind: "account_mounted" },
     summary:
-      "List connected mail accounts with their inbox sync state. In a Space, this lists only mounted mailboxes. An account that exists for the tenant but is absent here should be mounted in Space setup, not reconnected blindly.",
+      "List connected mail accounts with their inbox sync state. In a Space, this lists only the mailboxes that Space owns; a mailbox of another Space is not reachable here — connect one in this Space instead.",
     requiredCapabilities: ["module.inbox.read"],
     riskLevel: "low",
     idempotent: true,
@@ -387,37 +342,20 @@ export function registerInboxGatewayMethods(
       if (!auth) {
         throw new Error("inbox_accounts_list requires authentication");
       }
-      const userId = actingUserId(auth);
-      const repo = repoForAuth(auth);
-      // CN.5 — a personal mailbox its owner GRANTED to the acting agent is
-      // this caller's business: a headless run carries no user at all
-      // (service principal), so without the grant set every granted-and-
-      // mounted personal account vanished from this list and the agent
-      // reported "no mailbox connected" about the very account it was hired
-      // to scan. Same rule the action policy applies at execution.
-      const [connections, syncStates, agentGrantedIds] = await Promise.all([
+      // A mailbox is its Space's: inside a Space this lists that Space's
+      // mailboxes; a person outside one sees those of every Space they are a
+      // member of (the settings page).
+      const spaces = await callerSpaces(auth);
+      const repo = repoForAuth(auth, spaces);
+      const [connections, syncStates] = await Promise.all([
         connectionsClient.listConnections({ tenantId: auth.tenantId }),
         repo.syncState.list(),
-        agentGrantSet(auth),
       ]);
       const stateByConnection = new Map(
         syncStates.map((state) => [state.connection_id, state])
       );
-      // PLAN-spaces.md CN.3 — inside a space, show that space's mailboxes. The
-      // same rule the mail rows now use (E1/E2), read from the one place that
-      // states it: filtering only, so a space id the caller has no claim to
-      // cannot reveal anything, and null leaves the list as it was.
-      const mounted = await spaceConnectionIds(auth);
       const accounts = connections
-        .filter((connection) =>
-          isAccountReachableInRun({
-            agentGrantedIds,
-            agentId: auth.agentId,
-            connection,
-            mountedIds: mounted,
-            principalId: userId,
-          })
-        )
+        .filter((connection) => spaces.has(connection.space_id))
         // Streamless connectors can never sync mail — keep them off the page.
         .filter((connection) =>
           Boolean(getConnector(connection.connector_id)?.stream)
@@ -428,9 +366,7 @@ export function registerInboxGatewayMethods(
           connector_id: connection.connector_id,
           display_name: connection.display_name,
           external_account: connection.external_account,
-          owner_user_id: connection.owner_user_id,
-          all_spaces: connection.all_spaces,
-          sharing: connection.sharing,
+          space_id: connection.space_id,
           stream_supported: true,
           sync_state: stateByConnection.get(connection.id) ?? null,
         }));
@@ -456,24 +392,10 @@ export function registerInboxGatewayMethods(
         throw new Error("inbox_sync_settings_update requires authentication");
       }
       const parsed = inboxSyncSettingsInputSchema.parse(input);
-      const connections = await connectionsClient.listConnections({
-        tenantId: auth.tenantId,
-      });
-      const connection = connections.find(
-        (candidate) => candidate.id === parsed.connection_id
-      );
-      if (!connection) {
-        throw new Error("inbox: unknown connection");
-      }
-      const userId = actingUserId(auth);
-      if (connection.owner_user_id !== userId && !connection.all_spaces) {
-        throw new Error(
-          "inbox: only the owner can change this account's sync settings"
-        );
-      }
-      const repo = repoForAuth(auth);
-      return repo.syncState.upsertSettings(parsed.connection_id, {
-        owner_user_id: connectionRecordOwnerUserId(connection),
+      // Any member of the mailbox's Space may tune its sync.
+      const connection = await callerConnection(auth, parsed.connection_id);
+      const repo = await callerRepo(auth);
+      return repo.syncState.upsertSettings(connection, {
         ...(parsed.backfill_days === undefined
           ? {}
           : { backfill_days: parsed.backfill_days }),
@@ -487,8 +409,7 @@ export function registerInboxGatewayMethods(
   api.registerOperation({
     operationId: "inbox_attachment_get",
     moduleId: "inbox",
-    // Mail rows are narrowed to the mailboxes this space placed (E1), so the
-    // contract is the account mount — not "any row this user owns".
+    // Mail rows follow their mailbox's Space: narrowed to the caller's Spaces.
     spacePolicy: { kind: "account_mounted" },
     summary: "Fetch attachment bytes for an inbox message preview",
     requiredCapabilities: ["module.inbox.read"],
@@ -508,7 +429,7 @@ export function registerInboxGatewayMethods(
         connectionsClient,
         getConnector,
         messageId: parsed.message_id,
-        repo: repoForAuth(auth),
+        repo: await callerRepo(auth),
       });
     },
   });
@@ -547,12 +468,7 @@ export function registerInboxGatewayMethods(
     }
     const repo = serviceRepoFor(tenantId);
     const existing = await repo.syncState.get(connectionId);
-    await repo.syncState.upsertSettings(connectionId, {
-      // A personal mailbox stays visible to its owner only; an org account
-      // has no owner to scope it to. Same rule the sync path applies when it
-      // creates the row lazily — stated in one more place because this one
-      // creates it FIRST.
-      owner_user_id: connectionRecordOwnerUserId(connection),
+    await repo.syncState.upsertSettings(connection, {
       // Only turn sync on when this is a new binding. A mailbox someone
       // deliberately paused must not restart because the Space was edited.
       ...(existing ? {} : { sync_enabled: true }),
@@ -576,7 +492,7 @@ export function registerInboxGatewayMethods(
   }
 
   /**
-   * An account placed in a Space where Inbox already is — the manifest names
+   * An account connected in a Space where Inbox already is — the manifest names
    * this operation in `connections[].bindOperation`, and core calls it from
    * `POST /api/spaces/:id/setup/add` for that pair. When Inbox itself is being
    * mounted, `inbox_space_mount` binds every mailbox the space has instead.
@@ -589,7 +505,7 @@ export function registerInboxGatewayMethods(
       kind: "account_mounted",
     },
     summary:
-      "Prepare a mounted mailbox for this Space's Inbox and pull it once",
+      "Prepare one of this Space's mailboxes for its Inbox and pull it once",
     requiredCapabilities: ["module.inbox.write"],
     riskLevel: "low",
     inputSchema: inboxAccountBindInputSchema,
@@ -600,15 +516,7 @@ export function registerInboxGatewayMethods(
         throw new Error("inbox_account_bind requires authentication");
       }
       const parsed = inboxAccountBindInputSchema.parse(input ?? {});
-      const connections = await connectionsClient.listConnections({
-        tenantId: auth.tenantId,
-      });
-      const connection = connections.find(
-        (entry) => entry.id === parsed.connection_id
-      );
-      if (!connection) {
-        throw new Error(`unknown connection ${parsed.connection_id}`);
-      }
+      const connection = await callerConnection(auth, parsed.connection_id);
       return await bindMailbox(auth.tenantId, connection);
     },
   });
@@ -617,12 +525,12 @@ export function registerInboxGatewayMethods(
    * The module's `mountOperation` (engenty.plugin.json): core calls it with
    * `{ space_id }` from every path that mounts Inbox into a space — the create
    * wizard, the setup dialog, the `space_setup` tool. Every mailbox the space
-   * has already placed is bound here, the same way `inbox_account_bind` binds
+   * already owns is bound here, the same way `inbox_account_bind` binds
    * one, so the wizard door ends at "the mail is here" too.
    *
-   * Inbox keeps no row per space (a mailbox's sync state is tenant-wide, and
-   * which space sees its mail is the mount), so readiness is only whether the
-   * space has a mailbox at all: `needs: ["mailbox"]` until one is placed.
+   * A mailbox belongs to the Space that connected it, so readiness is only
+   * whether the Space owns a mailbox at all: `needs: ["mailbox"]` until one
+   * is connected there.
    */
   api.registerOperation({
     operationId: "inbox_space_mount",
@@ -630,7 +538,7 @@ export function registerInboxGatewayMethods(
     spacePolicy: { kind: "tenant_shared" },
     summary: "Set up this Space's Inbox (runs on mount)",
     description:
-      "Runs automatically when Inbox is mounted into a space (space_setup action='add'): binds every mailbox the space has placed and reports `needs: [\"mailbox\"]` while it has none. Idempotent. Not a tool to reach for — mount the module and this runs.",
+      "Runs automatically when Inbox is mounted into a space (space_setup action='add'): binds every mailbox the space owns and reports `needs: [\"mailbox\"]` while it has none. Idempotent. Not a tool to reach for — mount the module and this runs.",
     requiredCapabilities: ["module.inbox.write"],
     riskLevel: "low",
     idempotent: true,
@@ -642,7 +550,7 @@ export function registerInboxGatewayMethods(
         throw new Error("inbox_space_mount requires authentication");
       }
       const parsed = inboxSpaceMountInputSchema.parse(input ?? {});
-      const placed = await resolveSpaceRecordAccounts(
+      const owned = await resolveSpaceRecordAccounts(
         getDb({ tenantId: auth.tenantId }),
         { spaceId: parsed.space_id, tenantId: auth.tenantId }
       );
@@ -651,7 +559,7 @@ export function registerInboxGatewayMethods(
       });
       const mailboxes = connections.filter(
         (connection) =>
-          placed?.has(connection.id) &&
+          owned?.has(connection.id) &&
           Boolean(getConnector(connection.connector_id)?.stream)
       );
       const bound: z.infer<typeof inboxAccountBindResultSchema>[] = [];
@@ -674,7 +582,7 @@ export function registerInboxGatewayMethods(
       kind: "account_mounted",
     },
     summary:
-      "Run the inbox sync now (all stream-capable accounts, or one connection)",
+      "Run the inbox sync now (the caller's stream-capable accounts, or one connection)",
     requiredCapabilities: ["module.inbox.write"],
     riskLevel: "low",
     inputSchema: inboxSyncRunInputSchema,
@@ -692,10 +600,15 @@ export function registerInboxGatewayMethods(
         repo: serviceRepoFor(auth.tenantId),
         tenantId: auth.tenantId,
       };
-      return runInboxSync(
-        deps,
-        parsed.connection_id ? { connectionId: parsed.connection_id } : {}
-      );
+      // The pull runs as the service. A person, or a run bound to a Space,
+      // pulls their own Spaces' mailboxes; an unbound headless run (the sync
+      // routine's heartbeat) pulls the tenant's.
+      const scoped =
+        Boolean(actorUserIdFromAuth(auth)) || Boolean(auth.spaceId?.trim());
+      return runInboxSync(deps, {
+        ...(scoped ? { spaceIds: await callerSpaces(auth) } : {}),
+        ...(parsed.connection_id ? { connectionId: parsed.connection_id } : {}),
+      });
     },
   });
 }

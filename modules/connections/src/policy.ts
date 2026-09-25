@@ -1,7 +1,6 @@
 import type {
   ConnectionsRepo,
   ConnectorActionGroup,
-  SpaceConnectionAccess,
 } from "@engenty/connections-sdk";
 import {
   connectorScopeAllows,
@@ -21,9 +20,9 @@ import type {
  * The authoritative gate for connector operations, registered as an async
  * profile policy in core:
  *
- * - `deny` clamps (autonomous mode, user-configured deny, and — CN.3 — an
- *   account the run cannot reach via space mount ∪ all-spaces ∪ agent grant)
- *   are enforced for every principal.
+ * - `deny` clamps (autonomous mode, user-configured deny, and an account the
+ *   run's Space does not own — PLAN-space-owned-connections.md) are enforced
+ *   for every principal.
  * - INTERACTIVE user principals with an `ask` outcome return `null`: live chat
  *   approval stays with the AI-side native suspend/resume pre-gate.
  * - autonomous callers — agent/service principals, AND user-token calls whose
@@ -37,30 +36,13 @@ export function createConnectionsProfilePolicy(
   /** Tenant-locked repo factory (Phase A) — resolved per evaluated call. */
   getRepo: (auth: { tenantId: string }) => ConnectionsRepo,
   /**
-   * The space's mounted accounts and what this space's engentys may do with
-   * each (CN.3 + PLAN-connections-ux.md B1), or omitted in tests and installs
-   * without spaces. Returning null means "do not narrow".
-   *
-   * One read answers both questions on purpose: which accounts are here and how
-   * far they go must never be two lookups that can disagree.
+   * May this call use the Space it names? The header picks whose accounts a
+   * call reaches, so it is verified (`mayUseSpaceInRun`), never trusted.
    */
-  getMountedConnectionAccess?: (params: {
-    spaceId: string;
-    tenantId: string;
-  }) => Promise<Map<string, SpaceConnectionAccess | null> | null>,
-  /**
-   * The VERIFIED personal-space owner a headless run acts for
-   * (PLAN-space-computer.md §2.1): non-user principal, routine bound to
-   * exactly this space, space has an owner — or null. Core wires this to
-   * `resolveVerifiedSpaceOwnerForRun`; omitted (tests, spaceless installs)
-   * means no owner reach, which is the pre-feature behaviour.
-   */
-  getVerifiedSpaceOwner?: (params: {
-    principalType: "user" | "agent" | "service";
-    spaceId: string;
-    tenantId: string;
-    triggerId: string | null;
-  }) => Promise<string | null>
+  mayUseSpace: (
+    auth: PluginPolicyInput["auth"],
+    spaceId: string
+  ) => Promise<boolean>
 ): PluginProfilePolicy {
   return async (input: PluginPolicyInput) => {
     const match = resolveConnectorOperation(
@@ -99,70 +81,33 @@ export function createConnectionsProfilePolicy(
     // unattended caller: record the approval request and answer 202.
     const isAutonomous =
       input.auth.principalType !== "user" || input.auth.callOrigin === "app";
-    const repo = getRepo({ tenantId: input.auth.tenantId });
-    // CN.5 — the acting agent's own grants, resolved BEFORE the candidates so
-    // a granted personal account is a candidate at all. Read off `agentId`
-    // rather than the principal on purpose: a headless task already forwards
-    // `x-engenty-agent-id`, so this works for the service-principal lane we
-    // have today and for an agent-principal lane later, with neither a
-    // precondition for the other.
-    const agentId = input.auth.agentId?.trim();
-    const agentGrants = agentId
-      ? await repo.listAgentGrantedConnectionIds({ agentId })
-      : null;
-    // §2.1 owner stand-in is kept for approval addressing / autonomy
-    // ceiling (`actsForSpaceOwner`); it does not add reach. Reach is mounts ∪
-    // all-spaces ∪ agent grants.
+    // A connection is always some Space's: a run that names none reaches no
+    // account, and guessing which Space it meant would be the leak.
     const spaceId = input.auth.spaceId?.trim();
-    const spaceOwnerUserId =
-      spaceId && getVerifiedSpaceOwner
-        ? await getVerifiedSpaceOwner({
-            principalType: input.auth.principalType,
-            spaceId,
-            tenantId: input.auth.tenantId,
-            triggerId: input.auth.triggerId?.trim() || null,
-          })
-        : null;
-    const allCandidates = await repo.listCandidateConnections({
-      connectorId: connector.id,
-      principalId: input.auth.principalId,
-      tenantId: input.auth.tenantId,
-      ...(agentGrants ? { agentGrantedConnectionIds: agentGrants } : {}),
-      ...(spaceOwnerUserId ? { spaceOwnerUserId } : {}),
-    });
-    // CN.3 — the WHERE axis. Reach is the union of this space's mounts,
-    // all-spaces accounts, and the acting agent's grants (so copilot-granted
-    // Gmail survives standing in Marketing). `sharing` is unused.
-    const mounted =
-      spaceId && getMountedConnectionAccess
-        ? await getMountedConnectionAccess({
-            spaceId,
-            tenantId: input.auth.tenantId,
-          })
-        : null;
-    const mountedIds = mounted ? new Set(mounted.keys()) : null;
-    const candidates = allCandidates.filter((c) =>
-      isAccountReachableInRun({
-        agentGrantedIds: agentGrants,
-        agentId,
-        connection: c,
-        mountedIds,
-        principalId: input.auth.principalId,
-      })
-    );
-    // Named the space rather than saying "no account found": C3a's lesson is
-    // that silent narrowing produces a confident wrong diagnosis — asked to
-    // send mail, an agent told the user the connector had no tool at all. The
-    // account may well be connected; it is simply not part of this space.
-    if (allCandidates.length > 0 && candidates.length === 0) {
+    if (!spaceId) {
       return {
         action: "deny",
         reason:
-          `connection_not_in_space: no ${connector.name} account is available in this space, ` +
-          "though one is connected for the team. This is a property of the space, not a temporary failure — " +
-          "do not retry. Say so, and that the account can be added in the space's connections settings.",
+          `connection_not_in_space: ${connector.name} accounts belong to a space, and this call runs outside one. ` +
+          "This is not a temporary failure — do not retry. Say so, and that the account is used from inside the space it was connected in.",
       };
     }
+    if (!(await mayUseSpace(input.auth, spaceId))) {
+      return {
+        action: "deny",
+        reason:
+          "connection_not_in_space: this call may not use the accounts of the space it names. " +
+          "Do not retry. Say that the account belongs to a space this run is not part of.",
+      };
+    }
+    const repo = getRepo({ tenantId: input.auth.tenantId });
+    const candidates = (
+      await repo.listCandidateConnections({
+        connectorId: connector.id,
+        spaceId,
+        tenantId: input.auth.tenantId,
+      })
+    ).filter((c) => isAccountReachableInRun({ connection: c, spaceId }));
     // Same selection the operation handler runs (shared resolver): the gate
     // must evaluate policy on the exact connection the call will use.
     const rawAccount =
@@ -184,20 +129,12 @@ export function createConnectionsProfilePolicy(
     const resolved = resolveConnectionActionPolicy({
       action: { group: action.group as ConnectorActionGroup, id: action.id },
       connection,
-      actsForSpaceOwner:
-        spaceOwnerUserId !== null &&
-        connection.owner_user_id === spaceOwnerUserId,
-      hasAgentGrant: agentGrants?.has(connection.id) ?? false,
       isAutonomous,
       overrides,
       principal: {
         principalId: input.auth.principalId,
         principalType: input.auth.principalType,
       },
-      // B1 — how far THIS space goes with THIS account. Absent when the run
-      // has no space, and null when the space never chose a level; both leave
-      // the account's own `autonomous_mode` to decide, as before.
-      spaceAccess: mounted?.get(connection.id) ?? null,
     });
     if (resolved.decision === "deny") {
       return { action: "deny", reason: resolved.reason };
@@ -223,15 +160,13 @@ export function createConnectionsProfilePolicy(
         action_id: action.id,
         connection_id: connection.id,
         connector_id: connector.id,
-        // CN.6/3 — WHO may answer this. The reason string below has always
-        // claimed the request went to the connection owner, while the decision
-        // route checked only the tenant: any colleague could approve an agent
-        // sending mail from someone else's mailbox. Core restricts on this
-        // field; the module supplies it because ownership is the module's fact.
-        owner_user_id: connection.owner_user_id,
+        // WHO may answer this: the owners of the Space that owns the account
+        // (plus tenant admins). Core restricts the decision on this field; the
+        // module supplies it because the account's Space is the module's fact.
+        space_id: connection.space_id,
       },
       reason:
-        "connection_approval_pending: a human must approve this action; the request was sent to the connection owner",
+        "connection_approval_pending: a human must approve this action; the request was sent to the owners of the connection's space",
     };
   };
 }

@@ -5,6 +5,7 @@
 import {
   type AgentEngentyKind,
   createRequestDecisionArtifact,
+  type RequestDecisionArtifact,
 } from "@engenty/ai-core";
 import {
   acquireFrontendToolSuspendSlot,
@@ -30,7 +31,7 @@ export interface HireConfigBody {
   description: string;
   engenty: AgentEngentyKind;
   instructions: string;
-  model: string;
+  model?: string;
   name: string;
   proposed_by_agent: string | null;
   proposed_space_id: string | null;
@@ -314,8 +315,9 @@ export function hireSuspendLockKey(input: {
   );
 }
 
+/** Park on a decision card, one per thread. Shared with `agent_remove`. */
 export async function suspendHireDecision(input: {
-  artifact: ReturnType<typeof hireDecisionArtifact>;
+  artifact: RequestDecisionArtifact;
   lockKey: string;
   suspend?: (payload: unknown) => Promise<unknown>;
 }): Promise<undefined> {

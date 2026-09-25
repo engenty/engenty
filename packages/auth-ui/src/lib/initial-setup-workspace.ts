@@ -131,6 +131,25 @@ export async function nameTenant(params: {
   );
 }
 
+/**
+ * The wizard's language becomes the tenant's: everyone without a language of
+ * their own reads the app in it (`appearance.language`, user over tenant).
+ */
+export async function saveTenantLanguage(params: {
+  accessToken: string;
+  language: string;
+}): Promise<void> {
+  await setupFetch(
+    "/api/tenant-settings/appearance.language",
+    params.accessToken,
+    {
+      body: { type: "string", value_string: params.language },
+      method: "PATCH",
+    },
+    "Could not save the language."
+  );
+}
+
 interface SpaceRow {
   id: string;
   isDefault: boolean;

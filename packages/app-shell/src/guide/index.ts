@@ -1,3 +1,4 @@
+export type { GuideCardText } from "./guide-card.js";
 export {
   GuideOverlayHost,
   type GuideOverlayHostProps,
@@ -5,7 +6,9 @@ export {
 export {
   formatUiGuideFollowUpMessage,
   type ResolveUiGuideTargetHelpers,
+  readUiGuideFollowUp,
   resolveUiGuideTarget,
+  type UiGuideFollowUp,
 } from "./resolve-target.js";
 export {
   dismissUiGuideSession,

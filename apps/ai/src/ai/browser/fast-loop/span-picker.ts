@@ -7,7 +7,7 @@
 
 import {
   type ChoiceQuestion,
-  type TypeSafeClient,
+  type ClassifierClient,
   validateChoiceAnswer,
 } from "@engenty/typesafe-client";
 
@@ -125,7 +125,7 @@ function headKey(position: number): string {
  * any, is that field's value. Returns null when the goal offers no spans.
  */
 export async function pickSpans(input: {
-  client: TypeSafeClient;
+  client: ClassifierClient;
   context: FieldContext;
   model?: string;
 }): Promise<SpanPick | null> {

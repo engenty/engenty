@@ -4,7 +4,8 @@
  * Strategy (fast path first):
  * 1. Plan ceiling — if only one tier is licensed, return it (0 classifier calls).
  * 2. Lexical heuristics — certain guesses skip the classifier entirely.
- * 3. TypeSafe Jev, one choice question, hard timeout.
+ * 3. The `classifier` binding (Jev, or an LLM through structured output), one
+ *    choice question, hard timeout.
  * 4. Fail open to the heuristic guess / medium (clamped), never block the run.
  */
 
@@ -20,8 +21,7 @@ import {
 import { createLogger } from "@engenty/telemetry";
 import {
   type ChoiceQuestion,
-  resolveJevClient,
-  type TypeSafeClient,
+  type ClassifierClient,
   validateChoiceAnswer,
 } from "@engenty/typesafe-client";
 
@@ -37,7 +37,7 @@ export const AUTO_EFFORT_JEV_TIMEOUT_MS = 800;
 /** Below this the classifier's pick is ignored in favour of the heuristic guess. */
 export const AUTO_EFFORT_MIN_CONFIDENCE = 0.5;
 
-/** Latest-user text only; long pastes are truncated before Jev sees them. */
+/** Latest-user text only; long pastes are truncated before the classifier sees them. */
 const MAX_ROUTER_INPUT_CHARS = 500;
 
 const TIER_CRITERIA = {
@@ -46,7 +46,7 @@ const TIER_CRITERIA = {
   high: "coding, CLI, multi-file edits, plans, hard reasoning",
 } as const;
 
-/** The one question Jev answers; the tiers are the option ids. */
+/** The one question the classifier answers; the tiers are the option ids. */
 export const EFFORT_QUESTION: ChoiceQuestion = {
   criteria: TIER_CRITERIA,
   instructions:
@@ -54,18 +54,26 @@ export const EFFORT_QUESTION: ChoiceQuestion = {
   type: "choice",
 };
 
+/** A classifier, a loader for one, or none. */
+export type ClassifierSource =
+  | ClassifierClient
+  | (() => Promise<ClassifierClient | null>)
+  | null
+  | undefined;
+
 export interface ResolveAutoEffortParams {
   /** The agent's own default tier (`agentDefaultEffort`); wins over the text. */
   agentEffort?: AiEffort | null;
   agentId?: string | null;
   /** Plan grant; null/empty = unrestricted. */
   allowedEfforts?: readonly string[] | null;
-  hasAttachments?: boolean;
   /**
-   * Jev. Omitted = resolved from the environment; null = no classifier, the
-   * heuristic guess decides.
+   * The run's classifier, or a loader for it — called only when the
+   * heuristics are unsure, so a certain turn never pays the binding lookup.
+   * Omitted or null = no classifier, the heuristic guess decides.
    */
-  jev?: TypeSafeClient | null;
+  classifier?: ClassifierSource;
+  hasAttachments?: boolean;
   /** Latest user-turn text only. */
   text: string;
   /** Override the hard timeout (tests). */
@@ -119,15 +127,12 @@ export async function resolveAutoEffort(
     };
   }
 
-  const jev =
-    params.jev === undefined
-      ? (resolveJevClient()?.client ?? null)
-      : params.jev;
-  const routed = jev
-    ? await classifyWithJev({
+  const classifier = await loadClassifier(params.classifier);
+  const routed = classifier
+    ? await classifyEffort({
         agentId: params.agentId ?? null,
+        classifier,
         hasAttachments: params.hasAttachments ?? false,
-        jev,
         text: params.text,
         timeoutMs: params.timeoutMs ?? AUTO_EFFORT_JEV_TIMEOUT_MS,
       })
@@ -170,6 +175,8 @@ export async function resolveEffortForRun(input: {
   agentId?: string | null;
   allowedEfforts?: readonly string[] | null;
   choice: AiEffortChoice | null;
+  /** The run's `classifier` binding, loaded only if Auto needs to ask. */
+  classifier?: ClassifierSource;
   hasAttachments?: boolean;
   /** Expert model pin — when set, Auto is skipped (pin wins downstream). */
   modelIdOverride?: string | null;
@@ -200,6 +207,7 @@ export async function resolveEffortForRun(input: {
     agentEffort: input.agentEffort,
     agentId: input.agentId,
     allowedEfforts: input.allowedEfforts,
+    classifier: input.classifier,
     hasAttachments: input.hasAttachments,
     text: input.text,
   });
@@ -217,10 +225,26 @@ export async function resolveEffortForRun(input: {
   };
 }
 
-async function classifyWithJev(params: {
+async function loadClassifier(
+  source: ClassifierSource
+): Promise<ClassifierClient | null> {
+  if (typeof source !== "function") {
+    return source ?? null;
+  }
+  try {
+    return await source();
+  } catch (error) {
+    logger.info("Auto effort classifier unavailable", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
+}
+
+async function classifyEffort(params: {
   agentId: string | null;
+  classifier: ClassifierClient;
   hasAttachments: boolean;
-  jev: TypeSafeClient;
   text: string;
   timeoutMs: number;
 }): Promise<AiEffort | null> {
@@ -231,7 +255,7 @@ async function classifyWithJev(params: {
   const startedAt = performance.now();
   try {
     const response = await Promise.race([
-      params.jev.systemOne({
+      params.classifier.systemOne({
         questions: { effort: EFFORT_QUESTION },
         state: {
           agent_id: params.agentId,
@@ -244,7 +268,7 @@ async function classifyWithJev(params: {
     if (!response) {
       // Info, not debug: a classifier that keeps missing its budget is an
       // operational fact worth seeing without turning debug on.
-      logger.info("Auto effort Jev timed out", {
+      logger.info("Auto effort classifier timed out", {
         budget_ms: params.timeoutMs,
         latency_ms: Math.round(performance.now() - startedAt),
       });
@@ -254,7 +278,7 @@ async function classifyWithJev(params: {
       response.answers.effort,
       AI_EFFORT_LEVELS
     );
-    logger.debug("Auto effort Jev answered", {
+    logger.debug("Auto effort classifier answered", {
       choice: answer.choice,
       confidence: answer.confidence,
       input_tokens: response.usage?.input_tokens ?? null,
@@ -265,7 +289,7 @@ async function classifyWithJev(params: {
     }
     return answer.choice as AiEffort;
   } catch (error) {
-    logger.info("Auto effort Jev skipped", {
+    logger.info("Auto effort classifier skipped", {
       error: error instanceof Error ? error.message : String(error),
     });
     return null;

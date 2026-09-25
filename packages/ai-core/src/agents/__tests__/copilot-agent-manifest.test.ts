@@ -21,8 +21,6 @@ describe("getEngentyCopilotAgentManifest", () => {
       "engenty.copilot.soul",
       "engenty.copilot.skills",
     ]);
-    expect(m.tools).toContain("engentyApiCatalog");
-    expect(m.tools).toContain("engentyApi");
     expect(m.tools).toContain("chatThreadSearch");
     expect(m.tools).toContain("registry_agents_list");
     expect(m.tools).toContain("message_agent");
@@ -35,6 +33,7 @@ describe("getEngentyCopilotAgentManifest", () => {
       "routines",
       "space-data",
       "space-setup",
+      "getting-started",
     ]);
   });
 });

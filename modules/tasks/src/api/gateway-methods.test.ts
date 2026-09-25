@@ -67,6 +67,28 @@ describe("registerTasksGatewayMethods — agent key validation", () => {
     expect((result as { title: string }).title).toBe("Test task");
   });
 
+  it("tasks_create starts a todo task but only plans a backlog task", async () => {
+    const send = vi.fn(async () => undefined);
+    registerTasksGatewayMethods(api, repo, { queue: { send } as never });
+    const create = getHandler("tasks_create");
+    const agentTask = {
+      primary_assignee_agent_type_key: VALID_KEY,
+      primary_assignee_kind: "agent",
+    };
+
+    await create(
+      { ...agentTask, status: "backlog", title: "Later" },
+      { auth: defaultAuth }
+    );
+    expect(send).not.toHaveBeenCalled();
+
+    await create(
+      { ...agentTask, status: "todo", title: "Now" },
+      { auth: defaultAuth }
+    );
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
   it("tasks_list filters by primary agent type key", async () => {
     await repo.createTask({
       title: "Research",
@@ -125,22 +147,6 @@ describe("registerTasksGatewayMethods — agent key validation", () => {
     );
     expect((result as { title: string }).title).toBe("User task");
     // fetch must not have been called — no agent key check
-    expect(mockFetch).not.toHaveBeenCalled();
-  });
-
-  it("tasks_create skips validation when options are not provided", async () => {
-    registerTasksGatewayMethods(api, repo);
-
-    const handler = getHandler("tasks_create");
-    const result = await handler(
-      {
-        title: "No-validation task",
-        primary_assignee_kind: "agent",
-        primary_assignee_agent_type_key: "completely.fake",
-      },
-      { auth: defaultAuth }
-    );
-    expect((result as { title: string }).title).toBe("No-validation task");
     expect(mockFetch).not.toHaveBeenCalled();
   });
 

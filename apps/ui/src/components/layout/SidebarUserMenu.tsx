@@ -11,7 +11,6 @@ import {
 } from "@engenty/auth-ui";
 import {
   getDeveloperModePreference,
-  isEngentyDevelopmentEnvironment,
   setDeveloperModePreference,
   subscribeDeveloperModePreference,
 } from "@engenty/environment";
@@ -135,8 +134,7 @@ export function SidebarUserMenu({ compact }: SidebarUserMenuProps) {
 
   // Developer mode is a superadmin tool — the toggle only appears for them.
   const workspace = useWorkspaceContextQuery(true);
-  const showDeveloperMenu =
-    isEngentyDevelopmentEnvironment() && workspace.data?.isSuperAdmin === true;
+  const showDeveloperMenu = workspace.data?.isSuperAdmin === true;
   const [developerMode, setDeveloperMode] = useState(
     getDeveloperModePreference
   );

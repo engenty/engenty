@@ -30,7 +30,7 @@ standup".
 | **Run** | One firing of a routine (or a chat turn). Inspectable, with a timeline of tool calls and a result. |
 | **Task** | A work item: title, status, assignee, comments, dependencies. Something someone is meant to do. |
 | **Space** | The mount set — which apps, agents, connections, skills and module operations a run may reach. |
-| **Workspace** | Run-scoped file mounts (`/home`, `/space`, `/skills`). Not the module database. |
+| **Workspace** | Run-scoped file mounts: `/home`, `/space`, `/shared` (unless Space-confined), `/skills`, and `/task` / `/project` when the run has a Task. Per preset in `apps/ai/src/ai/workspace/workspace-presets.ts`; which of them a command can reach: [agent-computers.md](./agent-computers.md). Not the module database. |
 | **`/data`** | A projection of *mounted* modules; reads and writes go through those modules' real operations. |
 | **Memory** | Disposable working and observational context. Never the business record. |
 
@@ -107,8 +107,10 @@ workflow for it) or a **workflow id** (more than one step, an approval, or a
 wait — `workflow_propose` first). Creating the routine publishes a draft
 workflow it targets.
 
-Whether a person confirms first is the Space's agent-approval mode, the same
-dial the task lane reads:
+Whether a person confirms first is the agent-approval mode, the same dial the
+task lane reads. It is bound to the agent: the agent's own mode decides
+(stricter or looser), else its platform default (the copilot: `auto`), else
+the Space's mode, else the tenant's (`manual` when nothing is set):
 
 | Situation | `manual` | `auto` | `pass-all` |
 |---|---|---|---|
@@ -161,26 +163,52 @@ sentence could be read on more than one.
 
 ## Outcome and reporting
 
-A run has two verdicts on different planes, recorded side by side:
+The word **outcome** names three planes. Qualify it.
 
-- **`run.status`** (`completed | failed`) is the engine's word — did the run
-  crash. It is never the workflow's opinion of the work.
-- **`outcome`** (`ok | nothing_to_do | partial | needs_attention | rejected |
-  failed`) is the workflow's own verdict, carried in its declared output. A nightly
-  import that found nothing is `completed` + `nothing_to_do`; one the
-  counterparty refused is `completed` + `rejected`. Calling workflows branch on
-  outcome; the engine never does.
+- **Promise** — `ai.routines.outcome` is prose ("what done looks like"). The
+  canvas outcome node and the routine form render that text. It is not what a
+  run did, and it is not where the result goes.
+- **Verdict** — a run's `outcome` (`ok | nothing_to_do | partial |
+  needs_attention | rejected | failed`) is the workflow's opinion of the work,
+  carried in its declared output. Recorded beside `run.status`.
+- **Destinations** — outcome bindings: where a settled fire delivers. Child
+  rows of the routine (`ai.routine_outcomes`), the same shape as wake sources
+  (`ai.routine_triggers`).
+
+`run.status` (`completed | failed`) is the engine's word — did the run
+crash. It is never the workflow's opinion of the work. A nightly import that
+found nothing is `completed` + `nothing_to_do`; one the counterparty refused
+is `completed` + `rejected`. Calling workflows branch on verdict; the engine
+never does.
+
+Each binding has a `provider_id`, `mode` (`always` | `agent`), and standing
+`config`. `always` fires at settle; `agent` fires only when the run calls it.
+A routine can mix both. The run cannot change `config`.
+
+A routine with **no bindings** keeps the `report` desk post (`quiet` /
+`desk_card` / `ask`). Rows **replace** that post. `report: ask` still holds:
+a completed run is **held** (`requires_action`, like a gate) until a person
+marks it reviewed — on the desk card or through
+`POST /workflows/runs/:runId/review`. The report goes out at once, never
+silent; the inbox carries one `routine_review` decision; and the next fire
+skips as overlap until the hold is released.
+
+Failures, `rejected`, and `needs_attention` still surface even if the agent
+called nothing — by firing the routine's `notification.high` binding, or the
+desk post when it has none.
 
 **Reporting** (`silent | info | verbose`) says how loudly a run's result lands
-in the owner's chat. It is a per-run widening of the routine's `report` knob:
-the run's value wins when present. `nothing_to_do` defaults to `silent`;
-failures and `needs_attention` always report, whatever the level.
+when the desk post is the destination. It is a per-run widening of the
+routine's `report` knob: the run's value wins when present. `nothing_to_do`
+defaults to `silent`; failures and `needs_attention` always report, whatever
+the level.
 
-A routine with `report: ask` goes one step further: a completed run is **held**
-(`requires_action`, like a gate) until a person marks it reviewed — on the
-desk card or through `POST /workflows/runs/:runId/review`. The report goes out
-at once, never silent; the inbox carries one `routine_review` decision; and the
-next fire skips as overlap until the hold is released.
+Providers register through module AI (`outcomeProviders`) with `operationId`
+for gateway delivery — the same way module triggers do, not a closed enum.
+Built-ins: `desk.chat`, `agent.message`, `notification.update`,
+`notification.high`, `email`, `artifact.pointer`, `webhook`. WhatsApp and MCP
+are later plugin providers, not built in. See [Notifications](./notifications)
+for how `notification.high` counts on the bell.
 
 ## Retired vocabulary
 

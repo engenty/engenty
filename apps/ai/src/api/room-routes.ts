@@ -21,6 +21,7 @@ import type { Hono } from "hono";
 import { z } from "zod";
 import { AiSessionError } from "../ai/errors.js";
 import type { AiRegistry, AiService } from "../ai/index.js";
+import { writeRiverWelcome } from "../ai/river/river-welcome.js";
 import {
   HUMAN_TURN_ROOM_PATCH,
   ROOM_MAX_AGENTS,
@@ -82,10 +83,14 @@ const updateRoomBodySchema = z
 
 const addMemberBodySchema = z.object({ agent_id: agentIdString });
 const addPersonBodySchema = z.object({ user_id: uuidString });
+const COPILOT_AGENT_ID = "engenty.copilot";
+
 const openDmBodySchema = z.object({
   agent_id: agentIdString,
   /** Required for a shared specialist; absent for a personal agent's river. */
   space_id: uuidString.optional(),
+  /** The person's UI language — the copilot's first words in a new river. */
+  ui_language: z.string().max(16).optional(),
 });
 
 /**
@@ -289,6 +294,19 @@ export function registerRoomRoutes(
         title: null,
         visibility: "private",
       });
+      // A river opened for the first time starts with the copilot's welcome;
+      // a DM brought back from the archive keeps the history it had.
+      if (agentId === COPILOT_AGENT_ID && !existing) {
+        await writeRiverWelcome({
+          createdAt: thread.created_at,
+          language:
+            body.data.ui_language ??
+            c.req.header("accept-language")?.split(",")[0]?.split(";")[0],
+          store,
+          tenantId,
+          threadId,
+        });
+      }
       return c.json({ created: true, session: thread }, 201);
     } catch (err) {
       return handleRouteError(

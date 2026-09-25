@@ -44,7 +44,8 @@ export interface RegistryAgentRow {
   kind?: string | null;
   /** Per-agent operational limits (e.g. { max_steps, budget }). */
   limits?: Record<string, unknown> | null;
-  model: string;
+  /** Compiled-in model; null = none (runs resolve the role binding). */
+  model: string | null;
   /** Per-agent model overrides (Phase 4); null = inherit tenant defaults. */
   model_override?: string | null;
   /** Owning module id; null = tenant/platform. */
@@ -54,7 +55,6 @@ export interface RegistryAgentRow {
   proposed_config?: Record<string, unknown> | null;
   /** Space a NEW proposal should mount on approve. Null for revisions. */
   proposed_space_id?: string | null;
-  purpose?: string | null;
   /** Reachable from remote channels as itself; see AgentConfig.remoteEnabled. */
   remote_enabled?: boolean | null;
   /** Channel handle (`@handle`); see AgentConfig.remoteHandle. */
@@ -138,11 +138,10 @@ function agentRowWriteColumns(config: AgentConfig) {
     instructions: config.instructions,
     kind: config.kind ?? "specialist",
     limits: config.limits ?? {},
-    model: config.model,
+    model: config.model ?? null,
     model_override: config.modelOverride ?? null,
     module_id: config.moduleId ?? null,
     name: config.name,
-    purpose: config.purpose ?? null,
     remote_enabled: config.remoteEnabled ?? false,
     remote_handle: config.remoteHandle ?? null,
     sandbox: config.workspace?.sandbox ?? null,
@@ -203,14 +202,13 @@ function mapAgentRow(row: RegistryAgentRow): AgentConfig {
   const guardrails = parseGuardrails(row.guardrails);
   const limits = parseLimits(row.limits);
   const starters = parseStarters(row.starters);
-  const purpose = row.purpose as AgentConfig["purpose"] | null | undefined;
   return {
     id: row.agent_id,
     name: row.name,
     description: row.description ?? undefined,
     ...(row.avatar_url ? { avatarUrl: row.avatar_url } : {}),
     engenty: resolveAgentEngenty(row.agent_id, row.engenty),
-    model: row.model,
+    ...(row.model ? { model: row.model } : {}),
     instructions: row.instructions,
     toolIds: row.tool_ids,
     skillIds: row.skill_ids,
@@ -224,7 +222,6 @@ function mapAgentRow(row: RegistryAgentRow): AgentConfig {
     ...(isAgentKind(row.kind) ? { kind: row.kind } : {}),
     ...(row.model_override ? { modelOverride: row.model_override } : {}),
     ...(row.module_id ? { moduleId: row.module_id } : {}),
-    ...(purpose ? { purpose } : {}),
     ...(row.remote_enabled ? { remoteEnabled: true } : {}),
     ...(row.remote_handle ? { remoteHandle: row.remote_handle } : {}),
     ...(isUiTools(row.ui_tools) && row.ui_tools !== "auto"

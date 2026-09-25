@@ -69,6 +69,15 @@ describe("shouldHandleCopilotVoiceHotkey", () => {
       true
     );
   });
+
+  it("ignores non-input focus inside the scope", () => {
+    const { scope } = createScopeWithTextarea();
+    const button = document.createElement("button");
+    scope.appendChild(button);
+    expect(shouldHandleCopilotVoiceHotkey({ target: button }, scope)).toBe(
+      false
+    );
+  });
 });
 
 describe("useCopilotVoiceInputHotkey", () => {

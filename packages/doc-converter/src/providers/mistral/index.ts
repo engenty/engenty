@@ -3,6 +3,7 @@
  */
 
 import { createLogger } from "@engenty/telemetry";
+import { DEFAULT_DOC_CONVERTER_MISTRAL_MODEL } from "../../default-models.js";
 import type {
   ConversionOptions,
   ConversionResult,
@@ -12,7 +13,6 @@ import { markdownFromPagedParseResult } from "../../page-break.js";
 
 const logger = createLogger({ name: "doc-converter-mistral" });
 
-const DEFAULT_MODEL = "mistral-ocr-latest";
 const OCR_ENDPOINT = "https://api.mistral.ai/v1/ocr";
 const REQUEST_TIMEOUT_MS = 120_000;
 
@@ -28,7 +28,7 @@ const SUPPORTED_TYPES = [...DOCUMENT_TYPES, ...IMAGE_TYPES];
 
 export interface MistralOcrProviderConfig {
   apiKey: string;
-  /** OCR model id; defaults to mistral-ocr-latest */
+  /** OCR model id; defaults to {@link DEFAULT_DOC_CONVERTER_MISTRAL_MODEL} */
   model?: string;
 }
 
@@ -57,7 +57,7 @@ export class MistralOcrProvider implements DocConverterProvider {
 
   constructor(config: MistralOcrProviderConfig) {
     this.apiKey = config.apiKey;
-    this.model = config.model?.trim() || DEFAULT_MODEL;
+    this.model = config.model?.trim() || DEFAULT_DOC_CONVERTER_MISTRAL_MODEL;
   }
 
   canConvert(mimeType: string): boolean {

@@ -182,12 +182,31 @@ export interface DeleteAiThreadsInput {
 
 export interface ListAiThreadMessagesInput {
   /**
+   * Delta cursor: the newest row the caller already holds. The page is the
+   * rows strictly after it, oldest first, and `has_more` then means more
+   * NEWER rows exist. `createdAt` stays the wire string (microseconds).
+   * Exclusive with `before`.
+   */
+  after?: { createdAt: string; id: string };
+  /**
    * Page cursor: the oldest row the caller already holds. The page ends just
    * before it, so walking back through a thread never repeats or skips a row.
    */
   before?: { createdAt: Date; id: string };
   /** Newest `limit` rows (before the cursor). */
   limit: number;
+  scope: AiSessionScope;
+  threadId: string;
+  /**
+   * `slim`: reasoning text and large tool results the collapsed transcript
+   * never reads are dropped and flagged (see ai-core `slimThreadMessage`).
+   * Default `full`.
+   */
+  view?: "full" | "slim";
+}
+
+export interface GetAiThreadMessageInput {
+  messageId: string;
   scope: AiSessionScope;
   threadId: string;
 }
@@ -235,11 +254,8 @@ export type DynamicAgentAssembler = (
 
 export interface RuntimeModelConfigInput {
   chatModelId?: string | null;
-  memoryModelId?: string | null;
-  planningCodingModelId?: string | null;
-  researchModelId?: string | null;
-  routingModelId?: string | null;
-  safeguardModelId?: string | null;
+  classifierModelId?: string | null;
+  fastTextModelId?: string | null;
 }
 
 export interface ThreadServiceOptions {

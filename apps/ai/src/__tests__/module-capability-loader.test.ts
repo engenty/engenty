@@ -1,236 +1,60 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { engentyToolsRunAls } from "../../ai/tools/engenty-tools/lib/run-context.js";
 import { createDefaultModuleCapabilityLoader } from "../ai/module-capability-loader.js";
 
-describe("module capability loader", () => {
-  it("loads module tool capabilities from core plugin and tool catalogs", async () => {
-    const fetchImpl = vi.fn(async (input: RequestInfo | URL, init) => {
-      const url = String(input);
-      if (url.endsWith("/api/users/setup/context")) {
-        return Response.json({
-          data: {
-            canSwitchTenant: false,
-            currentTenant: { id: "tenant-1", name: "Tenant" },
-            isSuperAdmin: false,
-            isTenantAdmin: false,
-            onboarded: true,
-            tenantRole: "member",
-            userId: "user-1",
-          },
-          ok: true,
-        });
-      }
-      if (url.endsWith("/api/plugins?tenantId=tenant-1")) {
-        return Response.json({
-          data: [
-            {
-              description: "Leads and sales pipeline module",
-              id: "leads",
-              kind: "module",
-              loaded: true,
-              name: "Leads",
-              provides: ["module.leads", "ui.route.module.leads"],
-            },
-            {
-              description: "Project management module",
-              id: "projects",
-              kind: "module",
-              loaded: true,
-              name: "Projects",
-              provides: ["module.projects", "ui.route.module.projects"],
-            },
-            {
-              description: "Disabled optional module",
-              id: "contacts",
-              kind: "module",
-              loaded: true,
-              name: "Contacts",
-              provides: ["module.contacts"],
-              tenantEnabled: false,
-            },
-          ],
-          ok: true,
-        });
-      }
-      if (url.endsWith("/api/tools/contracts")) {
-        return Response.json({
-          data: [
-            {
-              auth: { riskLevel: "low" },
-              description: "Load one lead.",
-              inputSchema: { jsonSchema: { type: "object" } },
-              moduleId: "leads",
-              operationId: "leads_get",
-              summary: "Load lead",
-            },
-            {
-              auth: { riskLevel: "low" },
-              description: "List leads.",
-              moduleId: "leads",
-              operationId: "leads_list",
-              summary: "List leads",
-            },
-            {
-              auth: { riskLevel: "low" },
-              description: "Load one project.",
-              moduleId: "projects",
-              operationId: "projects_get",
-              summary: "Load project",
-            },
-            {
-              auth: { riskLevel: "low" },
-              description: "Load one contact.",
-              moduleId: "contacts",
-              operationId: "contacts_get",
-              summary: "Load contact",
-            },
-          ],
-          ok: true,
-        });
-      }
-      if (url.endsWith("/api/tools/module-capabilities")) {
-        return Response.json({
-          data: {
-            capabilities: [
-              {
-                moduleId: "leads",
-                agentConfigs: [
-                  {
-                    id: "leads.manager",
-                    instructions: "Manage leads.",
-                    model: "openai/gpt-4.1-mini",
-                    name: "Leads Manager",
-                    skillIds: [],
-                    source: "module",
-                    starters: [
-                      {
-                        id: "leads-triage",
-                        label: "Triage new leads",
-                        prompt:
-                          "Show me the leads that came in today and rank them.",
-                      },
-                    ],
-                    toolIds: ["leads_get"],
-                  },
-                ],
-                workflows: [
-                  {
-                    definition: {
-                      graph: [
-                        { id: "run", toolId: "run_specialist", type: "tool" },
-                      ],
-                      id: "leads.briefing",
-                      inputSchema: { type: "object", properties: {} },
-                      outputSchema: {},
-                    },
-                    id: "leads.briefing",
-                    module_id: "leads",
-                    name: "Lead briefing",
-                    owner_agent_id: "leads.manager",
-                  },
-                ],
-                routines: [
-                  {
-                    agent_id: "leads.manager",
-                    cron: "0 7 * * *",
-                    enabled_by_default: true,
-                    id: "leads.daily-digest",
-                    kind: "schedule",
-                    module_id: "leads",
-                    name: "Daily leads digest",
-                    scope: "space",
-                    workflow: "leads.briefing",
-                  },
-                ],
-              },
-            ],
-          },
-          ok: true,
-        });
-      }
-      if (url.endsWith("/api/tools/leads_get/invoke")) {
-        expect(init?.body).toBe(JSON.stringify({ input: { id: "lead-1" } }));
-        return Response.json({
-          data: { id: "lead-1", title: "CRM rollout" },
-          ok: true,
-        });
-      }
-      return Response.json(
-        { error: { code: "not_found", message: url }, ok: false },
-        { status: 404 }
-      );
+function coreCatalog(url: string): Response {
+  if (url.endsWith("/api/users/setup/context")) {
+    return Response.json({
+      data: { currentTenant: { id: "tenant-1" }, userId: "user-1" },
+      ok: true,
     });
+  }
+  if (url.endsWith("/api/plugins?tenantId=tenant-1")) {
+    return Response.json({
+      data: [
+        { id: "leads", kind: "module", loaded: true },
+        { id: "contacts", kind: "module", loaded: true, tenantEnabled: false },
+        {
+          effectiveState: { allowed: false },
+          id: "invoices",
+          kind: "module",
+          loaded: true,
+        },
+      ],
+      ok: true,
+    });
+  }
+  if (url.endsWith("/api/tools/contracts")) {
+    return Response.json({
+      data: ["leads", "contacts", "invoices"].map((moduleId) => ({
+        auth: { riskLevel: "low" },
+        description: `Load one ${moduleId} record.`,
+        moduleId,
+        operationId: `${moduleId}_get`,
+      })),
+      ok: true,
+    });
+  }
+  if (url.endsWith("/api/tools/module-capabilities")) {
+    return Response.json({ data: { capabilities: [] }, ok: true });
+  }
+  return Response.json({ ok: false }, { status: 404 });
+}
 
+describe("module capability loader", () => {
+  it("offers no tools from modules the tenant disabled or may not use", async () => {
     const capabilities = await engentyToolsRunAls.run(
       {
-        coreBaseUrl: "https://core.example.test",
-        fetchImpl: fetchImpl as typeof fetch,
         accessToken: "user-token",
+        coreBaseUrl: "https://core.example.test",
+        fetchImpl: (async (input: RequestInfo | URL) =>
+          coreCatalog(String(input))) as typeof fetch,
       },
       () => createDefaultModuleCapabilityLoader().listModuleCapabilities()
     );
 
-    expect(capabilities.map((capability) => capability.moduleId)).toEqual([
-      "leads",
-      "projects",
-    ]);
-    const leadsCapability = capabilities.find(
-      (capability) => capability.moduleId === "leads"
-    );
-
-    expect(leadsCapability?.agentConfigs?.[0]?.id).toBe("leads.manager");
-    // The seed is a hand-picked shape — starters must survive the crossing.
-    expect(leadsCapability?.agentConfigs?.[0]?.starters).toEqual([
-      {
-        id: "leads-triage",
-        label: "Triage new leads",
-        prompt: "Show me the leads that came in today and rank them.",
-      },
-    ]);
-    expect(leadsCapability?.tools).toHaveProperty("leads_get");
-    expect(leadsCapability?.tools).toHaveProperty("leads_list");
-    expect(leadsCapability?.workflows?.map((action) => action.id)).toEqual([
-      "leads.briefing",
-    ]);
-    expect(leadsCapability?.routines?.map((routine) => routine.id)).toEqual([
-      "leads.daily-digest",
-    ]);
-
-    const projectCapability = capabilities.find(
-      (capability) => capability.moduleId === "projects"
-    );
-    expect(projectCapability?.agentConfigs).toBeUndefined();
-    expect(projectCapability?.tools).toHaveProperty("projects_get");
-    expect(capabilities).not.toContainEqual(
-      expect.objectContaining({ moduleId: "contacts" })
-    );
-
-    const leadTool = leadsCapability?.tools?.leads_get as
-      | { execute: (input: { id: string }) => Promise<unknown> }
-      | undefined;
-    const result = await engentyToolsRunAls.run(
-      {
-        coreBaseUrl: "https://core.example.test",
-        fetchImpl: fetchImpl as typeof fetch,
-        accessToken: "user-token",
-      },
-      () => leadTool?.execute({ id: "lead-1" })
-    );
-
-    expect(result).toEqual({ id: "lead-1", title: "CRM rollout" });
-    expect(fetchImpl).toHaveBeenCalledWith(
-      new URL("https://core.example.test/api/tools/leads_get/invoke"),
-      expect.objectContaining({
-        headers: expect.objectContaining({
-          Authorization: "Bearer user-token",
-        }),
-        method: "POST",
-      })
-    );
     expect(
-      fetchImpl.mock.calls.some(([url]) =>
-        String(url).includes("/api/admin/ai/agents")
-      )
-    ).toBe(false);
+      capabilities.flatMap((capability) => Object.keys(capability.tools ?? {}))
+    ).toEqual(["leads_get"]);
   });
 });

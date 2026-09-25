@@ -22,9 +22,11 @@ export function CopilotModelChooserControl(props: {
     serviceBaseUrl: ai.serviceBaseUrl,
   });
 
+  // Only an explicit pick is sent. The shown default (the server's effective
+  // chat model) is not pinned, so the effort tier's binding still decides.
   useAgentHostConfig({
     hostKey,
-    modelId: modelOptions.activeModelId,
+    modelId: modelOptions.selectedModelId,
   });
 
   // Deliberately NOT disabled while awaiting an interrupt: a parked run is
@@ -35,7 +37,7 @@ export function CopilotModelChooserControl(props: {
 
   return (
     <ChatModelChooser
-      activeModelId={modelOptions.activeModelId}
+      activeModelId={modelOptions.activeModelId ?? ""}
       ariaLabel={t("chat.modelChooserLabel")}
       disabled={disabled}
       emptyMessage={t("chat.modelChooser.emptyMessage")}

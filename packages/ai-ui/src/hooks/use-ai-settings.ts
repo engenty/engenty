@@ -8,22 +8,15 @@ import {
 /** Tenant-pinnable model fields. Null on any of them means "inherit". */
 const MODEL_FIELDS = [
   "chat_model_id",
-  "coordinator_model_id",
-  "research_model_id",
-  "planning_coding_model_id",
-  "safeguard_model_id",
-  "memory_model_id",
+  "classifier_model_id",
+  "fast_text_model_id",
 ] as const;
 
 /** Everything inherits: the "reset to defaults" target now clears pins. */
 const INHERIT_CONFIG: AiConfig = {
   chat_model_id: null,
-  coordinator_model_id: null,
-  research_model_id: null,
-  planning_coding_model_id: null,
-  safeguard_model_id: null,
-  memory_model_id: null,
   classifier_model_id: null,
+  fast_text_model_id: null,
   doc_converter: null,
   realtime_voice: null,
   caps: null,

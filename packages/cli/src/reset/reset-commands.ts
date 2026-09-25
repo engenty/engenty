@@ -53,6 +53,8 @@ export function registerResetCommands(program: Command): void {
           }
 
           if (options.db) {
+            // No service-credential re-mint here: the purge below deletes
+            // .env.local, and the `engenty setup` that follows mints one.
             resetLocalDb();
           }
 

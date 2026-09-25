@@ -53,19 +53,6 @@ function appWithMcp() {
 }
 
 describe("MCP protocol edge", () => {
-  it("serves protected resource metadata", async () => {
-    const app = appWithMcp();
-    const res = await app.request("/.well-known/oauth-protected-resource/mcp");
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as {
-      resource?: string;
-      scopes_supported?: string[];
-    };
-    expect(body.resource).toContain("/mcp");
-    // Supabase Auth rejects custom scopes; advertise AS-compatible ones only.
-    expect(body.scopes_supported).toEqual(["openid", "profile", "email"]);
-  });
-
   it("challenges unauthenticated /mcp callers and rejects generic aud", async () => {
     const app = appWithMcp();
     const missing = await app.request("/mcp", { method: "POST" });

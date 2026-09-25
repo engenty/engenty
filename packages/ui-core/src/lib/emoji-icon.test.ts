@@ -1,16 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   countEmojiGraphemes,
-  EMOJI_ICON_PRESETS,
   isSingleEmoji,
   normalizeEmojiInput,
 } from "./emoji-icon.js";
-
-describe("EMOJI_ICON_PRESETS", () => {
-  it("ships twenty curated icons", () => {
-    expect(EMOJI_ICON_PRESETS).toHaveLength(20);
-  });
-});
 
 describe("isSingleEmoji", () => {
   it("accepts a single preset emoji", () => {

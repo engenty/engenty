@@ -63,7 +63,7 @@ describe("normalizeOpenAiModel", () => {
     expect(row.provider).toBe("openai");
     expect(row.tags).toContain("tool-use");
     expect(row.tags).toContain("vision");
-    expect(row.available_for_chat).toBe(true);
+    expect(row.available_for_agent).toBe(true);
     expect(row.available_for_embedding).toBe(false);
     expect(row.input_per_mtok_micros).toBeNull();
     expect(row.released_at).toBe("2024-05-13T00:00:00.000Z");

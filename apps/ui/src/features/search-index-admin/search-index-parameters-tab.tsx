@@ -94,7 +94,6 @@ export function SearchIndexParametersTab() {
         chunk_max_length: patch.chunk_max_length,
         chunk_overlap: patch.chunk_overlap,
         chunk_strategy: patch.chunk_strategy,
-        embedding_model: patch.embedding_model,
         search_verifier_max_candidates: patch.search_verifier_max_candidates,
         search_verifier_min_query_terms: patch.search_verifier_min_query_terms,
         search_vector_min_similarity: patch.search_vector_min_similarity,
@@ -195,21 +194,6 @@ export function SearchIndexParametersTab() {
               }
               value={form.search_verifier_max_candidates}
             />
-            <div className="space-y-1 sm:col-span-2">
-              <Label htmlFor="kb-embedding-model">
-                {t("settings.searchIndex.params.embeddingModel")}
-              </Label>
-              <Input
-                id="kb-embedding-model"
-                onChange={(event) =>
-                  patch("embedding_model", event.target.value)
-                }
-                value={form.embedding_model}
-              />
-              <p className="text-muted-foreground text-xs">
-                {t("settings.searchIndex.params.embeddingModelHint")}
-              </p>
-            </div>
           </div>
 
           <div className="flex items-center justify-end gap-2 border-t pt-3">

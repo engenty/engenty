@@ -12,8 +12,9 @@ export type { FeatureFlagDefinition } from "@engenty/feature-flags";
 export {
   AGENT_APPROVAL_MODES,
   type AgentApprovalMode,
-  effectiveApprovalMode,
+  DEFAULT_AGENT_APPROVAL_MODES,
   parseAgentApprovalMode,
+  resolveAgentApprovalMode,
   shouldAskHuman,
 } from "./agent-approval-mode.js";
 export {
@@ -41,8 +42,10 @@ export {
   resolvePluginCapability,
 } from "./capability-resolver.js";
 export {
+  COMPUTER_EGRESS_HOSTS_MAX,
   COMPUTER_NETWORK_TIERS,
   type ComputerNetworkTier,
+  parseComputerEgressHost,
   parseComputerNetworkTier,
 } from "./computer-network-tier.js";
 export type {
@@ -154,6 +157,7 @@ export {
   spaceDataSlug,
 } from "./space-data-format.js";
 export {
+  AI_SERVICE_CAPABILITIES,
   AI_SERVICE_PLAN_CAPABILITIES,
   capabilitiesForModuleAccess,
   deriveSpaceAgentCapabilities,
@@ -412,6 +416,11 @@ export interface PluginAuthContext {
    * the strength of this value. Absent means "no narrowing".
    */
   spaceId?: string;
+  /**
+   * The task a headless run executes (x-engenty-task-id). An UNVERIFIED claim
+   * on its own, like `triggerId` below.
+   */
+  taskId?: string;
   tenantId: string;
   /**
    * The routine (trigger) a headless run executes for (x-engenty-trigger-id).
@@ -697,6 +706,11 @@ export interface PluginPolicyAuthContext {
    * which is the pre-spaces behaviour every non-chat caller still has.
    */
   spaceId?: string;
+  /**
+   * Task the headless run executes (x-engenty-task-id). A claim, not a fact,
+   * until checked against the task's stored space.
+   */
+  taskId?: string;
   tenantId: string;
   tokenType: "access" | "refresh" | "api_token" | "unknown";
   /**
@@ -1111,6 +1125,8 @@ export interface NotificationsHostLike {
   emit(input: {
     actor?: { id?: string | null; kind: "agent" | "user" | "system" } | null;
     assigneeUserId?: string | null;
+    /** One plain line under the title (a message preview); cut to 140. */
+    body?: string | null;
     audience?:
       | { kind: "tenant" }
       | { kind: "user"; userId: string }
@@ -1133,8 +1149,22 @@ export interface NotificationsHostLike {
     subject?: { id: string; type: string } | null;
     /** Extra people pushed/mailed about a shared row. */
     subscribers?: readonly string[] | null;
-    summary: string;
+    /**
+     * English fallback line. Optional with a `title` (the rendered title is
+     * the summary then); one of the two is required.
+     */
+    summary?: string | null;
+    /** In-app route of the subject; absent → built from the ids. */
+    target?: string | null;
     tenantId: string;
+    /**
+     * What the row says: a key of the core's NOTIFICATION_TITLES plus the
+     * names it uses (never ids). `{actor}` is filled from the actor.
+     */
+    title?: {
+      key: string;
+      params?: Record<string, string | number>;
+    } | null;
   }): Promise<unknown>;
   /**
    * Read-sync: a producing surface knows the person consumed its records

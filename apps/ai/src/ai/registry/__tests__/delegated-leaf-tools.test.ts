@@ -1,6 +1,9 @@
 import type { AgentConfig } from "@engenty/ai-core";
 import { describe, expect, it, vi } from "vitest";
+import { bindTestModelsPerTest } from "../../../__tests__/helpers/test-model-bindings.js";
 import { assembleDynamicAgent } from "../assemble-dynamic-agent.js";
+
+bindTestModelsPerTest();
 
 describe("delegated leaf assembly", () => {
   it("cannot retain nested message_agent or configured sub-agents", async () => {

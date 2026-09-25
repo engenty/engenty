@@ -1,6 +1,6 @@
 import { useTranslation } from "@engenty/i18n/ui";
 import { Badge, Button } from "@engenty/ui-core";
-import { CheckCircle2, Plug, Plus, Settings2, Sparkles } from "lucide-react";
+import { CheckCircle2, Plus, Settings2, Sparkles } from "lucide-react";
 import {
   overviewIconToneForCategory,
   SettingsOverviewIcon,
@@ -10,22 +10,19 @@ import type { SpaceCatalogItem } from "./space-mount-catalog";
 export function SpaceOptionalResourceRow({
   inSpace,
   item,
-  kind,
   onOpen,
   saving,
 }: {
   inSpace: boolean;
   item: SpaceCatalogItem;
-  kind: "connection" | "skill";
   onOpen: () => void;
   saving: boolean;
 }) {
   const { t } = useTranslation("common");
-  const Icon = kind === "skill" ? Sparkles : Plug;
   return (
     <div className="flex items-center gap-3 px-2 py-3">
       <SettingsOverviewIcon
-        Icon={Icon}
+        Icon={Sparkles}
         tone={overviewIconToneForCategory(item.category)}
       />
       <div className="min-w-0 flex-1">
@@ -34,11 +31,7 @@ export function SpaceOptionalResourceRow({
           {item.description ?? item.id}
         </p>
       </div>
-      {item.needsConnect ? (
-        <Badge className="shrink-0" variant="secondary">
-          {t("spaces.setup.connectLater")}
-        </Badge>
-      ) : inSpace ? (
+      {inSpace ? (
         <div className="flex shrink-0 items-center gap-2">
           <Badge className="gap-1" variant="secondary">
             <CheckCircle2 className="size-3" />

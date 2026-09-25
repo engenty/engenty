@@ -35,6 +35,8 @@ export function SkillsFindToolCallCard(props: ToolCallCardProps) {
   }
 
   const canPrefer = data.attach.agent?.can_prefer === true;
+  // Skills found on the Space's computer, not a registry search.
+  const onComputer = data.provider.id === "computer";
   const spaceId = addToSpace ? data.attach.space?.id : undefined;
   const agentId = addToAgent && canPrefer ? data.attach.agent?.id : undefined;
 
@@ -68,11 +70,15 @@ export function SkillsFindToolCallCard(props: ToolCallCardProps) {
   return (
     <section className="my-1 w-full rounded-xl border border-border bg-card p-3.5 shadow-sm">
       <p className="font-semibold text-foreground text-sm">
-        {t("skillsFindCard.title", { query: data.query })}
+        {onComputer
+          ? t("skillsFindCard.titleComputer")
+          : t("skillsFindCard.title", { query: data.query })}
       </p>
-      <p className="mt-0.5 text-muted-foreground text-xs">
-        {t("skillsFindCard.via", { provider: data.provider.label })}
-      </p>
+      {onComputer ? null : (
+        <p className="mt-0.5 text-muted-foreground text-xs">
+          {t("skillsFindCard.via", { provider: data.provider.label })}
+        </p>
+      )}
       {data.attach.space || canPrefer ? (
         <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2">
           {data.attach.space ? (
@@ -99,7 +105,9 @@ export function SkillsFindToolCallCard(props: ToolCallCardProps) {
       ) : null}
       {data.results.length === 0 ? (
         <p className="mt-3 text-muted-foreground text-sm">
-          {t("skillsFindCard.empty", { query: data.query })}
+          {onComputer
+            ? t("skillsFindCard.emptyComputer")
+            : t("skillsFindCard.empty", { query: data.query })}
         </p>
       ) : (
         <ul className="mt-3 divide-y divide-border">

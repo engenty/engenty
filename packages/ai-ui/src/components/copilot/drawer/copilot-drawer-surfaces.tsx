@@ -1,7 +1,10 @@
 "use client";
 
 import type { CopilotLayoutPersistence } from "@engenty/app-shell";
-import { useCopilotShellOrNull } from "@engenty/app-shell";
+import {
+  useCopilotChromeHidden,
+  useCopilotHostOrNull,
+} from "@engenty/app-shell";
 import {
   cn,
   SidePanel,
@@ -12,17 +15,18 @@ import {
 import type { ReactNode, RefObject } from "react";
 import { createPortal } from "react-dom";
 import { useCopilotVoice } from "../../../copilot/copilot-voice-provider.js";
-import type { CopilotCompactContextOption } from "../composer/copilot-compact-context-option";
 import { CopilotDrawerCollapseMorphLayer } from "./copilot-drawer-collapse-morph-layer";
 import type { CopilotDockMode } from "./copilot-drawer-types";
-import { shouldShowCopilotFab } from "./copilot-drawer-utils";
+import {
+  isCopilotCompanionSurfaceActive,
+  shouldShowCopilotFab,
+} from "./copilot-drawer-utils";
 import { CopilotFabTrigger } from "./copilot-fab-trigger";
 import { CopilotWindowSurface } from "./copilot-window-surface";
 import type { UseCopilotDrawerLayoutResult } from "./use-copilot-drawer-layout";
 
 export interface CopilotDrawerSurfaceTreeProps {
   closeLabel: string;
-  compactContextOptions: CopilotCompactContextOption[];
   composerPlaceholder: string;
   /** Desktop app-bar blob slot. When attached, the avatar portals here. */
   copilotDockRef?: RefObject<HTMLDivElement | null> | undefined;
@@ -32,7 +36,6 @@ export interface CopilotDrawerSurfaceTreeProps {
   copilotSidebarRef: RefObject<HTMLDivElement | null> | undefined;
   dragHandleLabel: string;
   effectiveMode: CopilotDockMode;
-  handleCompactContextChange: (contextId: string) => void;
   /** Blob "on" state. Defaults to `open`; a talk page sets it too. */
   isActive?: boolean;
   layout: UseCopilotDrawerLayoutResult;
@@ -46,9 +49,6 @@ export interface CopilotDrawerSurfaceTreeProps {
   open: boolean;
   panelContent: ReactNode;
   preferredDockMode?: CopilotDockMode | null;
-  recentCompactContexts: CopilotCompactContextOption[];
-  selectedCompactContext: CopilotCompactContextOption | undefined;
-  selectedCompactContextId: string;
   setPreferredDockMode?: (mode: CopilotDockMode | null) => void;
   surfaceInstanceKey: string;
   title: string | undefined;
@@ -162,14 +162,15 @@ export function CopilotDrawerSurfaceTree({
   windowTitleBar,
 }: CopilotDrawerSurfaceTreeProps) {
   const { session: voiceSession } = useCopilotVoice();
-  const shell = useCopilotShellOrNull();
+  const host = useCopilotHostOrNull();
+  const chromeHidden = useCopilotChromeHidden();
   const dockContainer =
-    shell?.copilotDockReady === true
-      ? (shell.copilotDockRef.current ?? copilotDockRef?.current ?? null)
+    host?.copilotDockReady === true
+      ? (host.copilotDockRef.current ?? copilotDockRef?.current ?? null)
       : null;
   const docked = dockContainer != null;
   const showFab = shouldShowCopilotFab({
-    chromeHidden: shell?.chromeHidden,
+    chromeHidden,
     collapseToCircle: layout.collapseToCircle,
     docked,
     isCollapsingToIcon: layout.isCollapsingToIcon,
@@ -201,7 +202,7 @@ export function CopilotDrawerSurfaceTree({
   // A page that already shows the conversation full width (the river's own
   // page, a hub chat) owns the surface: nothing to draw beside it, and the
   // persisted `open` stays as it is for the next page.
-  if (!open || shell?.chromeHidden) {
+  if (!isCopilotCompanionSurfaceActive({ chromeHidden, open })) {
     return (
       <>
         {dockedFab}
@@ -255,6 +256,7 @@ export function CopilotDrawerSurfaceTree({
         {dockedFab}
         {collapseMorph}
         <CopilotWindowSurface
+          anchorRef={host?.copilotDockRef ?? copilotDockRef}
           copilotLayout={copilotLayout}
           dragHandleLabel={dragHandleLabel}
           surfaceInstanceKey={surfaceInstanceKey}

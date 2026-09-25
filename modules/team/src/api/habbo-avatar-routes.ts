@@ -1,15 +1,20 @@
 /**
- * Team Habbo avatar generation via AI Gateway (Gemini image model).
+ * Team Habbo avatar generation on the platform `image` model role.
  */
 
-import { readAiGatewayApiKeyFromEnv } from "@engenty/ai-core";
+import {
+  generateImageBytes,
+  ImageModelGatewayError,
+  type ImageReference,
+  ModelRoleNotBoundError,
+  readAiGatewayApiKeyFromEnv,
+  resolvePlatformImageModelId,
+} from "@engenty/ai-core";
 import type { PluginServerApi } from "@engenty/plugin-sdk";
 import { createLogger } from "@engenty/telemetry";
 import { z } from "@hono/zod-openapi";
-import { generateImage, generateText } from "ai";
 import {
   buildHabboAvatarPrompt,
-  DEFAULT_HABBO_IMAGE_MODEL,
   HABBO_AVATAR_VARIATIONS,
   type HabboAvatarGenOptions,
 } from "../lib/habbo-avatar-prompt.js";
@@ -70,12 +75,6 @@ function bad(msg: string, status = 400, code = "bad_request") {
   );
 }
 
-function resolveImageModel(): string {
-  return (
-    process.env.AI_GATEWAY_IMAGE_MODEL?.trim() || DEFAULT_HABBO_IMAGE_MODEL
-  );
-}
-
 function bytesToPngDataUrl(bytes: Uint8Array): string {
   const b64 = Buffer.from(bytes).toString("base64");
   return `data:image/png;base64,${b64}`;
@@ -99,72 +98,8 @@ function parseDataUrl(dataUrl: string): {
   }
 }
 
-async function generateOneHabboPng(args: {
-  modelId: string;
-  prompt: string;
-  reference?: { bytes: Uint8Array; mediaType: string } | null;
-}): Promise<Uint8Array> {
-  const { modelId, prompt, reference } = args;
-
-  // Gemini Flash Image (and similar) via gateway: generateText returns files.
-  if (modelId.includes("gemini") && modelId.includes("image")) {
-    const result = await generateText({
-      model: modelId,
-      messages: reference
-        ? [
-            {
-              role: "user",
-              content: [
-                {
-                  type: "text",
-                  text: `${prompt}\nUse the attached photo only as a loose likeness hint for hair/skin (still Habbo pixel art — never photoreal).`,
-                },
-                {
-                  type: "image",
-                  image: reference.bytes,
-                  mediaType: reference.mediaType,
-                },
-              ],
-            },
-          ]
-        : [{ role: "user", content: prompt }],
-    });
-    const file = result.files?.find((f) =>
-      (f.mediaType ?? "").startsWith("image/")
-    );
-    if (file?.uint8Array && file.uint8Array.byteLength > 0) {
-      return file.uint8Array;
-    }
-    throw new Error("Gemini image model returned no image file");
-  }
-
-  // Imagen / OpenAI image models via generateImage
-  const promptArg =
-    reference == null
-      ? prompt
-      : {
-          images: [reference.bytes],
-          text: `${prompt}\nUse the reference photo only as a loose likeness hint (still Habbo pixel art — never photoreal).`,
-        };
-
-  const result = await generateImage({
-    model: modelId,
-    prompt: promptArg,
-    n: 1,
-    aspectRatio: "1:1",
-  });
-  const img = result.image ?? result.images?.[0];
-  if (!img) {
-    throw new Error("No image generated");
-  }
-  if (img.uint8Array && img.uint8Array.byteLength > 0) {
-    return img.uint8Array;
-  }
-  if (img.base64) {
-    return Uint8Array.from(Buffer.from(img.base64, "base64"));
-  }
-  throw new Error("No image bytes in model response");
-}
+const REFERENCE_HINT =
+  "Use the attached photo only as a loose likeness hint for hair/skin (still Habbo pixel art — never photoreal).";
 
 export function registerTeamHabboAvatarRoutes(
   server: Pick<PluginServerApi, "registerHttpRoute">
@@ -178,7 +113,7 @@ export function registerTeamHabboAvatarRoutes(
       riskLevel: "medium",
       idempotent: false,
     },
-    summary: "Generate Habbo-style pixel avatars (Gemini / AI Gateway)",
+    summary: "Generate Habbo-style pixel avatars (image model role)",
     tags: ["team"],
     request: { body: bodySchema },
     responses: {
@@ -200,9 +135,7 @@ export function registerTeamHabboAvatarRoutes(
       const baseOptions: HabboAvatarGenOptions = body.options ?? {};
       const count = body.variation_count ?? 3;
       const variations = HABBO_AVATAR_VARIATIONS.slice(0, count);
-      const modelId = resolveImageModel();
-
-      let reference: { bytes: Uint8Array; mediaType: string } | null = null;
+      let reference: ImageReference | null = null;
       if (body.reference_data_url?.trim()) {
         reference = parseDataUrl(body.reference_data_url);
         if (!reference) {
@@ -211,6 +144,21 @@ export function registerTeamHabboAvatarRoutes(
         if (!reference.mediaType.startsWith("image/")) {
           return bad("reference_data_url must be an image");
         }
+      }
+
+      let modelId: string;
+      try {
+        modelId = resolvePlatformImageModelId();
+      } catch (err) {
+        if (
+          !(
+            err instanceof ImageModelGatewayError ||
+            err instanceof ModelRoleNotBoundError
+          )
+        ) {
+          throw err;
+        }
+        return bad(err.message, 503, "not_configured");
       }
 
       const avatars: Array<{
@@ -231,9 +179,10 @@ export function registerTeamHabboAvatarRoutes(
               memberName: body.member_name,
               variationHint: v.hint,
             });
-            const bytes = await generateOneHabboPng({
+            const bytes = await generateImageBytes({
+              aspectRatio: "1:1",
               modelId,
-              prompt,
+              prompt: reference ? `${prompt}\n${REFERENCE_HINT}` : prompt,
               reference,
             });
             return {

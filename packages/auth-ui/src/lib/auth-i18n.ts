@@ -1,6 +1,7 @@
 // Inline translations for auth pages (login + setup wizard).
-// Default is the browser language; a stored preference (same key i18next
-// uses) wins after the person picks one on the first setup screen.
+// Default is the browser language; a pick on the switch wins for the rest of
+// the tab. The setup wizard saves its pick as the tenant's language, which is
+// what the app reads after setup.
 
 export const AUTH_TRANSLATIONS = {
   en: {
@@ -289,8 +290,11 @@ export type AuthLocale = keyof typeof AUTH_TRANSLATIONS;
 
 export const AUTH_LOCALES = ["en", "de"] as const;
 
-/** Same key i18next-browser-languagedetector writes, so the app keeps the pick. */
-export const AUTH_LOCALE_STORAGE_KEY = "i18nextLng";
+/**
+ * Session storage, not local: a value kept across days outlived database
+ * resets and pinned a German browser's first-run wizard to English.
+ */
+export const AUTH_LOCALE_STORAGE_KEY = "engenty.auth_locale";
 
 function normalizeAuthLocale(
   value: string | null | undefined
@@ -299,15 +303,19 @@ function normalizeAuthLocale(
   return lang && lang in AUTH_TRANSLATIONS ? (lang as AuthLocale) : null;
 }
 
-/** Stored preference, then the browser language, then English. */
+function readPick(): string | null {
+  try {
+    return sessionStorage.getItem(AUTH_LOCALE_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** This tab's pick, then the browser language, then English. */
 export function detectAuthLocale(): AuthLocale {
-  if (typeof localStorage !== "undefined") {
-    const stored = normalizeAuthLocale(
-      localStorage.getItem(AUTH_LOCALE_STORAGE_KEY)
-    );
-    if (stored) {
-      return stored;
-    }
+  const picked = normalizeAuthLocale(readPick());
+  if (picked) {
+    return picked;
   }
   if (typeof navigator !== "undefined") {
     const fromBrowser = normalizeAuthLocale(navigator.language);
@@ -318,10 +326,10 @@ export function detectAuthLocale(): AuthLocale {
   return "en";
 }
 
-/** Remember the pick for the rest of this browser and for i18next after setup. */
+/** Remember the pick for the rest of this tab. */
 export function setAuthLocalePreference(locale: AuthLocale): void {
   try {
-    localStorage.setItem(AUTH_LOCALE_STORAGE_KEY, locale);
+    sessionStorage.setItem(AUTH_LOCALE_STORAGE_KEY, locale);
   } catch {
     // Private mode / tests without storage.
   }

@@ -141,7 +141,15 @@ export async function announceAppRelease(
       id: `${input.appId}:${input.version}`,
       type: APP_RELEASE_SUBJECT,
     },
+    // Fallback only: the title says it whole whenever the App has a name.
     summary,
+    // The row opens the conversation the build was asked in (thread + desk
+    // agent + the row's own space), where the App's review banner carries
+    // Approve / Reject.
     tenantId: input.tenantId,
+    title: {
+      key: "app_release_proposed",
+      params: { name: input.name, version: input.version },
+    },
   });
 }

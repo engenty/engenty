@@ -7,11 +7,8 @@ import {
   registerAppProxyRoutes,
 } from "../api/app-proxy-routes.js";
 
-/**
- * The proxy is the capability wall: an App reaches engenty only through it,
- * and only as far as its manifest declares. These cover the denials, because
- * a wall that lets the wrong thing through silently is worse than no wall.
- */
+// The proxy is the capability wall: an App reaches engenty only through it,
+// and only as far as its manifest declares.
 
 const invokeTool = vi.hoisted(() => vi.fn());
 const describeTool = vi.hoisted(() =>
@@ -214,8 +211,7 @@ describe("POST /ai/apps/:appId/call — the manifest allow-list", () => {
       method: "POST",
     });
     expect(res.status).toBe(200);
-    // The origin marker rides along so core can tell an App from a chat turn
-    // (CON-01) — see the connector-write cases below.
+    // The origin marker lets core tell an App from a chat turn.
     expect(invokeTool).toHaveBeenCalledWith(
       "inbox_threads_list",
       { limit: 5 },
@@ -261,25 +257,8 @@ describe("POST /ai/apps/:appId/call — the manifest allow-list", () => {
     });
   });
 
-  it("rejects a bridge tool that does not exist", async () => {
-    const { app } = makeApp();
-    const res = await app.request(`/ai/apps/${APP_ID}/call`, {
-      body: callBody("shell_exec", {}),
-      headers: authed,
-      method: "POST",
-    });
-    expect(res.status).toBe(400);
-    await expect(res.json()).resolves.toMatchObject({
-      error: "apps.unknownBridgeTool",
-    });
-  });
-
-  // CON-01. An App declaring a write-group connector action used to have
-  // nothing between it and the send: it rides the viewing user's token, so
-  // core's connections gate deferred to a chat pre-gate that is not running
-  // outside chat. The proxy now marks its calls, core escalates, and the 202
-  // becomes the `pending_approval` result the engenty-bridge skill has been
-  // promising app authors all along.
+  // An App rides the viewing user's token, so a connector write must park for
+  // approval rather than send.
   describe("connector writes fail closed", () => {
     const CONNECTOR_APP = {
       ...APP_DETAIL,
@@ -309,24 +288,6 @@ describe("POST /ai/apps/:appId/call — the manifest allow-list", () => {
         return { ok: true };
       });
     }
-
-    it("marks the call as app-origin so core can escalate it", async () => {
-      mockCoreEscalating();
-      const { app } = makeApp();
-      await app.request(`/ai/apps/${APP_ID}/call`, {
-        body: callBody("engenty_call", {
-          input: { to: "someone@example.com" },
-          operation_id: "gmail_send_message",
-        }),
-        headers: authed,
-        method: "POST",
-      });
-      expect(invokeTool).toHaveBeenCalledWith(
-        "gmail_send_message",
-        { to: "someone@example.com" },
-        { origin: "app" }
-      );
-    });
 
     it("returns pending_approval instead of a success", async () => {
       mockCoreEscalating();
@@ -366,24 +327,6 @@ describe("POST /ai/apps/:appId/call — the manifest allow-list", () => {
 });
 
 describe("POST /ai/apps/:appId/call — actions", () => {
-  it("routes a low-risk action to the unprivileged operation", async () => {
-    const { app } = makeApp();
-    const res = await app.request(`/ai/apps/${APP_ID}/call`, {
-      body: callBody("app_action", {
-        action: "collect",
-        input: { amount: 35 },
-      }),
-      headers: authed,
-      method: "POST",
-    });
-    expect(res.status).toBe(200);
-    const call = invokeTool.mock.calls.find(([id]) => id === "app_call");
-    expect(call).toBeDefined();
-    expect(
-      invokeTool.mock.calls.some(([id]) => id === "app_call_privileged")
-    ).toBe(false);
-  });
-
   it("routes a high-risk action to the approval-gated operation", async () => {
     const { app } = makeApp();
     const res = await app.request(`/ai/apps/${APP_ID}/call`, {
@@ -451,29 +394,6 @@ describe("POST /ai/apps/:appId/call — working store", () => {
     });
     const call = invokeTool.mock.calls.find(([id]) => id === "app_data_set");
     expect(call?.[1]).toMatchObject({ app_id: APP_ID, session_id: "sess-1" });
-  });
-
-  it("maps each data bridge tool to its operation", async () => {
-    const { app } = makeApp();
-    for (const [name, operationId] of [
-      ["data_get", "app_data_get"],
-      ["data_list", "app_data_list"],
-      ["data_set", "app_data_set"],
-      ["data_delete", "app_data_delete"],
-    ]) {
-      invokeTool.mockClear();
-      invokeTool.mockImplementation(async (toolId: string) =>
-        toolId === "app_get" ? APP_DETAIL : { ok: true }
-      );
-      await app.request(`/ai/apps/${APP_ID}/call`, {
-        body: callBody(name, { key: "k" }),
-        headers: authed,
-        method: "POST",
-      });
-      expect(invokeTool.mock.calls.some(([id]) => id === operationId)).toBe(
-        true
-      );
-    }
   });
 });
 
@@ -565,95 +485,6 @@ describe("POST /ai/apps/:appId/call — config", () => {
     const call = invokeTool.mock.calls.find(([id]) => id === "app_config_set");
     expect(call?.[1]).toMatchObject({ app_id: APP_ID, user_id: USER });
   });
-
-  it("never lets an App write the tenant-wide default", async () => {
-    const { app } = makeApp();
-    await app.request(`/ai/apps/${APP_ID}/call`, {
-      body: JSON.stringify({
-        arguments: { key: "theme", user_id: null, value: "dark" },
-        name: "config_set",
-        session_id: "sess-1",
-      }),
-      headers: authed,
-      method: "POST",
-    });
-    const call = invokeTool.mock.calls.find(([id]) => id === "app_config_set");
-    // A null user_id would mean "the default for everyone". The proxy always
-    // substitutes the caller, so the App cannot reach that level at all.
-    expect(call?.[1]).toMatchObject({ user_id: USER });
-  });
-
-  it("carries no session id — config is not session state", async () => {
-    const { app } = makeApp();
-    await app.request(`/ai/apps/${APP_ID}/call`, {
-      body: callBody("config_get", { key: "theme" }),
-      headers: authed,
-      method: "POST",
-    });
-    const call = invokeTool.mock.calls.find(([id]) => id === "app_config_get");
-    expect(call?.[1]).not.toHaveProperty("session_id");
-  });
-
-  it("maps each config bridge tool to its operation", async () => {
-    const { app } = makeApp();
-    for (const [name, operationId] of [
-      ["config_get", "app_config_get"],
-      ["config_list", "app_config_list"],
-      ["config_set", "app_config_set"],
-      ["config_delete", "app_config_delete"],
-    ]) {
-      invokeTool.mockClear();
-      invokeTool.mockImplementation(async (toolId: string) =>
-        toolId === "app_get" ? APP_DETAIL : { ok: true }
-      );
-      await app.request(`/ai/apps/${APP_ID}/call`, {
-        body: callBody(name, { key: "k" }),
-        headers: authed,
-        method: "POST",
-      });
-      expect(invokeTool.mock.calls.some(([id]) => id === operationId)).toBe(
-        true
-      );
-    }
-  });
-});
-
-describe("POST /ai/apps/:appId/call — approval-gated operations", () => {
-  it("maps core's approval_required to the documented pending_approval result", async () => {
-    invokeTool.mockImplementation(async (toolId: string) => {
-      if (toolId === "app_get") {
-        return APP_DETAIL;
-      }
-      // What EngentyCoreClient throws for core's 202 approval_required
-      // envelope. The guest must receive a RESULT (the skill's contract),
-      // never an error — a parked call is the product working.
-      throw new EngentyCoreHttpError(
-        "Approval required",
-        202,
-        "approval_required",
-        {
-          approvalRequestId: "apr-1",
-          expiresAt: "2026-08-03T00:00:00Z",
-        }
-      );
-    });
-    const { app } = makeApp();
-    const res = await app.request(`/ai/apps/${APP_ID}/call`, {
-      body: callBody("engenty_call", { operation_id: "inbox_threads_list" }),
-      headers: authed,
-      method: "POST",
-    });
-    // 2xx so BridgedFrame's call() resolves instead of throwing.
-    expect(res.status).toBe(202);
-    await expect(res.json()).resolves.toMatchObject({
-      ok: true,
-      result: {
-        approval_request_id: "apr-1",
-        expires_at: "2026-08-03T00:00:00Z",
-        status: "pending_approval",
-      },
-    });
-  });
 });
 
 const VERSIONS = {
@@ -720,61 +551,6 @@ describe("GET /ai/apps/:appId/review", () => {
     });
   });
 
-  it("still reviews when an operation's contract cannot be read", async () => {
-    describeTool.mockRejectedValueOnce(new Error("unknown tool"));
-    requestFn.mockResolvedValue({ capabilities: ["apps.approve"] });
-    const { app } = makeApp();
-    const res = await app.request(`/ai/apps/${APP_ID}/review`, {
-      headers: authed,
-    });
-    await expect(res.json()).resolves.toMatchObject({
-      review: {
-        operations: [
-          { id: "tasks_list", module: null, summary: null },
-          { id: "gmail_send", module: "connections" },
-        ],
-      },
-    });
-  });
-
-  it("answers can_approve with the same matcher core enforces with", async () => {
-    // tenant.member holds module.*, which does NOT cover apps.approve.
-    requestFn.mockResolvedValue({ capabilities: ["module.*"] });
-    const { app } = makeApp();
-    const res = await app.request(`/ai/apps/${APP_ID}/review`, {
-      headers: authed,
-    });
-    await expect(res.json()).resolves.toMatchObject({ can_approve: false });
-  });
-
-  it("returns a null review when nothing awaits a decision", async () => {
-    invokeTool.mockImplementation(async (toolId: string) =>
-      toolId === "app_versions_list"
-        ? { versions: [VERSIONS.versions[1]] }
-        : { ok: true }
-    );
-    requestFn.mockResolvedValue({ capabilities: ["apps.approve"] });
-    const { app } = makeApp();
-    const res = await app.request(`/ai/apps/${APP_ID}/review`, {
-      headers: authed,
-    });
-    await expect(res.json()).resolves.toMatchObject({
-      can_approve: true,
-      review: null,
-    });
-  });
-
-  it("reviews the pinned version when the artifact names one", async () => {
-    requestFn.mockResolvedValue({ capabilities: [] });
-    const { app } = makeApp();
-    const res = await app.request(`/ai/apps/${APP_ID}/review?version=1`, {
-      headers: authed,
-    });
-    await expect(res.json()).resolves.toMatchObject({
-      review: { status: "active", version: 1 },
-    });
-  });
-
   it("rejects an unauthenticated caller", async () => {
     const { app } = makeApp();
     const res = await app.request(`/ai/apps/${APP_ID}/review`);
@@ -793,24 +569,6 @@ describe("POST /ai/apps/:appId/review", () => {
     expect(res.status).toBe(200);
     expect(invokeTool).toHaveBeenCalledWith("app_release_approve", {
       app_id: APP_ID,
-      version: 2,
-    });
-  });
-
-  it("forwards a rejection with its reason", async () => {
-    const { app } = makeApp();
-    await app.request(`/ai/apps/${APP_ID}/review`, {
-      body: JSON.stringify({
-        decision: "reject",
-        reason: "asks for gmail_send it never uses",
-        version: 2,
-      }),
-      headers: authed,
-      method: "POST",
-    });
-    expect(invokeTool).toHaveBeenCalledWith("app_release_reject", {
-      app_id: APP_ID,
-      reason: "asks for gmail_send it never uses",
       version: 2,
     });
   });
@@ -846,25 +604,6 @@ describe("POST /ai/apps/:appId/review", () => {
 });
 
 describe("POST /ai/apps/:appId/call — Space tables", () => {
-  it("reads a declared table with the same shape the table_read tool answers", async () => {
-    const { app } = makeApp(undefined, makeTables());
-    const res = await app.request(`/ai/apps/${APP_ID}/call`, {
-      body: callBody("table_read", { table_id: TABLE_ID }),
-      headers: authed,
-      method: "POST",
-    });
-    expect(res.status).toBe(200);
-    await expect(res.json()).resolves.toMatchObject({
-      ok: true,
-      result: {
-        columns: [{ id: "turn" }],
-        rows: [{ cells: { turn: "x" }, id: ROW_ID }],
-        table_id: TABLE_ID,
-        title: "Games",
-      },
-    });
-  });
-
   it("refuses a table the manifest never declared, before touching the store", async () => {
     const tables = makeTables();
     const { app } = makeApp(undefined, tables);

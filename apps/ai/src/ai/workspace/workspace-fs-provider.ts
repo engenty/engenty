@@ -2,7 +2,7 @@ import { type Adapter, Files } from "files-sdk";
 import { fs as fsAdapter } from "files-sdk/fs";
 import { supabase as supabaseAdapter } from "files-sdk/supabase";
 import { createAiDatabaseAdapter } from "../../infra/database.js";
-import { resolveEngentyLocalWorkspaceRoot } from "./local-workspace-paths.js";
+import { resolveEngentyHostRoot } from "./local-workspace-paths.js";
 import { resolveEngentyWorkspaceFsMode } from "./workspace-fs-mode.js";
 
 /** Remote object-store backend for workspace Files SDK mounts. */
@@ -47,7 +47,7 @@ function createSupabaseWorkspaceFilesAdapter(): Adapter {
 /** Resolve the Files SDK adapter for workspace mounts (remote provider or local mirror). */
 export function createWorkspaceFilesAdapter(): Adapter {
   if (resolveEngentyWorkspaceFsMode() === "local") {
-    return fsAdapter({ root: resolveEngentyLocalWorkspaceRoot() });
+    return fsAdapter({ root: resolveEngentyHostRoot() });
   }
 
   switch (resolveEngentyWorkspaceFsProvider()) {

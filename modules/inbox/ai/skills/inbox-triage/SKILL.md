@@ -12,9 +12,8 @@ mail categorized or cleaned up, or asks about a specific message or sender.
 
 ## Spaces
 
-- In a Space, list and search only **mounted** mailboxes. An account missing from
-  `inbox_list_accounts` may still exist for the tenant — mount it in Space setup;
-  do not reconnect it blindly.
+- In a Space, list and search only **that Space's** mailboxes — a mailbox belongs
+  to the Space it was connected in; other Spaces' mail is not reachable here.
 
 ## Lanes
 
@@ -47,7 +46,9 @@ Default to **draft, not send**. "Handle my inbox" does not imply permission to s
 
 ## Workflow
 
-1. **Orient:** `inbox_list_threads` with `status: "new"` (add `connection_id` to
+1. **Orient:** for “show me important mail” or an inbox overview, call
+   `inbox_show_dashboard` (Jev picks the layout; do not author A2UI yourself).
+   Otherwise `inbox_list_threads` with `status: "new"` (add `connection_id` to
    scope one account, `limit`/`offset` to page). The result carries subjects,
    senders, snippets, and `unhandled_count` (unread) — often enough to summarize
    without opening anything.

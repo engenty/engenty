@@ -30,9 +30,9 @@ import {
   Trash2,
 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
+import { RoutineCardSummary } from "../routines/routine-card-summary.js";
 import { RoutineCreateDialog } from "../routines/routine-create-dialog.js";
 import { routineBelongsToAgent } from "../routines/routine-shape.js";
-import { RoutineTriggerChip } from "../routines/routine-trigger-chip.js";
 import type { RoutineDto } from "../routines/routines-api.js";
 import {
   useDeleteCustomRoutineMutation,
@@ -119,14 +119,14 @@ export function AgentRoutinesTriggerCard({ agentId }: { agentId: string }) {
                     className="mt-0.5 size-3.5 shrink-0 self-start text-muted-foreground"
                     strokeWidth={1.75}
                   />
-                  <span className="min-w-0 flex-1">
+                  <div className="min-w-0 flex-1">
                     <span className="block break-words font-medium text-sm">
                       {routine.name}
                     </span>
-                    <span className="mt-0.5 block">
-                      <RoutineTriggerChip locale={locale} routine={routine} />
-                    </span>
-                  </span>
+                    <div className="mt-1">
+                      <RoutineCardSummary locale={locale} routine={routine} />
+                    </div>
+                  </div>
                   <Button
                     className="h-8 shrink-0 gap-1 font-medium text-xs"
                     disabled={isRunning || !routine.enabled}

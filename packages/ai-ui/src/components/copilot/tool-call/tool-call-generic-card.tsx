@@ -1,6 +1,7 @@
 "use client";
 
 import { resolveTranscriptToolDisplay } from "../../../ag-ui/resolve-transcript-tool-display.js";
+import { FullToolOutput } from "./full-tool-output";
 import type { ToolCallCardProps } from "./tool-call-card.types";
 import { ToolCallCardBase } from "./tool-call-card-base";
 import { ToolCallDetailBody } from "./tool-call-detail-body";
@@ -19,6 +20,28 @@ function resolveHeadline(props: ToolCallCardProps): {
     headline: props.displayLabel ?? normalized.displayLabel,
     metadata: props.metadata ?? normalized.metadata,
   };
+}
+
+/**
+ * The expanded body. It mounts only when the card is opened, so a slim
+ * transcript's placeholder result is swapped for the full one here.
+ */
+function ToolCallGenericDetails(props: ToolCallCardProps) {
+  return (
+    <FullToolOutput output={props.output} toolCallId={props.toolCallId}>
+      {(output) => (
+        <ToolCallDetailBody
+          sections={buildToolCallDetailSections({
+            toolName: props.toolName,
+            input: props.input,
+            output,
+            errorText: props.errorText,
+            state: props.state,
+          })}
+        />
+      )}
+    </FullToolOutput>
+  );
 }
 
 export function ToolCallGenericCard(props: ToolCallCardProps) {
@@ -47,7 +70,7 @@ export function ToolCallGenericCard(props: ToolCallCardProps) {
       headline={rowHeadline}
       metadata={metadata}
     >
-      {hasDetails ? <ToolCallDetailBody sections={sections} /> : null}
+      {hasDetails ? <ToolCallGenericDetails {...props} /> : null}
     </ToolCallCardBase>
   );
 }

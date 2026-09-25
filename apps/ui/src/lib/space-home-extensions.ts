@@ -1,18 +1,16 @@
 /**
- * The home's Erweiterungen list: mounted ACCOUNTS, not connector types.
- *
- * Same labelling as space settings (CN.3) — a row names the mailbox, and a
- * mount whose account the viewer cannot see still appears under its raw key
- * rather than vanishing.
+ * The home's Erweiterungen list: the Space's own ACCOUNTS (labelled by the
+ * mailbox, not the provider), plus its plugin and skill mounts.
  */
 import type { SpaceMount } from "@/lib/api/spaces-client";
 
 export const SPACE_HOME_EXTENSIONS_SHOWN = 6;
 
-/** The fields the home needs from `connectionMetaById`. */
+/** The fields the home needs from `spaceAccounts`. */
 export interface SpaceHomeExtensionAccount {
   connectorId: string;
   connectorName: string;
+  id: string;
   label: string;
 }
 
@@ -28,24 +26,21 @@ export interface SpaceHomeExtensionRow {
 
 export function selectSpaceHomeExtensionRows(
   mounts: readonly Pick<SpaceMount, "resourceKey" | "resourceType">[],
-  metaById: ReadonlyMap<string, SpaceHomeExtensionAccount>,
+  accounts: readonly SpaceHomeExtensionAccount[],
   names: {
     plugins?: ReadonlyMap<string, string>;
     skills?: ReadonlyMap<string, string>;
   } = {}
 ): SpaceHomeExtensionRow[] {
-  const rows: SpaceHomeExtensionRow[] = [];
+  const rows: SpaceHomeExtensionRow[] = accounts.map((account) => ({
+    connectorId: account.connectorId,
+    connectorName: account.connectorName,
+    id: account.id,
+    kind: "connection",
+    label: account.label,
+  }));
   for (const mount of mounts) {
-    if (mount.resourceType === "connection") {
-      const meta = metaById.get(mount.resourceKey);
-      rows.push({
-        connectorId: meta?.connectorId ?? null,
-        connectorName: meta?.connectorName ?? null,
-        id: mount.resourceKey,
-        kind: "connection",
-        label: meta?.label ?? mount.resourceKey,
-      });
-    } else if (mount.resourceType === "plugin") {
+    if (mount.resourceType === "plugin") {
       rows.push({
         connectorId: mount.resourceKey,
         connectorName: null,
@@ -67,8 +62,8 @@ export function selectSpaceHomeExtensionRows(
 }
 
 /**
- * Tenant connections settings, carrying this space so a new account mounts
- * here (CN.4). Pass a connector id to open that provider; omit it for the list.
+ * Connections settings for this space: its accounts, and a connect that lands
+ * here. Pass a connector id to open that provider; omit it for the list.
  */
 export function spaceAddAccountPath(
   spaceId: string,

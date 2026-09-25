@@ -15,9 +15,11 @@
  */
 
 import {
+  COMPUTER_EGRESS_HOSTS_MAX,
   type ModuleMountRequires,
   moduleMountDependents,
   moduleMountRequiresFromPlugins,
+  parseComputerEgressHost,
   SPACE_BASELINE_MOUNTS,
   SPACE_TEMPLATES,
   spaceTemplateMounts,
@@ -27,7 +29,7 @@ import type { OpenAPIHono } from "@hono/zod-openapi";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { createCoreUsersDal } from "../../dal/core-users.js";
-import { resolveConnectionFacts } from "../../dal/space-connection-lookup.js";
+import { getSpaceBrowserGrant } from "../../dal/space-browser-grants.js";
 import {
   addSpaceMember,
   claimOrphanedSpace,
@@ -76,7 +78,6 @@ import {
   type Space,
   updateSpace,
 } from "../../dal/spaces.js";
-import { getUserBrowserGrant } from "../../dal/user-browser-grants.js";
 import { createDatabaseAdapter } from "../../infra/index.js";
 import { jsonApiError, jsonApiSuccess } from "./api-response.js";
 import { requireAuth, requireSuperAdmin } from "./authz.js";
@@ -196,6 +197,15 @@ const spaceSetupBodySchema = z.object({
     .optional(),
   color: z.string().max(64).nullable().optional(),
   computer_network_tier: z.enum(["none", "egress"]).nullable().optional(),
+  /** Replaces the Space computer's extra egress hosts (the whole list). */
+  computer_egress_hosts: z
+    .array(
+      z.string().refine((host) => parseComputerEgressHost(host) !== null, {
+        message: "space_egress_host_invalid",
+      })
+    )
+    .max(COMPUTER_EGRESS_HOSTS_MAX)
+    .optional(),
   /** One line about what this space is for; shown on its home. */
   description: z.string().max(500).nullable().optional(),
   icon: z.string().max(24_000).nullable().optional(),
@@ -323,9 +333,8 @@ export function registerSpacesRoutes(params: {
    * keeps no opinion about the operation pipeline, and so the tests can build
    * the routes without one.
    *
-   * Three things run through it: raising an account's own ceiling when a
-   * space grants it a level, a module's `bindOperation` for an account it can
-   * now use, and a module's `mountOperation` for a fresh mount. Each write
+   * Two things run through it: a module's `bindOperation` for an account it
+   * can now use, and a module's `mountOperation` for a fresh mount. Each write
    * belongs to the module that owns the table, so placing something in a
    * space cannot become a way around who may change it.
    */
@@ -510,35 +519,6 @@ export function registerSpacesRoutes(params: {
   }
 
   /**
-   * Whose browser a routine fire may reach for: the routine's author
-   * (PLAN-user-browser.md §2.2). Same trust argument as
-   * `findRoutineBoundSpace` — the header names a routine, the row names the
-   * person, and only a non-user principal is honoured.
-   */
-  async function routineBoundActingUserId(
-    c: RouteContext,
-    tenantId: string
-  ): Promise<string | null> {
-    const routineId = c.req.header("x-engenty-routine-id")?.trim();
-    if (!(routineId && TASK_ID_PATTERN.test(routineId))) {
-      return null;
-    }
-    const { data, error } = await db(tenantId)
-      .schema("ai")
-      .from("routines")
-      .select("created_by_user_id")
-      .eq("id", routineId)
-      .eq("tenant_id", tenantId)
-      .maybeSingle();
-    if (error) {
-      return null;
-    }
-    const created = (data as { created_by_user_id?: string | null } | null)
-      ?.created_by_user_id;
-    return typeof created === "string" && created ? created : null;
-  }
-
-  /**
    * The gate for editing an EXISTING space's setup: its own owner, or a tenant
    * admin.
    *
@@ -717,81 +697,6 @@ export function registerSpacesRoutes(params: {
     }
   }
 
-  const AUTONOMY_ORDER = ["off", "read_only", "full"] as const;
-  type AutonomousMode = (typeof AUTONOMY_ORDER)[number];
-
-  /** The account-level ceiling a space level of `read`/`write` implies. */
-  function ceilingFor(
-    agentAccess: string | null | undefined
-  ): AutonomousMode | null {
-    if (agentAccess === "write") {
-      return "full";
-    }
-    if (agentAccess === "read") {
-      return "read_only";
-    }
-    // `none` and "undecided" never touch the account: the mount already refuses
-    // here, and lowering someone's account from inside one space would reach
-    // into every other space that uses it.
-    return null;
-  }
-
-  /**
-   * Raise each placed account's own `autonomous_mode` to at least the level
-   * this space just gave it (PLAN-connections-ux.md C1).
-   *
-   * Without this the level is decoration: `autonomous_mode` defaults to `off`,
-   * the gate clamps to the lower of the two, and a freshly connected account
-   * refuses everything however the space is set up — which is exactly the
-   * failure this whole plan started from.
-   *
-   * Through the connections module's own operation, never a direct write: it
-   * checks ownership and records the audit event, so a space placement cannot
-   * become a way to open an account you do not own.
-   */
-  async function raiseAccountCeilings(input: {
-    added: readonly DesiredSpaceMount[];
-    auth: unknown;
-    facts: Awaited<ReturnType<typeof resolveConnectionFacts>>;
-  }): Promise<Array<{ connection_id: string; reason: string }>> {
-    const blocked: Array<{ connection_id: string; reason: string }> = [];
-    if (!params.callOperation) {
-      return blocked;
-    }
-    for (const mount of input.added) {
-      if (mount.resourceType !== "connection") {
-        continue;
-      }
-      const target = ceilingFor(mount.agentAccess);
-      const current = input.facts.get(mount.resourceKey)?.autonomousMode;
-      if (
-        !(target && current) ||
-        AUTONOMY_ORDER.indexOf(target) <= AUTONOMY_ORDER.indexOf(current)
-      ) {
-        continue;
-      }
-      try {
-        await params.callOperation({
-          auth: input.auth,
-          input: {
-            autonomous_mode: target,
-            connection_id: mount.resourceKey,
-          },
-          operationId: "connections_update_settings",
-        });
-      } catch (error) {
-        blocked.push({
-          connection_id: mount.resourceKey,
-          reason:
-            error instanceof Error
-              ? error.message
-              : "the account owner has to allow engentys to use this account",
-        });
-      }
-    }
-    return blocked;
-  }
-
   /** Manifest-declared account needs, by module id. */
   function connectionNeedsByModule(): Map<
     string,
@@ -917,15 +822,14 @@ export function registerSpacesRoutes(params: {
    * core calls the operation the manifest names, in-process as this caller, so
    * the module's own capability check and audit trail still apply.
    *
-   * Only pairs touched by THIS call are bound. Re-binding every app to every
-   * account on each edit would make a rename re-pull mailboxes, and the
-   * operations are idempotent for the pairs that do run rather than for the
-   * whole space.
+   * Only apps added by THIS call are bound. Re-binding every app to every
+   * account on each edit would make a rename re-pull mailboxes. An account
+   * connected later into a space that already has the app is bound by the
+   * connections module when the account is created there.
    *
    * An app that declares a `mountOperation` binds the space's accounts inside
-   * that operation when the APP is the side being added — running the pair
-   * binding as well would pull every mailbox twice. The pair binding still
-   * covers an account placed later, into a space that already has the app.
+   * that operation — running the pair binding as well would pull every mailbox
+   * twice.
    *
    * A failing bind never fails the setup: the mounts are correct and the caller
    * is told which app could not finish, which is the more useful answer than
@@ -950,11 +854,6 @@ export function registerSpacesRoutes(params: {
     }
     const needsByModule = connectionNeedsByModule();
     const addedModules = new Set(addedModuleIds(input.added));
-    const addedAccounts = new Set(
-      input.added
-        .filter((mount) => mount.resourceType === "connection")
-        .map((mount) => mount.resourceKey)
-    );
     const mountOperationById = new Map(
       (params.registry?.plugins ?? []).map((plugin) => [
         plugin.id,
@@ -963,7 +862,7 @@ export function registerSpacesRoutes(params: {
     );
     for (const module of input.surface.modules) {
       if (
-        addedModules.has(module.moduleId) &&
+        !addedModules.has(module.moduleId) ||
         mountOperationById.get(module.moduleId)
       ) {
         continue;
@@ -974,14 +873,6 @@ export function registerSpacesRoutes(params: {
         }
         for (const [connectionId, capabilities] of input.capabilities) {
           if (capabilities[need.capability] !== true) {
-            continue;
-          }
-          if (
-            !(
-              addedModules.has(module.moduleId) ||
-              addedAccounts.has(connectionId)
-            )
-          ) {
             continue;
           }
           try {
@@ -1429,6 +1320,9 @@ export function registerSpacesRoutes(params: {
         ...(parsed.data.computer_network_tier === undefined
           ? {}
           : { computerNetworkTier: parsed.data.computer_network_tier }),
+        ...(parsed.data.computer_egress_hosts === undefined
+          ? {}
+          : { computerEgressHosts: parsed.data.computer_egress_hosts }),
         // A personal space cannot be opened; the database refuses it
         // (`spaces_personal_is_private_check`) rather than this route silently
         // dropping the field, so a client that sends it gets an error and not a
@@ -1453,21 +1347,18 @@ export function registerSpacesRoutes(params: {
   });
 
   /**
-   * ADD to a space's setup — apps and accounts in ONE call
-   * (PLAN-connections-ux.md B2/C1/C3).
+   * ADD to a space's setup (PLAN-connections-ux.md B2/B3).
    *
    * The dialog's `PUT /setup` posts a complete desired set, which is right when
    * the caller knows the whole picture and wrong for everyone else: a chat turn
-   * that only knows "add Inbox and this mailbox" would drop every mount it did
-   * not resend. This route merges instead, and is what the Space page, the
+   * that only knows "add Inbox" would drop every mount it did not resend. This route merges instead, and is what the Space page, the
    * `space_setup` tool and the setup skill all post to.
    *
-   * Three things happen here that used to be three separate errands:
-   *  - the mounts are applied (apps and accounts together, with their level),
-   *  - an account's own ceiling is raised to match the level this space gave it,
-   *    through the connections module's owner-checked operation, and
-   *  - modules that still have no account to work with are named in the answer,
-   *    so the caller can offer the connect instead of shipping an empty page.
+   * Besides applying the mounts, added apps are bound to the accounts this
+   * space owns, and apps that still have no account to work with are named in
+   * the answer, so the caller can offer the connect instead of shipping an
+   * empty page. Accounts are not mounted: a connection belongs to the space it
+   * was connected in (PLAN-space-owned-connections.md).
    */
   app.post("/api/spaces/:spaceId/setup/add", async (c) => {
     const authResult = await requireAuth(c, config);
@@ -1498,7 +1389,7 @@ export function registerSpacesRoutes(params: {
         message: `Not a registered agent: ${unknownAgents.join(", ")}`,
       });
     }
-    const access = await requireSpaceAccess(
+    const access = await requireSpaceSetupAccess(
       c,
       tenantId,
       authResult.auth,
@@ -1509,37 +1400,6 @@ export function registerSpacesRoutes(params: {
     }
     const client = db(tenantId);
     const spaceId = access.space.id;
-    const facts = await resolveConnectionFacts(
-      client,
-      tenantId,
-      added
-        .filter((mount) => mount.resourceType === "connection")
-        .map((mount) => mount.resourceKey)
-    );
-    // C3 — placing an account you ALREADY OWN in a space you are already in
-    // grants nothing you did not have: the account is yours, and the space's
-    // members are people you share it with by joining. Everything else — an
-    // app, someone else's account, an org account — stays admin work, because
-    // that is where a mount starts handing out reach that the mounter did not
-    // have to begin with.
-    const ownAccountsOnly =
-      added.length > 0 &&
-      added.every(
-        (mount) =>
-          mount.resourceType === "connection" &&
-          facts.get(mount.resourceKey)?.ownerUserId === authResult.auth.userId
-      );
-    if (!ownAccountsOnly) {
-      const setupAccess = await requireSpaceSetupAccess(
-        c,
-        tenantId,
-        authResult.auth,
-        c.req.param("spaceId")
-      );
-      if ("error" in setupAccess) {
-        return setupAccess.error;
-      }
-    }
     try {
       const existing = await listSpaceMounts(client, tenantId, spaceId);
       const { surface } = await applySpaceSetup(
@@ -1549,11 +1409,6 @@ export function registerSpacesRoutes(params: {
         mergeDesiredMounts({ added, existing }),
         { requires: moduleRequires() }
       );
-      const ceilingBlocked = await raiseAccountCeilings({
-        added,
-        auth: authResult.auth,
-        facts,
-      });
       // One catalog read serves both answers: what is still missing, and which
       // app/account pairs this call has to bind.
       const capabilities = await readSpaceAccountCapabilities({
@@ -1585,10 +1440,6 @@ export function registerSpacesRoutes(params: {
         // file source. An entry with an `error` is a placement that stands with
         // a binding that did not finish.
         bound,
-        // Accounts whose owner still has to open them up. The level is set and
-        // the space is ready; the account's own switch is not this caller's to
-        // flip, so say whose it is instead of reporting success.
-        ceiling_blocked: ceilingBlocked,
         // Apps that are here but have nothing to work with yet. Never a
         // refusal: mounting the app before its account is the normal order.
         ...(needsConnect ? { needs_connect: needsConnect } : {}),
@@ -1679,21 +1530,14 @@ export function registerSpacesRoutes(params: {
     // any route with the space row in hand is reachable. It is a space
     // property, not a mount, so it is spread here rather than folded into the
     // pure `surfaceFromMounts` projection.
-    // The acting person's browser consent rides the surface for the same
-    // reason: a headless run learns whether it may drive that person's
-    // browser unattended from the one call it already makes. The grant is
-    // the person's, tenant-wide (their browser is one, in every space). The
-    // acting person is the token's user, or — for a service principal
-    // firing a routine — the routine's author, read from the routine row
-    // itself (never from a header). A task job names nobody here and gets
-    // no grant.
-    const actingUserId =
-      authResult.auth.principalType === "user"
-        ? authResult.auth.userId
-        : await routineBoundActingUserId(c, tenantId);
-    const browserGrant = actingUserId
-      ? await getUserBrowserGrant(db(tenantId), tenantId, actingUserId)
-      : null;
+    // The Space's browser consent rides the surface for the same reason: a
+    // headless run learns whether it may drive the Space's browser unattended
+    // from the one call it already makes.
+    const browserGrant = await getSpaceBrowserGrant(
+      db(tenantId),
+      tenantId,
+      space.id
+    );
     return jsonApiSuccess(c, {
       ...(await resolveSpaceResourceSurface(db(tenantId), tenantId, space.id)),
       browserGrant: browserGrant
@@ -1702,6 +1546,7 @@ export function registerSpacesRoutes(params: {
             unattended: browserGrant.unattended,
           }
         : null,
+      computerEgressHosts: space.computerEgressHosts,
       computerNetworkTier: space.computerNetworkTier,
     });
   });

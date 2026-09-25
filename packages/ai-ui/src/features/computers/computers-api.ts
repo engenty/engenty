@@ -9,6 +9,8 @@ export interface ComputerDto {
   container_id: string;
   container_name: string;
   created_at_ms: number | null;
+  /** A space computer's Space folder on the host, and its quota. */
+  drive: { bytes: number; max_bytes: number } | null;
   lifecycle: "session" | "run" | "task" | "space" | "browser";
   sandbox_id: string;
   scope_key: string;
@@ -16,8 +18,6 @@ export interface ComputerDto {
   state: string;
   thread_id: string | null;
   title: string | null;
-  /** The person a `browser` row belongs to; null for every other row. */
-  user_id: string | null;
 }
 
 export interface ComputeAdmissionDto {

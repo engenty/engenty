@@ -636,6 +636,7 @@ export function createApiApp(params: CreateApiAppParams) {
     authProvider,
     approvalService,
     auditLog: securityAuditLog,
+    getTenantDb,
   });
 
   registerTestDataRoutes({
@@ -670,6 +671,8 @@ export function createApiApp(params: CreateApiAppParams) {
   registerSearchIndexRoutes({
     app,
     config,
+    resolveEmbeddingModel: async () =>
+      (await params.registry.retrievalService?.embeddingModel()) ?? null,
     resolveRegistry: () => params.registry.searchIndexRegistry,
   });
   registerWorkspaceSearchRoutes({
@@ -678,7 +681,7 @@ export function createApiApp(params: CreateApiAppParams) {
     registry: params.registry,
   });
   registerSettingsRoutes({ app, config });
-  registerBrowserGrantRoutes({ app, config });
+  registerBrowserGrantRoutes({ app, config, getTenantDb });
   registerSpacesRoutes({
     app,
     // Placing an account in a space raises that account's own ceiling, and that

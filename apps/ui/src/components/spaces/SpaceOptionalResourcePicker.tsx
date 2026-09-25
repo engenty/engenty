@@ -6,9 +6,7 @@ import { SpaceOptionalResourceRow } from "./SpaceOptionalResourceRow";
 import { SpaceOptionalResourceSetupDialog } from "./SpaceOptionalResourceSetupDialog";
 import { byCategory, type SpaceCatalogItem } from "./space-mount-catalog";
 import {
-  type SpaceAccessLevel,
   type SpaceSelection,
-  setMountAccess,
   skillPackFullySelected,
   toggleSelection,
   toggleSkillPack,
@@ -26,7 +24,7 @@ export function SpaceOptionalResourcePicker({
 }: {
   commit: (selection: SpaceSelection) => Promise<boolean>;
   items: SpaceCatalogItem[];
-  kind: "connection" | "skill";
+  kind: "skill";
   recommendedIds?: ReadonlySet<string>;
   selection: SpaceSelection;
 }) {
@@ -42,20 +40,17 @@ export function SpaceOptionalResourcePicker({
   const libraryItems = useMemo(
     () =>
       kind === "skill" && !searching
-        ? items.filter(
-            (item) => item.source === "library" && !item.needsConnect
-          )
+        ? items.filter((item) => item.source === "library")
         : [],
     [items, kind, searching]
   );
   const selected = resources.filter(
     (item) =>
-      !item.needsConnect &&
       selection.has(`${kind}:${item.id}`) &&
       !(kind === "skill" && item.source === "library" && !searching)
   );
   const available = resources.filter(
-    (item) => item.needsConnect || !selection.has(`${kind}:${item.id}`)
+    (item) => !selection.has(`${kind}:${item.id}`)
   );
   const recommended = available.filter((item) => recommendedIds.has(item.id));
   const otherAvailable = available.filter(
@@ -84,7 +79,6 @@ export function SpaceOptionalResourcePicker({
       inSpace={selection.has(`${kind}:${item.id}`)}
       item={item}
       key={item.id}
-      kind={kind}
       onOpen={() => setDetailsId(item.id)}
       saving={saving}
     />
@@ -178,59 +172,41 @@ export function SpaceOptionalResourcePicker({
           </p>
         ) : null}
       </div>
-      {details?.needsConnect ? null : (
-        <SpaceOptionalResourceSetupDialog
-          access={
-            details
-              ? (selection.get(`${kind}:${details.id}`)?.agentAccess ?? null)
-              : null
+      <SpaceOptionalResourceSetupDialog
+        inSpace={detailsInSpace}
+        item={details}
+        onAdd={() => {
+          if (!details) {
+            return Promise.resolve(false);
           }
-          inSpace={detailsInSpace}
-          item={details}
-          kind={kind}
-          onAdd={(access?: SpaceAccessLevel) => {
-            if (!details) {
-              return Promise.resolve(false);
-            }
-            const entry = { resourceKey: details.id, resourceType: kind };
-            const added = toggleSelection(selection, entry, true);
-            // An account is added WITH its level in one write — that is the
-            // whole point of the control (PLAN-connections-ux.md C1).
-            return apply(access ? setMountAccess(added, entry, access) : added);
-          }}
-          onApplyAccess={
-            details && detailsInSpace && kind === "connection"
-              ? (access: SpaceAccessLevel) =>
-                  apply(
-                    setMountAccess(
-                      selection,
-                      { resourceKey: details.id, resourceType: kind },
-                      access
-                    )
+          return apply(
+            toggleSelection(
+              selection,
+              { resourceKey: details.id, resourceType: kind },
+              true
+            )
+          );
+        }}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDetailsId(null);
+          }
+        }}
+        onRemove={
+          details && detailsInSpace
+            ? () =>
+                apply(
+                  toggleSelection(
+                    selection,
+                    { resourceKey: details.id, resourceType: kind },
+                    false
                   )
-              : null
-          }
-          onOpenChange={(open) => {
-            if (!open) {
-              setDetailsId(null);
-            }
-          }}
-          onRemove={
-            details && detailsInSpace
-              ? () =>
-                  apply(
-                    toggleSelection(
-                      selection,
-                      { resourceKey: details.id, resourceType: kind },
-                      false
-                    )
-                  )
-              : null
-          }
-          open={details !== null}
-          saving={saving}
-        />
-      )}
+                )
+            : null
+        }
+        open={details !== null}
+        saving={saving}
+      />
     </>
   );
 }

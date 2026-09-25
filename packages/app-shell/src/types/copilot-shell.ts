@@ -32,57 +32,51 @@ export type CopilotCompanionWho =
   | { kind: "copilot" }
   | { kind: "engenty"; agentId: string };
 
-/** Context provided by CopilotShellProvider for copilot placement and state. */
-export interface CopilotShellContextValue {
+/** Open/dock/who — independent of the live route. */
+export interface CopilotShellLayoutValue {
+  companionWho: CopilotCompanionWho;
+  copilotLayoutApplied: boolean;
+  dockMode: CopilotDockMode;
+  open: boolean;
+  preferredDockMode: CopilotDockMode | null;
+}
+
+/** Stable setters. Identity does not change on space switch. */
+export interface CopilotShellActionsValue {
+  notifyDockMounted?: () => void;
+  notifyDockUnmounted?: () => void;
+  notifyMainMounted?: () => void;
+  notifySidebarMounted?: () => void;
+  notifySidebarUnmounted?: () => void;
+  setCompanionWho: (who: CopilotCompanionWho) => void;
+  setCopilotContext: (ctx: CopilotContextOverride) => void;
+  setOpen: (open: boolean) => void;
+  setPreferredDockMode: (mode: CopilotDockMode | null) => void;
+}
+
+/** Mount targets and persistence — not the live path. */
+export interface CopilotShellHostValue {
+  copilotDockReady: boolean;
+  copilotDockRef: MutableRefObject<HTMLDivElement | null>;
+  copilotLayout: CopilotLayoutPersistence;
+  copilotSidebarReady: boolean;
+  copilotSidebarRef: MutableRefObject<HTMLDivElement | null>;
+  mainContentReady: boolean;
+  mainContentRef: MutableRefObject<HTMLElement | null>;
+}
+
+/** Composed shell value. Prefer slice hooks so a space switch does not fan out. */
+export interface CopilotShellContextValue
+  extends CopilotShellActionsValue,
+    CopilotShellHostValue,
+    CopilotShellLayoutValue {
   /**
    * True on dedicated full-page chat routes. Hides the drawer/sidebar slot
    * without changing persisted `open`, so leaving the page restores chrome.
    */
   chromeHidden: boolean;
-  /** Who the shared conversation chrome is talking to. Not persisted. */
-  companionWho: CopilotCompanionWho;
   /** Copilot route context (from pathname or page override). */
   copilotContext: CopilotRouteContext;
-  /** True once the desktop app-bar blob mount target is attached. */
-  copilotDockReady: boolean;
-  /** Ref to the shell-owned app-bar blob slot (personal cluster, outermost). */
-  copilotDockRef: MutableRefObject<HTMLDivElement | null>;
-  /** Copilot layout load/save (user-settings JSON). */
-  copilotLayout: CopilotLayoutPersistence;
-  /** True after persisted `copilot.layout` snapshot is applied to shell state. */
-  copilotLayoutApplied: boolean;
-  /** True once inline sidebar mount target is attached (sidebar dock portal). */
-  copilotSidebarReady: boolean;
-  /** Ref to the shell-owned inline sidebar container. */
-  copilotSidebarRef: MutableRefObject<HTMLDivElement | null>;
-  /** Current effective dock mode (screen + preference). */
-  dockMode: CopilotDockMode;
-  /** True when main content has been mounted (for bottom dock portal). */
-  mainContentReady: boolean;
-  /** Ref to main content area for bottom dock. */
-  mainContentRef: MutableRefObject<HTMLElement | null>;
-  /** @internal Notify app-bar blob mount target attached. */
-  notifyDockMounted?: () => void;
-  /** @internal Notify app-bar blob mount target detached. */
-  notifyDockUnmounted?: () => void;
-  /** @internal Notify main content mounted. Used by CopilotShellMain. */
-  notifyMainMounted?: () => void;
-  /** @internal Notify inline sidebar mount target attached. */
-  notifySidebarMounted?: () => void;
-  /** @internal Notify inline sidebar mount target detached. */
-  notifySidebarUnmounted?: () => void;
-  /** Whether the copilot panel is open. */
-  open: boolean;
-  /** User preference; null = auto. */
-  preferredDockMode: CopilotDockMode | null;
-  /** Switch who the shared chrome is addressed to. */
-  setCompanionWho: (who: CopilotCompanionWho) => void;
-  /** Override copilot context (e.g. when opening "Enhance" on contact detail). Pass null to reset to pathname-derived. */
-  setCopilotContext: (ctx: CopilotContextOverride) => void;
-  /** Set open/closed. */
-  setOpen: (open: boolean) => void;
-  /** Set user preference; null = auto. */
-  setPreferredDockMode: (mode: CopilotDockMode | null) => void;
 }
 
 /** Props for the copilot slot in AppLayout. */

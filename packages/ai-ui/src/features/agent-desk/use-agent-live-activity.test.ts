@@ -1,6 +1,12 @@
+import { staggerPollMs } from "@engenty/query-client";
 import { describe, expect, it } from "vitest";
 import type { AiAgentRunSummary } from "../../lib/admin/ai-runtime-types.js";
-import { agentLiveActivityByAgent } from "./use-agent-live-activity.js";
+import {
+  AGENT_LIVE_ACTIVITY_IDLE_POLL_MS,
+  AGENT_LIVE_ACTIVITY_POLL_MS,
+  agentLiveActivityByAgent,
+  agentLiveActivityPollMs,
+} from "./use-agent-live-activity.js";
 
 function run(overrides: Partial<AiAgentRunSummary>): AiAgentRunSummary {
   return {
@@ -82,5 +88,25 @@ describe("agentLiveActivityByAgent", () => {
 
   it("ignores runs with no agent", () => {
     expect(agentLiveActivityByAgent([run({ agent_id: "" })]).size).toBe(0);
+  });
+});
+
+describe("agentLiveActivityPollMs", () => {
+  it("polls live desks on the short cadence, staggered off space home", () => {
+    expect(agentLiveActivityPollMs([run({ status: "running" })])).toBe(
+      staggerPollMs(AGENT_LIVE_ACTIVITY_POLL_MS, "agent-live-activity")
+    );
+    expect(agentLiveActivityPollMs([run({ status: "running" })])).not.toBe(
+      staggerPollMs(AGENT_LIVE_ACTIVITY_POLL_MS, "space-home")
+    );
+  });
+
+  it("idles when nothing is live", () => {
+    expect(agentLiveActivityPollMs([run({ status: "succeeded" })])).toBe(
+      staggerPollMs(AGENT_LIVE_ACTIVITY_IDLE_POLL_MS, "agent-live-activity")
+    );
+    expect(agentLiveActivityPollMs([])).toBe(
+      staggerPollMs(AGENT_LIVE_ACTIVITY_IDLE_POLL_MS, "agent-live-activity")
+    );
   });
 });

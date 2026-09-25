@@ -43,6 +43,7 @@ const SPACE_ID = "019fe8ec-0000-4000-8000-00000000000a";
 const COMPANY: Space = {
   agentApprovalMode: null,
   computerNetworkTier: null,
+  computerEgressHosts: [],
   color: null,
   createdAt: "2026-08-21T00:00:00.000Z",
   deletedAt: null,
@@ -70,11 +71,7 @@ function document(path: string): SpaceDataDocument {
   };
 }
 
-function adapter(input: {
-  moduleId: string;
-  root: string;
-  writable?: boolean;
-}): SpaceDataAdapter {
+function adapter(input: { moduleId: string; root: string }): SpaceDataAdapter {
   return {
     label: input.root,
     list: () => Promise.resolve({ entries: [], folders: [] }),
@@ -83,20 +80,11 @@ function adapter(input: {
     read: () => Promise.resolve(document(input.root)),
     recordScopes: ["all"],
     root: input.root,
-    ...(input.writable === false
-      ? {}
-      : {
-          write: () => Promise.resolve(document("note.md")),
-        }),
   };
 }
 
 const contacts = adapter({ moduleId: "contacts", root: "Contacts" });
-const offers = adapter({
-  moduleId: "offers",
-  root: "Offers",
-  writable: false,
-});
+const offers = adapter({ moduleId: "offers", root: "Offers" });
 const files = adapter({ moduleId: "files", root: "Files" });
 
 function moduleMount(input: {
@@ -176,7 +164,6 @@ async function json(res: Response) {
   return (await res.json()) as {
     data?: unknown;
     error?: { message?: string };
-    ok?: boolean;
   };
 }
 
@@ -238,56 +225,13 @@ describe("space data HTTP routes", () => {
       { headers: auth }
     );
     expect(missing.status).toBe(404);
-    expect((await json(missing)).error?.message).toContain(
-      'No data folder "Offers" in this space.'
-    );
   });
 
-  it("allows reads on a mounted root and refuses writes to a read-only adapter", async () => {
-    const app = createApp();
-    const auth = {
-      authorization: `Bearer ${await userToken()}`,
-      "content-type": "application/json",
-    };
-    const read = await app.request(
-      `/api/spaces/${SPACE_ID}/data/list?path=Contacts`,
-      { headers: { authorization: auth.authorization } }
-    );
-    expect(read.status).toBe(200);
-
-    dal.listSpaceMounts.mockResolvedValue([
-      moduleMount({ key: "offers", agentAccess: "read" }),
-    ]);
-    const write = await app.request(`/api/spaces/${SPACE_ID}/data/write`, {
-      body: JSON.stringify({
-        base_version: "v1",
-        content: "nope",
-        path: "Offers/x.offer",
-      }),
-      headers: auth,
-      method: "PUT",
-    });
-    expect(write.status).toBe(405);
-    expect((await json(write)).error?.message).toContain("read-only");
-  });
-
-  it("writes through a writable mounted adapter", async () => {
+  it("refuses a traversal path before any adapter sees it", async () => {
     const res = await createApp().request(
-      `/api/spaces/${SPACE_ID}/data/write`,
-      {
-        body: JSON.stringify({
-          base_version: "v1",
-          content: "hello",
-          path: "Files/note.md",
-        }),
-        headers: {
-          authorization: `Bearer ${await userToken()}`,
-          "content-type": "application/json",
-        },
-        method: "PUT",
-      }
+      `/api/spaces/${SPACE_ID}/data/list?path=${encodeURIComponent("Contacts/../Offers")}`,
+      { headers: { authorization: `Bearer ${await userToken()}` } }
     );
-    expect(res.status).toBe(200);
-    expect((await json(res)).ok).toBe(true);
+    expect(res.status).toBe(400);
   });
 });

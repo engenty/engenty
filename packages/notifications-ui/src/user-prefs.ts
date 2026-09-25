@@ -6,6 +6,7 @@
 import { requestApiJson } from "@engenty/api-client";
 import { useMutation, useQuery, useQueryClient } from "@engenty/query-client";
 import type { ListNotificationsInput } from "./api.js";
+import type { NotificationLaneFilter } from "./classification.js";
 
 const PREFIX = "notifications";
 
@@ -69,7 +70,7 @@ export interface SavedView {
   filter: Pick<
     ListNotificationsInput,
     "actor" | "class" | "kind" | "source" | "stream"
-  > & { lane?: "all" | "hitl" | "errors" | "updates"; search?: string };
+  > & { lane?: NotificationLaneFilter; search?: string };
   name: string;
 }
 

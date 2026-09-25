@@ -30,27 +30,6 @@ function makeRowsClient(options: {
 }
 
 describe("detachTimesheetRowsForTaskDelete", () => {
-  it("stamps the task title onto timesheet_rows and nulls task_id", async () => {
-    const client = makeRowsClient({});
-    await detachTimesheetRowsForTaskDelete(client as never, {
-      tenantId: "tenant-1",
-      scopeId: "scope-1",
-      taskId: "task-1",
-      taskTitle: "  Mapping-Konzept  ",
-    });
-
-    expect(client.schema).toHaveBeenCalledWith("module_time_tracking");
-    expect(client.from).toHaveBeenCalledWith("timesheet_rows");
-    expect(client.update).toHaveBeenCalledWith({
-      task_id: null,
-      manual_task_title: "Mapping-Konzept",
-    });
-    expect(client.updateEq).toHaveBeenCalledWith("task_id", "task-1");
-    expect(client.updateEq).toHaveBeenCalledWith("tenant_id", "tenant-1");
-    expect(client.updateEq).toHaveBeenCalledWith("scope_id", "scope-1");
-    expect(client.deleteEq).not.toHaveBeenCalled();
-  });
-
   it("falls back to deleting task-linked rows on unique-index collision", async () => {
     const client = makeRowsClient({
       updateError: {

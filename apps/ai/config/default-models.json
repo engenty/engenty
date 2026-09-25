@@ -1,0 +1,44 @@
+{
+  "roles": {
+    "model.low": {
+      "gateway": "vercel",
+      "model_id": "zai/glm-5.3-flash"
+    },
+    "model.medium": {
+      "gateway": "vercel",
+      "model_id": "deepseek/deepseek-v4.1-flash"
+    },
+    "model.high": {
+      "gateway": "vercel",
+      "model_id": "deepseek/deepseek-v4.1-flash"
+    },
+    "classifier": {
+      "gateway": "vercel",
+      "model_id": "typesafe-ai/jev"
+    },
+    "fast_text": {
+      "gateway": "vercel",
+      "model_id": "zai/glm-5.3-flash"
+    },
+    "image": {
+      "gateway": "vercel",
+      "model_id": "google/gemini-2.5-flash-image"
+    },
+    "embedding": {
+      "gateway": "vercel",
+      "model_id": "openai/text-embedding-3-small"
+    },
+    "video": {
+      "gateway": "vercel",
+      "model_id": "google/veo-3.1-generate-001"
+    },
+    "realtime": {
+      "gateway": "vercel",
+      "model_id": "openai/gpt-realtime-mini"
+    },
+    "transcription": {
+      "gateway": "vercel",
+      "model_id": "openai/whisper-1"
+    }
+  }
+}

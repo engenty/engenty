@@ -11,8 +11,7 @@ import {
 // the card's own key choice + parameters — the thing that regressed — would go
 // unchecked. Mirrors apps/ui/src/locales/{en,de}/common.json.
 const MESSAGES: Record<string, string> = {
-  "copilot.toolApproval.approveAlways": "Approve always (this chat)",
-  "copilot.toolApproval.approveChat": "Approve for this chat",
+  "copilot.toolApproval.approveAlways": "Approve for this agent",
   "copilot.toolApproval.approveOnce": "Approve once",
   "copilot.toolApproval.approveRun": "Approve for this run",
   "copilot.toolApproval.body":
@@ -21,6 +20,7 @@ const MESSAGES: Record<string, string> = {
     "These actions require your approval before they run. Operations: {{operations}}",
   "copilot.toolApproval.deny": "Deny",
   "copilot.toolApproval.title": "Approve {{action}}?",
+  "copilot.toolApproval.workspaceCommand": "Run this command?",
 };
 
 vi.mock("@engenty/i18n/ui", () => ({
@@ -70,13 +70,13 @@ function toolApprovalArtifact(input: {
 
 const SINGLE_CHOICES = [
   { id: "approve_once", label: "Approve once" },
-  { id: "approve_always", label: "Approve always (this chat)" },
+  { id: "approve_always", label: "Approve for this agent" },
   { id: "deny", label: "Deny" },
 ];
 
 const BULK_CHOICES = [
   { id: "approve_once", label: "Approve for this run" },
-  { id: "approve_always", label: "Approve for this chat" },
+  { id: "approve_always", label: "Approve for this agent" },
   { id: "deny", label: "Deny" },
 ];
 
@@ -125,7 +125,7 @@ describe("DecisionArtifactCard — tool approval", () => {
     expect(body).not.toContain("11111111-1111-4111-8111-111111111111");
   });
 
-  it("lists every covered operation and uses run/chat scope labels on a bulk card", () => {
+  it("lists every covered operation and uses run/agent scope labels on a bulk card", () => {
     render(
       <DecisionArtifactCard
         artifact={toolApprovalArtifact({
@@ -145,8 +145,52 @@ describe("DecisionArtifactCard — tool approval", () => {
     expect(body).toContain("update_time_entry");
     // "once"/"always" promise the wrong thing for a multi-op grant.
     expect(screen.getByText("Approve for this run")).toBeTruthy();
-    expect(screen.getByText("Approve for this chat")).toBeTruthy();
+    expect(screen.getByText("Approve for this agent")).toBeTruthy();
     expect(screen.queryByText("Approve once")).toBeNull();
+  });
+
+  it("shows a sandbox command as the command, not the tool name", () => {
+    const command = "python3 /task/check_mail.py --since 1h";
+    render(
+      <DecisionArtifactCard
+        artifact={toolApprovalArtifact({
+          artifactId: artifactId(
+            `workspace:mastra_workspace_execute_command:${command}`
+          ),
+          body: command,
+          choices: SINGLE_CHOICES,
+          title: "Approve Run command?",
+        })}
+        onChoose={noop}
+      />
+    );
+
+    expect(screen.getByText("Run this command?")).toBeTruthy();
+    expect(screen.getByText(command)).toBeTruthy();
+    expect(screen.queryByText(/mastra_workspace_execute_command/)).toBeNull();
+    expect(screen.getByText("Approve for this agent")).toBeTruthy();
+  });
+
+  it("does not print a delegated specialist's ask as a shell command", () => {
+    // The delegate lane lists the child's operations in the grant context and
+    // writes a summary body — wrapping that in a code block showed prose as
+    // the command to run.
+    const operation =
+      "workspace:mastra_workspace_execute_command:ls -la /data/Files";
+    render(
+      <DecisionArtifactCard
+        artifact={toolApprovalArtifact({
+          artifactId: artifactId(operation, { operation_ids: [operation] }),
+          body: `Chief of Staff needs your approval to run: Run command: ls -la /data/Files.\n\nOperations: ${operation}`,
+          choices: SINGLE_CHOICES,
+          title: "Chief of Staff write access",
+        })}
+        onChoose={noop}
+      />
+    );
+
+    expect(screen.queryByText("Run this command?")).toBeNull();
+    expect(document.querySelector("pre")).toBeNull();
   });
 
   it("keeps single-operation cards on the once/always wording", () => {

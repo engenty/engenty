@@ -116,6 +116,12 @@ Only these ten values are valid for "toolId":
                         an earlier step's result on the page, map the
                         top-level key data ({"step": "carry", "path": ""}):
                         that object becomes the page's data model.
+  pick_surface        — Jev chooses the next authored page. Constants: prompt
+                        plus candidates [{ id, description, kind, payload,
+                        title?, optional_fields? }]. Returns { gate_id, kind,
+                        payload, surface, title } for the mapping that feeds
+                        the following approval_gate. Never invent a page —
+                        only pick among the authored candidates.
   apply_field_updates — write an approved patch to the run's subject. Normally
                         directly after a field_updates gate.
   wait_until          — park the run durably. Constants: either until (ISO
@@ -336,7 +342,7 @@ key inside takes exactly one source: {"value"}, {"initData":true,"path"},
 {"template":"Hi \${initData.name}"}.
 
 "toolId" is one of: run_specialist, engenty_tool, approval_gate,
-apply_field_updates, wait_until, artifact_write, artifact_read, show_artifact,
+pick_surface, apply_field_updates, wait_until, artifact_write, artifact_read, show_artifact,
 show_ui, show_objects. A run_specialist "brief" must state that
 step's own instruction — to hand it an earlier step's output, use a
 {"template"} combining instruction text with \${stepResults.<id>.<field>},

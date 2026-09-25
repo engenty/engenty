@@ -9,13 +9,6 @@
  */
 
 export interface ModelPricingSeed {
-  /** When present, restored alongside pricing to the gateway_model catalog. */
-  available_for_chat?: boolean;
-  available_for_embedding?: boolean;
-  available_for_image?: boolean;
-  available_for_rerank?: boolean;
-  available_for_routing?: boolean;
-  available_for_video?: boolean;
   cached_input_per_mtok_micros: number;
   currency: string;
   input_per_mtok_micros: number;

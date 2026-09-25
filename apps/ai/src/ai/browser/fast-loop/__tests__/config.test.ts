@@ -10,23 +10,33 @@ const env = (values: Record<string, string | undefined>) => (key: string) =>
   values[key];
 
 describe("fast loop config", () => {
+  const JEV = "typesafe-ai/jev";
+
   it("is off without the switch, and off with the switch but no key", () => {
-    expect(isFastLoopEnabled(env({}))).toBe(false);
-    expect(isFastLoopEnabled(env({ ENGENTY_BROWSER_FAST_LOOP: "true" }))).toBe(
-      false
-    );
-    expect(isFastLoopEnabled(env({ TYPESAFE_API_KEY: "k" }))).toBe(false);
+    expect(isFastLoopEnabled(JEV, env({}))).toBe(false);
+    expect(
+      isFastLoopEnabled(JEV, env({ ENGENTY_BROWSER_FAST_LOOP: "true" }))
+    ).toBe(false);
+    expect(isFastLoopEnabled(JEV, env({ TYPESAFE_API_KEY: "k" }))).toBe(false);
   });
 
-  it("is on with switch and key", () => {
+  it("is on with switch and a key for the bound classifier", () => {
     expect(
       isFastLoopEnabled(
+        JEV,
         env({ ENGENTY_BROWSER_FAST_LOOP: "1", TYPESAFE_API_KEY: "k" })
       )
     ).toBe(true);
     expect(
       isFastLoopEnabled(
+        JEV,
         env({ ENGENTY_BROWSER_FAST_LOOP: "false", TYPESAFE_API_KEY: "k" })
+      )
+    ).toBe(false);
+    expect(
+      isFastLoopEnabled(
+        null,
+        env({ ENGENTY_BROWSER_FAST_LOOP: "1", TYPESAFE_API_KEY: "k" })
       )
     ).toBe(false);
   });

@@ -13,6 +13,7 @@ import type { SpaceGateContext } from "../../../ai/tools/engenty-tools/lib/space
 import { isUnresolvedSpaceGate } from "../../../ai/tools/engenty-tools/lib/space-gate.js";
 import { emitInboxNotification } from "../../notifications/inbox.js";
 import {
+  failureLine,
   notifyRunSuspended,
   resolveRunNotifications,
 } from "../../notifications/run-notifications.js";
@@ -188,12 +189,27 @@ export async function settleGraphRun(
           ?.getGraph({ id: request.workflow_id, tenantId: input.tenantId })
           .catch(() => null)
       : null;
+    // The row names the routine a person set up, else the workflow's display
+    // title — never its key. The gate's own line is the body.
+    const flowName = routine?.name?.trim() || workflow?.title?.trim() || null;
+    const asksQuestion = gate?.kind === "question";
     await notifyRunSuspended({
       actorAgentId: request?.agent_id ?? null,
       ask: {
-        kind: gate?.kind === "question" ? "action_question" : "action_gate",
+        kind: asksQuestion ? "action_question" : "action_gate",
+        ...(gate?.title ? { body: gate.title } : {}),
         ...(gate ? { payload: gate.surface.data } : {}),
-        title: gate?.title ?? "A workflow run is waiting for a decision",
+        summary: asksQuestion
+          ? "A workflow has a question"
+          : "A workflow is waiting for your decision",
+        ...(flowName
+          ? {
+              title: {
+                key: asksQuestion ? "action_question" : "action_gate",
+                params: { name: flowName },
+              },
+            }
+          : {}),
       },
       initiatorUserId: input.initiatorUserId ?? null,
       metadata: {
@@ -366,6 +382,7 @@ export async function settleGraphRun(
       ...(artifact ? { artifact } : {}),
       ...(outcome ? { outcome } : {}),
       ...(contract.reporting ? { reporting: contract.reporting } : {}),
+      requestId: input.requestId,
       routineId: request.routine_id,
       routines,
       runId: input.runId,
@@ -428,6 +445,18 @@ export async function settleGraphRun(
     // A press or a fire that broke with nobody supervising it: the failure is
     // an alert, coalesced per routine while unhandled (a crashing schedule
     // would otherwise raise one per interval).
+    // A press has no routine: the workflow's display title names it.
+    const failedFlowName = routine?.name?.trim()
+      ? null
+      : request?.workflow_id
+        ? ((
+            await createWorkflowStoreFromEnv()
+              ?.getGraph({ id: request.workflow_id, tenantId: input.tenantId })
+              .catch(() => null)
+          )?.title?.trim() ?? null)
+        : null;
+    const failureName = routine?.name?.trim() || failedFlowName;
+    const failureBody = failureLine(reason);
     await emitInboxNotification({
       dedupeKey: request?.routine_id
         ? `routine_failed:${request.routine_id}`
@@ -448,10 +477,19 @@ export async function settleGraphRun(
       subject: request?.routine_id
         ? { id: request.routine_id, type: "routine" }
         : { id: input.runId, type: "run" },
-      summary: routine?.name
-        ? `Routine "${routine.name}" failed${reason ? `: ${reason.slice(0, 200)}` : ""}`
-        : `Workflow run failed${reason ? `: ${reason.slice(0, 200)}` : ""}`,
+      ...(failureBody ? { body: failureBody } : {}),
+      summary: request?.routine_id
+        ? "A routine failed"
+        : "A workflow run failed",
       tenantId: input.tenantId,
+      ...(failureName
+        ? {
+            title: {
+              key: request?.routine_id ? "routine_failed" : "action_failed",
+              params: { name: failureName },
+            },
+          }
+        : {}),
     });
   }
   if (routines && request?.routine_id && request.thread_id) {
@@ -464,6 +502,7 @@ export async function settleGraphRun(
       ...(artifact ? { artifact } : {}),
       ...(outcome ? { outcome } : {}),
       ...(contract.reporting ? { reporting: contract.reporting } : {}),
+      requestId: input.requestId,
       routineId: request.routine_id,
       routines,
       runId: input.runId,

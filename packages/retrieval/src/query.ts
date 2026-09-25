@@ -3,9 +3,10 @@
 //   evaluators → hydrate → postRank.
 //
 // Model honesty: the fusion RPC scores vectors only for chunks whose
-// `embedding_model` matches the query embedding's model. A multi-source query
-// across sources with different per-tenant models degrades the mismatched
-// sources to lexical for that query instead of comparing incomparable vectors.
+// `embedding_model` matches the query embedding's model. After the embedding
+// role is rebound, chunks still carrying the old model score lexical-only
+// until a backfill re-embeds them (status reports them stale) instead of
+// comparing incomparable vectors.
 
 import {
   embedTexts,
@@ -35,10 +36,8 @@ const DEFAULT_TRIGRAM_THRESHOLD = 0.3;
 const logger = createLogger({ name: "retrieval-query" });
 
 export interface QueryDeps {
-  resolveEmbedderForSources(
-    sources: RetrievalSourceRegistration[],
-    tenantId: string
-  ): Promise<SearchEmbedder>;
+  /** The embedder for the one platform embedding model. */
+  resolveEmbedder(): Promise<SearchEmbedder>;
   sources: Map<string, RetrievalSourceRegistration>;
   /** Plain client (tests) or the Phase A handle pair — the RPC resolves the
    * tenant-locked handle from the request's own tenant_id. */
@@ -167,7 +166,7 @@ export async function runQuery(
   let embeddingModel: string | null = null;
   if (query && strategy !== "lexical") {
     try {
-      const embedder = await deps.resolveEmbedderForSources(sources, tenantId);
+      const embedder = await deps.resolveEmbedder();
       const [vector] = await embedTexts(embedder, [query]);
       queryEmbedding = vector ?? null;
       embeddingModel = embedder.modelId;

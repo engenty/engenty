@@ -1,18 +1,18 @@
-// The list: lanes (needs you / errors / updates), one row per record with its
+// The list: lanes (attention / needs you / errors / updates), one row per record with its
 // deep link, the module-contributed body for its kind, and mark seen/dismiss.
 // Rendered by the page, the bell and any module that embeds the inbox.
 import { useTranslation } from "@engenty/i18n/ui";
 import { Button, cn, TooltipProvider } from "@engenty/ui-core";
 import { AlertTriangle, CheckCheck, ShieldCheck, Trash2 } from "lucide-react";
-import type { ComponentType, ReactNode } from "react";
+import { type ComponentType, type ReactNode, useState } from "react";
 import type { NotificationDto } from "./api.js";
 import {
   isError,
   isHitl,
-  isNeedsInput,
   matchesLaneFilter,
   type NotificationLaneFilter,
 } from "./classification.js";
+import { notificationOrigin } from "./notification-href.js";
 import { NotificationItem } from "./notification-item.js";
 import { useMarkNotificationMutation } from "./queries.js";
 import { NotificationSurfaceContext } from "./renderers.js";
@@ -38,6 +38,117 @@ function ClearAllButton({ onClick }: { onClick: () => void }) {
 }
 
 export type NotificationListVariant = "page" | "inbox";
+
+/**
+ * FYI rows from one source (same kind, same actor, same space) fold into the
+ * newest one: five desk posts from one Engenty are one line to read, not
+ * five. Anything that wants a person stays its own row.
+ */
+export function groupRepeatedUpdates(
+  notifications: NotificationDto[]
+): { head: NotificationDto; rest: NotificationDto[] }[] {
+  const groups: { head: NotificationDto; rest: NotificationDto[] }[] = [];
+  const byKey = new Map<
+    string,
+    { head: NotificationDto; rest: NotificationDto[] }
+  >();
+  for (const notification of notifications) {
+    const actor =
+      typeof notification.metadata?.actor_ref === "string"
+        ? notification.metadata.actor_ref
+        : notification.actor_id;
+    const key =
+      notification.class === "update" && actor
+        ? `${notification.kind}|${actor}|${notification.space_id ?? ""}`
+        : null;
+    const open = key ? byKey.get(key) : undefined;
+    if (open) {
+      open.rest.push(notification);
+      continue;
+    }
+    const group = { head: notification, rest: [] as NotificationDto[] };
+    groups.push(group);
+    if (key) {
+      byKey.set(key, group);
+    }
+  }
+  return groups;
+}
+
+function NotificationRows({
+  locale,
+  notifications,
+  variant,
+}: {
+  locale: string;
+  notifications: NotificationDto[];
+  variant: NotificationListVariant;
+}) {
+  const { t } = useTranslation("common");
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
+  return (
+    <>
+      {groupRepeatedUpdates(notifications).map(({ head, rest }) => {
+        const open = expanded.has(head.id);
+        const who = notificationOrigin(head).actorLabel;
+        return (
+          <li className="list-none" key={head.id}>
+            <ul className="flex flex-col">
+              <NotificationItem
+                locale={locale}
+                notification={head}
+                variant={variant}
+              />
+              {open
+                ? rest.map((notification) => (
+                    <NotificationItem
+                      key={notification.id}
+                      locale={locale}
+                      notification={notification}
+                      variant={variant}
+                    />
+                  ))
+                : null}
+            </ul>
+            {rest.length > 0 ? (
+              <button
+                className={cn(
+                  "text-muted-foreground text-xs hover:text-foreground",
+                  variant === "inbox" ? "px-11 pb-2" : "px-3 pt-1"
+                )}
+                onClick={() =>
+                  setExpanded((prev) => {
+                    const next = new Set(prev);
+                    if (open) {
+                      next.delete(head.id);
+                    } else {
+                      next.add(head.id);
+                    }
+                    return next;
+                  })
+                }
+                type="button"
+              >
+                {open
+                  ? t("notifications.group.less", { defaultValue: "Show less" })
+                  : who
+                    ? t("notifications.group.moreFrom", {
+                        count: rest.length,
+                        defaultValue: "+{{count}} more from {{name}}",
+                        name: who,
+                      })
+                    : t("notifications.group.more", {
+                        count: rest.length,
+                        defaultValue: "+{{count}} more",
+                      })}
+              </button>
+            ) : null}
+          </li>
+        );
+      })}
+    </>
+  );
+}
 
 function Section({
   icon: Icon,
@@ -91,14 +202,11 @@ function Section({
         ) : null}
       </div>
       <ul className={cn("flex flex-col", inbox ? undefined : "gap-1.5")}>
-        {notifications.map((notification) => (
-          <NotificationItem
-            key={notification.id}
-            locale={locale}
-            notification={notification}
-            variant={variant}
-          />
-        ))}
+        <NotificationRows
+          locale={locale}
+          notifications={notifications}
+          variant={variant}
+        />
       </ul>
     </section>
   );
@@ -156,6 +264,7 @@ export function NotificationList({
 
   if (!grouped || laneFilter !== "all") {
     const canClear =
+      laneFilter === "attention" ||
       laneFilter === "errors" ||
       laneFilter === "hitl" ||
       filtered.every((n) => isError(n) || isHitl(n));
@@ -179,14 +288,11 @@ export function NotificationList({
                 variant === "inbox" ? undefined : "gap-1.5"
               )}
             >
-              {filtered.map((notification) => (
-                <NotificationItem
-                  key={notification.id}
-                  locale={locale}
-                  notification={notification}
-                  variant={variant}
-                />
-              ))}
+              <NotificationRows
+                locale={locale}
+                notifications={filtered}
+                variant={variant}
+              />
             </ul>
             {showBottomBar ? (
               <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 pt-1">
@@ -204,7 +310,7 @@ export function NotificationList({
 
   const hitl = filtered.filter(isHitl);
   const errors = filtered.filter(isError);
-  const updates = filtered.filter((n) => !isNeedsInput(n));
+  const updates = filtered.filter((n) => n.class === "update");
   const canClearLane = (items: NotificationDto[]) =>
     items.some((item) => item.class !== "decision");
   return (

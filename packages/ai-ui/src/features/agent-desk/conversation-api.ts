@@ -3,7 +3,14 @@
 // room is listed on; members were added to it), their people, their purpose,
 // their pause — and the viewer's direct messages. Server: apps/ai
 // `api/room-routes.ts`.
-import { useMutation, useQuery, useQueryClient } from "@engenty/query-client";
+import {
+  keepPreviousData,
+  queryOptions,
+  staggeredRefetchInterval,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@engenty/query-client";
 import type { AppsAiThreadRecord } from "../../ag-ui/apps-ai/apps-ai-thread-api.js";
 import { requestAiServiceJson } from "../../lib/runtime/ai-service-client.js";
 
@@ -35,6 +42,42 @@ export const roomKeys = {
   state: (threadId: string) => ["rooms", "state", threadId] as const,
   thread: (threadId: string) => ["rooms", "thread", threadId] as const,
 };
+
+/**
+ * Backup only. Thread realtime already refreshes the chats list, and
+ * mutations invalidate this key — a 15s poll was overlapping space home.
+ */
+export const SPACE_CONVERSATIONS_POLL_MS = staggeredRefetchInterval(
+  60_000,
+  "space-conversations"
+);
+
+/** Room pause/purpose — mutations write the cache; this is a slow backup. */
+export const ROOM_STATE_POLL_MS = staggeredRefetchInterval(
+  60_000,
+  "room-state"
+);
+
+export function fetchSpaceConversations(
+  spaceId: string,
+  signal?: AbortSignal
+): Promise<SpaceConversations> {
+  return requestAiServiceJson<SpaceConversations>(
+    `/ai/spaces/${encodeURIComponent(spaceId)}/conversations`,
+    { signal }
+  );
+}
+
+export function spaceConversationsQueryOptions(spaceId: string) {
+  return queryOptions({
+    queryFn: ({ signal }) => fetchSpaceConversations(spaceId, signal),
+    queryKey: roomKeys.list(spaceId),
+    placeholderData: keepPreviousData,
+    refetchInterval: SPACE_CONVERSATIONS_POLL_MS,
+    refetchIntervalInBackground: false,
+    staleTime: 10_000,
+  });
+}
 
 /**
  * The room's own row — its host (`agent_id`), name, Space and marker. The
@@ -88,7 +131,8 @@ export function useRoomStateQuery(threadId: string | null) {
         (result): RoomState => readRoomState(result.session.metadata ?? {})
       ),
     queryKey: roomKeys.state(threadId ?? ""),
-    refetchInterval: 15_000,
+    refetchInterval: ROOM_STATE_POLL_MS,
+    refetchIntervalInBackground: false,
   });
 }
 
@@ -140,15 +184,8 @@ export interface SpaceConversations {
 /** The rooms the viewer is in and their DMs — what the sidebar lists. */
 export function useSpaceConversationsQuery(spaceId: string | null) {
   return useQuery({
+    ...spaceConversationsQueryOptions(spaceId ?? ""),
     enabled: Boolean(spaceId),
-    queryFn: ({ signal }) =>
-      requestAiServiceJson<SpaceConversations>(
-        `/ai/spaces/${encodeURIComponent(spaceId as string)}/conversations`,
-        { signal }
-      ),
-    queryKey: roomKeys.list(spaceId ?? ""),
-    refetchInterval: 15_000,
-    staleTime: 10_000,
   });
 }
 
@@ -158,7 +195,7 @@ export interface SpaceRoomDirectoryRow extends SpaceRoomRow {
 }
 
 export function useRoomsDirectoryQuery(spaceId: string | null) {
-  return useQuery({
+  return useQuery<SpaceRoomDirectoryRow[]>({
     enabled: Boolean(spaceId),
     queryFn: ({ signal }) =>
       requestAiServiceJson<{ rooms: SpaceRoomDirectoryRow[] }>(
@@ -166,6 +203,7 @@ export function useRoomsDirectoryQuery(spaceId: string | null) {
         { signal }
       ).then((result) => result.rooms),
     queryKey: roomKeys.directory(spaceId ?? ""),
+    placeholderData: keepPreviousData,
     staleTime: 10_000,
   });
 }

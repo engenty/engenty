@@ -11,9 +11,12 @@ import {
   TenantPluginsSettingsSection,
   TenantUsersSettingsSection,
 } from "@/components/settings";
+import { useDeveloperModeEnabled } from "@/hooks/use-developer-mode-enabled";
 
 export function SettingsPage() {
   const { t } = useTranslation("common");
+  // Links into the /admin/engenty debugging area.
+  const developerModeEnabled = useDeveloperModeEnabled();
   const { moduleRootCrumb, secondaryNavHeaderSlot } =
     useSettingsSecondaryShellNav(t("navigation.settings"));
 
@@ -37,7 +40,7 @@ export function SettingsPage() {
           <TenantAppearanceSettingsSection />
           <TenantAiSettingsSection />
           <TenantConnectionsSettingsSection />
-          <CopilotAdminLinksSection />
+          {developerModeEnabled ? <CopilotAdminLinksSection /> : null}
           <TenantPluginsSettingsSection />
         </div>
       </div>

@@ -2,12 +2,14 @@ import {
   type AgentEngentyKind,
   buildAgentLookImagePrompt,
   buildAgentLookSvgPrompt,
-  DEFAULT_AGENT_LOOK_IMAGE_MODEL,
-  DEFAULT_AGENT_LOOK_SVG_MODEL,
+  generateImageBytes,
   readAiGatewayApiKeyFromEnv,
+  resolveChatModelId,
+  resolvePlatformImageModelId,
 } from "@engenty/ai-core";
-import { generateImage, generateText } from "ai";
+import { generateText } from "ai";
 import sharp from "sharp";
+import { resolveLanguageModel } from "../../src/model-gateways/resolve-language-model.js";
 
 export interface AgentLookGenerateInput {
   brief: string;
@@ -21,18 +23,6 @@ export interface GeneratedLookPng {
   format: "png" | "svg";
   prompt: string;
   svg?: string;
-}
-
-function imageModelId(): string {
-  return (
-    process.env.AI_GATEWAY_IMAGE_MODEL?.trim() || DEFAULT_AGENT_LOOK_IMAGE_MODEL
-  );
-}
-
-function svgModelId(): string {
-  return (
-    process.env.AI_GATEWAY_SVG_MODEL?.trim() || DEFAULT_AGENT_LOOK_SVG_MODEL
-  );
 }
 
 export function extractSvgDocument(text: string): string | null {
@@ -70,37 +60,6 @@ export async function rasterizeSvgToPng(svg: string): Promise<Uint8Array> {
   return new Uint8Array(bytes);
 }
 
-async function generatePngFromImageModel(prompt: string): Promise<Uint8Array> {
-  const modelId = imageModelId();
-  if (modelId.includes("gemini") && modelId.includes("image")) {
-    const result = await generateText({
-      model: modelId,
-      messages: [{ role: "user", content: prompt }],
-    });
-    const file = result.files?.find((entry) =>
-      (entry.mediaType ?? "").startsWith("image/")
-    );
-    if (file?.uint8Array && file.uint8Array.byteLength > 0) {
-      return file.uint8Array;
-    }
-    throw new Error("Image model returned no image file");
-  }
-  const result = await generateImage({
-    aspectRatio: "1:1",
-    model: modelId,
-    n: 1,
-    prompt,
-  });
-  const img = result.image ?? result.images?.[0];
-  if (img?.uint8Array && img.uint8Array.byteLength > 0) {
-    return img.uint8Array;
-  }
-  if (img?.base64) {
-    return Uint8Array.from(Buffer.from(img.base64, "base64"));
-  }
-  throw new Error("Image model returned no image bytes");
-}
-
 export async function generateAgentLookPng(
   input: AgentLookGenerateInput
 ): Promise<GeneratedLookPng> {
@@ -108,7 +67,12 @@ export async function generateAgentLookPng(
     throw new Error("not_configured");
   }
   const prompt = buildAgentLookImagePrompt(input);
-  const bytes = await generatePngFromImageModel(prompt);
+  const modelId = resolvePlatformImageModelId();
+  const bytes = await generateImageBytes({
+    aspectRatio: "1:1",
+    modelId,
+    prompt,
+  });
   return { bytes, format: "png", prompt };
 }
 
@@ -120,7 +84,7 @@ export async function generateAgentLookSvg(
   }
   const prompt = buildAgentLookSvgPrompt(input);
   const result = await generateText({
-    model: svgModelId(),
+    model: resolveLanguageModel(resolveChatModelId({ purpose: "fast_text" })),
     prompt,
   });
   const extracted = extractSvgDocument(result.text ?? "");

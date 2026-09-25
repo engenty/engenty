@@ -1,5 +1,5 @@
 import { runCliAction } from "@engenty/cli";
-import { AI_SERVICE_PLAN_CAPABILITIES } from "@engenty/plugin-sdk";
+import { AI_SERVICE_CAPABILITIES } from "@engenty/plugin-sdk";
 import type { Command } from "commander";
 import { createAuthStores } from "../security/auth-stores/index.js";
 import { callCoreApi, defaultApiUrl } from "./core-api.js";
@@ -19,14 +19,6 @@ function csv(value: string | undefined): string[] {
     .map((item) => item.trim())
     .filter(Boolean);
 }
-
-/** Locked-down AI service mint: coarse module.* plus Plan facets the matcher does not infer. */
-const AI_SERVICE_RECOMMENDED_CAPS = [
-  "module.read",
-  "module.write",
-  "module.execute",
-  ...AI_SERVICE_PLAN_CAPABILITIES,
-] as const;
 
 /**
  * `engenty service-token …` — durable credentials for headless services
@@ -53,7 +45,7 @@ export function registerServiceCredentialCommands(program: Command): void {
     .requiredOption("--name <name>", "Credential name, e.g. ai-service")
     .option(
       "--capability <cap>",
-      `Grant a capability (repeatable, or comma-separated). Default: inherit yours. For apps/ai list ${AI_SERVICE_RECOMMENDED_CAPS.join(",")}. module.read does not cover module.tasks.read.`,
+      `Grant a capability (repeatable, or comma-separated). Default: inherit yours. For apps/ai list ${AI_SERVICE_CAPABILITIES.join(",")}. module.read does not cover module.tasks.read or module.connections.read.`,
       (value: string, previous: string[]) => [...previous, ...csv(value)],
       [] as string[]
     )
@@ -81,12 +73,12 @@ export function registerServiceCredentialCommands(program: Command): void {
             `\nThe secret above is shown ONCE — only its sha256 is stored.\nSet it on the service that needs it:\n  ENGENTY_AI_SERVICE_SECRET=${result.secret}\n`
           );
           if (opts.name === "ai-service" && opts.capability.length > 0) {
-            const missing = AI_SERVICE_PLAN_CAPABILITIES.filter(
+            const missing = AI_SERVICE_CAPABILITIES.filter(
               (cap) => !result.capabilities.includes(cap)
             );
             if (missing.length > 0) {
               console.error(
-                `Warning: this credential is missing Plan caps (${missing.join(", ")}). Locked-down tokens that only list module.read / module.write will 403 on module.tasks.* — the matcher has no infix wildcards.\n`
+                `Warning: this credential is missing AI service caps (${missing.join(", ")}). Locked-down tokens that only list module.read / module.write will 403 on module.tasks.* and module.connections.* — the matcher has no infix wildcards.\n`
               );
             }
           }

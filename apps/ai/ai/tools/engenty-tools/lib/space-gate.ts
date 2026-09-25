@@ -19,9 +19,9 @@
  * the catalog itself and the workspace are the agent's own faculties, not a
  * module a space mounts.
  *
- * C3b adds CONNECTORS, which are mounted one provider-account at a time while
- * their operations live in a shared module — so they are checked before the
- * module and instead of it. Delegation (the other C3b narrowing) is enforced
+ * C3b adds CONNECTORS, which are enabled per Space (a plugin mount, or an
+ * account the Space owns) while their operations live in a shared module — so
+ * they are checked before the module and instead of it. Delegation (the other C3b narrowing) is enforced
  * where the delegation tools are built, not here: a child run is a principal,
  * and the only safe answer for an unmounted engenty is that its tool never
  * exists.
@@ -39,16 +39,16 @@ export interface SpaceGateSurface {
   /** Tool prefixes of EVERY connector — how a connector op is recognised. */
   allConnectorPrefixes: ReadonlySet<string>;
   /**
-   * Whose browser this run may reach for, and whether unattended
-   * (PLAN-user-browser.md §2.2). The acting person: the chat user, or the
-   * routine's author for a fire. Null when the run acts for nobody — no
-   * browser, no `browser_*` tools.
+   * The Space's consents for its browser (PLAN-user-browser.md §2.2): may
+   * agents drive it unattended, and start it without asking.
    */
-  browser?: { unattended: boolean; userId: string } | null;
-  /** Tool prefixes of the connectors this space mounts. */
+  browser?: { autostart?: boolean; unattended: boolean } | null;
+  /** Tool prefixes of the connectors enabled on this space (for this agent). */
   connectorPrefixes: ReadonlySet<string>;
   moduleIds: ReadonlySet<string>;
   readOnlyModuleIds: ReadonlySet<string>;
+  /** Where connections live when not `spaceId` — see `RunSpace.resourceSpaceId`. */
+  resourceSpaceId?: string;
   spaceId: string;
   /** Hired engenties that report to nobody here — they carry the hiring set. */
   topLevelAgentIds?: ReadonlySet<string>;
@@ -87,10 +87,11 @@ export type SpaceGateContext =
   | GlobalConnectorGate;
 
 /**
- * Copilot (or any agent) outside a space: modules stay tenant-global, but
- * connectors are only the agent's grants plus all-spaces accounts (intersected
- * with a non-empty preferred plugin list). Distinct from a missing `space`
- * (legacy "allow every connector") so live chat and assemble can agree.
+ * An agent run outside a space: modules stay tenant-global, and connectors are
+ * refused — a connection always belongs to a Space
+ * (PLAN-space-owned-connections.md). `connectorPrefixes` is empty for that
+ * reason. Distinct from a missing `space` (legacy "allow every connector") so
+ * live chat and assemble can agree.
  */
 export interface GlobalConnectorGate {
   /**
@@ -162,8 +163,8 @@ function checkConnectorAgainstPrefixes(
     error: "connector_not_in_space",
     message:
       `The ${connectorPrefix} connection is not available here, so ${operationId} cannot run. ` +
-      "It is not part of this agent's enabled plugins or this space. " +
-      "Do not retry it. If you carry `space_setup`, offer to add it (`action='add'`, accounts: [{ id, access }]) — the user may add an account they own themselves; otherwise say an admin can add it in the space's setup.",
+      "Connections belong to a Space: it is not connected in this space, or not among this agent's enabled plugins. " +
+      "Do not retry it. Offer to connect the account in this space (connections_request_connect); outside a space, ask the user to open the space that should own it.",
     ok: false,
   };
 }
@@ -176,6 +177,27 @@ function isPlatformModule(moduleId: string | undefined): boolean {
 /** The connections module and its per-provider siblings (`connections-google`). */
 function isConnectionsModule(moduleId: string): boolean {
   return moduleId === "connections" || moduleId.startsWith("connections-");
+}
+
+/**
+ * The Space a core call names (`x-engenty-space-id`): connector and
+ * connections operations go to where the run's connections live, everything
+ * else to the Space the run stands in.
+ */
+export function callSpaceIdFor(
+  entry: { moduleId?: string; operationId: string },
+  space?: SpaceGateContext | null
+): string | undefined {
+  if (!space || "kind" in space) {
+    return;
+  }
+  const isConnectionCall =
+    connectorPrefixFor(entry.operationId, space.allConnectorPrefixes) !==
+      null ||
+    (entry.moduleId !== undefined && isConnectionsModule(entry.moduleId));
+  return isConnectionCall && space.resourceSpaceId
+    ? space.resourceSpaceId
+    : space.spaceId;
 }
 
 /**
@@ -249,8 +271,8 @@ export function spaceScopeNote(space?: SpaceGateContext | null): string | null {
   }
   if (isGlobalConnectorGate(space)) {
     return (
-      "This run is not in a space. Connector tools are limited to accounts enabled " +
-      "on this agent and accounts shared with every space. Apps are otherwise unrestricted."
+      "This run is not in a space, so connector tools are unavailable — connections " +
+      "belong to a space. Apps are otherwise unrestricted."
     );
   }
   if (!space) {
@@ -306,7 +328,7 @@ export function checkOperationAgainstSpace(input: {
   // connector operation belongs to a connections-* module, so the module check
   // alone would either allow the whole provider (all of Google because Gmail
   // is mounted) or refuse a mounted connector because its module was not
-  // separately mounted. The per-connector mount is the finer-grained truth.
+  // separately mounted. The per-connector check is the finer-grained truth.
   const connectorRefusal = checkConnectorAgainstPrefixes(
     input.operationId,
     space

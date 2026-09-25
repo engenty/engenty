@@ -25,33 +25,58 @@ export const GATEWAY_MODEL_PRICE_TIERS = [
 
 export type GatewayModelPriceTier = (typeof GATEWAY_MODEL_PRICE_TIERS)[number];
 
+/** One per model role class: which roles may bind a catalog model. */
 export const GATEWAY_MODEL_AVAILABILITY_PURPOSES = [
-  "chat",
-  "routing",
+  "agent",
+  "classification",
+  "text",
   "embedding",
   "image",
   "video",
+  "realtime",
+  "transcription",
   "rerank",
 ] as const;
+
+/** Speech-to-text models for recorded audio (not the realtime/live ones). */
+export function isTranscriptionModelId(modelId: string): boolean {
+  return /whisper|transcribe/.test(modelId) && !/realtime|-live/.test(modelId);
+}
+
+/** OpenAI Realtime voice models (not the transcription-only ones). */
+export function isRealtimeVoiceModelId(modelId: string): boolean {
+  return (
+    /(^|\/)gpt-realtime/.test(modelId) && !/whisper|transcri/.test(modelId)
+  );
+}
 
 export type GatewayModelAvailabilityPurpose =
   (typeof GATEWAY_MODEL_AVAILABILITY_PURPOSES)[number];
 
 export interface GatewayModelAvailabilityFlags {
-  available_for_chat: boolean;
+  available_for_agent: boolean;
+  available_for_classification: boolean;
   available_for_embedding: boolean;
   available_for_image: boolean;
+  available_for_realtime: boolean;
   available_for_rerank: boolean;
-  available_for_routing: boolean;
+  available_for_text: boolean;
+  available_for_transcription: boolean;
   available_for_video: boolean;
 }
 
+/** How the latest sync that saw this row classified it. */
+export type GatewayModelSyncChange = "new" | "changed" | "unchanged";
+
 export interface GatewayModelRecord {
-  available_for_chat: boolean;
+  available_for_agent: boolean;
+  available_for_classification: boolean;
   available_for_embedding: boolean;
   available_for_image: boolean;
+  available_for_realtime: boolean;
   available_for_rerank: boolean;
-  available_for_routing: boolean;
+  available_for_text: boolean;
+  available_for_transcription: boolean;
   available_for_video: boolean;
   cached_input_per_mtok_micros: number | null;
   capabilities: Record<string, unknown>;
@@ -63,6 +88,10 @@ export interface GatewayModelRecord {
   gateway: string;
   input_per_mtok_micros: number | null;
   last_seen_at: string;
+  /** `new` / `changed` / `unchanged` for `last_sync_run_id`; null before first stamped sync. */
+  last_sync_change: GatewayModelSyncChange | null;
+  /** Sync run that last listed this model; null before the first stamped sync. */
+  last_sync_run_id: string | null;
   last_synced_at: string;
   max_output_tokens: number | null;
   model_id: string;
@@ -72,6 +101,8 @@ export interface GatewayModelRecord {
   provider: string;
   providers: string[];
   raw_json: Record<string, unknown>;
+  /** Regions the gateway can pin inference to (`eu`, `us`); empty = none reported. */
+  regions: string[];
   released_at: string | null;
   source_url: string;
   tags: string[];
@@ -204,7 +235,10 @@ export interface AiGatewayModelStore {
       >
     >
   ): Promise<GatewayModelSyncRunRecord>;
-  upsertGatewayModels(models: GatewayModelUpsertInput[]): Promise<number>;
+  upsertGatewayModels(
+    models: GatewayModelUpsertInput[],
+    opts?: GatewayModelUpsertOptions
+  ): Promise<GatewayModelUpsertResult>;
   /** Rebind one role. */
   upsertModelBinding(
     row: Omit<ModelBindingRecord, "updated_at">
@@ -213,8 +247,76 @@ export interface AiGatewayModelStore {
 
 export type GatewayModelUpsertInput = Omit<
   GatewayModelRecord,
-  "created_at" | "updated_at"
->;
+  "created_at" | "updated_at" | "last_sync_run_id" | "last_sync_change"
+> & {
+  last_sync_change?: GatewayModelSyncChange | null;
+  last_sync_run_id?: string | null;
+  updated_at?: string;
+};
+
+export interface GatewayModelUpsertOptions {
+  now?: Date;
+  /** When set, every upserted row is stamped with this sync run. */
+  syncRunId?: string;
+}
+
+export interface GatewayModelUpsertResult {
+  /** Existing rows whose catalog fields or prices differed. */
+  changed: number;
+  /** Rows that did not exist before this upsert. */
+  inserted: number;
+  /** Every row written (inserted + changed + unchanged). */
+  total: number;
+}
+
+/** Catalog fields that count as a "changed" sync — not timestamps or availability. */
+export function gatewayModelCatalogFingerprint(
+  model: Pick<
+    GatewayModelRecord,
+    | "cached_input_per_mtok_micros"
+    | "capabilities"
+    | "context_tokens"
+    | "description"
+    | "display_name"
+    | "input_per_mtok_micros"
+    | "max_output_tokens"
+    | "no_training_supported"
+    | "output_per_mtok_micros"
+    | "price_tier"
+    | "provider"
+    | "providers"
+    | "regions"
+    | "released_at"
+    | "tags"
+    | "type"
+    | "use_cases"
+    | "web_search_per_query_micros"
+    | "zdr_supported"
+  >
+): string {
+  const sorted = (values: readonly string[]) => [...values].sort();
+  return JSON.stringify({
+    cached_input_per_mtok_micros: model.cached_input_per_mtok_micros,
+    capabilities: model.capabilities,
+    context_tokens: model.context_tokens,
+    description: model.description,
+    display_name: model.display_name,
+    input_per_mtok_micros: model.input_per_mtok_micros,
+    max_output_tokens: model.max_output_tokens,
+    no_training_supported: model.no_training_supported,
+    output_per_mtok_micros: model.output_per_mtok_micros,
+    price_tier: model.price_tier,
+    provider: model.provider,
+    providers: sorted(model.providers),
+    regions: sorted(model.regions),
+    released_at: model.released_at,
+    tags: sorted(model.tags),
+    type: model.type,
+    use_cases: sorted(model.use_cases),
+    web_search_per_query_micros: model.web_search_per_query_micros,
+    zdr_supported: model.zdr_supported,
+  });
+}
 
 interface SyncGatewayModelsOptions {
   fetchImpl?: typeof fetch;
@@ -379,7 +481,11 @@ export async function syncGatewayModels(
             (model) => ({ ...model, gateway: gateway.id })
           )
         );
-        const updated = await store.upsertGatewayModels(rows);
+        const upserted = await store.upsertGatewayModels(rows, {
+          now,
+          syncRunId: run.id,
+        });
+        const updated = upserted.inserted + upserted.changed;
         byGateway[gateway.id] = {
           model_count: rows.length,
           updated_model_count: updated,

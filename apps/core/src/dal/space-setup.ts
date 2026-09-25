@@ -26,13 +26,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   assertSpaceAgentLimit,
   listSpaceMounts,
-  moduleAgentIdsFromSeeds,
+  resolveSpaceResourceSurface,
   type SpaceAgentAccess,
   type SpaceMount,
   type SpaceRecordScope,
   type SpaceResourceSurface,
   type SpaceResourceType,
-  surfaceFromMounts,
 } from "./space-mounts.js";
 
 export interface DesiredSpaceMount {
@@ -65,18 +64,12 @@ export interface SpaceSetupPlan {
  * The level a desired mount is stored with.
  *
  * Module: the database requires one, and `none` — mounted for its pages, closed
- * to the space's engentys — is the safe default. Connection: optional since
- * PLAN-connections-ux.md B1, and an omitted one stays NULL, which means "this
- * space has not decided" and falls back to the account's own `autonomous_mode`.
- * `none` on an account is the opposite: an explicit "engentys get nothing here".
- * Agent and skill mounts are availability only and carry nothing.
+ * to the space's engentys — is the safe default. Agent, skill and plugin
+ * mounts are availability only and carry nothing.
  */
 function desiredAgentAccess(mount: DesiredSpaceMount): SpaceAgentAccess | null {
   if (mount.resourceType === "module") {
     return mount.agentAccess ?? "none";
-  }
-  if (mount.resourceType === "connection") {
-    return mount.agentAccess ?? null;
   }
   return null;
 }
@@ -445,14 +438,8 @@ export async function applySpaceSetup(
     }
   }
 
-  const mounts = await listSpaceMounts(client, tenantId, spaceId);
   return {
     plan,
-    surface: surfaceFromMounts(
-      spaceId,
-      mounts,
-      new Map(),
-      moduleAgentIdsFromSeeds()
-    ),
+    surface: await resolveSpaceResourceSurface(client, tenantId, spaceId),
   };
 }

@@ -113,7 +113,7 @@ describe("workspace skill discovery Space filter", () => {
   beforeEach(() => {
     localRoot = mkdtempSync(join(tmpdir(), "engenty-skill-ws-"));
     process.env.ENGENTY_WORKSPACE_FS = "local";
-    process.env.ENGENTY_LOCAL_WORKSPACE_ROOT = localRoot;
+    process.env.ENGENTY_SPACES_DIR = localRoot;
 
     writeManagedSkill(
       localRoot,
@@ -147,7 +147,7 @@ describe("workspace skill discovery Space filter", () => {
 
   afterEach(() => {
     delete process.env.ENGENTY_WORKSPACE_FS;
-    delete process.env.ENGENTY_LOCAL_WORKSPACE_ROOT;
+    delete process.env.ENGENTY_SPACES_DIR;
     rmSync(localRoot, { force: true, recursive: true });
   });
 

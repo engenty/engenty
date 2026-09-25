@@ -24,8 +24,6 @@ import "@xyflow/react/dist/style.css";
 // After the library sheet — overrides its hard-coded light chrome.
 import "../workflow-canvas/workflow-canvas.css";
 import { useMemo } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { buildWorkflowDetailPath } from "../agents-workspace/agent-workspace-paths.js";
 import type { StoredGraph } from "../workflow-canvas/graph-model.js";
 import { useWorkflowQuery } from "../workflow-canvas/workflow-queries.js";
 import { routineShapeToCanvas } from "./routine-canvas-model.js";
@@ -50,12 +48,13 @@ export interface RoutineCanvasProps {
   hideActionLink?: boolean;
   locale?: string;
   /**
-   * Where clicking into the workflow goes. The Space agent desk passes this to
-   * open the canvas IN PLACE — a routine lives in its Space, and editing its
-   * workflow must not eject the user into the admin area. Absent, admin surfaces
-   * fall back to the admin workflow page.
+   * Where clicking into the workflow goes. The Space agent desk opens the
+   * canvas IN PLACE — a routine lives in its Space, and editing its workflow
+   * must not eject the user into the /admin/engenty debugging area.
    */
-  onOpenAction?: (workflowId: string) => void;
+  onOpenAction: (workflowId: string) => void;
+  /** Clicking the outcome node opens the destinations dialog. */
+  onOpenOutcomes?: () => void;
   /** Clicking the wake-source node opens the triggers dialog. */
   onOpenTriggers?: () => void;
   /** Omit to draw a bare workflow: steps only, no wake source, no outcome. */
@@ -73,11 +72,11 @@ export function RoutineCanvas({
   hideActionLink = false,
   locale = "en",
   onOpenAction,
+  onOpenOutcomes,
   onOpenTriggers,
   routine,
   workflowId: boundWorkflowId,
 }: RoutineCanvasProps) {
-  const navigate = useNavigate();
   const workflowId = routine?.workflow_id ?? boundWorkflowId ?? "";
   const detail = useWorkflowQuery(workflowId);
 
@@ -164,30 +163,21 @@ export function RoutineCanvas({
           <span className="font-medium text-[10px] text-muted-foreground uppercase tracking-wider">
             Workflow
           </span>
-          {onOpenAction ? (
-            <button
-              className="truncate text-primary text-xs hover:underline"
-              onClick={() => onOpenAction(shape.middle.workflowId)}
-              type="button"
-            >
-              {actionName ?? shape.middle.workflowId}
-              {actionVersion ? ` · v${actionVersion}` : ""}
-            </button>
-          ) : (
-            <Link
-              className="truncate text-primary text-xs hover:underline"
-              to={buildWorkflowDetailPath(shape.middle.workflowId)}
-            >
-              {actionName ?? shape.middle.workflowId}
-              {actionVersion ? ` · v${actionVersion}` : ""}
-            </Link>
-          )}
+          <button
+            className="truncate text-primary text-xs hover:underline"
+            onClick={() => onOpenAction(shape.middle.workflowId)}
+            type="button"
+          >
+            {actionName ?? shape.middle.workflowId}
+            {actionVersion ? ` · v${actionVersion}` : ""}
+          </button>
         </div>
       ) : null}
       <div
         className={cn(
           "engenty-workflow-canvas w-full",
-          onOpenTriggers && "engenty-workflow-canvas--triggers-clickable"
+          onOpenTriggers && "engenty-workflow-canvas--triggers-clickable",
+          onOpenOutcomes && "engenty-workflow-canvas--outcomes-clickable"
         )}
         style={{ height }}
       >
@@ -203,19 +193,18 @@ export function RoutineCanvas({
             nodeTypes={routineNodeTypes}
             onNodeClick={(_event, node) => {
               // A step opens the Action's canvas, the wake source opens the
-              // triggers dialog — each band is its own click target; the
-              // outcome and the pane are none. The host decides WHERE things
-              // open (in place in a Space).
+              // triggers dialog, the outcome opens destinations — each band
+              // is its own click target. The host decides WHERE things open.
               if (node.type === "trigger") {
                 onOpenTriggers?.();
                 return;
               }
+              if (node.type === "outcome") {
+                onOpenOutcomes?.();
+                return;
+              }
               if (node.type === "step" && workflowId) {
-                if (onOpenAction) {
-                  onOpenAction(workflowId);
-                } else {
-                  navigate(buildWorkflowDetailPath(workflowId));
-                }
+                onOpenAction(workflowId);
               }
             }}
             panOnDrag={!compact}

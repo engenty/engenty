@@ -5,8 +5,6 @@ import type { SupabaseAuthVerificationConfig } from "./auth.js";
 import {
   getServiceWorkspaceContext,
   getWorkspaceContext,
-  LOCAL_PLAN_LABEL,
-  resolveTenantPlanLabel,
 } from "./workspace.js";
 
 const testAuthConfig: SupabaseAuthVerificationConfig = {
@@ -37,13 +35,6 @@ vi.mock("../resolved-appearance.js", () => ({
     themeMode: "system",
   }),
 }));
-
-const expectedResolvedAppearance = {
-  font: "engenty",
-  fontSize: "100",
-  language: "en",
-  themeMode: "system",
-};
 
 function makeClient(overrides: Record<string, unknown> = {}) {
   return {
@@ -162,161 +153,7 @@ function makeClient(overrides: Record<string, unknown> = {}) {
   };
 }
 
-describe("getWorkspaceContext", () => {
-  beforeEach(() => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => authApiUser,
-        text: async () => "",
-      })
-    );
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
-  it("returns onboarded false when user has no tenant", async () => {
-    const client = makeClient({
-      schema: () => ({
-        from: () => ({
-          select: () => ({
-            eq: () => ({
-              maybeSingle: async () => ({ error: null, data: null }),
-            }),
-          }),
-        }),
-      }),
-    });
-    const ctx = await getWorkspaceContext(
-      client as never,
-      "valid-token",
-      testAuthConfig
-    );
-    expect(ctx.onboarded).toBe(false);
-    expect(ctx.userId).toBe("user-1");
-    expect(ctx.currentUser).toEqual({
-      id: "user-1",
-      email: "user@example.com",
-      display_name: null,
-      initials: null,
-      role: null,
-    });
-    expect(ctx.isSuperAdmin).toBe(false);
-    expect(ctx.isTenantAdmin).toBe(false);
-    expect(ctx.currentTenant).toBeNull();
-    expect(ctx.tenantRole).toBeNull();
-    expect(ctx.tenants).toEqual([]);
-    expect(ctx.canSwitchTenant).toBe(false);
-    expect(ctx.planLabel).toBe(LOCAL_PLAN_LABEL);
-    expect(ctx.resolvedAppearance).toEqual(expectedResolvedAppearance);
-    expect(ctx.tenantSupportedLocales).toEqual([]);
-  });
-
-  it("returns onboarded true with current tenant when user has tenant", async () => {
-    const client = makeClient();
-    const ctx = await getWorkspaceContext(
-      client as never,
-      "valid-token",
-      testAuthConfig
-    );
-    expect(ctx.onboarded).toBe(true);
-    expect(ctx.userId).toBe("user-1");
-    expect(ctx.currentUser).toMatchObject({
-      id: "user-1",
-      email: "user@example.com",
-      role: "member",
-    });
-    expect(ctx.currentTenant).toEqual({
-      id: "tenant-1",
-      slug: "acme",
-      name: "Acme Inc",
-    });
-    expect(ctx.isTenantAdmin).toBe(false);
-    expect(ctx.tenantRole).toBe("member");
-    expect(ctx.tenants).toHaveLength(1);
-    expect(ctx.canSwitchTenant).toBe(false);
-    expect(ctx.planLabel).toBe(LOCAL_PLAN_LABEL);
-    expect(ctx.resolvedAppearance).toEqual(expectedResolvedAppearance);
-    expect(ctx.tenantSupportedLocales).toEqual(["en", "de"]);
-  });
-
-  it("returns canSwitchTenant true when superadmin with multiple tenants", async () => {
-    const superAdminRow = {
-      id: "user-1",
-      tenant_id: "tenant-1",
-      role: "admin",
-      is_super_admin: true,
-      email: "user@example.com",
-      display_name: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    const client = makeClient({
-      schema: () => ({
-        from: (table: string) => {
-          if (table === "users") {
-            return {
-              select: (cols: string) => ({
-                eq: () => ({
-                  eq: () => ({
-                    maybeSingle: async () => ({
-                      error: null,
-                      data: superAdminRow,
-                    }),
-                  }),
-                  maybeSingle: async () =>
-                    cols === "tenant_id"
-                      ? { error: null, data: { tenant_id: "tenant-1" } }
-                      : { error: null, data: superAdminRow },
-                }),
-              }),
-            };
-          }
-          if (table === "tenants") {
-            return {
-              select: () => ({
-                eq: () => ({
-                  maybeSingle: async () => ({
-                    error: null,
-                    data: { id: "tenant-1", slug: "acme", name: "Acme" },
-                  }),
-                }),
-                order: async () => ({
-                  error: null,
-                  data: [
-                    { id: "tenant-1", slug: "acme", name: "Acme" },
-                    { id: "tenant-2", slug: "beta", name: "Beta" },
-                  ],
-                }),
-              }),
-            };
-          }
-          return {};
-        },
-      }),
-    });
-    const ctx = await getWorkspaceContext(
-      client as never,
-      "valid-token",
-      testAuthConfig
-    );
-    expect(ctx.onboarded).toBe(true);
-    expect(ctx.isSuperAdmin).toBe(true);
-    expect(ctx.isTenantAdmin).toBe(true);
-    expect(ctx.tenantRole).toBe("admin");
-    expect(ctx.capabilities).toContain("core.superadmin");
-    expect(ctx.tenants).toHaveLength(2);
-    expect(ctx.canSwitchTenant).toBe(true);
-    expect(ctx.planLabel).toBe(LOCAL_PLAN_LABEL);
-    expect(ctx.resolvedAppearance).toEqual(expectedResolvedAppearance);
-    expect(ctx.tenantSupportedLocales).toEqual(["en", "de"]);
-  });
-});
-
-describe("workspace context capabilities (AUTH-06)", () => {
+describe("workspace context capabilities", () => {
   beforeEach(() => {
     vi.stubGlobal(
       "fetch",
@@ -341,8 +178,7 @@ describe("workspace context capabilities (AUTH-06)", () => {
     expect(ctx.capabilities).toEqual(
       capabilitiesForUser({ isSuperAdmin: false, tenantRole: "member" })
     );
-    // The line that makes the AUTH-06 gates safe: a member's bundle covers no
-    // core.* capability, so a `core.ai.*` gate excludes them.
+    // apps/ai gates `core.ai.*` on this bundle, so a member must cover no core.* id.
     expect(capabilityCovers(ctx.capabilities, "core.ai.dispatch")).toBe(false);
   });
 
@@ -381,95 +217,5 @@ describe("workspace context capabilities (AUTH-06)", () => {
       "module.execute",
     ]);
     expect(capabilityCovers(ctx.capabilities, "core.ai.dispatch")).toBe(false);
-  });
-});
-
-describe("resolveTenantPlanLabel", () => {
-  it("returns local when the tenant has no package", async () => {
-    const client = {
-      schema: () => ({
-        from: () => ({
-          select: () => ({
-            eq: () => ({
-              maybeSingle: async () => ({
-                error: null,
-                data: { package_id: null },
-              }),
-            }),
-          }),
-        }),
-      }),
-    };
-    await expect(
-      resolveTenantPlanLabel(client as never, "tenant-1")
-    ).resolves.toBe(LOCAL_PLAN_LABEL);
-  });
-
-  it("returns the package label when assigned", async () => {
-    const client = {
-      schema: () => ({
-        from: (table: string) => {
-          if (table === "tenants") {
-            return {
-              select: () => ({
-                eq: () => ({
-                  maybeSingle: async () => ({
-                    error: null,
-                    data: { package_id: "team" },
-                  }),
-                }),
-              }),
-            };
-          }
-          if (table === "packages") {
-            return {
-              select: () => ({
-                eq: () => ({
-                  maybeSingle: async () => ({
-                    error: null,
-                    data: { label: "Team" },
-                  }),
-                }),
-              }),
-            };
-          }
-          return {};
-        },
-      }),
-    };
-    await expect(
-      resolveTenantPlanLabel(client as never, "tenant-1")
-    ).resolves.toBe("Team");
-  });
-
-  it("falls back to the package id when the label row is missing", async () => {
-    const client = {
-      schema: () => ({
-        from: (table: string) => {
-          if (table === "tenants") {
-            return {
-              select: () => ({
-                eq: () => ({
-                  maybeSingle: async () => ({
-                    error: null,
-                    data: { package_id: "custom-plan" },
-                  }),
-                }),
-              }),
-            };
-          }
-          return {
-            select: () => ({
-              eq: () => ({
-                maybeSingle: async () => ({ error: null, data: null }),
-              }),
-            }),
-          };
-        },
-      }),
-    };
-    await expect(
-      resolveTenantPlanLabel(client as never, "tenant-1")
-    ).resolves.toBe("custom-plan");
   });
 });

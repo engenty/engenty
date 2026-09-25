@@ -1,6 +1,6 @@
-// The live view of a user's browser, with takeover (PLAN-user-browser.md
-// §2.5, P3). One WS per open view, authorized by a 60 s ticket the owner
-// minted. Frames and the viewer protocol are Mastra's (`ViewerRegistry`,
+// The live view of one agent's window in a Space's browser, with takeover
+// (PLAN-user-browser.md §2.5, P3). One WS per open view, authorized by a
+// 60 s ticket a Space member minted. Frames and the viewer protocol are Mastra's (`ViewerRegistry`,
 // `handleInputMessage`); what is ours is the door: the seat check before any
 // input reaches the page, the extra messages (`seat`, `navigate`, `tabs`),
 // the tab list pushed to the viewer, and the rule that typed input is never
@@ -16,6 +16,9 @@ import type { Hono } from "hono";
 import type { UpgradeWebSocket } from "hono/ws";
 
 import {
+  type BrowserWindowIdentity,
+  browserWindowKey,
+  ensureBrowserWindow,
   getSeat,
   getUserBrowser,
   releaseUserSeat,
@@ -155,7 +158,7 @@ function parseOwnMessage(raw: string): OwnMessage | null {
  * the browser is not up. Never throws: the strip just keeps what it has.
  */
 async function runTabs(
-  identity: { tenantId: string; userId: string },
+  identity: BrowserWindowIdentity,
   input: { action: TabsMessage["action"]; index?: number; url?: string }
 ): Promise<TabInfo[] | null> {
   try {
@@ -176,8 +179,8 @@ async function runTabs(
   }
 }
 
-function seatStatus(sandboxId: string): string {
-  const seat = getSeat(sandboxId);
+function seatStatus(windowKey: string): string {
+  const seat = getSeat(windowKey);
   return JSON.stringify({
     seat:
       seat.holder === null ? "free" : seat.holder === "user" ? "user" : "agent",
@@ -197,9 +200,14 @@ export function registerBrowserStreamWs(
         c.req.query("ticket") ?? "",
         opts.ticketSecret
       );
-      const identity = ticket
-        ? { tenantId: ticket.tenant_id, userId: ticket.user_id }
+      const identity: BrowserWindowIdentity | null = ticket
+        ? {
+            agentId: ticket.agent_id,
+            spaceId: ticket.space_id,
+            tenantId: ticket.tenant_id,
+          }
         : null;
+      const windowKey = identity ? browserWindowKey(identity) : "";
       const getToolset = () =>
         identity ? getUserBrowser(identity) : undefined;
       // Mastra's registry sends through this object. Wrapping `send` is how a
@@ -246,21 +254,20 @@ export function registerBrowserStreamWs(
               ws.send(data);
             },
           };
-          ws.send(seatStatus(sandboxId));
-          unsubscribeSeat = subscribeSeat(sandboxId, () => {
-            ws.send(seatStatus(sandboxId));
+          ws.send(seatStatus(windowKey));
+          unsubscribeSeat = subscribeSeat(windowKey, () => {
+            ws.send(seatStatus(windowKey));
           });
           try {
             // The registry starts the screencast when the browser reports
             // ready; nothing else launches a session a person merely wants
             // to LOOK at, so connect (waking the container if it sleeps).
-            await registry.addViewer(sandboxId, viewer, getToolset);
-            const browser = getUserBrowser(identity);
+            await registry.addViewer(windowKey, viewer, getToolset);
             try {
-              await browser.ensureReady();
+              await ensureBrowserWindow(identity);
             } catch {
               await startUserBrowser(identity);
-              await getUserBrowser(identity).ensureReady();
+              await ensureBrowserWindow(identity);
             }
             await pushTabs(ws, await runTabs(identity, { action: "list" }));
             tabsTimer = setInterval(() => {
@@ -271,7 +278,7 @@ export function registerBrowserStreamWs(
           } catch (err) {
             logger.warn("browser view attach failed", {
               message: err instanceof Error ? err.message : String(err),
-              sandboxId,
+              windowKey,
             });
             ws.send(
               JSON.stringify({
@@ -290,11 +297,11 @@ export function registerBrowserStreamWs(
           const own = parseOwnMessage(event.data);
           if (own?.type === "seat") {
             if (own.action === "take") {
-              takeUserSeat(sandboxId);
+              takeUserSeat(windowKey);
             } else {
-              releaseUserSeat(sandboxId);
+              releaseUserSeat(windowKey);
             }
-            ws.send(seatStatus(sandboxId));
+            ws.send(seatStatus(windowKey));
             return;
           }
           if (own?.type === "tabs" && own.action === "list") {
@@ -321,14 +328,14 @@ export function registerBrowserStreamWs(
             } catch (err) {
               logger.debug("browser view viewport resize failed", {
                 message: err instanceof Error ? err.message : String(err),
-                sandboxId,
+                windowKey,
               });
             }
             return;
           }
           // Everything below drives the page: only the seat's holder may.
-          if (getSeat(sandboxId).holder !== "user") {
-            ws.send(seatStatus(sandboxId));
+          if (getSeat(windowKey).holder !== "user") {
+            ws.send(seatStatus(windowKey));
             return;
           }
           markUserBrowserUsed(sandboxId);
@@ -360,7 +367,7 @@ export function registerBrowserStreamWs(
             } catch (err) {
               logger.warn("browser view navigate failed", {
                 message: err instanceof Error ? err.message : String(err),
-                sandboxId,
+                windowKey,
               });
             }
             await pushTabs(ws, await runTabs(identity, { action: "list" }));
@@ -368,7 +375,7 @@ export function registerBrowserStreamWs(
           }
           // Mouse and keyboard: Mastra validates and injects. The payload is
           // NOT logged, here or downstream — it may be a password.
-          await handleInputMessage(event.data, getToolset, sandboxId).catch(
+          await handleInputMessage(event.data, getToolset, windowKey).catch(
             () => undefined
           );
         },
@@ -376,7 +383,6 @@ export function registerBrowserStreamWs(
           if (!ticket) {
             return;
           }
-          const sandboxId = ticket.sandbox_id;
           if (tabsTimer) {
             clearInterval(tabsTimer);
             tabsTimer = null;
@@ -385,13 +391,13 @@ export function registerBrowserStreamWs(
           unsubscribeSeat = null;
           if (viewer) {
             await registry
-              .removeViewer(sandboxId, viewer)
+              .removeViewer(windowKey, viewer)
               .catch(() => undefined);
             viewer = null;
           }
           // A view that closes while its person holds the seat would leave
           // every agent refused forever: the seat goes with the window.
-          releaseUserSeat(sandboxId);
+          releaseUserSeat(windowKey);
         },
       };
     })

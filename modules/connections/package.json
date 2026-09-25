@@ -30,6 +30,10 @@
       "types": "./ui/lib/policy.ts",
       "default": "./ui/lib/policy.ts"
     },
+    "./ui/space": {
+      "types": "./ui/hooks/use-connection-space.ts",
+      "default": "./ui/hooks/use-connection-space.ts"
+    },
     "./ui/marketplace": {
       "types": "./ui/components/marketplace/plugin-marketplace-dialog.tsx",
       "default": "./ui/components/marketplace/plugin-marketplace-dialog.tsx"

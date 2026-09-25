@@ -93,7 +93,6 @@ async function runStart(): Promise<void> {
       internalDbUrl: withoutTls(internalHost(credentials.SUPABASE_DB_URL)),
       internalSupabaseUrl: internalHost(credentials.SUPABASE_URL),
       port,
-      sandboxDir: path.join(home, "sandboxes"),
       spacesDir: path.join(home, "spaces"),
     },
     home

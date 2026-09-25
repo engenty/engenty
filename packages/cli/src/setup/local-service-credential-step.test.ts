@@ -4,6 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   ensureLocalCredentialChildEnv,
+  ensureLocalServiceCredential,
   parseEnsureLocalOutput,
   runLocalServiceCredentialStep,
 } from "./local-service-credential-step.js";
@@ -109,6 +110,7 @@ describe("runLocalServiceCredentialStep", () => {
           ok: false,
           output: "✗ SUPABASE_SERVICE_ROLE_KEY is unset",
         }),
+        wait: () => undefined,
         writeSecret: () => {
           throw new Error("must not write");
         },
@@ -119,5 +121,68 @@ describe("runLocalServiceCredentialStep", () => {
     expect(status).toBe("skipped");
     expect(logs.join("\n")).toContain("service-token ensure-local");
     expect(logs.join("\n")).toContain("SUPABASE_SERVICE_ROLE_KEY is unset");
+  });
+
+  it("rides out a stack that is still restarting after a reset", () => {
+    const root = workspace("SUPABASE_URL=http://127.0.0.1:54321\n");
+    const outputs = [
+      { ok: false, output: "fetch failed: ECONNREFUSED" },
+      { ok: false, output: "PGRST002 schema cache not ready" },
+      {
+        ok: true,
+        output:
+          '{"credentialId":"c-2","reason":"unknown","secret":"c-2.s","status":"minted"}',
+      },
+    ];
+    const written: string[] = [];
+    const status = runLocalServiceCredentialStep({
+      deps: {
+        run: () => outputs.shift() ?? { ok: false, output: "" },
+        wait: () => undefined,
+        writeSecret: (value) => written.push(value),
+      },
+      log: () => undefined,
+      workspaceRoot: root,
+    });
+    expect(status).toBe("minted");
+    expect(written).toEqual(["c-2.s"]);
+  });
+});
+
+describe("ensureLocalServiceCredential", () => {
+  it("runs the step when the root .env.local exists", () => {
+    const root = workspace("SUPABASE_URL=http://127.0.0.1:54321\n");
+    const written: string[] = [];
+    const status = ensureLocalServiceCredential({
+      deps: {
+        run: () => ({
+          ok: true,
+          output:
+            '{"credentialId":"c3","reason":"unknown","secret":"c3.engsvc_new","status":"minted"}',
+        }),
+        writeSecret: (value) => written.push(value),
+      },
+      log: () => undefined,
+      workspaceRoot: root,
+    });
+    expect(status).toBe("minted");
+    expect(written).toEqual(["c3.engsvc_new"]);
+  });
+
+  it("does nothing without a root .env.local", () => {
+    const root = workspace("");
+    fs.rmSync(path.join(root, ".env.local"));
+    const status = ensureLocalServiceCredential({
+      deps: {
+        run: () => {
+          throw new Error("must not run");
+        },
+        writeSecret: () => {
+          throw new Error("must not write");
+        },
+      },
+      workspaceRoot: root,
+    });
+    expect(status).toBe("no-env-file");
   });
 });

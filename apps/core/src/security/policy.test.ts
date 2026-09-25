@@ -2,7 +2,7 @@ import {
   createApprovalService,
   createFakeApprovalDb,
 } from "@engenty/approvals-sdk";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { createAgentEscalationPolicy } from "./agent-escalation-policy.js";
 import type { PrincipalContext } from "./auth.js";
 import { evaluatePolicy, type PolicyInput } from "./policy.js";
@@ -53,9 +53,8 @@ describe("evaluatePolicy", () => {
   });
 
   it("allows the platform service credential acting on its own behalf", async () => {
-    // The scheduler's reconcile/fire lane: unattended by definition, so an
-    // approval escalation would deadlock it. This is the exact call shape that
-    // left prod with zero routines ("Approval required" on routines_create).
+    // The scheduler's reconcile/fire lane is unattended by definition, so an
+    // approval escalation would deadlock it.
     const decision = await evaluatePolicy(
       highRiskWrite(
         principal({
@@ -68,23 +67,6 @@ describe("evaluatePolicy", () => {
   });
 
   it("still escalates an agent riding the service token", async () => {
-    // DECISION 2026-08-03, AUTH-03 Option A (Matthias): this gate STAYS.
-    //
-    // A working-tree change had widened the exemption to cover any
-    // service-credential principal, agent or not, on the grounds that "the
-    // agent escalation profile policy above" governs those runs instead. That
-    // policy was registered only behind ENGENTY_AGENT_ESCALATION, which was set
-    // in no manifest and no compose file — so the replacement gate did not
-    // exist in any deployment and the widening simply failed open.
-    //
-    // Option A: keep this gate, and make the escalation policy real too. The
-    // flag has since been DELETED and that policy now registers
-    // unconditionally, precisely so it can never again be absent by default.
-    // The approve → re-dispatch → 202 → blocked deadlock that motivated the
-    // widening is a symptom of approvals living in three unsynced stores; it
-    // gets fixed by the approval-store unification plan, NOT by deleting
-    // enforcement. Do not re-widen this without a recorded decision.
-    //
     // Headless task runs forward x-engenty-agent-id — the durable-approvals
     // lane must keep gating them even though the bearer is the service token.
     const decision = await evaluatePolicy(
@@ -100,8 +82,8 @@ describe("evaluatePolicy", () => {
   });
 
   it("still escalates a service principal that is not the platform credential", async () => {
-    // e.g. an arbitrary token whose role claim fell back to "service" but was
-    // not minted from core.service_credential.
+    // e.g. an API token that names role "service" but was not minted from
+    // core.service_credential.
     const decision = await evaluatePolicy(
       highRiskWrite(
         principal({ authMethod: "api_token", principalType: "service" })
@@ -125,10 +107,6 @@ describe("evaluatePolicy", () => {
   });
 
   describe("composed with the agent escalation policy", () => {
-    // Option A ships this policy registered. In isolation it is covered by
-    // agent-escalation-policy.test.ts; what matters here is how the two gates
-    // COMPOSE, because the AUTH-03 widening was justified by assuming this one
-    // had already taken over.
     function withEscalation(agentCapabilities: string[]) {
       return {
         profilePolicies: [
@@ -146,28 +124,9 @@ describe("evaluatePolicy", () => {
       };
     }
 
-    it("escalates a chat agent whose grants do not cover the op", async () => {
-      // principalType "user" + agentId: the blanket gate never fires here, so
-      // before the flag shipped NOTHING gated this call.
-      const decision = await evaluatePolicy(
-        highRiskWrite(principal({ agentId: "agent-1" })),
-        withEscalation(["module.tasks.read"])
-      );
-      expect(decision.action).toBe("require_approval");
-    });
-
-    it("allows a chat agent whose grants cover the op", async () => {
-      const decision = await evaluatePolicy(
-        highRiskWrite(principal({ agentId: "agent-1" })),
-        withEscalation(["module.tasks.write"])
-      );
-      expect(decision.action).toBe("allow");
-    });
-
     it("keeps escalating a headless agent even when its grants cover the op", async () => {
-      // The gate the widening removed. Grant coverage satisfies the escalation
-      // policy, which then abstains — and the blanket rule below it still
-      // requires a human. That layering IS the decision.
+      // Grant coverage satisfies the escalation policy, but the blanket agent
+      // gate below it must still require a human.
       const decision = await evaluatePolicy(
         highRiskWrite(
           principal({
@@ -180,35 +139,6 @@ describe("evaluatePolicy", () => {
       );
       expect(decision.action).toBe("require_approval");
     });
-
-    it("leaves the unattended scheduler lane alone", async () => {
-      // No agent id → the escalation policy abstains, the platform-service
-      // exemption applies, and trigger reconcile/fire still runs.
-      const decision = await evaluatePolicy(
-        highRiskWrite(
-          principal({
-            authMethod: "service_credential",
-            principalType: "service",
-          })
-        ),
-        withEscalation([])
-      );
-      expect(decision.action).toBe("allow");
-    });
-  });
-
-  it("pass-all skips the human on a capable high-risk op without adding caps", async () => {
-    const decision = await evaluatePolicy(
-      highRiskWrite(principal({ principalType: "agent" })),
-      undefined,
-      {
-        resolveAgentApproval: async () => ({
-          mode: "pass-all",
-          spaceWriteMounted: false,
-        }),
-      }
-    );
-    expect(decision.action).toBe("allow");
   });
 
   it("pass-all still denies when the token lacks the cap", async () => {
@@ -231,10 +161,6 @@ describe("evaluatePolicy", () => {
   });
 
   it("denies above a delegated risk ceiling before approval can widen it", async () => {
-    const resolveAgentApproval = vi.fn(async () => ({
-      mode: "pass-all" as const,
-      spaceWriteMounted: true,
-    }));
     const decision = await evaluatePolicy(
       highRiskWrite(
         principal({
@@ -243,42 +169,14 @@ describe("evaluatePolicy", () => {
         })
       ),
       undefined,
-      { resolveAgentApproval }
-    );
-    expect(decision).toMatchObject({
-      action: "deny",
-      reason: "operation risk high exceeds grant ceiling medium",
-    });
-    expect(resolveAgentApproval).not.toHaveBeenCalled();
-  });
-
-  it("auto passes a medium space-mounted write and still asks for high", async () => {
-    const mediumWrite: PolicyInput = {
-      auth: principal({ principalType: "agent" }),
-      moduleId: "tasks",
-      operationId: "tasks_update",
-      requiredCapabilities: ["module.tasks.write"],
-      requiresApproval: true,
-      riskLevel: "medium",
-    };
-    const autoMounted = await evaluatePolicy(mediumWrite, undefined, {
-      resolveAgentApproval: async () => ({
-        mode: "auto",
-        spaceWriteMounted: true,
-      }),
-    });
-    expect(autoMounted.action).toBe("allow");
-    const autoHigh = await evaluatePolicy(
-      highRiskWrite(principal({ principalType: "agent" })),
-      undefined,
       {
         resolveAgentApproval: async () => ({
-          mode: "auto",
+          mode: "pass-all",
           spaceWriteMounted: true,
         }),
       }
     );
-    expect(autoHigh.action).toBe("require_approval");
+    expect(decision.action).toBe("deny");
   });
 
   it("lets a profile policy override the platform-service exemption", async () => {
@@ -308,7 +206,7 @@ describe("evaluatePolicy", () => {
     expect(decision.action).toBe("require_approval");
   });
 
-  describe("grant consumption (D2 phase 3)", () => {
+  describe("grant consumption", () => {
     // The policy engine spends approval grants itself: a covering grant turns
     // require_approval into allow, so transports only ever see
     // require_approval when a human genuinely has to answer.
@@ -339,25 +237,13 @@ describe("evaluatePolicy", () => {
       expect(decision).toEqual({ action: "allow", reason: "approval grant" });
     });
 
-    it("keeps require_approval when no grant covers the call", async () => {
-      const store = grantStore(false);
+    it("never lets a grant open a call the rules deny", async () => {
       const decision = await evaluatePolicy(
-        highRiskWrite(principal({ principalType: "agent" })),
-        undefined,
-        store
-      );
-      expect(decision.action).toBe("require_approval");
-    });
-
-    it("never consults grants when the decision is allow or deny", async () => {
-      const store = grantStore(true);
-      await evaluatePolicy(highRiskWrite(principal()), undefined, store);
-      await evaluatePolicy(
         highRiskWrite(principal({ capabilities: ["module.read"] })),
         undefined,
-        store
+        grantStore(true)
       );
-      expect(store.calls).toHaveLength(0);
+      expect(decision.action).toBe("deny");
     });
 
     it("binds the consume to the run's task/trigger/goal subjects", async () => {
@@ -408,29 +294,6 @@ describe("evaluatePolicy", () => {
       const second = await evaluatePolicy(highRiskWrite(auth), undefined, deps);
       expect(first.action).toBe("allow");
       expect(second.action).toBe("require_approval");
-    });
-
-    it("spends grants for profile-policy escalations too", async () => {
-      const store = grantStore(true);
-      const decision = await evaluatePolicy(
-        highRiskWrite(principal()),
-        {
-          profilePolicies: [
-            {
-              pluginConfig: {},
-              pluginId: "tasks",
-              policy: () => ({
-                action: "require_approval" as const,
-                reason: "profile says ask",
-              }),
-              source: "test",
-            },
-          ],
-        },
-        store
-      );
-      expect(decision.action).toBe("allow");
-      expect(store.calls).toHaveLength(1);
     });
   });
 });

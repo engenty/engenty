@@ -357,6 +357,9 @@ export function RoutineForm({
             <p className="text-muted-foreground text-xs">
               {t("routines.form.outcomeHint")}
             </p>
+            <p className="text-muted-foreground text-xs">
+              {t("routines.form.destinationsHint")}
+            </p>
           </div>
 
           <div className="space-y-1.5">

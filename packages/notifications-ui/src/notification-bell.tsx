@@ -1,8 +1,8 @@
-// The bell, in the app rail just above the personal avatar: how many
-// Freigaben + Fehler are still open. Same list the inbox tabs count, so the
-// numbers add up. Updates are FYI and stay off the badge. Mounts the
-// client-channel watcher and the realtime subscription, so both run exactly
-// once per shell.
+// The bell, in the app rail just above the personal avatar: how many open
+// records need attention (Wichtig — `isAttention`), seen or not. Ordinary
+// updates are FYI and stay off the badge. Mounts the client-channel watcher,
+// the realtime subscription and the `openNotificationInbox` listener, so each
+// runs exactly once per shell.
 
 import { useAppBarChromeContext } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
@@ -22,12 +22,13 @@ import { Bell } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useClientChannels } from "./client-channels.js";
+import { type InboxOpenRequest, useInboxOpenRequests } from "./inbox-open.js";
 import {
   NotificationInboxPanel,
   notificationInboxPopoverClassName,
 } from "./notification-inbox-panel.js";
 import { spaceKeyFromPathname } from "./notification-paths.js";
-import { useNeedsInputCount } from "./queries.js";
+import { useAttentionCount } from "./queries.js";
 import { useNotificationsRealtime } from "./realtime.js";
 
 export { NOTIFICATIONS_PATH } from "./notification-paths.js";
@@ -106,24 +107,40 @@ export function NotificationBell({
   const { pathname } = useLocation();
   const { extended, tooltipSide } = useAppBarChromeContext();
   const [open, setOpen] = useState(false);
+  // Set while the panel was opened for a lane / one agent; a plain click on
+  // the bell opens it on the defaults again.
+  const [request, setRequest] = useState<InboxOpenRequest | null>(null);
+  const [requestSeq, setRequestSeq] = useState(0);
   useNotificationsRealtime(currentTenant?.id ?? null);
   useClientChannels();
-  // Freigaben + Fehler still open in this scope. Same list the inbox tabs
-  // badge, so the numbers add up. Updates stay off every badge. Read the
-  // URL — the rail sits outside the space route's params.
+  useInboxOpenRequests((next) => {
+    setRequest(next);
+    setRequestSeq((seq) => seq + 1);
+    setOpen(true);
+  });
+  const onOpenChange = (next: boolean) => {
+    setOpen(next);
+    if (!next) {
+      setRequest(null);
+    }
+  };
+  // Read the URL — the rail sits outside the space route's params.
   const inSpace = spaceKeyFromPathname(pathname) !== null;
-  const count = useNeedsInputCount(inSpace ? "space" : "tenant");
+  const count = useAttentionCount(inSpace ? "space" : "tenant");
 
   const panel = (
     <NotificationInboxPanel
+      initial={request}
       inSpace={inSpace}
-      onNavigate={() => setOpen(false)}
+      // A new request re-reads its lane and actor even while open.
+      key={requestSeq}
+      onNavigate={() => onOpenChange(false)}
     />
   );
 
   if (surface === "drawer") {
     return (
-      <Sheet onOpenChange={setOpen} open={open}>
+      <Sheet onOpenChange={onOpenChange} open={open}>
         <SheetTrigger asChild>
           <span
             className={cn(
@@ -145,7 +162,7 @@ export function NotificationBell({
     );
   }
   return (
-    <Popover onOpenChange={setOpen} open={open}>
+    <Popover onOpenChange={onOpenChange} open={open}>
       <PopoverTrigger asChild>
         <span
           className={cn(

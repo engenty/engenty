@@ -162,7 +162,27 @@ export interface RoutineDefinition {
   workflow: string;
 }
 
-/** Registry payload for module AI registration. */
+/**
+ * A destination a routine fire can deliver to. Registered like module
+ * workflows — not a closed enum. Built-ins (`desk.chat`, …) live in
+ * apps/ai; a plugin sets `operationId` and core invokes that operation
+ * with `{ config, payload, envelope }`.
+ */
+export type JsonSchema = Record<string, unknown>;
+
+export interface OutcomeProviderDefinition {
+  /** Standing settings (address, webhook URL, target agent). */
+  configSchema: JsonSchema;
+  description: string;
+  id: string;
+  label: string;
+  moduleId: string;
+  /** Plugin providers deliver by invoking this gateway operation. */
+  operationId?: string;
+  /** What the run passes, beyond the shared envelope. */
+  payloadSchema: JsonSchema;
+}
+
 /**
  * A job a module needs a model for, declared alongside its tools and agents.
  *
@@ -192,6 +212,7 @@ export interface AiRegistration {
   instruction_documents?: InstructionDocumentDefinition[];
   model_roles?: ModelRoleDefinition[];
   module_id: string;
+  outcome_providers?: OutcomeProviderDefinition[];
   routines?: RoutineDefinition[];
   skills?: SkillDefinition[];
   triggers?: TriggerDefinition[];

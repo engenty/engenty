@@ -6,7 +6,6 @@ import {
   type ModelBindings,
   resolveChatModelId,
   resolvePurposeModelId,
-  resolveSafeguardModelId,
 } from "@engenty/ai-core";
 import type { AiGatewayModelStore } from "../../gateway-models.js";
 import { createContextTokensResolver } from "../registry/history-token-budget.js";
@@ -60,8 +59,7 @@ export async function resolveRuntimeModelConfig(
       );
     }
   } catch {
-    // Unbound roles fall back to the authored defaults, which is what the seed
-    // would have written anyway — never fail a run over a binding read.
+    // A failed read resolves from the process snapshot of the same table.
     bindings = undefined;
   }
   let allowedEfforts: readonly string[] | null = null;
@@ -83,14 +81,9 @@ export async function resolveRuntimeModelConfig(
     }
   }
   // `modelIdOverride` is the user's explicit per-conversation model pick
-  // (forwardedProps.engenty.model_id). It intentionally applies to BOTH tiers:
-  // the user-facing copilot is a routing-tier supervisor (subAgents > 0), so a
-  // chat-only override would leave the agent the user is actually talking to on
-  // the tenant default — ignoring their pick. The known downside is that
-  // background routing calls (thread titles, tool search) also inherit the
-  // override; isolating those from the user-facing override is a Phase-1 concern
-  // once purpose resolution is unified. Do not drop the override from routing
-  // without that separation, or the copilot stops honoring the model picker.
+  // (forwardedProps.engenty.model_id). It applies to the chat model only:
+  // background jobs (fast text, classifier) resolve their own roles and never
+  // inherit a conversation's pick.
   // The effort pick becomes a model by way of the graded role binding, clamped
   // to what the plan grants: a tenant on a low-only plan who asks for high gets
   // low and an answer rather than an error. An explicit `model_id` still wins —
@@ -137,65 +130,25 @@ export async function resolveRuntimeModelConfig(
       purpose: "chat",
       tenantDefault: tenantChatModel,
     }),
-    routingModelId: resolveChatModelId({
+    // Background text jobs (observational memory, titles, summaries): no
+    // tools, no per-conversation override.
+    fastTextModelId: resolvePurposeModelId({
       allowedModels,
       allowedProviders,
       bindings,
       devMode,
-      override: sessionModelId,
-      purpose: "routing",
-      tenantDefault:
-        tenantConfig?.routingModelId?.trim() || tenantChatModel || null,
+      purpose: "fast_text",
+      tenantDefault: tenantConfig?.fastTextModelId?.trim() || null,
     }),
-    // Work-coordinator tier: same stored knob as routing (coordinator_model_id,
-    // surfaced via tenantConfig.routingModelId) but a CHAT-grade role binding —
-    // resolving the coordinator through the "router" binding once put a plan
-    // run on the small routing model, which capped out mid-document.
-    coordinatorModelId: resolveChatModelId({
+    // Pick-one-of-N questions, guardrails included. A model ref: the
+    // classifier client decides whether it speaks Jev or structured output.
+    classifierModelId: resolvePurposeModelId({
       allowedModels,
       allowedProviders,
       bindings,
       devMode,
-      override: sessionModelId,
-      purpose: "coordinator",
-      tenantDefault:
-        tenantConfig?.routingModelId?.trim() || tenantChatModel || null,
-    }),
-    // Observational memory: its own role, not the router's. Not conversational
-    // either — the observer/reflector run in the background, so the
-    // per-conversation override does not apply.
-    memoryModelId: resolvePurposeModelId({
-      allowedModels,
-      allowedProviders,
-      bindings,
-      devMode,
-      purpose: "memory",
-      tenantDefault: tenantConfig?.memoryModelId?.trim() || null,
-    }),
-    // Research / planning tiers are agent-purpose tiers, not conversational — the
-    // per-conversation override does not apply to them.
-    researchModelId: resolvePurposeModelId({
-      allowedModels,
-      allowedProviders,
-      bindings,
-      devMode,
-      purpose: "research",
-      tenantDefault: tenantConfig?.researchModelId?.trim() || null,
-    }),
-    planningCodingModelId: resolvePurposeModelId({
-      allowedModels,
-      allowedProviders,
-      bindings,
-      devMode,
-      purpose: "planning_coding",
-      tenantDefault: tenantConfig?.planningCodingModelId?.trim() || null,
-    }),
-    safeguardModelId: resolveSafeguardModelId({
-      allowedModels,
-      allowedProviders,
-      bindings,
-      devMode,
-      tenantDefault: tenantConfig?.safeguardModelId?.trim() || null,
+      purpose: "classifier",
+      tenantDefault: tenantConfig?.classifierModelId?.trim() || null,
     }),
     // The catalog's window for whichever model an agent lands on — read at
     // assembly per agent, since pins and tiers are decided there.

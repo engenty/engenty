@@ -1,5 +1,10 @@
 // Service assembly: source registry, per-model embedder cache, lazy
 // source-visibility registration (awaited before any read/write via ready()).
+//
+// One embedding model for every source: the host resolves it (the platform
+// `embedding` role binding) and the service asks per call, so a rebind takes
+// effect without a restart. Vectors from different models are not comparable,
+// which is why no source can pick its own.
 
 import type {
   SearchEmbedder,
@@ -12,7 +17,6 @@ import type {
   RetrievalService,
   RetrievalSourceRegistration,
 } from "./contracts.js";
-import { DEFAULT_RETRIEVAL_EMBEDDING_MODEL } from "./contracts.js";
 import { createAiSdkEmbedder } from "./embedder-ai.js";
 import type { IngestDeps } from "./ingest.js";
 import { ingestById } from "./ingest.js";
@@ -24,12 +28,20 @@ import { createRetrievalStore, type RetrievalDbSource } from "./store.js";
 export interface CreateRetrievalServiceOptions {
   /** Test seam: swap the embedder factory (unit tests inject deterministic vectors). */
   createEmbedder?: (modelId: string) => SearchEmbedder;
+  /**
+   * The model every source indexes and queries with — the platform
+   * `embedding` role binding. Called per ingest/backfill/query/status; the
+   * host caches.
+   */
+  resolveEmbeddingModel: () => Promise<string>;
   /** A plain client serves both lanes (tests/scripts); the handle pair runs
    * tenant work on the engenty_server lane (Phase A seam). */
   supabase: RetrievalDbSource;
 }
 
 export interface RetrievalServiceWithProviders extends RetrievalService {
+  /** The embedding model currently in effect (admin display). */
+  embeddingModel(): Promise<string>;
   /** Manufactured provider for a registered source (for registry wiring). */
   getProvider(
     source_type: string
@@ -53,7 +65,16 @@ export function createRetrievalService(
     options.createEmbedder ??
     ((modelId: string) => createAiSdkEmbedder({ modelId }));
 
-  function embedderFor(modelId: string): SearchEmbedder {
+  async function embeddingModel(): Promise<string> {
+    const modelId = (await options.resolveEmbeddingModel()).trim();
+    if (!modelId) {
+      throw new Error("No embedding model is bound to the embedding role");
+    }
+    return modelId;
+  }
+
+  async function resolveEmbedder(): Promise<SearchEmbedder> {
+    const modelId = await embeddingModel();
     const existing = embedders.get(modelId);
     if (existing) {
       return existing;
@@ -63,42 +84,14 @@ export function createRetrievalService(
     return created;
   }
 
-  async function resolveEmbedder(
-    source: RetrievalSourceRegistration,
-    tenantId: string
-  ): Promise<SearchEmbedder> {
-    const model = source.embedding?.resolveModel
-      ? await source.embedding.resolveModel(tenantId)
-      : (source.embedding?.model ?? DEFAULT_RETRIEVAL_EMBEDDING_MODEL);
-    return embedderFor(model.trim() || DEFAULT_RETRIEVAL_EMBEDDING_MODEL);
-  }
-
-  // Multi-source queries embed once. When targeted sources resolve to
-  // different models the FIRST source's model wins and mismatched-model
-  // chunks score lexical-only in the RPC (see query.ts model honesty note).
-  async function resolveEmbedderForSources(
-    targeted: RetrievalSourceRegistration[],
-    tenantId: string
-  ): Promise<SearchEmbedder> {
-    const first = targeted[0];
-    if (!first) {
-      return embedderFor(DEFAULT_RETRIEVAL_EMBEDDING_MODEL);
-    }
-    return resolveEmbedder(first, tenantId);
-  }
-
   const queryDeps: QueryDeps = {
-    resolveEmbedderForSources,
+    resolveEmbedder,
     sources,
     supabase,
   };
 
   function ingestDepsFor(source: RetrievalSourceRegistration): IngestDeps {
-    return {
-      resolveEmbedder: (tenantId) => resolveEmbedder(source, tenantId),
-      source,
-      store,
-    };
+    return { resolveEmbedder, source, store };
   }
 
   async function ready(): Promise<void> {
@@ -121,6 +114,7 @@ export function createRetrievalService(
       await ready();
       return runBackfill(ingestDepsFor(requireSource(sourceType)), input);
     },
+    embeddingModel,
     getProvider: (sourceType) => providers.get(sourceType) ?? null,
     ingest: async (input) => {
       await ready();
@@ -181,7 +175,10 @@ export function createRetrievalService(
           total_count: 0,
         };
       }
-      const { status } = await scanIndexState(source, store, tenantId);
+      const embedder = await resolveEmbedder();
+      const { status } = await scanIndexState(source, store, tenantId, {
+        embeddingModel: embedder.modelId,
+      });
       return status;
     },
   };

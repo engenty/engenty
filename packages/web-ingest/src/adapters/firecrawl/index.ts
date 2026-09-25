@@ -166,6 +166,7 @@ export class FirecrawlAdapter implements WebIngestAdapter {
       finalUrl,
       await resolveSuggestedPageTitle({
         html: rawHtml,
+        llmModel: options?.llmModel,
         markdown: md,
         pageUrl: finalUrl,
       }),

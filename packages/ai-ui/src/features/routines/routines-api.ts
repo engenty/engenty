@@ -18,6 +18,41 @@ export type RoutineReportMode = "quiet" | "desk_card" | "ask";
 
 export type RoutineTriggerKind = "schedule" | "event" | "manual" | "agent";
 
+/** When a destination fires: every settle, or only when the run calls it. */
+export type RoutineOutcomeMode = "always" | "agent";
+
+/** One destination of a routine — a row in `ai.routine_outcomes`. */
+export interface RoutineOutcomeDto {
+  config: Record<string, unknown>;
+  created_at: string;
+  enabled: boolean;
+  id: string;
+  mode: RoutineOutcomeMode;
+  provider_id: string;
+  routine_id: string;
+  tenant_id: string;
+  updated_at: string;
+}
+
+/** One destination, as the API writes it. */
+export interface RoutineOutcomeInput {
+  config?: Record<string, unknown>;
+  enabled?: boolean;
+  mode: RoutineOutcomeMode;
+  provider_id: string;
+}
+
+/** A registered destination from `GET /ai/v1/outcome-providers`. */
+export interface OutcomeProviderDto {
+  config_schema: Record<string, unknown>;
+  description: string;
+  id: string;
+  label: string;
+  module_id: string;
+  operation_id?: string;
+  payload_schema: Record<string, unknown>;
+}
+
 /** One wake source of a routine. */
 export interface RoutineTriggerDto {
   created_at: string;
@@ -67,6 +102,11 @@ export interface RoutineDto {
    * Action that needs a typed result already has its own output schema.
    */
   outcome: string | null;
+  /**
+   * Destinations a fire delivers to. Empty keeps the legacy `report` desk
+   * post; any rows replace that post. `report: ask` still holds the run.
+   */
+  outcomes: RoutineOutcomeDto[];
   /**
    * The prompt this routine runs, when it is a prompt routine — a one-node
    * workflow the server keeps in step with this text. Null for a workflow
@@ -122,6 +162,11 @@ export interface CustomRoutineInput {
   name?: string;
   /** The routine's promise, in prose. */
   outcome?: string | null;
+  /**
+   * Destinations. On create, omitted keeps the legacy desk post. On PATCH,
+   * present replaces the list (including `[]`); omitted leaves bindings.
+   */
+  outcomes?: RoutineOutcomeInput[];
   /**
    * A prompt instead of a workflow: the server materializes and publishes a
    * one-node workflow for it. Create takes one of `prompt` / `workflow_id`;
@@ -206,7 +251,7 @@ export async function listRoutineRuns(
 }
 
 /** The wire body — the input's set fields, verbatim. */
-function toRoutinePayload(body: Partial<CustomRoutineInput>) {
+export function toRoutinePayload(body: Partial<CustomRoutineInput>) {
   return {
     ...(body.workflow_input === undefined
       ? {}
@@ -221,6 +266,8 @@ function toRoutinePayload(body: Partial<CustomRoutineInput>) {
     ...(body.enabled === undefined ? {} : { enabled: body.enabled }),
     ...(body.name === undefined ? {} : { name: body.name }),
     ...(body.outcome === undefined ? {} : { outcome: body.outcome }),
+    // Present on PATCH replaces the list, including []. Omitted leaves rows.
+    ...(body.outcomes === undefined ? {} : { outcomes: body.outcomes }),
     ...(body.prompt === undefined ? {} : { prompt: body.prompt }),
     ...(body.quiet_hours === undefined
       ? {}
@@ -325,6 +372,66 @@ export async function deleteRoutineTrigger(
 ): Promise<{ routine: RoutineDto }> {
   return requestAiServiceJson<{ routine: RoutineDto }>(
     `/ai/v1/routines/${encodeURIComponent(routineId)}/triggers/${encodeURIComponent(triggerId)}`,
+    { method: "DELETE" }
+  );
+}
+
+export async function listOutcomeProviders(
+  signal?: AbortSignal
+): Promise<{ providers: OutcomeProviderDto[] }> {
+  return requestAiServiceJson<{ providers: OutcomeProviderDto[] }>(
+    "/ai/v1/outcome-providers",
+    { signal }
+  );
+}
+
+/** The wire body for one destination — set fields only. */
+function toOutcomePayload(body: Partial<RoutineOutcomeInput>) {
+  return {
+    ...(body.config === undefined ? {} : { config: body.config }),
+    ...(body.enabled === undefined ? {} : { enabled: body.enabled }),
+    ...(body.mode === undefined ? {} : { mode: body.mode }),
+    ...(body.provider_id === undefined
+      ? {}
+      : { provider_id: body.provider_id }),
+  };
+}
+
+export async function createRoutineOutcome(
+  routineId: string,
+  body: RoutineOutcomeInput
+): Promise<{ routine: RoutineDto }> {
+  return requestAiServiceJson<{ routine: RoutineDto }>(
+    `/ai/v1/routines/${encodeURIComponent(routineId)}/outcomes`,
+    {
+      body: JSON.stringify(toOutcomePayload(body)),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    }
+  );
+}
+
+export async function updateRoutineOutcome(
+  routineId: string,
+  outcomeId: string,
+  body: Partial<RoutineOutcomeInput>
+): Promise<{ routine: RoutineDto }> {
+  return requestAiServiceJson<{ routine: RoutineDto }>(
+    `/ai/v1/routines/${encodeURIComponent(routineId)}/outcomes/${encodeURIComponent(outcomeId)}`,
+    {
+      body: JSON.stringify(toOutcomePayload(body)),
+      headers: { "content-type": "application/json" },
+      method: "PATCH",
+    }
+  );
+}
+
+export async function deleteRoutineOutcome(
+  routineId: string,
+  outcomeId: string
+): Promise<{ routine: RoutineDto }> {
+  return requestAiServiceJson<{ routine: RoutineDto }>(
+    `/ai/v1/routines/${encodeURIComponent(routineId)}/outcomes/${encodeURIComponent(outcomeId)}`,
     { method: "DELETE" }
   );
 }

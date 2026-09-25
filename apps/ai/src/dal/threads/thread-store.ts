@@ -2,6 +2,7 @@ import { sessionMatchesHostKey } from "../../ai/sessions/thread-host-key.js";
 import { APP_RELEASE_MARKER_KEY } from "../../ai/threads/app-release-marker.js";
 import { type DbSource, normalizeDbSource } from "../../infra/tenant-db.js";
 import { scrubHarmonyLeakFromParts } from "./harmony-leak-scrub.js";
+import { stripNul } from "./strip-nul.js";
 import type {
   AgentSessionStatus,
   ThreadAgentRole,
@@ -429,8 +430,17 @@ export function createThreadStore(source: DbSource) {
     },
 
     async listMessagesOrdered(params: {
-      after?: Date;
+      /**
+       * A string is passed to Postgres as is — a row's own `created_at` read
+       * back from the wire keeps its microseconds, which a `Date` would cut.
+       */
+      after?: Date | string;
       afterExclusive?: boolean;
+      /**
+       * With `after`: the id of the row at that instant — rows strictly after
+       * (created_at, id), the mirror of `beforeId`.
+       */
+      afterId?: string;
       before?: Date;
       beforeExclusive?: boolean;
       /**
@@ -462,10 +472,19 @@ export function createThreadStore(source: DbSource) {
           .order("created_at", { ascending })
           .order("id", { ascending });
         if (params.after) {
-          const iso = params.after.toISOString();
-          query = params.afterExclusive
-            ? query.gt("created_at", iso)
-            : query.gte("created_at", iso);
+          const iso =
+            typeof params.after === "string"
+              ? params.after
+              : params.after.toISOString();
+          if (params.afterId) {
+            query = query.or(
+              `created_at.gt.${iso},and(created_at.eq.${iso},id.gt.${params.afterId})`
+            );
+          } else {
+            query = params.afterExclusive
+              ? query.gt("created_at", iso)
+              : query.gte("created_at", iso);
+          }
         }
         if (params.before) {
           const iso = params.before.toISOString();
@@ -540,12 +559,13 @@ export function createThreadStore(source: DbSource) {
         role: input.role,
         // Write-side Harmony scrub: a leaked raw channel must never become
         // durable history (it re-enters the next prompt and compounds).
-        parts:
+        parts: stripNul(
           input.role === "assistant"
             ? scrubHarmonyLeakFromParts(input.parts)
-            : input.parts,
+            : input.parts
+        ),
         author_user_id: input.authorUserId ?? null,
-        metadata: input.metadata ?? {},
+        metadata: stripNul(input.metadata ?? {}),
         ...(input.createdAt ? { created_at: input.createdAt } : {}),
       };
 
@@ -631,7 +651,7 @@ export function createThreadStore(source: DbSource) {
         .from("thread_message")
         // Only assistant rows are ever patched through here (turn-transcript
         // teardown, tool-result resolution), so the Harmony scrub applies.
-        .update({ parts: scrubHarmonyLeakFromParts(input.parts) })
+        .update({ parts: stripNul(scrubHarmonyLeakFromParts(input.parts)) })
         .eq("tenant_id", input.tenantId)
         .eq("thread_id", input.threadId)
         .eq("id", input.messageId)

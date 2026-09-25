@@ -64,7 +64,8 @@ const registerKnowledgeBasePlugin: EngentyPluginFactory = async (engenty) => {
   // Phase A seam (PLAN-tenant-isolation-a-rls-seam.md): request-shaped work runs on
   // tenant-locked handles (engenty_server lane, RLS-enforced). The service client
   // remains ONLY for the one context-less read that resolves tenancy itself:
-  // the source-webhook token → source-row lookup in kb-sources.ts.
+  // the source-webhook token → source-row lookup in kb-sources.ts, and the
+  // platform-level `ai.model_binding` read behind the search verifier.
   const serviceDb = (server.getServiceDb?.() ?? null) as SupabaseClient | null;
   const getTenantDb = server.getTenantDb;
   if (!(serviceDb && getTenantDb)) {

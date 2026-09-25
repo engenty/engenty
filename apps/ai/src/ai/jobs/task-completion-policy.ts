@@ -1,11 +1,9 @@
 // Does a finished agent run need a human review, or is the task simply done?
 //
 // Reuses the ONE trust dial the platform already has — the agent-approval
-// mode (tenant `ai.config.agent_approval` → space `agent_approval_mode` →
-// per-agent override; core uses the same stack to gate risky tools). An
-// explicit space pin replaces the tenant default in either direction; unset
-// inherits. Goal and agent layers that are set still take the most
-// restrictive with that result. `manual` means a human signs results off
+// mode (the agent's own mode → its platform default → space
+// `agent_approval_mode` → tenant `ai.config.agent_approval`; core uses the
+// same rule to gate risky tools). `manual` means a human signs results off
 // (`in_review` + a review to-do); `auto` and `pass-all` mean the agent's
 // completed work IS done — the task closes and dependents dispatch without a
 // click.
@@ -15,8 +13,8 @@
 import { parseTenantAiSettings, TENANT_AI_CONFIG_KEY } from "@engenty/ai-core";
 import {
   type AgentApprovalMode,
-  effectiveApprovalMode,
   parseAgentApprovalMode,
+  resolveAgentApprovalMode,
 } from "@engenty/plugin-sdk";
 import { createLogger } from "@engenty/telemetry";
 import { createTenantSettingsRepoSupabase } from "@engenty/tenant-settings";
@@ -44,9 +42,9 @@ export interface ResolveApprovalModeInput {
 
 /**
  * The ONE resolver for the run's effective agent-approval mode — the same
- * stored layers core's gate reads: tenant `ai.config.agent_approval` → space
- * `agent_approval_mode` replaces tenant when set → per-agent override, which
- * stays most-restrictive with the space-or-tenant base. Both consumers derive
+ * stored layers core's gate reads, through `resolveAgentApprovalMode`: the
+ * per-agent mode decides when set, else the agent's platform default, else
+ * the space's `agent_approval_mode`, else tenant `ai.config.agent_approval`. Both consumers derive
  * from it: the completion policy (done vs review) and the run's tool-gating
  * policy (request vs defer).
  * Fail-soft to `manual`: an unreadable layer must never silently widen agent
@@ -63,12 +61,14 @@ export async function resolveEffectiveAgentApprovalMode(
         ? deps.loadSpaceMode(input.tenantId, input.spaceId).catch(() => null)
         : Promise.resolve(null),
     ]);
-    const tenantMode = parseAgentApprovalMode(prefs?.mode) ?? "manual";
-    const spaceMode = parseAgentApprovalMode(spaceModeRaw);
-    const agentMode = input.agentTypeKey
-      ? parseAgentApprovalMode(prefs?.agents?.[input.agentTypeKey])
-      : null;
-    return effectiveApprovalMode([spaceMode ?? tenantMode, agentMode]);
+    return resolveAgentApprovalMode({
+      agentKey: input.agentTypeKey,
+      agentMode: input.agentTypeKey
+        ? parseAgentApprovalMode(prefs?.agents?.[input.agentTypeKey])
+        : null,
+      spaceMode: parseAgentApprovalMode(spaceModeRaw),
+      tenantMode: parseAgentApprovalMode(prefs?.mode),
+    });
   } catch (error) {
     logger.warn("approval mode unresolved — defaulting to manual", {
       message: error instanceof Error ? error.message : String(error),

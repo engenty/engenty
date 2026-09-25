@@ -9,8 +9,8 @@
 //   - per-KB Mastra chunking (`kb.chunking` KV row, defaults otherwise) and
 //     the per-tenant embedding model from `kb_settings`
 //   - the lexical fast path for as-you-type queries (`fastPath`)
-//   - the LLM verifier as a `RetrievalEvaluator` (drops irrelevant hits on
-//     multi-term queries; fails open when the AI gateway is unconfigured)
+//   - the classifier verifier as a `RetrievalEvaluator` (drops irrelevant hits
+//     on multi-term queries; fails open when the classifier is unconfigured)
 //   - hydration back into the public `KbArticleSearchMatch` shape
 //
 // Deviations from the legacy provider, both intentional:
@@ -20,6 +20,7 @@
 //   - Multi-KB fairness caps are gone: all KBs pool in one fused ranking.
 //     The old per-KB limit only compensated for per-KB query fan-out.
 
+import { resolveModuleClassifier } from "@engenty/ai-core";
 import { resolveSpaceKey } from "@engenty/plugin-sdk";
 import type {
   RetrievalEvaluator,
@@ -33,7 +34,8 @@ import { KB_CHUNKING_DEFAULTS } from "../schema/chunking.js";
 import type { Article, KbSearchResult } from "../schema/types.js";
 import { createKbLinks } from "../services/kb-links.js";
 import {
-  isKbSearchVerifierConfigured,
+  KB_VERIFIER_RETRIES,
+  KB_VERIFIER_TIMEOUT_MS,
   shouldVerifyKbSearchQuery,
   verifyKbSearchResults,
 } from "../services/kb-search-verifier.js";
@@ -148,8 +150,16 @@ export function createKbRetrievalSource(
         article: (byArticle.get(match.doc_id) ?? null) as Article | null,
         result: toKbSearchResult(match),
       }));
+      const classifier = await resolveModuleClassifier(
+        {
+          tenantDb: getDb({ tenantId: ctx.tenant_id }),
+          tenantId: ctx.tenant_id,
+        },
+        { retries: KB_VERIFIER_RETRIES, timeoutMs: KB_VERIFIER_TIMEOUT_MS }
+      );
       const surviving = await verifyKbSearchResults({
         candidates,
+        classifier: classifier?.client ?? null,
         query: ctx.query,
         settings,
       });
@@ -175,10 +185,9 @@ export function createKbRetrievalSource(
       return kept.length > 0 ? kept : matches;
     },
     id: "kb-search-verifier",
+    // A tenant whose classifier has no credential is let through here and
+    // passes its matches unverified in `evaluate`.
     shouldRun: async (ctx) => {
-      if (!isKbSearchVerifierConfigured()) {
-        return false;
-      }
       const settings = await resolveSettings(ctx.tenant_id, "default");
       return shouldVerifyKbSearchQuery(ctx.query, settings);
     },
@@ -294,15 +303,6 @@ export function createKbRetrievalSource(
         text: row.content_markdown ?? "",
         title: row.title,
       };
-    },
-    embedding: {
-      resolveModel: async (tenantId) => {
-        const settings = await resolveSettings(tenantId, "default");
-        return (
-          settings.embedding_model?.trim() ||
-          DEFAULT_KB_SETTINGS.embedding_model
-        );
-      },
     },
     listDocuments: async ({ limit, metadata, tenant_id }) => {
       let query = articles(tenant_id)

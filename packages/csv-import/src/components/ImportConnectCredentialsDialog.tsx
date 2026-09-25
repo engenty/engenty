@@ -44,7 +44,6 @@ export function ImportConnectCredentialsDialog({
     try {
       await connectWithCredentials(connector.id, {
         credentials: values,
-        sharing: "personal",
       });
       setOpen(false);
       setValues({});

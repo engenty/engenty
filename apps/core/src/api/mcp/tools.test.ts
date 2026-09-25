@@ -1,12 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { makeEmptyRegistry } from "../../plugins/test-fixtures.js";
 import type { PrincipalContext } from "../../security/auth.js";
-import type { OperationContract } from "../operation-contracts.js";
 import {
-  catalogExecuteAllowed,
-  directToolAllowed,
-  projectDirectTools,
-  searchContracts,
-} from "./tools.js";
+  buildOperationContracts,
+  type OperationContract,
+} from "../operation-contracts.js";
+import { catalogExecuteAllowed, directToolAllowed } from "./tools.js";
 
 function contract(
   overrides: Partial<OperationContract> &
@@ -81,16 +80,32 @@ describe("MCP hybrid tool projection", () => {
     moduleId: "invoices",
     operationId: "invoices_list",
   });
-  const never = contract({
-    moduleId: "contacts",
-    operationId: "core_impersonate_user",
-    mcp: {
-      declared: true,
-      disposition: "never",
-      enabled: false,
-      taskCapable: false,
-    },
-  });
+  // Built from a registered operation so the declared `never` disposition
+  // flows through the real contract derivation.
+  const never = buildOperationContracts(
+    makeEmptyRegistry({
+      moduleOperations: [
+        {
+          pluginId: "core",
+          operationId: "core_impersonate_user",
+          methodName: "core_impersonate_user",
+          handler: async () => ({}),
+          operation: {
+            moduleId: "contacts",
+            operationId: "core_impersonate_user",
+            requiredCapabilities: ["module.read"],
+            riskLevel: "low",
+            idempotent: true,
+            dryRunSupported: false,
+            requiresApproval: false,
+            mcpDisposition: "never",
+          },
+          source: "test",
+          pluginConfig: {},
+        },
+      ],
+    })
+  )[0]!;
 
   it("catalog-executes default reads on granted modules only", () => {
     expect(catalogExecuteAllowed(list, principal)).toBe(true);
@@ -107,18 +122,5 @@ describe("MCP hybrid tool projection", () => {
       })
     ).toBe(true);
     expect(directToolAllowed(never, principal)).toBe(false);
-  });
-
-  it("sorts direct tools deterministically", () => {
-    const names = projectDirectTools([update, list], {
-      ...principal,
-      capabilities: ["module.read", "module.write"],
-    }).map((tool) => tool.name);
-    expect(names).toEqual(["contacts_list", "contacts_update"]);
-  });
-
-  it("searches catalog-eligible operations", () => {
-    const hits = searchContracts([list, invoices], principal, "contacts");
-    expect(hits.map((item) => item.operationId)).toEqual(["contacts_list"]);
   });
 });

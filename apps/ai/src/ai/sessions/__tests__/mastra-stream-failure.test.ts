@@ -4,6 +4,7 @@ import {
   AGENT_THREADS_CONTEXT_LENGTH_EXCEEDED,
   AGENT_THREADS_EMPTY_REPLY,
   AGENT_THREADS_GUARDRAIL_TRIPPED,
+  AGENT_THREADS_MODEL_GATEWAY_UNCONFIGURED,
   AGENT_THREADS_OUTPUT_TRUNCATED,
   AGENT_THREADS_RUN_TIMED_OUT,
   AGENT_THREADS_STEP_LIMIT_REACHED,
@@ -77,7 +78,20 @@ describe("silent finishes are named", () => {
     expect(agentRunErrorCode(AGENT_THREADS_CONTEXT_LENGTH_EXCEEDED)).toBe(
       "context_window_exceeded"
     );
+    expect(agentRunErrorCode(AGENT_THREADS_MODEL_GATEWAY_UNCONFIGURED)).toBe(
+      "model_gateway_unconfigured"
+    );
     expect(agentRunErrorCode("anything else")).toBe("run_error");
+  });
+
+  it("names an unconfigured model gateway instead of a raw provider error", () => {
+    expect(
+      formatAgentStreamFailureMessage(
+        new Error(
+          'Model gateway "openrouter" is not configured: set OPENROUTER_API_KEY in platform settings.'
+        )
+      )
+    ).toBe(AGENT_THREADS_MODEL_GATEWAY_UNCONFIGURED);
   });
 });
 

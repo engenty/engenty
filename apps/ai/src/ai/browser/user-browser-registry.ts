@@ -1,11 +1,15 @@
-// One live CDP session per user browser container, and the SEAT that decides
-// who drives it (PLAN-user-browser.md §2.3, D10).
+// One WINDOW per agent in a Space's browser, and the SEAT that decides who
+// drives it (PLAN-user-browser.md §2.3, D10; PLAN-space-owned-connections.md).
 //
-// Mastra's `AgentBrowser` connects over `cdpUrl`, owns the Playwright page,
-// the ref-based tools and the screencast. What it has no opinion on is
-// arbitration: a tool call and an injected mouse event hit the same page. The
-// seat lives here and is enforced at the two doors we own — the tool wrapper
-// (`user-browser-tools.ts`) and the stream handler (`browser-stream-ws.ts`).
+// A Space has one Chromium (`space-browser.ts`); every agent working there gets
+// its own window in it — its own Mastra `AgentBrowser` over CDP, which opens a
+// tab of its own on first use — so agents never fight over one page, while
+// logins and cookies are the Space's and shared. `AgentBrowser` owns the
+// Playwright page, the ref-based tools and the screencast. What it has no
+// opinion on is arbitration: a tool call and an injected mouse event hit the
+// same page. The seat lives here, per window, and is enforced at the two doors
+// we own — the tool wrapper (`user-browser-tools.ts`) and the stream handler
+// (`browser-stream-ws.ts`).
 //
 // Rules: a human taking over fails the agent's in-flight step
 // (`interrupted_by_user`); an agent call while a human holds the seat returns
@@ -46,42 +50,56 @@ interface Seat {
   sinceMs: number;
 }
 
+/** One agent's window in one Space's browser. */
+export interface BrowserWindowIdentity extends UserBrowserIdentity {
+  /** The agent (registry key) the window belongs to. */
+  agentId: string;
+}
+
 interface Entry {
   browser: AgentBrowser | null;
-  identity: UserBrowserIdentity;
+  identity: BrowserWindowIdentity;
+  /** The agent's own tab has been opened on the current connection. */
+  ownTab: boolean;
   sandboxId: string;
   seat: Seat;
+  windowKey: string;
+}
+
+/** `<sandboxId>#<agentId>` — the address of one window. */
+export function browserWindowKey(identity: BrowserWindowIdentity): string {
+  return `${buildUserBrowserSandboxId(identity)}#${identity.agentId}`;
 }
 
 const entries = new Map<string, Entry>();
-/** Live views of a browser, told whenever its seat changes hands. */
+/** Live views of a window, told whenever its seat changes hands. */
 const seatListeners = new Map<string, Set<() => void>>();
 
-function notifySeat(sandboxId: string): void {
-  for (const listener of seatListeners.get(sandboxId) ?? []) {
+function notifySeat(windowKey: string): void {
+  for (const listener of seatListeners.get(windowKey) ?? []) {
     listener();
   }
 }
 
 /**
- * Be told when this browser's seat changes hands — an agent handing the
- * page to its owner, a run releasing it — so a live view can redraw its
- * take-over control without polling. Returns the unsubscribe.
+ * Be told when this window's seat changes hands — an agent handing the page
+ * to a person, a run releasing it — so a live view can redraw its take-over
+ * control without polling. Returns the unsubscribe.
  */
 export function subscribeSeat(
-  sandboxId: string,
+  windowKey: string,
   listener: () => void
 ): () => void {
-  let set = seatListeners.get(sandboxId);
+  let set = seatListeners.get(windowKey);
   if (!set) {
     set = new Set();
-    seatListeners.set(sandboxId, set);
+    seatListeners.set(windowKey, set);
   }
   set.add(listener);
   return () => {
     set.delete(listener);
     if (set.size === 0) {
-      seatListeners.delete(sandboxId);
+      seatListeners.delete(windowKey);
     }
   };
 }
@@ -90,22 +108,22 @@ function newSeat(): Seat {
   return { holder: null, idleTimer: null, interrupt: null, sinceMs: 0 };
 }
 
-function entryFor(identity: UserBrowserIdentity): Entry {
-  const sandboxId = buildUserBrowserSandboxId(identity);
-  let entry = entries.get(sandboxId);
+function entryFor(identity: BrowserWindowIdentity): Entry {
+  const windowKey = browserWindowKey(identity);
+  let entry = entries.get(windowKey);
   if (!entry) {
-    entry = { browser: null, identity, sandboxId, seat: newSeat() };
-    entries.set(sandboxId, entry);
+    entry = {
+      browser: null,
+      identity,
+      ownTab: false,
+      sandboxId: buildUserBrowserSandboxId(identity),
+      seat: newSeat(),
+      windowKey,
+    };
+    entries.set(windowKey, entry);
   }
   return entry;
 }
-
-/**
- * The Mastra browser for this container, created on first use. `scope:
- * 'shared'` is what `cdpUrl` requires; there is one page context per
- * container and it is the user's. `headless` only labels the config — the
- * container decides how Chromium runs.
- */
 /**
  * Make it impossible for Mastra to signal a host process on the browser's
  * behalf.
@@ -138,7 +156,13 @@ export function disarmProcessKill<T extends object>(browser: T): T {
   return browser;
 }
 
-export function getUserBrowser(identity: UserBrowserIdentity): AgentBrowser {
+/**
+ * The Mastra browser for this agent's window, created on first use. `scope:
+ * 'shared'` is what `cdpUrl` requires; every window shares the Space's one
+ * browser context (its logins). `headless` only labels the config — the
+ * container decides how Chromium runs.
+ */
+export function getUserBrowser(identity: BrowserWindowIdentity): AgentBrowser {
   const entry = entryFor(identity);
   if (!entry.browser) {
     entry.browser = disarmProcessKill(
@@ -159,9 +183,10 @@ export function getUserBrowser(identity: UserBrowserIdentity): AgentBrowser {
     entry.browser.onBrowserClosed(() => {
       // The container went away underneath us (stop, idle, crash). Drop the
       // handle so the next use reconnects instead of reusing a dead socket.
-      const current = entries.get(entry.sandboxId);
+      const current = entries.get(entry.windowKey);
       if (current?.browser === entry.browser) {
         current.browser = null;
+        current.ownTab = false;
         releaseSeatEntirely(current);
       }
     });
@@ -169,16 +194,43 @@ export function getUserBrowser(identity: UserBrowserIdentity): AgentBrowser {
   return entry.browser;
 }
 
-/** The registry's browser for a container id, if one is connected. */
-export function peekUserBrowser(sandboxId: string): AgentBrowser | null {
-  return entries.get(sandboxId)?.browser ?? null;
+/**
+ * Connect this window and make sure it has a tab of its own. A CDP connection
+ * sees every page of the browser and starts on the first one — another
+ * agent's — so the first use opens a fresh tab and keeps driving it.
+ * `sharedManager` is not in the provider's public types; it is the
+ * `agent-browser` manager Mastra's own tools drive, and `newTab()` is how
+ * its `browser_tabs` tool opens one.
+ */
+export async function ensureBrowserWindow(
+  identity: BrowserWindowIdentity
+): Promise<AgentBrowser> {
+  const entry = entryFor(identity);
+  const browser = getUserBrowser(identity);
+  await browser.ensureReady();
+  if (!entry.ownTab) {
+    const manager = (
+      browser as unknown as { sharedManager?: { newTab(): Promise<unknown> } }
+    ).sharedManager;
+    if (!manager) {
+      throw new Error("browser_window_unavailable: no browser manager");
+    }
+    await manager.newTab();
+    entry.ownTab = true;
+  }
+  return browser;
 }
 
-export function getSeat(sandboxId: string): {
+/** The registry's browser for a window, if one is connected. */
+export function peekUserBrowser(windowKey: string): AgentBrowser | null {
+  return entries.get(windowKey)?.browser ?? null;
+}
+
+export function getSeat(windowKey: string): {
   holder: SeatHolder;
   sinceMs: number;
 } {
-  const seat = entries.get(sandboxId)?.seat;
+  const seat = entries.get(windowKey)?.seat;
   return seat
     ? { holder: seat.holder, sinceMs: seat.sinceMs }
     : { holder: null, sinceMs: 0 };
@@ -198,7 +250,7 @@ function releaseSeatEntirely(entry: Entry): void {
   entry.seat.sinceMs = 0;
   entry.seat.interrupt = null;
   if (held) {
-    notifySeat(entry.sandboxId);
+    notifySeat(entry.windowKey);
   }
 }
 
@@ -215,12 +267,12 @@ function armIdleRelease(entry: Entry, runId: string): void {
 }
 
 /**
- * Take (or keep) the seat for an agent run. Refused while a human holds it —
- * immediately, never queued (D10). Two runs of the same user cannot share the
- * page either: the second waits its turn by getting `held_by_agent`.
+ * Take (or keep) the seat of the agent's window for a run. Refused while a
+ * human holds it — immediately, never queued (D10). Two runs of the same
+ * agent cannot share its window either: the second gets `held_by_agent`.
  */
 export function acquireAgentSeat(
-  identity: UserBrowserIdentity,
+  identity: BrowserWindowIdentity,
   runId: string
 ):
   | { ok: true; interrupted: Promise<void> }
@@ -236,7 +288,7 @@ export function acquireAgentSeat(
   if (!seat.holder) {
     seat.holder = { runId };
     seat.sinceMs = Date.now();
-    notifySeat(entry.sandboxId);
+    notifySeat(entry.windowKey);
   }
   if (!seat.interrupt) {
     let resolve: () => void = () => undefined;
@@ -249,9 +301,9 @@ export function acquireAgentSeat(
   return { interrupted: seat.interrupt.promise, ok: true };
 }
 
-/** A run is done with the browser (run end, or the tool wrapper on error). */
-export function releaseAgentSeat(sandboxId: string, runId: string): void {
-  const entry = entries.get(sandboxId);
+/** A run is done with the window (run end, or the tool wrapper on error). */
+export function releaseAgentSeat(windowKey: string, runId: string): void {
+  const entry = entries.get(windowKey);
   if (!entry) {
     return;
   }
@@ -265,8 +317,8 @@ export function releaseAgentSeat(sandboxId: string, runId: string): void {
  * The human takes over. Always wins: an agent holding the seat has its
  * in-flight step failed through the interrupt promise (D10).
  */
-export function takeUserSeat(sandboxId: string): void {
-  const entry = entries.get(sandboxId);
+export function takeUserSeat(windowKey: string): void {
+  const entry = entries.get(windowKey);
   if (!entry) {
     return;
   }
@@ -281,46 +333,46 @@ export function takeUserSeat(sandboxId: string): void {
   seat.sinceMs = Date.now();
   seat.interrupt = null;
   if (interrupted) {
-    logger.info("user browser seat taken from agent", {
-      sandboxId,
-    });
+    logger.info("browser window seat taken from agent", { windowKey });
   }
-  notifySeat(sandboxId);
+  notifySeat(windowKey);
 }
 
 /** The human hands the browser back; the next agent call takes the seat. */
-export function releaseUserSeat(sandboxId: string): void {
-  const entry = entries.get(sandboxId);
+export function releaseUserSeat(windowKey: string): void {
+  const entry = entries.get(windowKey);
   if (entry?.seat.holder === "user") {
     releaseSeatEntirely(entry);
   }
 }
 
 /**
- * Close the CDP session for a container that is about to stop (or has). The
- * container's stop is not this module's job — `space-browser.ts` owns it and
- * calls here first through the stop listener below.
+ * Close every window's CDP session for a container that is about to stop (or
+ * has). The container's stop is not this module's job — `space-browser.ts`
+ * owns it and calls here first through the stop listener below.
  */
 export async function closeUserBrowserSession(
   sandboxId: string
 ): Promise<void> {
-  const entry = entries.get(sandboxId);
-  if (!entry) {
-    return;
-  }
-  const browser = entry.browser;
-  entry.browser = null;
-  releaseSeatEntirely(entry);
-  if (!browser) {
-    return;
-  }
-  try {
-    await browser.close();
-  } catch (err) {
-    logger.warn("user browser session close failed", {
-      message: err instanceof Error ? err.message : String(err),
-      sandboxId,
-    });
+  for (const entry of entries.values()) {
+    if (entry.sandboxId !== sandboxId) {
+      continue;
+    }
+    const browser = entry.browser;
+    entry.browser = null;
+    entry.ownTab = false;
+    releaseSeatEntirely(entry);
+    if (!browser) {
+      continue;
+    }
+    try {
+      await browser.close();
+    } catch (err) {
+      logger.warn("browser window session close failed", {
+        message: err instanceof Error ? err.message : String(err),
+        windowKey: entry.windowKey,
+      });
+    }
   }
 }
 

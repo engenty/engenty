@@ -13,11 +13,10 @@ import type {
   SearchResponse,
 } from "@engenty/search-index";
 import { runBackfill } from "./backfill.js";
-import {
-  DEFAULT_RETRIEVAL_EMBEDDING_MODEL,
-  type RetrievalDocument,
-  type RetrievalQueryFilters,
-  type RetrievalSourceRegistration,
+import type {
+  RetrievalDocument,
+  RetrievalQueryFilters,
+  RetrievalSourceRegistration,
 } from "./contracts.js";
 import type { IngestDeps } from "./ingest.js";
 import { ingestDocument } from "./ingest.js";
@@ -27,20 +26,15 @@ import { scanIndexState } from "./status.js";
 const CAPABILITIES = { hybrid: true, lexical: true, semantic: true } as const;
 
 // Snapshot the source's effective retrieval config for the admin UI. Values
-// that resolve per-tenant at query time (KB's similarity floor, KB's embedding
-// model) cannot be shown as a single number, so they report `*Dynamic: true`
-// with a null literal rather than a misleading static value.
+// that resolve per-tenant at query time (KB's similarity floor) cannot be
+// shown as a single number, so they report `*Dynamic: true` with a null
+// literal rather than a misleading static value. The embedding model is not
+// per-source: it is the platform `embedding` role, shown once by the admin UI.
 function buildProviderConfig(
   source: RetrievalSourceRegistration
 ): SearchIndexProviderConfig {
   const vectorThreshold = source.retriever?.vectorThreshold;
-  const staticModel = source.embedding?.model;
-  const modelDynamic =
-    !staticModel && typeof source.embedding?.resolveModel === "function";
   return {
-    embeddingModel:
-      staticModel ?? (modelDynamic ? null : DEFAULT_RETRIEVAL_EMBEDDING_MODEL),
-    embeddingModelDynamic: modelDynamic,
     fastPathMaxTerms: source.retriever?.fastPath?.maxTerms ?? null,
     splitter: source.splitter.mode,
     useTrigram: source.retriever?.useTrigram ?? false,
@@ -116,10 +110,12 @@ export function createManagedProvider(
       if (!tenantId) {
         return EMPTY_STATUS;
       }
+      const embedder = await deps.ingest.resolveEmbedder();
       const { status } = await scanIndexState(
         source,
         deps.ingest.store,
-        tenantId
+        tenantId,
+        { embeddingModel: embedder.modelId }
       );
       return status;
     },

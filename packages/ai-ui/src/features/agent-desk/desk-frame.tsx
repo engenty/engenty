@@ -35,6 +35,10 @@ import {
   type ObjectDisplayIntent,
   ObjectDisplayIntentProvider,
 } from "../../objects/object-display-intent.js";
+import {
+  type BrowserTarget,
+  BrowserTargetProvider,
+} from "../browser/browser-target.js";
 import { UserBrowserPane } from "../browser/user-browser-pane.js";
 import type { AgentDeskPanel } from "./agent-desk-drawer.js";
 import {
@@ -83,7 +87,18 @@ export interface DeskFrameLane {
 
 export interface DeskFrameProps {
   actions: ReactNode;
+  /**
+   * The page fill behind the chat. The Copilot's full chat takes the card
+   * fill its sidebar and window have, so it reads the same in every mode;
+   * desks default to paper.
+   */
+  background?: "paper" | "card";
   breadcrumbs: PageBreadcrumb[];
+  /**
+   * The browser the monitor pane shows: this desk's agent's window in its
+   * Space's browser (the copilot's: the personal Space's).
+   */
+  browserTarget: BrowserTarget;
   canEditPads: boolean;
   canManage: boolean;
   /** One chapter opened over the transcript (thread-chapters.tsx), if any. */
@@ -149,7 +164,7 @@ export function DeskFrame(props: DeskFrameProps) {
   usePageConfig({
     actions: props.actions,
     breadcrumbs: props.breadcrumbs,
-    contentStackBackground: "paper",
+    contentStackBackground: props.background ?? "paper",
     ...(props.routeBreadcrumbAction === undefined
       ? {}
       : { routeBreadcrumbAction: props.routeBreadcrumbAction }),
@@ -203,16 +218,21 @@ export function DeskFrame(props: DeskFrameProps) {
           {...(chatIsConversation ? {} : { header: scrollHeader })}
           hostKey={props.hostKey}
           layout="column"
+          // The host's skills and memory say nothing about a thread between
+          // two agents.
+          showContext={!header.pairTitle}
         >
           {props.chapterCard}
           {lane}
         </ThreadContextPane>
       </ObjectDisplayIntentProvider>
-      {/* The person's browser in the end-pane slot beside the artifact pane,
+      {/* The agent's browser window in the end-pane slot beside the artifact pane,
           whatever the desk shows — conversation or engagement list — so the
           monitor toggle always has somewhere to open (PLAN-user-browser.md
           §2.6). */}
-      <UserBrowserPane />
+      <BrowserTargetProvider value={props.browserTarget}>
+        <UserBrowserPane />
+      </BrowserTargetProvider>
       {/* Scoped to the open conversation: the desk shows what THIS agent
           produced here, and the same subscription lets the agent bring an
           artefact it is working on to the front. */}

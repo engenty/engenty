@@ -3,7 +3,6 @@
 import {
   type AgentEngentyKind,
   type AgentStarter,
-  DEFAULT_AI_CHAT_MODEL_ID,
   resolveAgentEngenty,
 } from "@engenty/ai-core/browser";
 import type { CustomAgentConfig } from "../../lib/admin/ai-runtime-api";
@@ -24,6 +23,7 @@ export interface AgentDraft {
   engenty: AgentEngentyKind;
   id: string;
   instructions: string;
+  /** Empty = the agent runs on its effort tier's role binding. */
   model: string;
   name: string;
   skillIds: string[];
@@ -34,8 +34,6 @@ export interface AgentDraft {
   toolIds: string[];
 }
 
-const DEFAULT_AGENT_MODEL = DEFAULT_AI_CHAT_MODEL_ID;
-
 export function createEmptyAgentDraft(): AgentDraft {
   return {
     agentScope: "shared",
@@ -44,7 +42,7 @@ export function createEmptyAgentDraft(): AgentDraft {
     id: "",
     instructions:
       "You are an Engenty agent. Help the user with the configured task and use tools only when they are relevant.",
-    model: DEFAULT_AGENT_MODEL,
+    model: "",
     name: "",
     skillIds: [],
     connectorIds: [],
@@ -62,7 +60,7 @@ export function createAgentDraft(agent: CustomAgentConfig): AgentDraft {
     engenty: resolveAgentEngenty(agent.id, agent.engenty),
     id: agent.id,
     instructions: agent.instructions,
-    model: agent.model,
+    model: agent.model ?? "",
     name: agent.name,
     skillIds: [...agent.skillIds],
     connectorIds: [...(agent.connectorIds ?? [])],
@@ -111,9 +109,6 @@ export function validateAgentDraft(
   if (!draft.name.trim()) {
     return "Agent name is required.";
   }
-  if (!draft.model.trim()) {
-    return "Model id is required.";
-  }
   if (!draft.instructions.trim()) {
     return "Instructions are required.";
   }
@@ -133,13 +128,14 @@ export function buildAgentConfigFromDraft(
   draft: AgentDraft
 ): CustomAgentConfig {
   const subAgents = parseAgentSubAgentsInput(draft.subAgentsText);
+  const model = draft.model.trim();
   return {
     agentScope: draft.agentScope,
     description: draft.description.trim() || undefined,
     engenty: draft.engenty,
     id: draft.id.trim(),
     instructions: draft.instructions.trim(),
-    model: draft.model.trim(),
+    ...(model ? { model } : {}),
     name: draft.name.trim(),
     skillIds: [...new Set(draft.skillIds)],
     ...(draft.connectorIds.length > 0

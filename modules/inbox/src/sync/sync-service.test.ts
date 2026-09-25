@@ -12,6 +12,7 @@ function connection(overrides: Partial<ConnectionSummary>): ConnectionSummary {
   return {
     auth_kind: "oauth2",
     autonomous_mode: "read_only",
+    connected_by: "user-1",
     connector_id: "google-gmail",
     created_at: "2026-07-01T00:00:00Z",
     display_name: null,
@@ -19,10 +20,7 @@ function connection(overrides: Partial<ConnectionSummary>): ConnectionSummary {
     external_account: "user@example.com",
     granted_scopes: [],
     id: "conn-1",
-    non_owner_max_group: null,
-    owner_user_id: "user-1",
-    all_spaces: false,
-    sharing: "personal",
+    space_id: "space-1",
     status: "active",
     tenant_id: "tenant-1",
     ...overrides,
@@ -64,8 +62,8 @@ function fakeRepo(state: FakeRepoState): InboxRepo {
     last_error: null,
     last_error_at: null,
     last_synced_at: null,
-    owner_user_id: null,
     scope_id: "default",
+    space_id: "space-1",
     sync_enabled: true,
     tenant_id: "tenant-1",
     updated_at: "",
@@ -113,14 +111,15 @@ function fakeRepo(state: FakeRepoState): InboxRepo {
         }
         return Promise.resolve();
       },
-      upsertSettings: (connectionId, patch) => {
+      upsertSettings: (conn, patch) => {
         const merged = {
           ...defaults,
-          ...state.syncStates.get(connectionId),
+          ...state.syncStates.get(conn.id),
           ...patch,
-          connection_id: connectionId,
+          connection_id: conn.id,
+          space_id: conn.space_id,
         } as InboxSyncState;
-        state.syncStates.set(connectionId, merged);
+        state.syncStates.set(conn.id, merged);
         return Promise.resolve(merged);
       },
     },
@@ -175,8 +174,11 @@ describe("runInboxSync", () => {
       .filter((patch) => patch.cursor !== undefined)
       .map((patch) => patch.cursor);
     expect(cursors).toEqual(["p1", "hist-100"]);
-    // Personal connection ⇒ messages stored owner-scoped.
-    expect(state.stored[0]?.connection.owner_user_id).toBe("user-1");
+    // Rows are stamped with the mailbox's Space, not whoever connected it.
+    expect(state.stored[0]?.connection).toEqual({
+      id: "conn-1",
+      space_id: "space-1",
+    });
   });
 
   it("re-backfills once when the incremental cursor expired", async () => {

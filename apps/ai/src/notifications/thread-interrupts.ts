@@ -11,6 +11,8 @@
 // personal agent's thread or one outside any space → its owner. The person
 // whose turn parked is pre-seen — they are looking at the card.
 
+import { humanizeOperationId } from "@engenty/notifications";
+import { parseToolApprovalOperationId } from "../../ai/tools/engenty-tools/lib/tool-approval.js";
 import type { AiSessionScope } from "../ai/sessions/types.js";
 import type { ThreadStore } from "../dal/threads/index.js";
 import { emitInboxNotification, resolveNotifications } from "./inbox.js";
@@ -73,8 +75,10 @@ export async function notifyThreadInterrupt(
     if (!(spaceId || participantUserIds?.length)) {
       return;
     }
+    const { body, operation, summary } = describeInterrupt(input);
     await emitInboxNotification({
       actor: { id: thread.agent_id, kind: "agent" },
+      ...(body ? { body } : {}),
       dedupeKey: `${THREAD_INTERRUPT_SUBJECT}:${input.interruptId}`,
       kind: input.kind,
       metadata: {
@@ -91,8 +95,13 @@ export async function notifyThreadInterrupt(
       spaceId: spaceId ?? thread.space_id ?? null,
       subject: { id: input.interruptId, type: THREAD_INTERRUPT_SUBJECT },
       subscribers: [owner, turnUser].filter((id): id is string => Boolean(id)),
-      summary: input.title,
+      summary,
       tenantId: input.scope.tenantId,
+      // `{actor}` is the thread's agent, resolved to its name at emit.
+      title:
+        input.kind === "tool_approval"
+          ? { key: "tool_approval", params: { operation } }
+          : { key: "agent_question" },
     });
   } catch (error) {
     console.error(
@@ -100,6 +109,39 @@ export async function notifyThreadInterrupt(
       error
     );
   }
+}
+
+/**
+ * What the row says about a parked card. A tool approval names the
+ * operation, humanized from the id its artifact carries (a frontend tool's
+ * interrupt has no such id — its card title is the tool's own label); the
+ * card's title or question is the body, unless it only repeats the raw id.
+ */
+function describeInterrupt(
+  input: Pick<NotifyThreadInterruptInput, "interruptId" | "kind" | "title">
+): { body: string | null; operation: string; summary: string } {
+  const cardTitle = input.title.trim();
+  if (input.kind === "agent_question") {
+    return {
+      body: cardTitle || null,
+      operation: "",
+      summary: cardTitle || "An agent has a question",
+    };
+  }
+  const operationId = parseToolApprovalOperationId(input.interruptId);
+  const operation = operationId
+    ? humanizeOperationId(operationId)
+    : cardTitle
+        .replace(/^Approve\s+/i, "")
+        .replace(/\?$/, "")
+        .trim() || "a tool";
+  const echoesId =
+    !cardTitle || (operationId !== null && cardTitle.includes(operationId));
+  return {
+    body: echoesId ? null : cardTitle,
+    operation,
+    summary: `Approval needed to use ${operation}`,
+  };
 }
 
 /**

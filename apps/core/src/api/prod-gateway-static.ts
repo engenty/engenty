@@ -1,30 +1,19 @@
 import fs from "node:fs";
-import type { IncomingMessage, ServerResponse } from "node:http";
+import type {
+  IncomingMessage,
+  OutgoingHttpHeaders,
+  ServerResponse,
+} from "node:http";
 import path from "node:path";
 import {
   injectRuntimeEnv,
   resolveUiRuntimeEnv,
 } from "./prod-gateway-runtime-env.js";
-
-const MIME: Record<string, string> = {
-  ".css": "text/css; charset=utf-8",
-  ".gif": "image/gif",
-  ".html": "text/html; charset=utf-8",
-  ".ico": "image/x-icon",
-  ".jpeg": "image/jpeg",
-  ".jpg": "image/jpeg",
-  ".js": "application/javascript; charset=utf-8",
-  ".json": "application/json; charset=utf-8",
-  ".map": "application/json",
-  ".mjs": "application/javascript; charset=utf-8",
-  ".png": "image/png",
-  ".svg": "image/svg+xml",
-  ".txt": "text/plain; charset=utf-8",
-  ".wasm": "application/wasm",
-  ".webp": "image/webp",
-  ".woff": "font/woff",
-  ".woff2": "font/woff2",
-};
+import {
+  cacheControlFor,
+  contentTypeFor,
+  encodeStaticBody,
+} from "./prod-gateway-static-headers.js";
 
 function resolveSafeFile(root: string, relativePath: string): string | null {
   const normalized = path
@@ -40,19 +29,6 @@ function resolveSafeFile(root: string, relativePath: string): string | null {
     return null;
   }
   return resolvedCandidate;
-}
-
-function contentTypeFor(filePath: string): string {
-  const ext = path.extname(filePath).toLowerCase();
-  return MIME[ext] ?? "application/octet-stream";
-}
-
-function cacheControlFor(filePath: string): string {
-  const base = path.basename(filePath);
-  if (base.includes("-") && /\.[a-f0-9]{8,}\./i.test(base)) {
-    return "public, max-age=31536000, immutable";
-  }
-  return "no-cache";
 }
 
 export interface ServeStaticOptions {
@@ -126,7 +102,7 @@ export function tryServeStatic(
   }
 
   const contentType = contentTypeFor(filePath);
-  const body = contentType.startsWith("text/html")
+  const rawBody = contentType.startsWith("text/html")
     ? Buffer.from(
         injectRuntimeEnv(
           fs.readFileSync(filePath, "utf-8"),
@@ -135,15 +111,23 @@ export function tryServeStatic(
         "utf-8"
       )
     : fs.readFileSync(filePath);
-  res.writeHead(200, {
+  const encoded = encodeStaticBody(rawBody, contentType, req.headers);
+  const headers: OutgoingHttpHeaders = {
     "cache-control": cacheControlFor(filePath),
     "content-type": contentType,
-    "content-length": String(body.length),
-  });
+    "content-length": encoded.body.length,
+  };
+  if (encoded.vary) {
+    headers.vary = encoded.vary;
+  }
+  if (encoded.contentEncoding) {
+    headers["content-encoding"] = encoded.contentEncoding;
+  }
+  res.writeHead(200, headers);
   if (req.method === "HEAD") {
     res.end();
     return true;
   }
-  res.end(body);
+  res.end(encoded.body);
   return true;
 }

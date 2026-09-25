@@ -197,6 +197,47 @@ export async function stopSpaceComputerContainer(
   await stopContainer(containerId);
 }
 
+/**
+ * Run one argv in a Space's computer from the host, outside any run — the
+ * sign-in forward delivers a browser callback to a CLI that a suspended run
+ * started. No shell: `argv` reaches the container as-is. Not queued behind
+ * the Space's commands, because the process it talks to is a background one
+ * that holds no queue slot. Null when the computer is not running.
+ */
+export async function execInSpaceComputer(
+  input: { spaceId: string; tenantId: string },
+  argv: string[],
+  options: { maxBuffer: number; timeoutMs: number }
+): Promise<{ exitCode: number; stderr: string; stdout: string } | null> {
+  const sandboxId = `${SPACE_COMPUTER_ID_PREFIX}${input.tenantId}-${input.spaceId}`;
+  const { stdout: ids } = await execFileAsync("docker", [
+    "ps",
+    "-q",
+    "--filter",
+    `label=mastra.sandbox.id=${sandboxId}`,
+  ]);
+  const containerId = ids.trim().split("\n")[0];
+  if (!containerId) {
+    return null;
+  }
+  markSpaceComputerUsed(sandboxId);
+  try {
+    const { stderr, stdout } = await execFileAsync(
+      "docker",
+      ["exec", containerId, ...argv],
+      { maxBuffer: options.maxBuffer, timeout: options.timeoutMs }
+    );
+    return { exitCode: 0, stderr, stdout };
+  } catch (err) {
+    const failed = err as { code?: unknown; stderr?: string; stdout?: string };
+    return {
+      exitCode: typeof failed.code === "number" ? failed.code : 1,
+      stderr: failed.stderr ?? String(err),
+      stdout: failed.stdout ?? "",
+    };
+  }
+}
+
 /** Tests only — the exec queue and last-used table are process-global. */
 export function resetSpaceComputerStateForTests(): void {
   execTails.clear();

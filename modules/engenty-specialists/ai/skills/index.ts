@@ -1,5 +1,6 @@
 import chiefOfStaffSkill from "./chief-of-staff/SKILL.md";
 import durableWorkSkill from "./durable-work/SKILL.md";
+import gettingStartedSkill from "./getting-started/SKILL.md";
 import hireAgentSkill from "./hire-agent/SKILL.md";
 import routinesSkill from "./routines/SKILL.md";
 import spaceDataSkill from "./space-data/SKILL.md";
@@ -15,6 +16,7 @@ import workRoutingSkill from "./work-routing/SKILL.md";
 export const ENGENTY_SPECIALISTS_MANAGED_SKILLS: Record<string, string> = {
   "chief-of-staff": chiefOfStaffSkill,
   "durable-work": durableWorkSkill,
+  "getting-started": gettingStartedSkill,
   "hire-agent": hireAgentSkill,
   routines: routinesSkill,
   "space-data": spaceDataSkill,

@@ -124,10 +124,14 @@ export async function evaluatePolicy(
   // The run's task, trigger and goal are the subjects its grants may be bound
   // to: an approval given for THIS task's (or routine's) work must open the
   // gate for whichever principal ended up executing the retry, and for
-  // nothing outside that work.
-  const subjectIds = [auth.taskId, auth.triggerId, auth.goalId].filter(
-    (id): id is string => !!id
-  );
+  // nothing outside that work. The acting agent is one too: "approve for this
+  // agent" binds the grant to it.
+  const subjectIds = [
+    auth.taskId,
+    auth.triggerId,
+    auth.goalId,
+    auth.agentId,
+  ].filter((id): id is string => !!id);
   const granted = await deps.approvalService.consumeGrant({
     actorId: auth.principalId,
     moduleId: input.moduleId,

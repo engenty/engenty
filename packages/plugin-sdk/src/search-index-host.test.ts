@@ -1,17 +1,6 @@
-// Lean coverage for the security-critical bits of `search-index-host.ts`:
-//
-//   1. The synthesized auto-tool **never** trusts caller-supplied
-//      `filters.tenant_id` / `filters.user_id` and always overrides them with
-//      the authenticated `ctx.auth` values. An LLM-driven agent must not be
-//      able to pivot to another tenant by spoofing filters in the request.
-//
-//   2. Explicit `strategy: "lexical"` is forwarded verbatim to the provider.
-//      Quick search (BM25) must stay opt-in even when the provider also
-//      advertises `hybrid: true` / `semantic: true` capabilities — we do not
-//      auto-upgrade to a paid embedding path just because vectors exist.
-//
-// Anything else (list/get/event binding semantics) is exercised by callers
-// (contacts, kb, chat-search) so we don't re-test it here.
+// The search index host must never trust caller-supplied tenant or user
+// filters, must forward an explicit strategy verbatim, and must keep a tenant's
+// index in step with its records (deletes and vanished rows remove documents).
 
 import type {
   SearchIndexProvider,
@@ -105,6 +94,27 @@ describe("synthesizeSearchOperation — space containment", () => {
     await op.handler(
       { filters: { space_ids: ["evil-space"] }, limit: 5, query: "ada" },
       { auth: { spaceId: "space-1", tenantId: "t1", userId: "u1" } }
+    );
+
+    expect(provider.search).toHaveBeenCalledWith(
+      expect.objectContaining({
+        filters: expect.objectContaining({ space_ids: ["space-1"] }),
+      })
+    );
+  });
+
+  it("scopes an account_mounted search (mail) to the run's space", async () => {
+    const provider = makeProvider({ hybrid: true, lexical: true });
+    const op = synthesizeSearchOperation(provider, {
+      capabilities: provider.capabilities ?? {},
+      entityName: "entity",
+      moduleId: "tests",
+      spacePolicy: { kind: "account_mounted" },
+    });
+
+    await op.handler(
+      { limit: 5, query: "ada" },
+      { auth: { spaceId: "space-1", tenantId: "t1" } }
     );
 
     expect(provider.search).toHaveBeenCalledWith(
@@ -271,5 +281,92 @@ describe("createSearchIndexHost — plugin reload", () => {
     expect(registerOperation.mock.calls[0]?.[0]?.spacePolicy).toEqual({
       kind: "user_owned",
     });
+  });
+});
+
+describe("bindSearchIndexProviderEvents — keeping the index consistent", () => {
+  async function setup() {
+    const { createPluginEventsRuntime } = await import("./plugin-events.js");
+    const { bindSearchIndexProviderEvents } = await import(
+      "./search-index-host.js"
+    );
+    const indexed = new Set(["t-1:doc-1", "t-1:doc-2", "t-2:doc-1"]);
+    const provider: SearchIndexProvider = {
+      ...makeProvider({ lexical: true }),
+      deleteDocument: async ({ doc_id, tenant_id }) => {
+        indexed.delete(`${tenant_id}:${doc_id}`);
+      },
+      getDocumentById: async () => null,
+    };
+    const events = createPluginEventsRuntime().createApi();
+    bindSearchIndexProviderEvents(events, provider, {
+      entityName: "thing",
+      moduleId: "tests",
+      onEvents: [
+        {
+          action: "delete",
+          docId: (payload) => (payload as { id?: string }).id ?? null,
+          name: "tests.thing.deleted",
+        },
+        {
+          action: "replace",
+          docId: (payload) => (payload as { id?: string }).id ?? null,
+          name: "tests.thing.updated",
+        },
+      ],
+    });
+    return { events, indexed };
+  }
+
+  it("removes a deleted record from that tenant's index", async () => {
+    const { events, indexed } = await setup();
+
+    await events.modules.emit(
+      "tests.thing.deleted",
+      { id: "doc-1" },
+      { tenantId: "t-1" }
+    );
+
+    expect([...indexed].sort()).toEqual(["t-1:doc-2", "t-2:doc-1"]);
+  });
+
+  it("removes an updated record whose source row is gone", async () => {
+    const { events, indexed } = await setup();
+
+    await events.modules.emit(
+      "tests.thing.updated",
+      { id: "doc-2" },
+      { tenantId: "t-1" }
+    );
+
+    expect(indexed.has("t-1:doc-2")).toBe(false);
+  });
+});
+
+describe("createSearchIndexHost — dispose", () => {
+  it("unregisters the provider and its synthesized operation", async () => {
+    const { createSearchIndexRegistry } = await import("@engenty/search-index");
+    const { createPluginEventsRuntime } = await import("./plugin-events.js");
+    const { createSearchIndexHost } = await import("./search-index-host.js");
+    const registry = createSearchIndexRegistry();
+    const disposeOperation = vi.fn();
+    const register = createSearchIndexHost({
+      events: createPluginEventsRuntime().createApi(),
+      registry,
+      server: {
+        registerOperation: () => ({ dispose: disposeOperation }),
+      } as never,
+    });
+
+    const receipt = register(makeProvider({ lexical: true }), {
+      entityName: "entity",
+      moduleId: "tests",
+    });
+    expect(registry.has("tests.entity")).toBe(true);
+
+    await receipt?.dispose();
+
+    expect(registry.has("tests.entity")).toBe(false);
+    expect(disposeOperation).toHaveBeenCalled();
   });
 });

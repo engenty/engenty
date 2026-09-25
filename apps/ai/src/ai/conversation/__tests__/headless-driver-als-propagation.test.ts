@@ -26,7 +26,7 @@ import {
   getEngentyToolsRunContext,
 } from "../../../../ai/tools/engenty-tools/lib/run-context.js";
 import {
-  describeWorkspaceToolCall,
+  workspaceApprovalTitle,
   workspaceToolGrantId,
 } from "../../workspace/workspace-tool-guards.js";
 import { runHeadlessViaMastraAgent } from "../delegate-run-agui-driver.js";
@@ -92,7 +92,7 @@ function drive(seen: Record<string, unknown>[]) {
     agent: probeAgent(seen),
     agentId: "als-probe",
     content: "probe",
-    describeCall: describeWorkspaceToolCall,
+    describeCall: workspaceApprovalTitle,
     grantIdOf: workspaceToolGrantId,
     resourceId: "resource-1",
     runId: "run-als",
@@ -172,7 +172,7 @@ describe("tool ADVERTISEMENT under the AG-UI driver", () => {
       agent,
       agentId: "als-probe",
       content: "probe",
-      describeCall: describeWorkspaceToolCall,
+      describeCall: workspaceApprovalTitle,
       grantIdOf: workspaceToolGrantId,
       resourceId: "resource-1",
       runId: "run-ad",

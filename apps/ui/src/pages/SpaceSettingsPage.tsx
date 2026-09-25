@@ -65,7 +65,7 @@ import type { SpaceAppearanceValue } from "@/components/spaces/SpaceAppearanceFi
 import { SpaceDangerZone } from "@/components/spaces/SpaceDangerZone";
 import { SpaceMembersCard } from "@/components/spaces/SpaceMembersCard";
 import { SpaceMountsDialog } from "@/components/spaces/SpaceMountsDialog";
-import { connectionMetaById } from "@/components/spaces/space-mount-catalog";
+import { spaceAccounts } from "@/components/spaces/space-mount-catalog";
 import type { SpaceMount } from "@/lib/api/spaces-client";
 import {
   resolveSpaceAgentKind,
@@ -85,6 +85,7 @@ import {
   useSpacesQuery,
 } from "@/lib/spaces-queries";
 import { useSpaceModules } from "@/lib/use-space-modules";
+import { ComputerEgressHostsRow } from "../components/spaces/ComputerEgressHostsRow";
 
 interface MountRow {
   access?: "none" | "read" | "write" | null;
@@ -398,6 +399,7 @@ export function SpaceSettingsPage() {
     agentApprovalMode?: AgentApprovalMode | null;
     color?: string | null;
     computerNetworkTier?: ComputerNetworkTier | null;
+    computerEgressHosts?: string[];
     description?: string | null;
     icon?: string | null;
     name?: string;
@@ -433,6 +435,9 @@ export function SpaceSettingsPage() {
         ...(patch.computerNetworkTier === undefined
           ? {}
           : { computer_network_tier: patch.computerNetworkTier }),
+        ...(patch.computerEgressHosts === undefined
+          ? {}
+          : { computer_egress_hosts: patch.computerEgressHosts }),
       },
       {
         onError: () => {
@@ -513,12 +518,10 @@ export function SpaceSettingsPage() {
     return map;
   }, [skillsQuery.data]);
 
-  // Accounts, not connectors (PLAN-spaces.md CN.3) — the same map the picker
-  // labels its rows from, so what this card lists and what that dialog offers
-  // cannot describe one mailbox two ways.
-  const connectionMeta = useMemo(
-    () => connectionMetaById(connectorsQuery.data ?? []),
-    [connectorsQuery.data]
+  // The accounts this Space owns — every agent and member here uses them.
+  const accounts = useMemo(
+    () => (spaceId ? spaceAccounts(connectorsQuery.data ?? [], spaceId) : []),
+    [connectorsQuery.data, spaceId]
   );
 
   const moduleRows: MountRow[] = useMemo(
@@ -635,27 +638,20 @@ export function SpaceSettingsPage() {
         connector.title ?? connector.name ?? connector.id,
       ])
     );
-    const mountedConnectorIds = new Set<string>();
-    const accountRows: MountRow[] = mounts
-      .filter((mount) => mount.resourceType === "connection")
-      .map((mount) => {
-        const meta = connectionMeta.get(mount.resourceKey);
-        if (meta?.connectorId) {
-          mountedConnectorIds.add(meta.connectorId);
-        }
-        return {
-          access: mount.agentAccess ?? null,
-          description: meta?.connectorName ?? null,
-          icon: Plug as UiIconComponent,
-          id: `connection:${mount.resourceKey}`,
-          label: meta?.label ?? mount.resourceKey,
-        };
-      });
+    const connectedConnectorIds = new Set(
+      accounts.map((account) => account.connectorId)
+    );
+    const accountRows: MountRow[] = accounts.map((account) => ({
+      description: account.connectorName,
+      icon: Plug as UiIconComponent,
+      id: `connection:${account.id}`,
+      label: account.label,
+    }));
     const pending = mounts
       .filter(
         (mount) =>
           mount.resourceType === "plugin" &&
-          !mountedConnectorIds.has(mount.resourceKey)
+          !connectedConnectorIds.has(mount.resourceKey)
       )
       .map((mount) => ({
         description: t("spaces.settings.needsAuth"),
@@ -666,7 +662,7 @@ export function SpaceSettingsPage() {
     return [...accountRows, ...pending].sort((left, right) =>
       left.label.localeCompare(right.label)
     );
-  }, [connectionMeta, connectorsQuery.data, mounts, t]);
+  }, [accounts, connectorsQuery.data, mounts, t]);
 
   // No `secondaryNavHeaderSlot` and no Setup crumb: this page is INSIDE the
   // space, so the column keeps the space's own switcher and Work/Data/Plan tabs.
@@ -946,6 +942,13 @@ export function SpaceSettingsPage() {
                   ))}
                 </select>
               </div>
+              {(space?.computerNetworkTier ?? inheritedNetwork) === "egress" ? (
+                <ComputerEgressHostsRow
+                  disabled={save.isPending || mountsQuery.isPending}
+                  hosts={space?.computerEgressHosts ?? []}
+                  onSave={(hosts) => saveFields({ computerEgressHosts: hosts })}
+                />
+              ) : null}
             </SettingsFormSection>
           ) : null}
 

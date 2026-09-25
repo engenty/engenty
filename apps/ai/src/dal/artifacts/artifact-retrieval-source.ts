@@ -3,6 +3,7 @@
 // own `createRetrievalService` instance over the shared database (the
 // `search.*` schema is shared; per-process service instances are not).
 
+import { resolvePlatformEmbeddingModelId } from "@engenty/ai-core";
 import {
   createRetrievalService,
   type RetrievalSourceRegistration,
@@ -154,6 +155,8 @@ export function createArtifactSearchRetrieval(options: {
   };
 }): ArtifactSearchRetrieval {
   const service = createRetrievalService({
+    // The platform `embedding` role (process snapshot).
+    resolveEmbeddingModel: async () => resolvePlatformEmbeddingModelId(),
     supabase: options.retrievalDb ?? options.supabase,
   });
   service.registerSource(createArtifactRetrievalSource(options));

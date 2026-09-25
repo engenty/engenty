@@ -9,8 +9,10 @@
  */
 import {
   type AgentApprovalMode,
+  COMPUTER_EGRESS_HOSTS_MAX,
   type ComputerNetworkTier,
   parseAgentApprovalMode,
+  parseComputerEgressHost,
   parseComputerNetworkTier,
 } from "@engenty/plugin-sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -22,6 +24,11 @@ export interface Space {
    */
   agentApprovalMode: AgentApprovalMode | null;
   color: string | null;
+  /**
+   * Hosts this space's computer may reach beyond the shared registry
+   * allowlist, enforced per space by the egress proxy. Unused at `none`.
+   */
+  computerEgressHosts: string[];
   /**
    * Network reach of this space's shared computer. Null inherits the host
    * default. `none` still executes code — Engenty tools and Code Mode travel
@@ -77,6 +84,8 @@ export interface CreateSpaceInput {
 export interface UpdateSpaceInput {
   agentApprovalMode?: AgentApprovalMode | null;
   color?: string | null;
+  /** Replaces the whole list; each entry must pass `parseComputerEgressHost`. */
+  computerEgressHosts?: string[];
   computerNetworkTier?: ComputerNetworkTier | null;
   /** Empty string clears it; undefined leaves it alone. */
   description?: string | null;
@@ -103,7 +112,26 @@ export interface GetSpaceOptions {
 }
 
 const SPACE_COLUMN_LIST =
-  "id, tenant_id, key, name, description, icon, color, is_default, visibility, owner_user_id, agent_approval_mode, computer_network_tier, created_at, deleted_at, purge_after";
+  "id, tenant_id, key, name, description, icon, color, is_default, visibility, owner_user_id, agent_approval_mode, computer_network_tier, computer_egress_hosts, created_at, deleted_at, purge_after";
+
+/**
+ * A space's egress hosts as stored: each one parsed, duplicates dropped,
+ * sorted. One invalid entry rejects the whole list.
+ */
+export function normalizeComputerEgressHosts(raw: readonly string[]): string[] {
+  const hosts = new Set<string>();
+  for (const entry of raw) {
+    const host = parseComputerEgressHost(entry);
+    if (!host) {
+      throw new Error("space_egress_host_invalid");
+    }
+    hosts.add(host);
+  }
+  if (hosts.size > COMPUTER_EGRESS_HOSTS_MAX) {
+    throw new Error("space_egress_hosts_too_many");
+  }
+  return [...hosts].sort();
+}
 
 /** URL segment shape, mirrored from `spaces_key_format_check` in the migration. */
 const SPACE_KEY_PATTERN = /^[a-z0-9][a-z0-9-]{0,62}$/;
@@ -123,6 +151,7 @@ export function resolveSpacePurgeAfter(now = new Date()): Date {
 export interface SpaceRow {
   agent_approval_mode?: string | null;
   color: string | null;
+  computer_egress_hosts?: string[] | null;
   computer_network_tier?: string | null;
   created_at: string;
   deleted_at?: string | null;
@@ -143,6 +172,7 @@ export function mapSpace(row: SpaceRow): Space {
     agentApprovalMode: parseAgentApprovalMode(row.agent_approval_mode),
     color: row.color,
     computerNetworkTier: parseComputerNetworkTier(row.computer_network_tier),
+    computerEgressHosts: row.computer_egress_hosts ?? [],
     createdAt: row.created_at,
     deletedAt: row.deleted_at ? String(row.deleted_at) : null,
     description: row.description ?? null,
@@ -381,6 +411,11 @@ export async function updateSpace(
   }
   if (input.computerNetworkTier !== undefined) {
     patch.computer_network_tier = input.computerNetworkTier;
+  }
+  if (input.computerEgressHosts !== undefined) {
+    patch.computer_egress_hosts = normalizeComputerEgressHosts(
+      input.computerEgressHosts
+    );
   }
   if (Object.keys(patch).length === 0) {
     const current = await getSpaceById(client, tenantId, spaceId);

@@ -45,6 +45,18 @@ export const ANTHROPIC_GATEWAY_ID = "anthropic";
 /** Opper: an OpenAI-compatible gateway with an EU footprint. */
 export const OPPER_GATEWAY_ID = "opper";
 
+/** Mistral and SpaceX AI (Grok), reached directly on their OpenAI-compatible APIs. */
+export const MISTRAL_GATEWAY_ID = "mistral";
+export const SPACEXAI_GATEWAY_ID = "spacexai";
+
+/** Direct vendors: their catalog ids carry the vendor prefix, the wire does not. */
+const DIRECT_VENDOR_GATEWAY_IDS: ReadonlySet<string> = new Set([
+  OPENAI_GATEWAY_ID,
+  ANTHROPIC_GATEWAY_ID,
+  MISTRAL_GATEWAY_ID,
+  SPACEXAI_GATEWAY_ID,
+]);
+
 /**
  * Gateways the platform ships. Registration in `apps/ai/src/model-gateways` is
  * the runtime source of truth; this is the vocabulary shared with the browser,
@@ -57,17 +69,19 @@ export const MODEL_GATEWAY_IDS: readonly string[] = [
   OPENAI_GATEWAY_ID,
   ANTHROPIC_GATEWAY_ID,
   OPPER_GATEWAY_ID,
+  MISTRAL_GATEWAY_ID,
+  SPACEXAI_GATEWAY_ID,
 ];
 
 /**
  * The id a direct vendor expects on the wire. The catalog says
  * `openai/gpt-4o`; OpenAI's API wants `gpt-4o`. Only the vendor's own prefix
- * is stripped, and only for the two direct gateways — a gateway's ids
+ * is stripped, and only for the direct vendors — a gateway's ids
  * (`openrouter`, `opper`) already carry the vendor and go through untouched.
  */
 export function vendorModelId(gateway: string, modelId: string): string {
   const head = gateway.trim().toLowerCase();
-  if (head !== OPENAI_GATEWAY_ID && head !== ANTHROPIC_GATEWAY_ID) {
+  if (!DIRECT_VENDOR_GATEWAY_IDS.has(head)) {
     return modelId;
   }
   const prefix = `${head}/`;

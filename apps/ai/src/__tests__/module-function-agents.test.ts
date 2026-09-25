@@ -9,10 +9,6 @@ import {
 import { describe, expect, it } from "vitest";
 import { createDefaultAiRegistry } from "../ai/agents.js";
 
-// Phase 4: a module ships a hook-composed agent via defineModuleAi's
-// agentFns channel; it rides the capability loader into the function
-// provider and replaces a scanned agent.json config of the same id.
-
 const moduleAgent: AgentFnDescriptor = {
   description: "Function twin",
   fn: () => {
@@ -45,21 +41,7 @@ function scaffoldModuleAiDir(): string {
 }
 
 describe("module function agents (defineModuleAi agentFns)", () => {
-  it("carries agentFns in the dynamic capability and drops the json twin", () => {
-    const moduleAi = defineModuleAi({
-      agentFns: [moduleAgent],
-      dir: scaffoldModuleAiDir(),
-      moduleId: "demo",
-    });
-    const capability = moduleAi.dynamicCapability();
-    expect(capability.agentFns?.map((d) => d.id)).toEqual(["demo.helper"]);
-    // The scanned agent.json config of the same id is replaced (D7).
-    expect(
-      capability.agentConfigs?.some((config) => config.id === "demo.helper")
-    ).toBe(false);
-  });
-
-  it("resolves the module function agent through the default registry", async () => {
+  it("resolves a module function agent over its agent.json twin", async () => {
     const moduleAi = defineModuleAi({
       agentFns: [moduleAgent],
       dir: scaffoldModuleAiDir(),
@@ -73,6 +55,5 @@ describe("module function agents (defineModuleAi agentFns)", () => {
     const config = await registry.getAgentConfig("demo.helper");
     expect(config?.instructions).toBe("From agent.ts.");
     expect(config?.skillIds).toEqual(["from-function"]);
-    expect(config?.name).toBe("Helper (fn)");
   });
 });

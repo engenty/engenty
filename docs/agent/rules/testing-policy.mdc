@@ -8,11 +8,18 @@ alwaysApply: false
 
 Tests exist to prove **results and stability**, not to mirror the implementation. A test that must change whenever the code is refactored *without a behavior change* is a defect — rewrite it against the public contract or delete it.
 
+## Before writing a test
+
+1. Name the behavior and where the expected value comes from (requirement, bug, worked example) — not the code.
+2. For isolated units: write the list of ways it can fail, then the code, then one test per failure.
+3. Pick the lowest seam that proves it: pure rule → unit; route/auth → `app.request()`; SQL → integration; whole feature → smoke E2E.
+4. Check nearby coverage first — do not duplicate.
+
 ## Test public APIs, assert on results
 
-- **What counts as a public API:** exported functions, module contracts (`src/contracts/`, `src/schema/zod.ts`), DAL/repo interfaces, gateway methods, and HTTP routes. Internal function APIs are fine to test **if they are exported** — otherwise test through the caller; never export something solely to test it.
+- **What counts as a public API:** exported functions, module contracts (`src/contracts/`, `src/schema/zod.ts`), DAL/repo interfaces, gateway methods, and HTTP routes. Test **outcomes** through these surfaces. Do not unit test an internal function whose break already fails an outcome test; a separate unit test is for a rule with edge cases the outcome cannot reach cheaply, or a package export other packages call. Never export something solely to test it.
 - **Routes:** build the real app and drive it with `app.request()` (in-process fetch) with real signed JWTs — see `apps/core/src/api/module-operation-routes.test.ts`. Assert on `response.status` and the parsed body.
-- **Reducers / transforms / schemas:** pure input → output with exact-value assertions — see `packages/ai-ui/src/ag-ui/conversation.test.ts`, `modules/knowledge-base/tests/zod.test.ts`, `modules/tasks/src/contracts/task-workflow.contract.test.ts`.
+- **Reducers / transforms / schemas** (when they earn their own test, see above): pure input → output with exact-value assertions — see `packages/ai-ui/src/ag-ui/conversation.test.ts`, `modules/knowledge-base/tests/zod.test.ts`, `modules/tasks/src/contracts/task-workflow.contract.test.ts`.
 - **Components:** assert user-visible output (`screen.getByText`, roles, fired events) — never class names or DOM structure.
 
 ## Mock only at real boundaries
@@ -32,8 +39,12 @@ Everything else should be observable from returned values or resulting state. Do
 - **Assert on prose copied from the implementation** — tool/agent descriptions, prompt wording, log messages. These restate a string literal and break on every wording edit while protecting nothing. Assert structure (tools present, sub-agents keyed, schema fields) or that the text is non-empty instead.
 - **Snapshot tests** (`toMatchSnapshot`). The repo has zero; keep it that way.
 - **Test private helpers directly** — export them or test through the caller.
+- **Use tests or their comments as a notebook** — no dated notes, incident stories, commit hashes, TODOs or history. A comment states the durable reason a behavior matters, in a line or two, or is left out.
 - **Chase coverage percentages.** Coverage targets incentivize exactly the low-value tests this policy bans.
 - **Backfill component tests for pages/flows.** Whole-flow confidence comes from the E2E layer (see roadmap), not from rendering every page in happy-dom.
+- **Tautologies** — expected value restates the code (same constant, same formula, stub returns what the test arranged). If the assertion cannot disagree with the implementation, delete it.
+- **Change detectors** — class strings, pixel/geometry math, constant lists, element/export counts, render order, "renders the prop it was given". They fail on refactors and protect no behavior.
+- **Regression tests by reflex** — add one for a bug fix only when no existing test could have failed for that bug.
 
 ## Integration lane (real database)
 
@@ -62,6 +73,8 @@ them through the UI when the module supports it, and never post into real
 team-chat channels (use the dedicated `smoke-e2e` channel — real channels
 may be Slack-bridged). The LLM copilot spec is gated on
 `ENGENTY_SMOKE_LLM=1`. CI: `.github/workflows/smoke.yml` (nightly + manual).
+
+Each spec ends by writing a repeatable artifact — Playwright trace + final screenshot under `e2e/artifacts/<spec>/` — from seeded, uniquely named data. Report the path.
 
 ## Fixtures
 

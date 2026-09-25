@@ -5,10 +5,17 @@
 // Polled, not streamed. The run event bus is per RUN (`/ai/v1/runs/:id/events`)
 // and nothing streams a Space, so the page follows the same pattern the room
 // header already uses — a short interval while something is live, a slow one
-// when the Space is asleep.
+// when the Space is asleep. Hidden tabs skip interval fetches (QueryClient
+// default). The interval itself is staggered so a quiet home does not share a
+// tick with notifications.
 "use client";
 
-import { useQuery } from "@engenty/query-client";
+import {
+  keepPreviousData,
+  queryOptions,
+  staggeredRefetchInterval,
+  useQuery,
+} from "@engenty/query-client";
 import { requestAiServiceJson } from "../../lib/runtime/ai-service-client.js";
 
 export type SpaceHomeState =
@@ -72,12 +79,54 @@ export interface SpaceHomeResponse {
 }
 
 /** Something is happening: follow it closely. */
-const LIVE_POLL_MS = 5000;
+export const SPACE_HOME_LIVE_POLL_MS = 5000;
 /** Nothing is: the page is a list of names, and names do not move. */
-const IDLE_POLL_MS = 30_000;
+export const SPACE_HOME_IDLE_POLL_MS = 30_000;
+
+const SPACE_HOME_POLL_SALT = "space-home";
 
 export function spaceHomeQueryKey(spaceId: string, since: string | null) {
   return ["spaces", "home", spaceId, since ?? "default"] as const;
+}
+
+export function fetchSpaceHome(
+  spaceId: string,
+  since: string | null,
+  signal?: AbortSignal
+): Promise<SpaceHomeResponse> {
+  const query = since ? `?since=${encodeURIComponent(since)}` : "";
+  return requestAiServiceJson<SpaceHomeResponse>(
+    `/ai/spaces/${encodeURIComponent(spaceId)}/home${query}`,
+    { signal }
+  );
+}
+
+export function spaceHomeIsLive(data: SpaceHomeResponse | undefined): boolean {
+  return Boolean(
+    data?.threads.some(
+      (thread) => thread.state === "running" || thread.state === "waiting"
+    )
+  );
+}
+
+export function spaceHomePollMs(
+  data: SpaceHomeResponse | undefined
+): number | false {
+  return staggeredRefetchInterval(
+    spaceHomeIsLive(data) ? SPACE_HOME_LIVE_POLL_MS : SPACE_HOME_IDLE_POLL_MS,
+    SPACE_HOME_POLL_SALT
+  );
+}
+
+export function spaceHomeQueryOptions(spaceId: string, since: string | null) {
+  return queryOptions({
+    queryFn: ({ signal }) => fetchSpaceHome(spaceId, since, signal),
+    queryKey: spaceHomeQueryKey(spaceId, since),
+    placeholderData: keepPreviousData,
+    refetchInterval: (query) => spaceHomePollMs(query.state.data),
+    refetchIntervalInBackground: false,
+    staleTime: 2000,
+  });
 }
 
 export function useSpaceHomeQuery(params: {
@@ -92,24 +141,7 @@ export function useSpaceHomeQuery(params: {
   const spaceId = params.spaceId?.trim() || null;
   const enabled = (params.enabled ?? true) && Boolean(spaceId);
   return useQuery({
+    ...spaceHomeQueryOptions(spaceId ?? "", params.since),
     enabled,
-    queryFn: ({ signal }) => {
-      const query = params.since
-        ? `?since=${encodeURIComponent(params.since)}`
-        : "";
-      return requestAiServiceJson<SpaceHomeResponse>(
-        `/ai/spaces/${encodeURIComponent(spaceId as string)}/home${query}`,
-        { signal }
-      );
-    },
-    queryKey: spaceHomeQueryKey(spaceId ?? "", params.since),
-    refetchInterval: (query) => {
-      const data = query.state.data as SpaceHomeResponse | undefined;
-      const live = data?.threads.some(
-        (thread) => thread.state === "running" || thread.state === "waiting"
-      );
-      return live ? LIVE_POLL_MS : IDLE_POLL_MS;
-    },
-    staleTime: 2000,
   });
 }

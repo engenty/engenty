@@ -4,14 +4,13 @@ import { toast } from "sonner";
 import type { CatalogConnection, CatalogConnector } from "../api.js";
 import { useSetConnectionPolicyMutation } from "../queries.js";
 import { AutonomousModeCallout } from "./autonomous-mode-callout.js";
-import { ConnectionAgentsCard } from "./connection-agents-card.js";
 import { ConnectionSettingsCard } from "./connection-settings-card.js";
 import { PermissionsMatrix } from "./permissions-matrix.js";
 
 export interface ConnectionPanelProps {
   connection: CatalogConnection;
   connector: CatalogConnector;
-  /** False for non-owners of shared connections: matrix + settings read-only. */
+  /** False unless the viewer owns the account's Space (or is a tenant admin). */
   editable: boolean;
   /** Hide the settings card (e.g. compact admin rows). */
   showSettings?: boolean;
@@ -35,9 +34,6 @@ export function ConnectionPanel({
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="font-medium text-base">{label}</h3>
         <StatusBadge connection={connection} />
-        {connection.all_spaces ? (
-          <Badge variant="outline">{t("sharing.orgBadge")}</Badge>
-        ) : null}
       </div>
       {connection.status === "error" && connection.error_message ? (
         <p className="text-destructive text-sm">
@@ -54,10 +50,6 @@ export function ConnectionPanel({
           disabled={!editable}
         />
       ) : null}
-
-      {/* Where this account has been lent out (CN.5). Renders nothing until
-          there is a grant to show — granting itself happens on the agent. */}
-      <ConnectionAgentsCard connectionId={connection.id} editable={editable} />
 
       <div className="space-y-1">
         <h4 className="font-medium text-sm">{t("matrix.title")}</h4>

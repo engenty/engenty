@@ -49,6 +49,11 @@ interface IndexedToolResult {
   toolName: string;
 }
 
+/** Read-only view of the tool results, keyed by tool call id. */
+interface ToolResultLookup {
+  get(toolCallId: string): IndexedToolResult | undefined;
+}
+
 function safeJson(value: string): unknown {
   try {
     return JSON.parse(value);
@@ -130,7 +135,7 @@ function hasToolInputFields(value: unknown): boolean {
 
 function resolveTranscriptToolInput(
   rawPart: Record<string, unknown>,
-  toolResults: Map<string, IndexedToolResult>,
+  toolResults: ToolResultLookup,
   toolCallArgs?: unknown
 ): unknown {
   const toolCallId =
@@ -220,6 +225,23 @@ function flattenTranscriptToolPart(
   };
 }
 
+// A tool message is parsed once: the reducer keeps an unchanged message's
+// object across events, so the parsed result keeps its identity too — which
+// is what lets a converted message be reused below.
+const parsedToolResults = new WeakMap<Message, IndexedToolResult | null>();
+
+function parseToolResultMessageOnce(
+  message: Extract<Message, { role: "tool" }>
+): IndexedToolResult | null {
+  const cached = parsedToolResults.get(message);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const parsed = parseToolResultMessage(message);
+  parsedToolResults.set(message, parsed);
+  return parsed;
+}
+
 function indexToolResults(
   messages: readonly Message[]
 ): Map<string, IndexedToolResult> {
@@ -228,7 +250,7 @@ function indexToolResults(
     if (message.role !== "tool") {
       continue;
     }
-    const parsed = parseToolResultMessage(message);
+    const parsed = parseToolResultMessageOnce(message);
     if (parsed) {
       index.set(parsed.toolCallId, parsed);
     }
@@ -497,7 +519,7 @@ function resolveTranscriptDynamicToolCallId(
 
 function partsFromTranscriptParts(
   transcriptParts: unknown[],
-  toolResults: Map<string, IndexedToolResult>,
+  toolResults: ToolResultLookup,
   toolCallArgsById: Map<string, unknown> = new Map()
 ): CopilotMessagePart[] {
   const parts: CopilotMessagePart[] = [];
@@ -593,7 +615,7 @@ function mergeAssistantContentStringIntoParts(
 
 function partsFromAssistantMessage(
   message: Extract<Message, { role: "assistant" }>,
-  toolResults: Map<string, IndexedToolResult>
+  toolResults: ToolResultLookup
 ): CopilotMessagePart[] {
   const transcriptParts = readTranscriptParts(message);
   if (transcriptParts && transcriptParts.length > 0) {
@@ -629,7 +651,7 @@ function partsFromAssistantMessage(
 
 function partsFromAgUiMessage(
   message: Message,
-  toolResults: Map<string, IndexedToolResult>
+  toolResults: ToolResultLookup
 ): CopilotMessagePart[] {
   if (message.role === "assistant") {
     return partsFromAssistantMessage(message, toolResults);
@@ -641,6 +663,92 @@ function partsFromAgUiMessage(
     return [{ type: "text", text: message.content }];
   }
   return [];
+}
+
+type CopilotMessage = CopilotPanelContentProps["messages"][number];
+
+function copilotMessageFromAgUiMessage(
+  message: Extract<Message, { role: "assistant" | "user" }>,
+  toolResults: ToolResultLookup
+): CopilotMessage {
+  const authorName = isRecord(message.metadata)
+    ? readAuthorName(message.metadata)
+    : null;
+  const alterEgoUserName = isRecord(message.metadata)
+    ? readAlterEgoUserName(message.metadata)
+    : null;
+  // A colleague's brief is a user row; the desk agent's reply preview is
+  // an assistant row. Either way the marker names the pair thread.
+  const markerCandidate = isRecord(message.metadata)
+    ? readAgentMessageMarker(message.metadata)
+    : null;
+  const agentMessage =
+    markerCandidate &&
+    (message.role === "user" ||
+      (message.role === "assistant" && markerCandidate.kind === "reply"))
+      ? markerCandidate
+      : null;
+  const appRelease = isRecord(message.metadata)
+    ? readAppReleaseMarker(message.metadata)
+    : null;
+  const createdAt =
+    isRecord(message.metadata) &&
+    typeof message.metadata.created_at === "string"
+      ? message.metadata.created_at
+      : null;
+  const authorAgentId =
+    isRecord(message.metadata) &&
+    typeof message.metadata.author_agent_id === "string" &&
+    message.metadata.author_agent_id
+      ? message.metadata.author_agent_id
+      : null;
+  return {
+    id: message.id,
+    role: message.role,
+    parts: partsFromAgUiMessage(message, toolResults),
+    ...(createdAt ? { createdAt } : {}),
+    ...(authorName ? { authorName } : {}),
+    ...(authorAgentId ? { authorAgentId } : {}),
+    ...(alterEgoUserName ? { alterEgoUserName } : {}),
+    ...(agentMessage ? { agentMessage } : {}),
+    ...(appRelease ? { appRelease } : {}),
+  };
+}
+
+interface ConvertedMessage {
+  /** Every tool result the conversion read, as it read it. */
+  reads: [toolCallId: string, result: IndexedToolResult | undefined][];
+  value: CopilotMessage;
+}
+
+// Converted rows by source message. A streaming token replaces one AG-UI
+// message; every other row comes back as the very object it was, so the
+// transcript can skip it. A row is reused only while each tool result it read
+// is still the same result.
+const convertedMessages = new WeakMap<Message, ConvertedMessage>();
+
+function convertAgUiMessageOnce(
+  message: Extract<Message, { role: "assistant" | "user" }>,
+  toolResults: ToolResultLookup
+): CopilotMessage {
+  const cached = convertedMessages.get(message);
+  if (
+    cached?.reads.every(
+      ([toolCallId, result]) => toolResults.get(toolCallId) === result
+    )
+  ) {
+    return cached.value;
+  }
+  const reads: ConvertedMessage["reads"] = [];
+  const value = copilotMessageFromAgUiMessage(message, {
+    get: (toolCallId) => {
+      const result = toolResults.get(toolCallId);
+      reads.push([toolCallId, result]);
+      return result;
+    },
+  });
+  convertedMessages.set(message, { reads, value });
+  return value;
 }
 
 export function agUiMessagesToCopilotMessages(
@@ -659,7 +767,7 @@ export function agUiMessagesToCopilotMessages(
     }
   }
 
-  const copilotMessages: CopilotPanelContentProps["messages"][number][] = [];
+  const copilotMessages: CopilotMessage[] = [];
   let orphanToolGroup: {
     id: string;
     parts: CopilotMessagePart[];
@@ -679,7 +787,7 @@ export function agUiMessagesToCopilotMessages(
 
   for (const message of orderedMessages) {
     if (message.role === "tool") {
-      const result = parseToolResultMessage(message);
+      const result = parseToolResultMessageOnce(message);
       if (!result || assistantToolCallIds.has(result.toolCallId)) {
         continue;
       }
@@ -689,12 +797,17 @@ export function agUiMessagesToCopilotMessages(
         result.input ?? {},
         result
       );
-      const lastCopilotMessage = copilotMessages.at(-1);
+      const lastIndex = copilotMessages.length - 1;
+      const lastCopilotMessage = copilotMessages[lastIndex];
       if (lastCopilotMessage?.role === "assistant") {
-        lastCopilotMessage.parts = mergeDynamicToolPartsInOrder([
-          ...((lastCopilotMessage.parts as CopilotMessagePart[]) ?? []),
-          orphanPart,
-        ]) as CopilotMessagePart[];
+        // A copy, never a write: the row may be a cached conversion.
+        copilotMessages[lastIndex] = {
+          ...lastCopilotMessage,
+          parts: mergeDynamicToolPartsInOrder([
+            ...((lastCopilotMessage.parts as CopilotMessagePart[]) ?? []),
+            orphanPart,
+          ]) as CopilotMessagePart[],
+        };
         continue;
       }
       orphanToolGroup ??= {
@@ -717,35 +830,7 @@ export function agUiMessagesToCopilotMessages(
       continue;
     }
     flushOrphanToolGroup();
-    const authorName = isRecord(message.metadata)
-      ? readAuthorName(message.metadata)
-      : null;
-    const alterEgoUserName = isRecord(message.metadata)
-      ? readAlterEgoUserName(message.metadata)
-      : null;
-    // A colleague's brief is a user row; the desk agent's reply preview is
-    // an assistant row. Either way the marker names the pair thread.
-    const markerCandidate = isRecord(message.metadata)
-      ? readAgentMessageMarker(message.metadata)
-      : null;
-    const agentMessage =
-      markerCandidate &&
-      (message.role === "user" ||
-        (message.role === "assistant" && markerCandidate.kind === "reply"))
-        ? markerCandidate
-        : null;
-    const appRelease = isRecord(message.metadata)
-      ? readAppReleaseMarker(message.metadata)
-      : null;
-    copilotMessages.push({
-      id: message.id,
-      role: message.role,
-      parts: partsFromAgUiMessage(message, toolResults),
-      ...(authorName ? { authorName } : {}),
-      ...(alterEgoUserName ? { alterEgoUserName } : {}),
-      ...(agentMessage ? { agentMessage } : {}),
-      ...(appRelease ? { appRelease } : {}),
-    });
+    copilotMessages.push(convertAgUiMessageOnce(message, toolResults));
   }
   flushOrphanToolGroup();
 

@@ -19,6 +19,7 @@ import {
   type NotificationRecord,
   type NotificationSubject,
   type NotificationsHost,
+  type NotificationTitle,
   notificationsPolicyFromEnv,
   type OriginServiceDb,
   originLookupsFromServiceDb,
@@ -64,6 +65,8 @@ export interface EmitInboxNotificationInput {
   /** Task lanes: the task's primary assignee — the audience of assigned work. */
   assigneeUserId?: string | null;
   audience?: NotificationAudience | null;
+  /** One plain line under the title (a question, an error class); cut to 140. */
+  body?: string | null;
   /** A re-ask about the same thing merges into the open row with this key. */
   coalesceKey?: string;
   /** Only merge into a row touched within this window (a batch). */
@@ -87,8 +90,13 @@ export interface EmitInboxNotificationInput {
   subject?: NotificationSubject | null;
   /** Extra people pushed/mailed about a shared row. */
   subscribers?: readonly string[] | null;
-  summary: string;
+  /** English fallback; optional with a `title` (the rendered title is used). */
+  summary?: string;
+  /** In-app route of the subject; absent → built from the ids + own space. */
+  target?: string | null;
   tenantId: string;
+  /** What the row says: a key of NOTIFICATION_TITLES + the names it uses. */
+  title?: NotificationTitle;
   /** Explicit person; shorthand for `audience: { kind: "user", userId }`. */
   userId?: string;
 }
@@ -110,8 +118,11 @@ export async function emitInboxNotification(
   const emitInput: EmitNotificationInput = {
     kind: input.kind,
     source: input.source,
-    summary: input.summary,
     tenantId: input.tenantId,
+    ...(input.summary ? { summary: input.summary } : {}),
+    ...(input.title ? { title: input.title } : {}),
+    ...(input.body ? { body: input.body } : {}),
+    ...(input.target ? { target: input.target } : {}),
     ...(input.actor ? { actor: input.actor } : {}),
     ...(input.assigneeUserId ? { assigneeUserId: input.assigneeUserId } : {}),
     ...(input.audience

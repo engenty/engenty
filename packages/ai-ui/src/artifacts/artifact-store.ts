@@ -1,4 +1,6 @@
 import {
+  type A2uiLiveMeta,
+  type A2uiRenderMeta,
   formatObjectRef,
   type ObjectRef,
   parseObjectRef,
@@ -33,12 +35,23 @@ export interface WorkFilePaneTab {
   key: string;
 }
 
+export interface A2uiSurfacePaneTab {
+  catalogId: string;
+  /** Tab id in the shared tab strip: `surface:live`. */
+  key: string;
+  live?: A2uiLiveMeta;
+  messages: Record<string, unknown>[];
+  surfaceId: string;
+  title: string;
+}
+
 export interface ArtifactPaneState {
   activeId: string | null;
   fileTabs: WorkFilePaneTab[];
   objectTabs: ObjectPaneTab[];
   paneExpanded: boolean;
   paneOpen: boolean;
+  surfaceTabs: A2uiSurfacePaneTab[];
   /**
    * Artifact ids that arrived while the pane was closed. Cleared when the pane
    * opens. Drives the topbar badge so users notice new work without auto-opening.
@@ -57,11 +70,14 @@ const EMPTY_STATE: ArtifactPaneState = {
   objectTabs: [],
   paneExpanded: false,
   paneOpen: false,
+  surfaceTabs: [],
   unseenIds: [],
 };
 
 const OBJECT_TAB_PREFIX = "object:";
 const WORK_FILE_TAB_PREFIX = "workfile:";
+const SURFACE_TAB_PREFIX = "surface:";
+export const LIVE_A2UI_SURFACE_TAB_KEY = `${SURFACE_TAB_PREFIX}live`;
 
 export function objectPaneTabKey(ref: ObjectRef): string {
   return `${OBJECT_TAB_PREFIX}${formatObjectRef(ref)}`;
@@ -85,13 +101,26 @@ export function isWorkFilePaneTabKey(id: string | null): boolean {
   return Boolean(id?.startsWith(WORK_FILE_TAB_PREFIX));
 }
 
-/** Object or work-file tab — not an artifact id from the server list. */
+export function isA2uiSurfacePaneTabKey(id: string | null): boolean {
+  return Boolean(id?.startsWith(SURFACE_TAB_PREFIX));
+}
+
+/** Object, work-file, or live A2UI tab — not an artifact id from the server list. */
 export function isTransientPaneTabKey(id: string | null): boolean {
-  return isObjectPaneTabKey(id) || isWorkFilePaneTabKey(id);
+  return (
+    isObjectPaneTabKey(id) ||
+    isWorkFilePaneTabKey(id) ||
+    isA2uiSurfacePaneTabKey(id)
+  );
 }
 
 function firstTransientTabKey(state: ArtifactPaneState): string | null {
-  return state.objectTabs[0]?.key ?? state.fileTabs[0]?.key ?? null;
+  return (
+    state.surfaceTabs[0]?.key ??
+    state.objectTabs[0]?.key ??
+    state.fileTabs[0]?.key ??
+    null
+  );
 }
 
 const stores = new Map<string, ArtifactStore>();
@@ -121,6 +150,7 @@ function setState(hostKey: string, next: ArtifactPaneState) {
     next.paneExpanded === prev.paneExpanded &&
     next.objectTabs === prev.objectTabs &&
     next.fileTabs === prev.fileTabs &&
+    next.surfaceTabs === prev.surfaceTabs &&
     sameIdList(next.unseenIds, prev.unseenIds)
   ) {
     return;
@@ -259,6 +289,7 @@ export function closeObjectPaneTab(
       remainingArtifactIds[0] ??
       objectTabs[0]?.key ??
       state.fileTabs[0]?.key ??
+      state.surfaceTabs[0]?.key ??
       null;
     next = fallback
       ? { ...next, activeId: fallback }
@@ -317,6 +348,64 @@ export function closeWorkFilePaneTab(
       remainingArtifactIds[0] ??
       state.objectTabs[0]?.key ??
       fileTabs[0]?.key ??
+      state.surfaceTabs[0]?.key ??
+      null;
+    next = fallback
+      ? { ...next, activeId: fallback }
+      : { ...next, activeId: null, paneOpen: false, paneExpanded: false };
+  }
+  setState(hostKey, { ...state, ...next });
+}
+
+/**
+ * Open (or replace) the live A2UI surface tab. One spec per host: a later
+ * dashboard replaces the previous one in place, the same way Copilot's canvas
+ * holds the current view beside the chat.
+ */
+export function openA2uiSurfacePaneTab(
+  hostKey: string,
+  meta: A2uiRenderMeta,
+  opts?: { expanded?: boolean }
+) {
+  const { state } = getStore(hostKey);
+  const key = LIVE_A2UI_SURFACE_TAB_KEY;
+  const tab: A2uiSurfacePaneTab = {
+    catalogId: meta.catalog_id,
+    key,
+    messages: meta.messages,
+    surfaceId: meta.surface_id,
+    title: meta.title?.trim() || "Dashboard",
+    ...(meta.live ? { live: meta.live } : {}),
+  };
+  const existing = state.surfaceTabs.find((item) => item.key === key);
+  const surfaceTabs = existing ? [tab] : [...state.surfaceTabs, tab];
+  setState(hostKey, {
+    ...state,
+    surfaceTabs,
+    activeId: key,
+    paneOpen: true,
+    paneExpanded: opts?.expanded ?? state.paneExpanded,
+    unseenIds: [],
+  });
+}
+
+export function closeA2uiSurfacePaneTab(
+  hostKey: string,
+  key: string,
+  remainingArtifactIds: string[] = []
+) {
+  const { state } = getStore(hostKey);
+  const surfaceTabs = state.surfaceTabs.filter((tab) => tab.key !== key);
+  if (surfaceTabs.length === state.surfaceTabs.length) {
+    return;
+  }
+  let next: Partial<ArtifactPaneState> = { surfaceTabs };
+  if (state.activeId === key) {
+    const fallback =
+      remainingArtifactIds[0] ??
+      state.objectTabs[0]?.key ??
+      state.fileTabs[0]?.key ??
+      surfaceTabs[0]?.key ??
       null;
     next = fallback
       ? { ...next, activeId: fallback }
@@ -393,7 +482,8 @@ export function useArtifactListSync(params: {
       } else if (
         emptied &&
         getStore(hostKey).state.objectTabs.length === 0 &&
-        getStore(hostKey).state.fileTabs.length === 0
+        getStore(hostKey).state.fileTabs.length === 0 &&
+        getStore(hostKey).state.surfaceTabs.length === 0
       ) {
         // Closing (archiving) the last tab closes the pane — unless transient
         // object/file tabs are still open.

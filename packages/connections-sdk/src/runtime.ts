@@ -17,18 +17,15 @@ import {
   registerConnectorDefinition,
 } from "./registry.js";
 import { createConnectionsRepo } from "./repo.js";
-import {
-  listMountedConnectionAccess,
-  resolveVerifiedSpaceOwnerForRun,
-} from "./space-mounts.js";
+import { mayUseSpaceInRun } from "./space-mounts.js";
 import { storageCapabilityActions } from "./storage-capability.js";
 import type { ConnectorAction, ConnectorDefinition } from "./types.js";
 import { ACTION_GROUP_CONTRACTS, connectorOperationId } from "./types.js";
 
 /**
  * Connector actions are account-scoped. The `account` input is a label, not a
- * connection UUID, so core cannot key the mount check off it — existing
- * execute-time candidate ∩ Space-mount intersection stays authoritative.
+ * connection UUID, so core cannot key the mount check off it — the executor's
+ * "the run's Space owns the account" candidate filter stays authoritative.
  */
 export const CONNECTOR_ACTION_SPACE_POLICY = {
   kind: "account_mounted",
@@ -112,22 +109,21 @@ function buildActionOperation(params: {
       // Defense in depth: the connections profile policy is the authoritative
       // gate (with full principal context); the executor re-checks with the
       // narrower gateway auth so a route that skipped policy still cannot
-      // execute a denied action. The space mounts and the verified personal-
-      // space owner are resolved here for the same parity: without them the
-      // re-check would deny a §2.1 owner-reach call the policy allowed, and
-      // would skip the space narrowing the policy applied.
-      const spaceId = auth.spaceId?.trim();
-      const mountedConnectionAccess = spaceId
-        ? await listMountedConnectionAccess(getDb(auth), auth.tenantId, spaceId)
-        : null;
-      const spaceOwnerUserId = spaceId
-        ? await resolveVerifiedSpaceOwnerForRun(getDb(auth), {
-            principalType: auth.principalType ?? "user",
-            spaceId,
-            tenantId: auth.tenantId,
-            triggerId: auth.triggerId ?? null,
-          })
-        : null;
+      // execute a denied action — including an account outside the run's Space.
+      const claimedSpaceId = auth.spaceId?.trim() || null;
+      const spaceId =
+        claimedSpaceId &&
+        (await mayUseSpaceInRun(getDb(auth), {
+          capabilities: auth.capabilities,
+          principalId: auth.principalId,
+          principalType: auth.principalType ?? "user",
+          spaceId: claimedSpaceId,
+          taskId: auth.taskId ?? null,
+          tenantId: auth.tenantId,
+          triggerId: auth.triggerId ?? null,
+        }))
+          ? claimedSpaceId
+          : null;
       const liveConnector =
         getConnectorDefinition(connector.id, auth.tenantId) ?? connector;
       const liveAction =
@@ -135,15 +131,11 @@ function buildActionOperation(params: {
       const { output } = await executeConnectorAction({
         account,
         action: liveAction,
-        // CN.5 — the agent driving this call, so a grant on someone's personal
-        // account is honoured here exactly as the profile policy honours it.
-        ...(auth.agentId ? { agentId: auth.agentId } : {}),
         connector: liveConnector,
         input: actionInput,
         isAutonomous: false,
         log: (msg, data) => ctx.logger.info(msg, data ?? {}),
-        ...(mountedConnectionAccess ? { mountedConnectionAccess } : {}),
-        ...(spaceOwnerUserId ? { spaceOwnerUserId } : {}),
+        spaceId,
         principal: {
           // Carried so the executor can re-check the per-connector scope
           // (CON-02) rather than trusting that policy already ran.

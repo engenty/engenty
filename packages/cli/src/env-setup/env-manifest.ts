@@ -275,6 +275,28 @@ export const CORE_ENV_MANIFEST: EnvVarSpec[] = [
     scopes: ["root"],
     secret: false,
   },
+  {
+    description:
+      "Sampled UI interaction telemetry (INP, named interactions, long tasks, route transitions, startup bytes, API latency). Off by default. Payloads carry release, route group, and device class only — never ids or user content.",
+    exampleValue: "1",
+    group: "UI (Vite)",
+    key: "VITE_UI_PERFORMANCE_TELEMETRY",
+    obtain: { kind: "manual" },
+    required: "optional",
+    scopes: ["root"],
+    secret: false,
+  },
+  {
+    description:
+      "Optional POST URL for sampled UI interaction telemetry. Empty means collect-only (no network).",
+    exampleValue: "https://example.invalid/ui-perf",
+    group: "UI (Vite)",
+    key: "VITE_UI_PERFORMANCE_TELEMETRY_URL",
+    obtain: { kind: "manual" },
+    required: "optional",
+    scopes: ["root"],
+    secret: false,
+  },
 
   // ── Dev login ──
   {
@@ -454,7 +476,7 @@ export const CORE_ENV_MANIFEST: EnvVarSpec[] = [
   },
   {
     description:
-      "Root of the spaces tree, shared by app-host and engenty-ai: every App's source repository and /data directory live under tenants/<tenant>/spaces/<space>/apps/<slug>. app-host commits and deploys from it and mounts data/ at /data inside the App's isolate; engenty-ai binds a space's apps/ into that space's computer at /sandbox/apps. Defaults to ~/.engenty/spaces; the compose files bind /opt/engenty/spaces.",
+      "The one host root, shared by app-host and engenty-ai. Each Space has one folder, tenants/<tenant>/spaces/<space>/: home/, sandbox/ and cache/ of its computer, browser/{profile,downloads}/, and apps/<slug>/{src,data} (App repositories and databases — back these up). engenty-ai also stages object storage under it (…/ai/). Must be the same path inside the containers and on the host. Defaults to ~/.engenty/spaces; the compose files bind /opt/engenty/spaces.",
     exampleValue: "/opt/engenty/spaces",
     group: "engenty Apps",
     key: "ENGENTY_SPACES_DIR",
@@ -683,10 +705,10 @@ export const CORE_ENV_MANIFEST: EnvVarSpec[] = [
   },
   {
     description:
-      "Host dir for sandbox staging; mirrored 1:1 into containers (see compose notes).",
-    exampleValue: "/opt/engenty/sandboxes",
+      "Quota for one Space's folder on the host (its computer's home, sandbox and caches, its browser profile and downloads, its Apps), measured with du on the reaper's tick. Over it, the Space's package caches are cleared, then it is reported on the Computers view. Default 20 GiB.",
+    exampleValue: "21474836480",
     group: "Agent sandbox (Docker-only)",
-    key: "ENGENTY_SANDBOX_HOST_DIR",
+    key: "ENGENTY_SPACE_DRIVE_MAX_BYTES",
     obtain: { kind: "manual" },
     required: "optional",
     scopes: ["deploy"],

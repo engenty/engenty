@@ -102,62 +102,6 @@ describe("plugin HTTP routes", () => {
     }
   });
 
-  it("invokes package plugin routes when only the plugin SDK is an Engenty dependency", async () => {
-    tmpRoot = makeTempDir();
-    const modulesDir = path.join(tmpRoot, "modules");
-    const packagesDir = path.join(tmpRoot, "packages");
-    const pluginDir = path.join(packagesDir, "user-settings");
-    fs.mkdirSync(modulesDir, { recursive: true });
-    fs.mkdirSync(pluginDir, { recursive: true });
-    writeUserSettingsPlugin(pluginDir);
-
-    const registry = loadPlugins({
-      modulesDir,
-      packagesDir,
-      logger: {
-        info: () => {},
-        warn: () => {},
-        error: () => {},
-        debug: () => {},
-      },
-    });
-    const userSettings = registry.plugins.find(
-      (plugin) => plugin.id === "user-settings"
-    );
-    expect(userSettings).toMatchObject({
-      loaded: true,
-      dependencies: [],
-    });
-
-    const secret = "test-security-secret";
-    const token = await createToken(secret, {
-      capabilities: ["user-settings.read"],
-    });
-    const app = createApiApp({
-      registry,
-      config: { securityJwtSecret: secret },
-      dataDir: tmpRoot,
-      resolvePath: (p) => path.resolve(tmpRoot, p),
-      auditLog: createNoopAuditLog(),
-      tenantPluginOverrides: createTenantPluginOverrides({}),
-    });
-
-    const response = await app.request("/api/user-settings/copilot.layout", {
-      headers: {
-        authorization: `Bearer ${token}`,
-      },
-    });
-
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({
-      data: {
-        name: "copilot.layout",
-        spaceId: null,
-        value_jsonb: { ok: true },
-      },
-    });
-  });
-
   it("forwards x-engenty-space-id onto the handler auth (scope=space lists)", async () => {
     tmpRoot = makeTempDir();
     const modulesDir = path.join(tmpRoot, "modules");

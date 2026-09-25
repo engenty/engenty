@@ -1,8 +1,10 @@
 /**
  * `core.space_mount` — mount = grant (PLAN-spaces.md Phase 3).
  *
- * A space declares AVAILABILITY for five resource kinds: modules, agents, skills,
- * connections (account UUIDs), and plugins (connector ids with no account yet).
+ * A space declares AVAILABILITY for four resource kinds: modules, agents, skills
+ * and plugins (connector ids enabled here). Accounts are not mounted — a
+ * connection is OWNED by one space (PLAN-space-owned-connections.md) and the
+ * surface reads them by `space_id`.
  * Availability is a filter over ONE tenant library, never a copy
  * and never a second store — skills stay at `tenants/<t>/ai/skills/…` and agents
  * stay in `core.agents`; a mount only says which of them this space can touch.
@@ -22,8 +24,8 @@ import {
 } from "@engenty/plugin-sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
-  listAllSpacesConnectorIds,
-  resolveConnectorIdsForConnections,
+  listSpaceOwnedConnections,
+  type SpaceOwnedConnection,
 } from "./space-connection-lookup.js";
 
 /**
@@ -53,7 +55,6 @@ export const SPACE_RESOURCE_TYPES = [
   "module",
   "agent",
   "skill",
-  "connection",
   "plugin",
 ] as const;
 export type SpaceResourceType = (typeof SPACE_RESOURCE_TYPES)[number];
@@ -130,19 +131,13 @@ function mountsTable(client: SupabaseClient) {
  * The `agent_access` value a mount is stored with.
  *
  * Module: required by the database, and `none` is the safe default — a module
- * mounted for its pages only. Connection: optional, and an omitted one stays
- * NULL rather than becoming `none`, because `none` on an account is an explicit
- * "engentys get nothing here" while NULL means the space never said. Anything
- * else: NULL, which the database enforces.
+ * mounted for its pages only. Anything else: NULL, which the database enforces.
  */
 function mountAgentAccess(
   input: Pick<SpaceMountInput, "agentAccess" | "resourceType">
 ): SpaceAgentAccess | null {
   if (input.resourceType === "module") {
     return input.agentAccess ?? "none";
-  }
-  if (input.resourceType === "connection") {
-    return input.agentAccess ?? null;
   }
   return null;
 }
@@ -229,9 +224,7 @@ export async function upsertSpaceMount(
       {
         // The database rejects module-only settings on the wrong kind of
         // mount, so normalise here rather than passing a caller's stray value
-        // through. A connection mount MAY carry a level and defaults to null —
-        // "this space has not decided", which falls back to the account's own
-        // `autonomous_mode` (PLAN-connections-ux.md B1).
+        // through.
         agent_access: mountAgentAccess(input),
         // Omitted-preserving: an upsert only updates the columns it names, so
         // a field-only PUT on a baseline-required row must not demote it to
@@ -302,22 +295,18 @@ export interface SpaceResourceSurface {
    */
   capabilities: string[];
   /**
-   * ACCOUNT ids this space's engentys may reach — `module_connections.connections`
-   * primary keys, not connector ids (PLAN-spaces.md Phase CN.3).
-   *
-   * The distinction is the whole point of CN.3: mounting "Gmail" used to grant
-   * every Gmail account in the tenant, because the key was the connector. It is
-   * now one account per mount, so a space that works `info@company.com` cannot
-   * reach a colleague's mailbox that happens to use the same provider.
+   * ACCOUNT ids this space owns — `module_connections.connections` primary
+   * keys with `space_id` = this space, any status. Every engenty here uses
+   * them; nobody outside the space does.
    */
   connections: string[];
   /**
-   * Connector ids the mounted accounts belong to, de-duplicated.
+   * Connector ids enabled here: `plugin` mounts plus the connectors of the
+   * space's active accounts, de-duplicated.
    *
-   * Derived, never stored: the AI-side gate recognises a connector operation by
-   * tool prefix and needs the connector, while the account-level refusal
-   * happens later, once the call's connection is resolved. Both gates, C3a's
-   * rule — hiding alone is decoration, refusing alone wastes a turn.
+   * The AI-side gate recognises a connector operation by tool prefix and
+   * needs the connector; the account-level refusal happens later, once the
+   * call's connection is resolved.
    */
   connectors: string[];
   counts: {
@@ -358,39 +347,21 @@ export async function resolveSpaceResourceSurface(
   spaceId: string
 ): Promise<SpaceResourceSurface> {
   const mounts = await listSpaceMounts(client, tenantId, spaceId);
-  // The one impure step: a connection mount names an account, and the connector
-  // it belongs to lives in the connections module's schema. Resolved here so
-  // `surfaceFromMounts` stays a pure projection that tests can drive directly.
-  const connectorIds = await resolveConnectorIdsForConnections(
-    client,
-    tenantId,
-    mounts
-      .filter((mount) => mount.resourceType === "connection")
-      .map((mount) => mount.resourceKey)
-  );
-  const allSpacesConnectorIds = await listAllSpacesConnectorIds(
-    client,
-    tenantId
-  );
-  return surfaceFromMounts(
-    spaceId,
-    mounts,
-    connectorIds,
-    moduleAgentIdsFromSeeds(),
-    allSpacesConnectorIds
-  );
+  // The one impure step besides the mounts: the space's accounts live in the
+  // connections module's schema. Read here so `surfaceFromMounts` stays a pure
+  // projection that tests can drive directly.
+  const owned = await listSpaceOwnedConnections(client, tenantId, spaceId);
+  return surfaceFromMounts(spaceId, mounts, owned, moduleAgentIdsFromSeeds());
 }
 
 /** Pure projection of mount rows onto the surface — the testable half. */
 export function surfaceFromMounts(
   spaceId: string,
   mounts: SpaceMount[],
-  /** Connector id per mounted connection id; empty when nothing resolved. */
-  connectorIdsByConnectionId: ReadonlyMap<string, string> = new Map(),
+  /** Accounts this space owns; see {@link listSpaceOwnedConnections}. */
+  ownedConnections: readonly SpaceOwnedConnection[] = [],
   /** Agents each mounted module brings with it; see {@link moduleAgentIdsFromSeeds}. */
-  agentIdsByModule: ReadonlyMap<string, readonly string[]> = new Map(),
-  /** Connector ids of all-spaces accounts (not space_mount rows). */
-  extraConnectorIds: readonly string[] = []
+  agentIdsByModule: ReadonlyMap<string, readonly string[]> = new Map()
 ): SpaceResourceSurface {
   const modules = mounts
     .filter((mount) => mount.resourceType === "module")
@@ -444,20 +415,17 @@ export function surfaceFromMounts(
     }
   }
   const skills = keysOf("skill");
-  const connections = keysOf("connection");
-  const plugins = keysOf("plugin");
+  const connections = ownedConnections.map((connection) => connection.id);
   // Capabilities stay CONNECTOR-shaped: `module.connections.write.<connectorId>`
   // is the selector CON-02 scopes roles with, and inventing a per-account
-  // variant here would produce ids nothing matches. An account whose connector
-  // did not resolve contributes nothing — see the lookup's note on failing shut.
-  // Plugin mounts (connector id, no account yet) count as enabled plugins.
+  // variant here would produce ids nothing matches. A plugin mount enables a
+  // connector before any account exists; an active account enables its own.
   const connectors = [
     ...new Set([
-      ...plugins,
-      ...extraConnectorIds,
-      ...connections
-        .map((connectionId) => connectorIdsByConnectionId.get(connectionId))
-        .filter((connectorId): connectorId is string => Boolean(connectorId)),
+      ...keysOf("plugin"),
+      ...ownedConnections
+        .filter((connection) => connection.status === "active")
+        .map((connection) => connection.connectorId),
     ]),
   ].sort();
   return {

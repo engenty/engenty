@@ -9,6 +9,7 @@ describe("suggestHtmlExtractPatternsFromHtml", () => {
     await expect(
       suggestHtmlExtractPatternsFromHtml({
         html: "<html><body><p>x</p></body></html>",
+        model: "openai/gpt-5-mini",
       })
     ).rejects.toThrow(/AI_GATEWAY_API_KEY/);
     process.env.AI_GATEWAY_API_KEY = prev;

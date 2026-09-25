@@ -8,7 +8,9 @@
 // exactly one place.
 import { useEffect, useRef } from "react";
 import type { NotificationDto } from "./api.js";
-import { isBadgeClass, isUnseen } from "./lanes.js";
+import { isAttention, isUnseen } from "./classification.js";
+import { notificationHref, notificationOrigin } from "./notification-href.js";
+import { localizedSummary, notificationBodyText } from "./notification-item.js";
 import { useNotificationsQuery } from "./queries.js";
 
 export interface ClientChannel {
@@ -26,21 +28,27 @@ export function registerClientChannel(channel: ClientChannel): () => void {
   };
 }
 
-/** Title/body for one record; producers may carry structured context. */
-export function notificationDisplayText(record: NotificationDto): {
+/**
+ * A banner for one record, read like a macOS notification: where it came
+ * from on top (space · actor), the title below, one more line when the
+ * producer had one. `t` says the title in the viewer's language; without it
+ * the server's English summary stands.
+ */
+export function notificationDisplayText(
+  record: NotificationDto,
+  t?: (key: string, options: Record<string, unknown>) => string
+): {
   body: string;
   title: string;
 } {
-  const payload = record.payload ?? {};
-  const title =
-    typeof payload.conversation_label === "string"
-      ? payload.conversation_label
-      : "engenty";
-  const body =
-    typeof payload.text_preview === "string" && payload.text_preview
-      ? payload.text_preview
-      : record.summary;
-  return { body: body.slice(0, 240), title };
+  const origin = notificationOrigin(record);
+  const source =
+    [origin.spaceName, origin.actorLabel].filter(Boolean).join(" · ") ||
+    "engenty";
+  const headline = t ? localizedSummary(record, t) : record.summary;
+  const extra = notificationBodyText(record);
+  const body = extra ? `${headline}\n${extra}` : headline;
+  return { body: body.slice(0, 240), title: source };
 }
 
 /**
@@ -61,8 +69,7 @@ export const browserClientChannel: ClientChannel = {
     }
     for (const record of records.slice(0, 3)) {
       const { body, title } = notificationDisplayText(record);
-      const route =
-        typeof record.payload?.route === "string" ? record.payload.route : null;
+      const route = notificationHref(record);
       const shown = new Notification(title, {
         body,
         tag: record.dedupe_key ?? record.id,
@@ -78,8 +85,10 @@ export const browserClientChannel: ClientChannel = {
 };
 
 /**
- * Watches the open list and hands newly arrived badge-class records to every
- * registered client channel. Mount once (the bell does).
+ * Watches the open list and hands newly arrived, unseen attention records
+ * (`isAttention`) to every registered client channel. The first load only
+ * learns what is there; a pre-seen row (the person whose turn parked) never
+ * arrives. Mount once (the bell does).
  */
 export function useClientChannels() {
   const query = useNotificationsQuery({ limit: 30, scope: "tenant" });
@@ -96,7 +105,7 @@ export function useClientChannels() {
     }
     const fresh = records.filter(
       (record) =>
-        !previous.has(record.id) && isUnseen(record) && isBadgeClass(record)
+        !previous.has(record.id) && isUnseen(record) && isAttention(record)
     );
     if (fresh.length === 0) {
       return;

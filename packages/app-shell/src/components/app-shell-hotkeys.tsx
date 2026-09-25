@@ -1,5 +1,11 @@
 import { HOTKEY_GROUP } from "@engenty/ui-core";
 import { useHotkey } from "@tanstack/react-hotkeys";
+import {
+  useCopilotActionsOrNull,
+  useCopilotChromeHidden,
+  useCopilotHostOrNull,
+  useCopilotLayoutOrNull,
+} from "../context/copilot-shell-context";
 import { useShortcutsDialog } from "../context/shortcuts-dialog-context";
 import { APP_SHELL_HOTKEYS } from "../lib/app-shell-hotkeys";
 import { ShortcutsDialog } from "./shortcuts-dialog";
@@ -13,6 +19,10 @@ export function AppShellHotkeys({
 }) {
   const { open: shortcutsOpen, setOpen: setShortcutsOpen } =
     useShortcutsDialog();
+  const copilotActions = useCopilotActionsOrNull();
+  const copilotLayout = useCopilotLayoutOrNull();
+  const copilotHost = useCopilotHostOrNull();
+  const chromeHidden = useCopilotChromeHidden();
 
   useHotkey(
     APP_SHELL_HOTKEYS.appMenu,
@@ -48,6 +58,39 @@ export function AppShellHotkeys({
         description: "Open the keyboard shortcuts list",
         group: HOTKEY_GROUP.general,
         name: "Open shortcuts",
+      },
+    }
+  );
+
+  useHotkey(
+    APP_SHELL_HOTKEYS.copilot,
+    (event) => {
+      event.preventDefault();
+      if (!(copilotActions && !chromeHidden)) {
+        return;
+      }
+      if (appMenuOpen) {
+        onAppMenuOpenChange(false);
+      }
+      if (shortcutsOpen) {
+        setShortcutsOpen(false);
+      }
+      if (copilotLayout?.open) {
+        return;
+      }
+      copilotHost?.copilotLayout.mergeLayout({
+        collapseToCircle: false,
+        open: true,
+      });
+      copilotActions.setOpen(true);
+    },
+    {
+      conflictBehavior: "allow",
+      enabled: Boolean(copilotActions) && !chromeHidden,
+      meta: {
+        description: "Open the copilot companion",
+        group: HOTKEY_GROUP.copilot,
+        name: "Open copilot",
       },
     }
   );

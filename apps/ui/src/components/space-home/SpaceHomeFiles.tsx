@@ -72,6 +72,7 @@ export function SpaceHomeFiles({
 
   const actions = useFileSpaceActions(owner, null, false, invalidate);
   const listingQuery = useQuery({
+    enabled: open,
     queryFn: ({ signal }) => getFileSpaceListing(owner, null, signal),
     queryKey: spaceDriveKeys.folder(owner, null),
   });

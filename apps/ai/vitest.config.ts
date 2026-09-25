@@ -17,7 +17,7 @@ export default defineConfig({
   test: {
     /** Match repo-wide server tests (see root vitest.config.ts). */
     pool: "forks",
-    include: ["src/**/__tests__/**/*.test.ts"],
+    include: ["src/**/*.test.ts", "ai/**/*.test.ts"],
     exclude: ["**/node_modules/**", "**/dist/**"],
     // The first test in each fork pays a one-time cold-start cost: transforming +
     // importing the heavy Mastra module graph (warm ~1.6s, but transform-bound and

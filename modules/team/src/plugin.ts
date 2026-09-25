@@ -27,8 +27,9 @@ const registerTeamMembersPlugin: EngentyPluginFactory = (engenty) => {
   ]);
   // Phase A seam (PLAN-tenant-isolation-a-rls-seam.md): every lane in this
   // module is request- or tenant-shaped (routes carry auth, context-graph
-  // status/sync carry a tenantId), so ALL work runs on tenant-locked handles
-  // (engenty_server lane, RLS-enforced) — no service-client use remains.
+  // status/sync carry a tenantId), so ALL tenant work runs on tenant-locked
+  // handles (engenty_server lane, RLS-enforced). The only service-client read
+  // is the platform `image` model binding (no tenant_id) in the Habbo route.
   const getTenantDb = engenty.server.getTenantDb;
   if (!getTenantDb) {
     return;

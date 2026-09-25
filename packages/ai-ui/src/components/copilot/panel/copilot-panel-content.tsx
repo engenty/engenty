@@ -1,6 +1,7 @@
 "use client";
 
 import { cn, ScrollArea } from "@engenty/ui-core";
+import { useCallback } from "react";
 import { CopilotToolCallActionsProvider } from "../interrupts/copilot-tool-call-actions";
 import { THREAD_CONTEXT_INLINE_PAD_VAR } from "../thread-context/thread-context-types";
 import { CopilotTranscript } from "../transcript/copilot-transcript";
@@ -42,7 +43,6 @@ export function CopilotPanelContent({
   awaitingInterrupt = false,
   composerFocusKey,
   openInterrupt = null,
-  routeStatusLabel,
   title = "Enhance",
   error,
   messages,
@@ -59,6 +59,7 @@ export function CopilotPanelContent({
   submitMessage,
   composerPlaceholder,
   starterPrompts,
+  stickyBand = null,
   thinkingLabel,
   centerEmptyLanding: centerEmptyLandingProp,
   chatKind = null,
@@ -95,14 +96,6 @@ export function CopilotPanelContent({
   respond,
   emptyStateSubtitle,
   emptyStateTitle,
-  compactContextControl,
-  minimalChrome = false,
-  contextMenuLabel,
-  contextOptions,
-  onSelectContext,
-  recentContextMenuLabel,
-  recentContextOptions,
-  selectedContextId,
   debugPayload,
   positionMenu,
   browserPanel,
@@ -125,14 +118,13 @@ export function CopilotPanelContent({
   voiceInputEnabled = true,
   voiceInputLang,
 }: CopilotPanelContentProps) {
-  const showHeaderContext = Boolean(
-    contextOptions &&
-      contextOptions.length > 0 &&
-      onSelectContext &&
-      selectedContextId != null
-  );
-
   const toolCardDensity = "default";
+  // A stable callback keeps the actions context (and the memoized transcript
+  // under it) from changing on every host render.
+  const submitTranscriptMessage = useCallback(
+    (text: string) => submitMessage(text),
+    [submitMessage]
+  );
   const showEmptyLanding =
     composerDockStyle &&
     messages.length === 0 &&
@@ -199,22 +191,15 @@ export function CopilotPanelContent({
       chatKind={chatKind}
       clearLabel={clearLabel}
       closeLabel={closeLabel}
-      contextMenuLabel={contextMenuLabel}
-      contextOptions={contextOptions}
       detachLabel={detachLabel}
       headerChrome={headerChrome}
       headerVariant={headerVariant}
       onClose={onClose}
       onNewChat={onNewChat}
       onPanelModeChange={onPanelModeChange}
-      onSelectContext={onSelectContext}
       onToggleBrowserPanel={onToggleBrowserPanel}
       panelMode={panelMode}
       positionMenu={positionMenu}
-      recentContextMenuLabel={recentContextMenuLabel}
-      recentContextOptions={recentContextOptions}
-      selectedContextId={selectedContextId}
-      showHeaderContext={showHeaderContext}
       title={title}
     />
   );
@@ -260,15 +245,6 @@ export function CopilotPanelContent({
             : "flex min-h-0 flex-1 flex-col gap-4 px-3 pt-0 pb-3"
       }
     >
-      {!minimalChrome && routeStatusLabel && !showHeaderContext && (
-        <p
-          aria-live="polite"
-          className="shrink-0 rounded-md bg-muted/50 px-2 py-1 text-muted-foreground text-xs"
-          role="status"
-        >
-          {routeStatusLabel}
-        </p>
-      )}
       {browserPanelOpen && browserPanel ? (
         <div className="shrink-0">{browserPanel}</div>
       ) : null}
@@ -352,7 +328,7 @@ export function CopilotPanelContent({
                   optimisticInterruptResults={optimisticInterruptResults}
                   pendingInterruptToolCallIds={pendingInterruptToolCallIds}
                   respond={respond}
-                  submitMessage={(text) => submitMessage(text)}
+                  submitMessage={submitTranscriptMessage}
                 >
                   <CopilotTranscript
                     awaitingInterrupt={awaitingInterrupt}
@@ -416,7 +392,6 @@ export function CopilotPanelContent({
           autoExpand={resolvedAutoExpand}
           centerEmptyLanding={centerEmptyLanding}
           compact={compact}
-          compactContextControl={compactContextControl}
           composerDockStyle={composerDockStyle}
           composerFocusKey={composerFocusKey}
           composerLeadingControl={composerLeadingControl}
@@ -452,9 +427,16 @@ export function CopilotPanelContent({
     </div>
   );
 
+  const pinnedBand = stickyBand ? (
+    <div className="z-20 shrink-0" data-copilot-sticky-band>
+      {stickyBand}
+    </div>
+  ) : null;
+
   if (bodyOnly) {
     return (
       <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-transparent">
+        {pinnedBand}
         {body}
       </div>
     );
@@ -463,6 +445,7 @@ export function CopilotPanelContent({
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-card">
       {header}
+      {pinnedBand}
       {body}
     </div>
   );

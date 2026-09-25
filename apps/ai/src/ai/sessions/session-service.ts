@@ -13,6 +13,7 @@ import {
   modelIdOfRef,
   normalizeAgUiMessageForPersistence,
   recordAiUsage,
+  slimThreadMessage,
 } from "@engenty/ai-core";
 import { createLogger } from "@engenty/telemetry";
 import type { Workspace } from "@mastra/core/workspace";
@@ -109,6 +110,7 @@ import type {
   AppendAiThreadMessageInput,
   CreateAiThreadInput,
   DeleteAiThreadsInput,
+  GetAiThreadMessageInput,
   ListAiThreadMessagesInput,
   ListAiThreadsInput,
   ThreadServiceOptions,
@@ -301,6 +303,7 @@ export function createThreadService(opts: ThreadServiceOptions) {
     let taskWorkspace: Workspace | undefined;
     let sandboxProvider: EngentySandboxProvider | undefined;
     let droppedMounts: DroppedWorkspaceMount[] = [];
+    let computeInstructions: string | undefined;
     const subAgentSandboxProviders: EngentySandboxProvider[] = [];
     const subAgentWorkspacesMap = new Map<string, Workspace>();
     // The run's space, resolved ONCE and validated against the caller's access
@@ -313,9 +316,7 @@ export function createThreadService(opts: ThreadServiceOptions) {
       threadId: input.threadId,
       ...(input.runId ? { runId: input.runId } : {}),
     });
-    // Copilot outside `/s/…` stays `{kind:"global"}`. Connector reach is the
-    // agent's grants plus all-spaces accounts (see enrichToolsSpaceForAgentRun),
-    // not a silent fallback to Company or the personal space.
+    // The copilot resolves to its person's personal Space (resolveRunSpace).
     if (input.runId) {
       await ensureAgentRunStarted(opts.getRunStore?.() ?? null, {
         id: input.runId,
@@ -344,6 +345,7 @@ export function createThreadService(opts: ThreadServiceOptions) {
       taskWorkspace = workspaceResult?.workspace;
       sandboxProvider = workspaceResult?.sandboxProvider;
       droppedMounts = workspaceResult?.droppedMounts ?? [];
+      computeInstructions = workspaceResult?.computeInstructions;
 
       // Build dedicated workspaces for sub-agents that declare workspace.enabled.
       // Each sub-agent gets its own workspace keyed by id/alias; session-lifecycle
@@ -360,8 +362,8 @@ export function createThreadService(opts: ThreadServiceOptions) {
             runId: input.runId,
             scope: input.scope,
             session,
-            // Use parent threadId so session-lifecycle sandbox path is stable
-            // across multiple delegations within the same parent conversation.
+            // The parent's thread: a sub-agent that declares `session` keeps one
+            // container across the conversation's delegations.
             threadId: input.threadId,
             skipCheckout: true,
             workspaceConfig: subConfig.workspace,
@@ -465,7 +467,7 @@ export function createThreadService(opts: ThreadServiceOptions) {
     const memoryRuntime = createEngentySessionMemoryRuntime({
       agentId: session.agent_id,
       ...(rootConfig?.name ? { agentName: rootConfig.name } : {}),
-      observationalModelId: modelConfig.memoryModelId,
+      observationalModelId: modelConfig.fastTextModelId,
       scope: input.scope,
       sharedObservations: rootConfig
         ? resolveSharedObservationsScope(rootConfig)
@@ -498,6 +500,7 @@ export function createThreadService(opts: ThreadServiceOptions) {
     return {
       agent,
       agentConfig: rootConfig,
+      computeInstructions,
       droppedMounts,
       mergedDefinitions,
       modelId,
@@ -530,6 +533,8 @@ export function createThreadService(opts: ThreadServiceOptions) {
     workspaceConfig?: AgentWorkspaceConfig;
   }): Promise<
     | {
+        /** The run's "Your computer" prompt section. */
+        computeInstructions?: string;
         /** Declared mounts this run does not have, and why — for the prompt. */
         droppedMounts: DroppedWorkspaceMount[];
         sandboxProvider?: EngentySandboxProvider;
@@ -793,6 +798,8 @@ export function createThreadService(opts: ThreadServiceOptions) {
       // /home to file storage). Sub-agents are NOT pre-resolved: child-run
       // delegation (Phase 3) resolves each delegated agent's own workspace on
       // demand via `resolveAgentWorkspaceForRun` and owns its teardown.
+      /** The run's "Your computer" prompt section. */
+      computeInstructions?: string;
       sandboxProvider?: EngentySandboxProvider;
       workspace?: Workspace;
     }> {
@@ -818,6 +825,9 @@ export function createThreadService(opts: ThreadServiceOptions) {
         ),
       });
       return {
+        ...(rootResult?.computeInstructions
+          ? { computeInstructions: rootResult.computeInstructions }
+          : {}),
         ...(rootResult?.sandboxProvider
           ? { sandboxProvider: rootResult.sandboxProvider }
           : {}),
@@ -1314,6 +1324,7 @@ export function createThreadService(opts: ThreadServiceOptions) {
       const {
         agent,
         agentConfig,
+        computeInstructions,
         droppedMounts,
         modelId,
         rootConfig,
@@ -1355,6 +1366,7 @@ export function createThreadService(opts: ThreadServiceOptions) {
       const runtimeContextInstructions = await buildSessionRuntimeInstructions({
         agentId: session.agent_id,
         agentUi: input.agentUi,
+        ...(computeInstructions ? { computeInstructions } : {}),
         droppedMounts,
         frontendToolGrant: frontendToolGrantForRun({
           agentId: session.agent_id,
@@ -1513,19 +1525,32 @@ export function createThreadService(opts: ThreadServiceOptions) {
         scope: input.scope,
         session,
       });
-      // One row past the page tells whether an older page exists without a
-      // count query; it is dropped from the oldest end before the reply.
-      const rows = await store.listMessagesOrdered({
-        ...(input.before
-          ? { before: input.before.createdAt, beforeId: input.before.id }
-          : {}),
-        latest: true,
-        limit: input.limit + 1,
-        tenantId: input.scope.tenantId,
-        threadId: input.threadId,
-      });
+      // One row past the page tells whether another page exists without a
+      // count query; it is dropped from the far end before the reply — the
+      // oldest for a tail/"load older" page, the newest for a delta page.
+      const rows = input.after
+        ? await store.listMessagesOrdered({
+            after: input.after.createdAt,
+            afterId: input.after.id,
+            limit: input.limit + 1,
+            tenantId: input.scope.tenantId,
+            threadId: input.threadId,
+          })
+        : await store.listMessagesOrdered({
+            ...(input.before
+              ? { before: input.before.createdAt, beforeId: input.before.id }
+              : {}),
+            latest: true,
+            limit: input.limit + 1,
+            tenantId: input.scope.tenantId,
+            threadId: input.threadId,
+          });
       const hasMore = rows.length > input.limit;
-      const messages = hasMore ? rows.slice(rows.length - input.limit) : rows;
+      const messages = hasMore
+        ? input.after
+          ? rows.slice(0, input.limit)
+          : rows.slice(rows.length - input.limit)
+        : rows;
       const authorIds = messages
         .map((message) => message.author_user_id)
         .filter((id): id is string => Boolean(id));
@@ -1553,7 +1578,8 @@ export function createThreadService(opts: ThreadServiceOptions) {
       }
       return {
         has_more: hasMore,
-        messages: messages.map((message) => {
+        messages: messages.map((row) => {
+          const message = input.view === "slim" ? slimThreadMessage(row) : row;
           const agentId = message.metadata?.author_agent_id;
           return {
             ...message,
@@ -1565,6 +1591,28 @@ export function createThreadService(opts: ThreadServiceOptions) {
           };
         }),
       };
+    },
+
+    /**
+     * One persisted row in full — what the slim transcript view dropped
+     * (reasoning, large tool results), loaded when someone opens it. Same
+     * read gate as `listMessages`.
+     */
+    async getMessage(input: GetAiThreadMessageInput) {
+      const { session, store } = await getRequiredSession(input);
+      await assertSessionAccess({
+        action: "read",
+        scope: input.scope,
+        session,
+      });
+      const [message] = await store.listMessagesByIds({
+        messageIds: [input.messageId],
+        tenantId: input.scope.tenantId,
+      });
+      if (!message || message.thread_id !== input.threadId) {
+        throw new AiSessionError("agent_threads.notFound");
+      }
+      return { message };
     },
 
     /**

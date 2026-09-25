@@ -27,7 +27,10 @@ import {
 } from "./lib/invocation-dedupe.js";
 import type { ToolRequestContextCarrier } from "./lib/run-context.js";
 import { getEngentyToolsRunContext } from "./lib/run-context.js";
-import { checkOperationAgainstSpace } from "./lib/space-gate.js";
+import {
+  callSpaceIdFor,
+  checkOperationAgainstSpace,
+} from "./lib/space-gate.js";
 import {
   resolveToolApprovalDecision,
   type ToolRiskLevel,
@@ -185,6 +188,7 @@ export async function executeEngentyTool(
   // here so the core-202 backstop in the catch block can carry it too.
   let gateSecretId: string | undefined;
   let resolvedInputForRetry: Record<string, unknown> = {};
+  let callSpaceId: string | undefined;
   // Set for a non-read-only call when the run carries a dedupe map, so the
   // catch block's settle-and-retry success can register the invocation too.
   let dedupeKey: string | null = null;
@@ -290,9 +294,17 @@ export async function executeEngentyTool(
         );
       }
     }
+    callSpaceId = callSpaceIdFor(
+      {
+        operationId: entry.tool.toolId,
+        ...(entry.moduleId ? { moduleId: entry.moduleId } : {}),
+      },
+      getEngentyToolsRunContext().space
+    );
     const data = await client.client.invokeTool(
       entry.tool.toolId,
-      resolvedInput
+      resolvedInput,
+      callSpaceId ? { spaceId: callSpaceId } : undefined
     );
     const evidence = normalizeExecuteEvidence(entry.tool.toolId, data);
     if (dedupeKey && evidence.ok) {
@@ -321,6 +333,7 @@ export async function executeEngentyTool(
           err,
           input: resolvedInputForRetry,
           operationId,
+          ...(callSpaceId ? { spaceId: callSpaceId } : {}),
           ...(resumedApproval.choice_id
             ? { choiceId: resumedApproval.choice_id }
             : {}),

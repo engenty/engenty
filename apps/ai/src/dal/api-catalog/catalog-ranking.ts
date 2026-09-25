@@ -13,10 +13,7 @@ import type {
 import type { EngentyToolContract } from "../../ai/core-http-client.js";
 import { rankCatalogRecords } from "./catalog-record-ranking.js";
 
-export {
-  clearCatalogRankingEmbeddingCache,
-  DEFAULT_CATALOG_EMBEDDING_MODEL,
-} from "./catalog-record-ranking.js";
+export { clearCatalogRankingEmbeddingCache } from "./catalog-record-ranking.js";
 
 // Contract-shaped weights: `EngentyToolContract` carries `summary` (not
 // `title`) and has no path/tags. `methodName` stays excluded — it's an
@@ -44,7 +41,6 @@ export interface RankedContract {
 }
 
 export interface RankContractsParams {
-  embeddingModel?: string;
   query: string;
   strategy?: CatalogRankStrategy;
 }
@@ -59,7 +55,6 @@ export async function rankContracts(
   params: RankContractsParams
 ): Promise<RankedContract[]> {
   const ranked = await rankCatalogRecords(contracts, {
-    embeddingModel: params.embeddingModel,
     idOf: contractId,
     query: params.query,
     strategy: params.strategy,

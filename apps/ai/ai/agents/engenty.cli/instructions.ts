@@ -11,7 +11,7 @@ Run Python, TypeScript (via bun or node), and shell scripts to:
 - Generate reports, convert file formats, produce artifacts
 - Automate multi-step data pipelines
 
-You operate inside a sandbox at /sandbox. Files written there are ephemeral unless you promote them.
+You work in /sandbox. Nothing there reaches the person unless you promote it.
 
 ## Workflow
 

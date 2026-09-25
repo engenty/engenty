@@ -1,8 +1,10 @@
 import { anthropicGateway } from "./anthropic-gateway.js";
+import { mistralGateway } from "./mistral-gateway.js";
 import { registerModelGateway } from "./model-gateway.js";
 import { openAiGateway } from "./openai-gateway.js";
 import { openRouterGateway } from "./openrouter-gateway.js";
 import { opperGateway } from "./opper-gateway.js";
+import { spaceXAiGateway } from "./spacexai-gateway.js";
 import { vercelGateway } from "./vercel-gateway.js";
 
 // Built-in adapters register on import, so anything that reaches the registry
@@ -20,6 +22,8 @@ registerModelGateway(openRouterGateway);
 registerModelGateway(opperGateway);
 registerModelGateway(openAiGateway);
 registerModelGateway(anthropicGateway);
+registerModelGateway(mistralGateway);
+registerModelGateway(spaceXAiGateway);
 
 export {
   ANTHROPIC_GATEWAY_ID,
@@ -28,6 +32,14 @@ export {
   anthropicTags,
   normalizeAnthropicModel,
 } from "./anthropic-gateway.js";
+export {
+  isMistralChatModel,
+  MISTRAL_GATEWAY_ID,
+  MISTRAL_MODELS_URL,
+  mistralGateway,
+  mistralTags,
+  normalizeMistralModel,
+} from "./mistral-gateway.js";
 export {
   getModelGateway,
   listModelGateways,
@@ -59,6 +71,14 @@ export {
   opperGateway,
   opperTags,
 } from "./opper-gateway.js";
+export {
+  isSpaceXAiChatModel,
+  normalizeSpaceXAiModel,
+  SPACEXAI_GATEWAY_ID,
+  SPACEXAI_MODELS_URL,
+  spaceXAiGateway,
+  spaceXAiTags,
+} from "./spacexai-gateway.js";
 export {
   GATEWAY_MODELS_URL,
   normalizeGatewayModel,

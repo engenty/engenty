@@ -94,16 +94,27 @@ export function AiGeneralSettingsPage() {
   // Fetch the full catalog (all tiers); the price-tier selector filters the
   // picker client-side, so an effective/pinned model outside the tier still
   // resolves its pricing + capabilities in the matrix.
-  const chatModelOptionsQuery = useGatewayModelOptionsQuery({
-    availability_purpose: "chat",
-    use_case: "text",
+  const agentModelOptionsQuery = useGatewayModelOptionsQuery({
+    availability_purpose: "agent",
   });
-  const routingModelOptionsQuery = useGatewayModelOptionsQuery({
-    availability_purpose: "routing",
-    use_case: "text",
+  const classificationModelOptionsQuery = useGatewayModelOptionsQuery({
+    availability_purpose: "classification",
   });
-  const chatModels = chatModelOptionsQuery.data?.items ?? [];
-  const routingModels = routingModelOptionsQuery.data?.items ?? [];
+  const textModelOptionsQuery = useGatewayModelOptionsQuery({
+    availability_purpose: "text",
+  });
+  const catalogs = useMemo(
+    () => ({
+      agent: agentModelOptionsQuery.data?.items ?? [],
+      classification: classificationModelOptionsQuery.data?.items ?? [],
+      text: textModelOptionsQuery.data?.items ?? [],
+    }),
+    [
+      agentModelOptionsQuery.data?.items,
+      classificationModelOptionsQuery.data?.items,
+      textModelOptionsQuery.data?.items,
+    ]
+  );
   const tabParam = searchParams.get("tab");
   const activeTab =
     tabParam && VALID_TABS.has(tabParam) ? tabParam : DEFAULT_TAB;
@@ -111,35 +122,28 @@ export function AiGeneralSettingsPage() {
     () =>
       mergeSelectedGatewayModelOptions(
         mapGatewayModelSelectOptions(
-          chatModelOptionsQuery.data?.items ?? [],
+          agentModelOptionsQuery.data?.items ?? [],
           t
         ),
-        [
-          settings.chat_model_id,
-          settings.research_model_id,
-          settings.planning_coding_model_id,
-          settings.safeguard_model_id,
-        ],
+        [settings.chat_model_id, settings.fast_text_model_id],
         t("fields.modelUnavailable")
       ),
     [
-      chatModelOptionsQuery.data?.items,
+      agentModelOptionsQuery.data?.items,
       settings.chat_model_id,
-      settings.research_model_id,
-      settings.planning_coding_model_id,
-      settings.safeguard_model_id,
+      settings.fast_text_model_id,
       t,
     ]
   );
   const catalogEmpty =
     !(
-      chatModelOptionsQuery.isLoading ||
-      routingModelOptionsQuery.isLoading ||
-      chatModelOptionsQuery.isError ||
-      routingModelOptionsQuery.isError
-    ) && (chatModelOptionsQuery.data?.items.length ?? 0) === 0;
+      agentModelOptionsQuery.isLoading ||
+      classificationModelOptionsQuery.isLoading ||
+      agentModelOptionsQuery.isError ||
+      classificationModelOptionsQuery.isError
+    ) && (agentModelOptionsQuery.data?.items.length ?? 0) === 0;
   const catalogLoadError =
-    chatModelOptionsQuery.isError || routingModelOptionsQuery.isError;
+    agentModelOptionsQuery.isError || classificationModelOptionsQuery.isError;
   const handleTabChange = (nextTab: string) => {
     if (!VALID_TABS.has(nextTab) || nextTab === activeTab) {
       return;
@@ -358,10 +362,9 @@ export function AiGeneralSettingsPage() {
                     </div>
                   ) : null}
                   <ModelMatrixCard
-                    chatModels={chatModels}
+                    catalogs={catalogs}
                     effective={effectiveQuery.data}
                     maxPriceTier={maxPriceTier}
-                    routingModels={routingModels}
                     settings={settings}
                     t={t}
                     updateSettings={updateSettings}

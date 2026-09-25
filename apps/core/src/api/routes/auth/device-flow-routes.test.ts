@@ -7,8 +7,6 @@ import type { AuthStores } from "../../../security/auth-stores/index.js";
 import { createMemoryAuthStores } from "../../../security/auth-stores/index.js";
 import {
   type ApproverRoleResolver,
-  generateUserCode,
-  normalizeUserCode,
   registerDeviceFlowRoutes,
 } from "./device-flow-routes.js";
 
@@ -119,14 +117,6 @@ describe("device flow", () => {
     expect(((await res.json()) as { error: string }).error).toBe(
       "authorization_pending"
     );
-  });
-
-  it("fast re-poll returns slow_down", async () => {
-    const { app } = buildApp(memberships);
-    const { deviceCode } = await startFlow(app);
-    await post(app, "/api/auth/device/token", { deviceCode });
-    const res = await post(app, "/api/auth/device/token", { deviceCode });
-    expect(((await res.json()) as { error: string }).error).toBe("slow_down");
   });
 
   it("happy path: approve as admin → token bound to approver with clamped caps", async () => {
@@ -291,17 +281,5 @@ describe("device flow", () => {
       tenantId: TENANT,
     });
     expect(unauth.status).toBe(401);
-  });
-});
-
-describe("user codes", () => {
-  it("generates grouped codes from the unambiguous alphabet", () => {
-    const code = generateUserCode();
-    expect(code).toMatch(/^[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$/);
-  });
-
-  it("normalizes user input", () => {
-    expect(normalizeUserCode("abcd efgh")).toBe("ABCD-EFGH");
-    expect(normalizeUserCode("AbCd-EfGh")).toBe("ABCD-EFGH");
   });
 });

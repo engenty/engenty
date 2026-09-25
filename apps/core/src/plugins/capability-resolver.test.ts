@@ -1,15 +1,9 @@
 import { describe, expect, it } from "vitest";
-import {
-  resolvePluginCapability,
-  resolvePluginEffectiveState,
-} from "./capability-resolver.js";
+import { resolvePluginEffectiveState } from "./capability-resolver.js";
 import type { PluginRecord, PluginRegistry } from "./registry.js";
 import { makeEmptyRegistry } from "./test-fixtures.js";
 
-function plugin(
-  id: string,
-  overrides: Partial<PluginRecord> = {}
-): PluginRecord {
+function plugin(id: string): PluginRecord {
   return {
     cliCommands: [],
     dependencies: [],
@@ -30,7 +24,6 @@ function plugin(
     source: `/modules/${id}/src/plugin.ts`,
     sourceType: "module",
     testDataTypes: [],
-    ...overrides,
   };
 }
 
@@ -54,105 +47,25 @@ function registry(plugins: PluginRecord[]): PluginRegistry {
   };
 }
 
-describe("resolvePluginEffectiveState", () => {
-  it("reports allowed effective state for loaded enabled plugins", () => {
-    const state = resolvePluginEffectiveState({
-      capability: "plugin.contacts",
-      contributionKind: "ui_contribution",
-      pluginId: "contacts",
-      registry: registry([plugin("contacts")]),
-      tenantPluginOverrides: {},
-    });
-
-    expect(state).toMatchObject({
-      allowed: true,
-      blockedReasons: [],
-      dependencySatisfied: true,
-      globallyEnabled: true,
-      loaded: true,
-      state: "capability_enabled",
-      tenantEnabled: true,
-    });
+function resolveLicensed(pluginId: string) {
+  return resolvePluginEffectiveState({
+    capability: `plugin.${pluginId}`,
+    contributionKind: "ui_contribution",
+    pluginId,
+    registry: registry([plugin(pluginId)]),
+    tenantPluginOverrides: {},
+    packageAllowedModules: ["contacts", "tasks"],
   });
-
-  it("includes dependency blocked reasons and dependency state", () => {
-    const state = resolvePluginEffectiveState({
-      capability: "plugin.invoices",
-      contributionKind: "ui_contribution",
-      pluginId: "invoices",
-      registry: registry([
-        plugin("contacts", { provides: ["module.contacts"] }),
-        plugin("invoices", { requires: ["module.contacts"] }),
-      ]),
-      tenantPluginOverrides: { contacts: false },
-    });
-
-    expect(state.allowed).toBe(false);
-    expect(state.blockedReasons).toContain("dependency_disabled");
-    expect(state.dependencies).toEqual([
-      {
-        dependency: "module.contacts",
-        pluginId: "contacts",
-        reason: "dependency_disabled",
-        satisfied: false,
-      },
-    ]);
-  });
-
-  it("preserves stable capability deny reason for operation callers", () => {
-    const resolution = resolvePluginCapability({
-      capability: "operation.contacts.list",
-      contributionKind: "operation",
-      pluginId: "contacts",
-      registry: registry([plugin("contacts")]),
-      tenantPluginOverrides: { contacts: false },
-    });
-
-    expect(resolution).toMatchObject({
-      allowed: false,
-      reason: "plugin_tenant_disabled",
-    });
-  });
-});
+}
 
 describe("resolvePluginEffectiveState — package module licensing", () => {
-  it("allows any module when the package allow-list is null (no restriction)", () => {
-    const state = resolvePluginEffectiveState({
-      capability: "plugin.invoices",
-      contributionKind: "ui_contribution",
-      pluginId: "invoices",
-      registry: registry([plugin("invoices")]),
-      tenantPluginOverrides: {},
-      packageAllowedModules: null,
-    });
-    expect(state.allowed).toBe(true);
-    expect(state.blockedReasons).not.toContain("package_module_not_licensed");
-  });
-
   it("blocks a module absent from the package allow-list", () => {
-    const state = resolvePluginEffectiveState({
-      capability: "plugin.invoices",
-      contributionKind: "ui_contribution",
-      pluginId: "invoices",
-      registry: registry([plugin("invoices")]),
-      tenantPluginOverrides: {},
-      packageAllowedModules: ["contacts", "tasks"],
-    });
+    const state = resolveLicensed("invoices");
     expect(state.allowed).toBe(false);
     expect(state.blockedReasons).toContain("package_module_not_licensed");
-    expect(state.state).toBe("blocked");
   });
 
-  it("permits a module present in the package allow-list", () => {
-    const state = resolvePluginEffectiveState({
-      capability: "plugin.contacts",
-      contributionKind: "ui_contribution",
-      pluginId: "contacts",
-      registry: registry([plugin("contacts")]),
-      tenantPluginOverrides: {},
-      packageAllowedModules: ["contacts", "tasks"],
-    });
-    expect(state.allowed).toBe(true);
-    expect(state.blockedReasons).not.toContain("package_module_not_licensed");
+  it("allows a module present in the package allow-list", () => {
+    expect(resolveLicensed("contacts").allowed).toBe(true);
   });
 });

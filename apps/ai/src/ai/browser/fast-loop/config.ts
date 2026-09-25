@@ -1,10 +1,7 @@
 // The switch and its knobs. Env-manifest keys, DB-overridable through
 // platform settings and hydrated into process.env (D2).
 
-import {
-  readJevEnv,
-  resolveTypeSafeClientOptions,
-} from "@engenty/typesafe-client";
+import { createClassifierClient } from "@engenty/ai-core";
 
 export const FAST_LOOP_ENABLED_ENV = "ENGENTY_BROWSER_FAST_LOOP";
 export const FAST_LOOP_MIN_MARGIN_ENV = "ENGENTY_BROWSER_FAST_MIN_MARGIN";
@@ -25,16 +22,18 @@ function isTruthy(value: string | undefined): boolean {
 }
 
 /**
- * Switch on AND a door to Jev — TypeSafe's own key, or the Vercel AI Gateway
- * key that serves `typesafe-ai/jev`. Otherwise the tool is not offered.
+ * Switch on AND the run's `classifier` binding reachable — Jev on TypeSafe's
+ * own key or the Vercel AI Gateway key, or a bound LLM on its gateway's key.
+ * Otherwise the tool is not offered.
  */
 export function isFastLoopEnabled(
+  classifierModelId: string | null | undefined,
   readEnv: EnvReader = defaultReadEnv
 ): boolean {
   if (!isTruthy(readEnv(FAST_LOOP_ENABLED_ENV))) {
     return false;
   }
-  return resolveTypeSafeClientOptions(readJevEnv(readEnv)) !== null;
+  return createClassifierClient(classifierModelId, { readEnv }) !== null;
 }
 
 export function resolveFastLoopMinMargin(

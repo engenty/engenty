@@ -39,9 +39,15 @@ export async function initUiI18n(
       fallbackLng,
       interpolation: { escapeValue: false },
       react: { useSuspense: false },
+      // The browser's language, until the person's saved choice arrives with
+      // the workspace context (AppearanceBootstrap). No localStorage: a
+      // cached value outlived a reset and pinned a German browser to English.
+      // Region dropped ("de-AT" → "de"): namespaces load by bare language,
+      // and a regional tag found no loader and fell back to English.
       detection: {
-        order: ["localStorage", "navigator"],
-        caches: ["localStorage"],
+        caches: [],
+        convertDetectedLanguage: (lng: string) => lng.split("-")[0] ?? lng,
+        order: ["navigator"],
       },
       backend: { registry },
       ns: [],

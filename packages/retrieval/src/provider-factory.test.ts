@@ -14,6 +14,7 @@ function setup(source = makeSource()) {
   const { calls, embedder } = createFakeEmbedder();
   const service = createRetrievalService({
     createEmbedder: () => embedder,
+    resolveEmbeddingModel: () => Promise.resolve(embedder.modelId),
     supabase: supabase as never,
   });
   service.registerSource(source);
@@ -56,10 +57,10 @@ describe("createManagedProvider", () => {
 
   it("re-registration replaces (plugin reload); unknown sources throw on use", async () => {
     const { service } = setup();
-    const replacement = makeSource({ visibility: "owner" });
+    const replacement = makeSource({ visibility: "space" });
     service.registerSource(replacement);
     expect(service.listSources()).toHaveLength(1);
-    expect(service.listSources()[0]?.visibility).toBe("owner");
+    expect(service.listSources()[0]?.visibility).toBe("space");
     await expect(
       service.backfill("nope.nope", { tenant_id: "tenant-1" })
     ).rejects.toThrow(/Unknown retrieval source/);
@@ -98,29 +99,89 @@ describe("createManagedProvider", () => {
     });
   });
 
-  it("per-tenant model resolution wins over static model and default", async () => {
+  it("every source embeds with the model the host resolves, per call", async () => {
     const supabase = createFakeSupabase();
     const seen: string[] = [];
+    let bound = "role/model-a";
     const service = createRetrievalService({
       createEmbedder: (modelId) => {
         seen.push(modelId);
         return createFakeEmbedder(modelId).embedder;
       },
+      resolveEmbeddingModel: () => Promise.resolve(bound),
       supabase: supabase as never,
     });
-    service.registerSource(
-      makeSource({
-        embedding: {
-          model: "static/model",
-          resolveModel: () => Promise.resolve("tenant/model"),
-        },
-      })
-    );
+    service.registerSource(makeSource());
+    service.registerSource(makeSource({ source_type: "demo.other" }));
     await service.ingest({
       doc_id: "doc-1",
       source_type: "demo.item",
       tenant_id: "tenant-1",
     });
-    expect(seen).toEqual(["tenant/model"]);
+    await service.ingest({
+      doc_id: "doc-2",
+      source_type: "demo.other",
+      tenant_id: "tenant-1",
+    });
+    // One embedder per model, shared across sources.
+    expect(seen).toEqual(["role/model-a"]);
+
+    bound = "role/model-b";
+    expect(await service.embeddingModel()).toBe("role/model-b");
+    await service.search({
+      filters: { tenant_id: "tenant-1" },
+      limit: 5,
+      query: "hello there world",
+    });
+    expect(seen).toEqual(["role/model-a", "role/model-b"]);
+    expect(supabase.rpc.calls[0]?.args.p_embedding_model).toBe("role/model-b");
+  });
+
+  it("an empty model from the host fails loudly", async () => {
+    const service = createRetrievalService({
+      resolveEmbeddingModel: () => Promise.resolve("  "),
+      supabase: createFakeSupabase() as never,
+    });
+    service.registerSource(makeSource());
+    await expect(
+      service.ingest({
+        doc_id: "doc-1",
+        source_type: "demo.item",
+        tenant_id: "tenant-1",
+      })
+    ).rejects.toThrow(/embedding role/);
+  });
+
+  it("status counts docs embedded by another model as stale", async () => {
+    const supabase = createFakeSupabase({
+      tables: {
+        documents: [
+          {
+            content_updated_at: "2026-07-05T00:00:00Z",
+            doc_id: "doc-1",
+            embedding_model: "old/model",
+            indexed_at: "2026-07-05T00:00:00Z",
+          },
+        ],
+      },
+    });
+    const { embedder } = createFakeEmbedder("new/model");
+    const service = createRetrievalService({
+      createEmbedder: () => embedder,
+      resolveEmbeddingModel: () => Promise.resolve("new/model"),
+      supabase: supabase as never,
+    });
+    service.registerSource(
+      makeSource({
+        listDocuments: () =>
+          Promise.resolve([
+            { doc_id: "doc-1", updated_at: "2026-07-05T00:00:00Z" },
+          ]),
+      })
+    );
+    const status = await service.status("demo.item", {
+      tenant_id: "tenant-1",
+    });
+    expect(status).toMatchObject({ current_count: 0, stale_count: 1 });
   });
 });

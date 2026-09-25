@@ -1,6 +1,7 @@
 /**
- * KB module settings body: Embedding (model + index), Retrieval quality, and
- * the test search. Everything here is tenant-wide index infrastructure.
+ * KB module settings body: search index, retrieval quality, and the test
+ * search. Everything here is tenant-wide index infrastructure; the embedding
+ * model itself is the platform `embedding` role, not a KB setting.
  */
 
 import { useTranslation } from "@engenty/i18n/ui";
@@ -27,9 +28,8 @@ import { updateKbSettings } from "../../api.js";
 import { kbSettingsQueryOptions } from "../../queries.js";
 import {
   fetchKbSearchIndexStatus,
-  KbSettingsEmbeddingModelField,
-} from "../kb-settings-embedding-model-field.js";
-import { runKbArticleReindex } from "./kb-article-reindex.js";
+  runKbArticleReindex,
+} from "./kb-article-reindex.js";
 import { KbSearchTestPanel } from "./kb-search-test-panel.js";
 import type { KbSettingsToolbarSaveSlot } from "./kb-settings-types.js";
 
@@ -136,7 +136,6 @@ export function KbSettingsGeneralSection({
     staleTime: 15_000,
   });
 
-  const [embeddingDraft, setEmbeddingDraft] = useState("");
   const [vectorMinSimilarity, setVectorMinSimilarity] = useState<number>(
     RETRIEVAL_DEFAULTS.search_vector_min_similarity
   );
@@ -180,36 +179,24 @@ export function KbSettingsGeneralSection({
 
   useEffect(() => {
     if (settings) {
-      setEmbeddingDraft(settings.embedding_model);
       setVectorMinSimilarity(settings.search_vector_min_similarity);
       setVerifierMinQueryTerms(settings.search_verifier_min_query_terms);
       setVerifierMaxCandidates(settings.search_verifier_max_candidates);
     }
   }, [settings]);
 
-  const draft = useCallback(
-    (embeddingModel: string) => {
+  const saveMut = useMutation({
+    mutationFn: () => {
       if (!settings) {
         throw new Error("Settings not loaded");
       }
-      return {
+      return updateKbSettings({
         ...settings,
-        embedding_model: embeddingModel,
         search_vector_min_similarity: vectorMinSimilarity,
         search_verifier_min_query_terms: verifierMinQueryTerms,
         search_verifier_max_candidates: verifierMaxCandidates,
-      };
+      });
     },
-    [
-      settings,
-      vectorMinSimilarity,
-      verifierMinQueryTerms,
-      verifierMaxCandidates,
-    ]
-  );
-
-  const saveMut = useMutation({
-    mutationFn: () => updateKbSettings(draft(embeddingDraft)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["kb", "settings"] });
       toast.success(t("settings.saved"));
@@ -217,25 +204,17 @@ export function KbSettingsGeneralSection({
     onError: (err) => toast.error(err.message),
   });
 
-  const commitEmbeddingModel = async (nextModel: string) => {
-    await updateKbSettings(draft(nextModel));
-    queryClient.invalidateQueries({ queryKey: ["kb", "settings"] });
-    setEmbeddingDraft(nextModel);
-  };
-
   const isDirty = useMemo(() => {
     if (!settings) {
       return false;
     }
     return (
-      embeddingDraft !== settings.embedding_model ||
       vectorMinSimilarity !== settings.search_vector_min_similarity ||
       verifierMinQueryTerms !== settings.search_verifier_min_query_terms ||
       verifierMaxCandidates !== settings.search_verifier_max_candidates
     );
   }, [
     settings,
-    embeddingDraft,
     vectorMinSimilarity,
     verifierMinQueryTerms,
     verifierMaxCandidates,
@@ -298,21 +277,6 @@ export function KbSettingsGeneralSection({
         description={t("settings.embedding_section_description")}
         title={t("settings.embedding_section_title")}
       >
-        <KbSettingsEmbeddingModelField
-          embeddingDraft={embeddingDraft}
-          onCommitEmbeddingModel={commitEmbeddingModel}
-          onReindexComplete={() => {
-            queryClient.invalidateQueries({ queryKey: ["kb", "settings"] });
-            queryClient.invalidateQueries({
-              queryKey: ["kb", "knowledge-bases"],
-            });
-            queryClient.invalidateQueries({ queryKey: ["kb", "articles"] });
-            invalidateIndex();
-            toast.success(t("settings.embedding_reindex_success"));
-          }}
-          savedEmbeddingModel={settings.embedding_model}
-          setEmbeddingDraft={setEmbeddingDraft}
-        />
         <SettingsFormRow
           controlSizing="fit"
           hint={

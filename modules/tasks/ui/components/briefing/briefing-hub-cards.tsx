@@ -1,6 +1,6 @@
 import { useInboxListQuery } from "@engenty/ai-ui/embed";
 import { useTranslation } from "@engenty/i18n/ui";
-import { countOpenHitl } from "@engenty/notifications-ui";
+import { isAttention } from "@engenty/notifications-ui";
 import { Inbox, ListTodo, type LucideIcon } from "lucide-react";
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
@@ -83,8 +83,8 @@ export function BriefingHubCards({
   const inboxQuery = useInboxListQuery({ limit: 100, status: "open" });
   const briefingQuery = useTasksBriefingQuery(mode);
 
-  const hitlCount = useMemo(
-    () => countOpenHitl(inboxQuery.data?.notifications ?? []),
+  const attentionCount = useMemo(
+    () => (inboxQuery.data?.notifications ?? []).filter(isAttention).length,
     [inboxQuery.data?.notifications]
   );
   const openInboxCount = inboxQuery.data?.notifications?.length ?? 0;
@@ -96,7 +96,7 @@ export function BriefingHubCards({
       className="grid grid-cols-2 gap-2.5 md:grid-cols-3"
     >
       <HubCard
-        badge={hitlCount}
+        badge={attentionCount}
         ctaKind="open"
         ctaLabel={t("briefing.hubs.open")}
         description={t("briefing.hubs.inboxCount", { count: openInboxCount })}

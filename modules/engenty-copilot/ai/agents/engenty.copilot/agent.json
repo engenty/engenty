@@ -17,16 +17,10 @@
     "durable-work",
     "routines",
     "space-data",
-    "space-setup"
+    "space-setup",
+    "getting-started"
   ],
-  "tools": [
-    "engentyApiCatalog",
-    "engentyApi",
-    "delegateToAgent",
-    "chatThreadSearch",
-    "registry_agents_list",
-    "message_agent"
-  ],
+  "tools": ["chatThreadSearch", "registry_agents_list", "message_agent"],
   "starters": [
     {
       "id": "copilot-assign-durable",

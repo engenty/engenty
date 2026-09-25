@@ -2,7 +2,10 @@ import { useTranslation } from "@engenty/i18n/ui";
 import { Spinner } from "@engenty/ui-core";
 import { useWorkspaceContext } from "@engenty/ui-plugin-sdk";
 import { useMemo, useState } from "react";
-import { loadMarketplaceCatalog } from "./marketplace-api.js";
+import {
+  useConnectionSpacesQuery,
+  useConnectSpaceId,
+} from "../../hooks/use-connection-space.js";
 import { MarketplaceBrowse } from "./marketplace-browse.js";
 import { MarketplaceCatalogDetail } from "./marketplace-catalog-detail.js";
 import { MarketplaceDetail } from "./marketplace-detail.js";
@@ -11,6 +14,7 @@ import {
   MarketplaceExecutor,
 } from "./marketplace-executor.js";
 import {
+  connectorIdsWithSpaceAccounts,
   installedPluginIds,
   isTenantImportedPlugin,
   type MarketplacePlugin,
@@ -21,10 +25,15 @@ import {
 } from "./use-marketplace.js";
 
 export interface PluginMarketplaceProps {
+  /**
+   * Opened for an agent that can narrow its plugins (`connectorIds`): adding
+   * a plugin also adds it to a non-empty preferred list. Never a grant.
+   */
   agentId?: string | null;
   detailsId?: string | null;
   enabled?: boolean;
   onDetailsIdChange?: (id: string | null) => void;
+  /** The Space whose accounts and plugins to show; absent = personal Space. */
   spaceId?: string | null;
 }
 
@@ -50,42 +59,20 @@ export function PluginMarketplace({
     }
     setLocalDetailsId(id);
   };
-  const data = useMarketplaceData({ agentId, enabled, spaceId });
-  const actions = useMarketplaceActions({ agentId, spaceId });
-
-  const spaceConnectionConnectorIds = useMemo(() => {
-    const ids = new Set<string>();
-    for (const plugin of data.plugins) {
-      if (
-        plugin.connections.some((account) =>
-          data.connectionMountIds.has(account.id)
-        )
-      ) {
-        ids.add(plugin.id);
-      }
-    }
-    return ids;
-  }, [data.connectionMountIds, data.plugins]);
-
-  const grantedConnectorIds = useMemo(() => {
-    const ids = new Set<string>();
-    for (const plugin of data.plugins) {
-      if (
-        plugin.connections.some((account) => data.grantedIds.has(account.id))
-      ) {
-        ids.add(plugin.id);
-      }
-    }
-    for (const connectorId of data.connectorIds) {
-      ids.add(connectorId);
-    }
-    return ids;
-  }, [data.connectorIds, data.grantedIds, data.plugins]);
+  // A Space's accounts are what its agents use; outside a Space (Copilot,
+  // personal places) that is the viewer's personal Space.
+  const targetSpaceId = useConnectSpaceId(spaceId);
+  const spacesQuery = useConnectionSpacesQuery();
+  const data = useMarketplaceData({
+    agentId,
+    enabled,
+    spaceId: targetSpaceId,
+  });
+  const actions = useMarketplaceActions({ agentId, spaceId: targetSpaceId });
 
   const installedIds = installedPluginIds({
-    grantedConnectorIds: agentId ? grantedConnectorIds : undefined,
     pluginMountIds: data.pluginMountIds,
-    spaceConnectionConnectorIds,
+    spaceAccountConnectorIds: connectorIdsWithSpaceAccounts(data.plugins),
   });
   for (const plugin of data.plugins) {
     if (isTenantImportedPlugin(plugin)) {
@@ -110,64 +97,43 @@ export function PluginMarketplace({
   const details =
     data.plugins.find((plugin) => plugin.id === detailsId) ?? null;
 
-  const afterAuth = async (
-    plugin: MarketplacePlugin,
-    connectionId?: string
-  ) => {
-    const before = new Set(plugin.connections.map((account) => account.id));
-    await actions.invalidate();
-    if (spaceId) {
+  /**
+   * Enable the plugin on the Space, and — when the agent narrows its plugins
+   * (non-empty preferred list) — add it there too, so the agent reaches it.
+   */
+  const enableFor = async (plugin: MarketplacePlugin) => {
+    if (!data.pluginMountIds.has(plugin.id)) {
       await actions.enableOnSpace.mutateAsync(plugin.id);
-      if (connectionId) {
-        await actions.mountAccount.mutateAsync(connectionId);
-      }
     }
-    if (agentId) {
-      const ids = connectionId
-        ? [connectionId]
-        : (
-            (await loadMarketplaceCatalog()).connectors.find(
-              (connector) => connector.id === plugin.id
-            )?.connections ?? []
-          )
-            .map((account) => account.id)
-            .filter((id) => !before.has(id));
-      await Promise.all(
-        ids.map((id) =>
-          actions.grantAccount.mutateAsync({
-            connectionId: id,
-            granted: true,
-          })
-        )
-      );
+    if (
+      agentId &&
+      data.connectorIds.length > 0 &&
+      !data.connectorIds.includes(plugin.id)
+    ) {
+      await actions.setConnectorIds.mutateAsync([
+        ...data.connectorIds,
+        plugin.id,
+      ]);
     }
   };
 
+  const afterAuth = async (plugin: MarketplacePlugin) => {
+    await actions.invalidate();
+    await enableFor(plugin);
+  };
+
   const addPlugin = async (plugin: MarketplacePlugin) => {
-    if (spaceId) {
-      await actions.enableOnSpace.mutateAsync(plugin.id);
-    }
-    if (agentId) {
-      const owned = plugin.connections;
-      if (owned.length > 0) {
-        await Promise.all(
-          owned.map((account) =>
-            actions.grantAccount.mutateAsync({
-              connectionId: account.id,
-              granted: true,
-            })
-          )
-        );
-      } else if (!spaceId) {
-        // Agent-only, no accounts yet: mark the plugin preferred so Add is not
-        // a no-op. Space mounts already cover space (+ agent) contexts above.
-        // Authenticate remains the next step.
-        const next = Array.from(new Set([...data.connectorIds, plugin.id]));
-        await actions.setConnectorIds.mutateAsync(next);
-      }
-    }
+    await enableFor(plugin);
     setDetailsId(plugin.id);
   };
+
+  if (!targetSpaceId && spacesQuery.isSuccess) {
+    return (
+      <p className="py-8 text-muted-foreground text-sm">
+        {t("marketplace.noSpace")}
+      </p>
+    );
+  }
 
   if (data.isPending) {
     return (
@@ -216,29 +182,20 @@ export function PluginMarketplace({
           </p>
         ) : null}
         <MarketplaceDetail
-          agentId={agentId}
-          connectionMountIds={data.connectionMountIds}
-          grantedIds={data.grantedIds}
           onAdd={() =>
             addPlugin(details).catch(() => {
               /* mutation error surfaces via actions.errorMessage */
             })
           }
-          onAuthenticated={(connectionId) =>
-            void afterAuth(details, connectionId)
+          onAuthenticated={() =>
+            void afterAuth(details).catch(() => {
+              /* mutation error surfaces via actions.errorMessage */
+            })
           }
-          onDisable={() => {
-            if (spaceId) {
-              actions.disableOnSpace.mutate(details.id, {
-                onSuccess: () => setDetailsId(null),
-              });
-            }
-          }}
-          onGrant={(connectionId, granted) =>
-            actions.grantAccount.mutate({ connectionId, granted })
-          }
-          onSetAllSpaces={(connectionId, allSpaces) =>
-            actions.setAllSpaces.mutate({ allSpaces, connectionId })
+          onDisable={() =>
+            actions.disableOnSpace.mutate(details.id, {
+              onSuccess: () => setDetailsId(null),
+            })
           }
           onUninstall={() =>
             actions.uninstall.mutate(details.id, {
@@ -259,11 +216,8 @@ export function PluginMarketplace({
           }
           plugin={details}
           pluginMounted={data.pluginMountIds.has(details.id)}
-          preferredOnAgent={
-            Boolean(agentId) && data.connectorIds.includes(details.id)
-          }
           saving={actions.pending}
-          spaceId={spaceId}
+          spaceId={targetSpaceId as string}
         />
       </>
     );

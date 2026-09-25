@@ -13,7 +13,8 @@ import {
 import {
   CopilotShellContentArea,
   CopilotShellMain,
-  useCopilotShell,
+  useCopilotChromeHidden,
+  useCopilotLayout,
 } from "../../context/copilot-shell-context";
 import { ShellSecondaryNavProvider } from "../../context/shell-secondary-nav-context";
 import { ShortcutsDialogProvider } from "../../context/shortcuts-dialog-context";
@@ -58,6 +59,7 @@ function contentStackFillClass(
 }
 
 export function AppLayoutFrame({
+  appMenu,
   appMenuActions,
   sections,
   shell,
@@ -78,7 +80,8 @@ export function AppLayoutFrame({
   children,
 }: AppLayoutFrameProps & { children: ReactNode }) {
   const { contentStackBackground } = usePageHeader();
-  const { chromeHidden, open: copilotPersistedOpen } = useCopilotShell();
+  const { open: copilotPersistedOpen } = useCopilotLayout();
+  const chromeHidden = useCopilotChromeHidden();
   const copilotOpen = isCopilotShellSlotOpen({
     chromeHidden,
     open: copilotPersistedOpen,
@@ -333,10 +336,11 @@ export function AppLayoutFrame({
                         "overflow-visible transition-transform duration-300",
                         overlayOpen
                           ? "translate-x-0"
-                          : // Extra 0.75rem = half the seam control (size-6), so the
-                            // overlapping pin/close rides off-canvas with the sheet
-                            // instead of peeking at the content’s left edge.
-                            "pointer-events-none -translate-x-[calc(100%+0.75rem)]"
+                          : // Extra 2.5rem clears both the seam control (half of
+                            // size-6 overlaps the sheet) and the floating shadow's
+                            // 28px blur — anything less parks a grey band on the
+                            // content's left edge, which reads as a wider app bar.
+                            "pointer-events-none -translate-x-[calc(100%+2.5rem)]"
                       )}
                       onMouseEnter={() => {
                         openHoverPanel();
@@ -398,6 +402,7 @@ export function AppLayoutFrame({
                     )}
                   >
                     <AppTopbar
+                      appMenu={appMenu}
                       appMenuActions={appMenuActions}
                       appMenuOpen={appMenuOpen}
                       defaultTitle={defaultTopbarTitle}

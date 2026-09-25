@@ -5,7 +5,9 @@
 // ConnectButton in popup mode: the OAuth flow runs in a popup window, the
 // /connections/oauth/complete landing page reports back via postMessage, and
 // the card resumes the conversation with a continuation message — the user
-// never leaves the chat. When already connected it shows a done state; when
+// never leaves the chat. When already connected it shows a done state — also
+// when the connection was made later through another card or Settings, read
+// live from the catalog; when
 // the connector's client credentials are missing anywhere, it points the user
 // at Setup.
 
@@ -17,8 +19,10 @@ import { cn } from "@engenty/ui-core";
 import { CheckCircle2 } from "lucide-react";
 import { useState } from "react";
 import type { ConnectCompleteResult } from "../../connect-popup.js";
+import { usePersonalSpaceId } from "../../hooks/use-connection-space.js";
+import { connectionsInSpace } from "../../lib/connection-space.js";
 import { ConnectorIcon } from "../../pages/connections-settings-page.js";
-import { connectionsKeys } from "../../queries.js";
+import { connectionsKeys, useConnectionsCatalogQuery } from "../../queries.js";
 import { ConnectButton } from "../connect-button.js";
 
 interface ConnectRequestOutput {
@@ -32,6 +36,8 @@ interface ConnectRequestOutput {
     auth_kind: "oauth2" | "api_key" | "browser";
   };
   dcr_available?: boolean;
+  /** The run's Space, when the op reports it — the connect lands there. */
+  space_id?: string | null;
 }
 
 function parse(output: unknown): ConnectRequestOutput | null {
@@ -78,11 +84,27 @@ export function ConnectToolCallCard(props: ToolCallCardProps) {
   );
 
   const data = parse(props.output);
+  // The connect lands in the run's Space when the op names it, else the
+  // person's personal Space (the Copilot always works out of it).
+  const personalSpaceId = usePersonalSpaceId();
+  const spaceId = data?.space_id ?? personalSpaceId;
+  // That Space's accounts, not the page's: the card must still read
+  // "connected" after a remount (sidebar ↔ window) on another Space's page.
+  const catalog = useConnectionsCatalogQuery(spaceId);
   if (!data) {
     return null;
   }
   const { connector, configured } = data;
-  const connected = data.connected || flowState === "connected";
+  const liveConnector = catalog.data?.connectors.find(
+    (entry) => entry.id === connector.id
+  );
+  const liveConnected = liveConnector
+    ? connectionsInSpace(liveConnector.connections, spaceId).some(
+        (connection) => connection.status === "active"
+      )
+    : false;
+  const connected =
+    data.connected || flowState === "connected" || liveConnected;
   const canConnect = configured || Boolean(data.dcr_available);
 
   const onResult = (result: ConnectCompleteResult) => {
@@ -152,6 +174,7 @@ export function ConnectToolCallCard(props: ToolCallCardProps) {
           flow="popup"
           onResult={onResult}
           size="sm"
+          spaceId={spaceId}
         />
       ) : null}
     </section>

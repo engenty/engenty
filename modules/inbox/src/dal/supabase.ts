@@ -33,47 +33,33 @@ const SCHEMA = "module_inbox";
 const DEFAULT_PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 100;
 
-/** Granted connection ids are interpolated into a PostgREST filter — uuids only. */
+/** Space ids are passed to PostgREST filters and the RPC — uuids only. */
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface CreateInboxRepoSupabaseOptions {
   emitInboxEvent?: EmitInboxEvent;
   /**
-   * Connections the acting AGENT was granted (PLAN-spaces.md CN.5). Rows of
-   * these connections are visible regardless of `owner_user_id` — a personal
-   * mailbox its owner granted to the agent is that agent's business, and a
-   * headless run carries no user at all. Only ever ADDS the granted accounts'
-   * rows; every other personal row stays owner-only.
-   */
-  grantedConnectionIds?: ReadonlySet<string>;
-  /**
-   * The mailboxes THIS SPACE placed (PLAN-connections-ux.md E1).
+   * The Spaces whose mail this caller may see (PLAN-space-owned-connections.md):
+   * a mailbox belongs to one Space and its mail is visible to that Space's
+   * members and agents only. Every row carries the owning `space_id`.
    *
-   * A narrowing, and the opposite of `grantedConnectionIds` in direction: it
-   * only ever REMOVES rows. `null`/absent means the caller is not in a space
-   * (or the mounts could not be read) and nothing is narrowed — every
-   * pre-space caller behaves exactly as before.
-   *
-   * An EMPTY set is a decision, not an absence: a space that placed no mailbox
-   * has no mail, and answering with the tenant's would be the bug this exists
-   * to remove.
+   * `null` = the service (sync, bind): no narrowing. An EMPTY set is a
+   * decision — a caller in no Space with a mailbox sees no mail.
    */
-  spaceConnectionIds?: ReadonlySet<string> | null;
+  spaceIds: ReadonlySet<string> | null;
 }
 
 /**
- * The repo runs on the service-role client, so tenant/scope/owner filters are
- * applied explicitly here (RLS only guards the realtime/authenticated path).
- * `userId` carries the acting user for owner visibility — `null` means a
- * service caller that sees personal-connection rows too (sync, admin).
+ * The repo runs on a tenant-locked handle (engenty_server lane), so tenant,
+ * scope and Space filters are applied explicitly here; RLS guards the
+ * authenticated/realtime path by Space membership.
  */
 export function createInboxRepoSupabase(
   adapter: unknown,
   tenantId: string,
   scopeId: string,
-  userId: string | null,
-  options: CreateInboxRepoSupabaseOptions = {}
+  options: CreateInboxRepoSupabaseOptions
 ): InboxRepo {
   const supabase = adapter as SupabaseClient;
   const threads = () => supabase.schema(SCHEMA).from("threads");
@@ -83,36 +69,15 @@ export function createInboxRepoSupabase(
   const threadDigests = () => supabase.schema(SCHEMA).from("thread_digests");
   const emit = options.emitInboxEvent ?? (() => undefined);
 
-  const grantedIds = [...(options.grantedConnectionIds ?? [])].filter((id) =>
-    UUID_PATTERN.test(id)
-  );
-  const visibilityOr = userId
-    ? [
-        "owner_user_id.is.null",
-        `owner_user_id.eq.${userId}`,
-        ...(grantedIds.length > 0
-          ? [`connection_id.in.(${grantedIds.join(",")})`]
-          : []),
-      ].join(",")
-    : null;
-  // Null (not in a space) means no narrowing. An empty array narrows to
-  // nothing, which is the honest answer for a space that placed no mailbox.
-  const spaceIds = options.spaceConnectionIds
-    ? [...options.spaceConnectionIds].filter((id) => UUID_PATTERN.test(id))
+  const spaceIds = options.spaceIds
+    ? [...options.spaceIds].filter((id) => UUID_PATTERN.test(id))
     : null;
 
-  /**
-   * Keep a row read inside the space's own mailboxes.
-   *
-   * Applied AFTER the visibility OR at every read, never instead of it: the two
-   * answer different questions (whose mail may this caller see, and which mail
-   * belongs to this space), and collapsing them would let a space widen
-   * visibility or a grant escape the space.
-   */
+  /** Keep a row read inside the caller's Spaces (no-op for the service). */
   function inSpace<
     TQuery extends { in: (column: string, values: string[]) => TQuery },
   >(query: TQuery): TQuery {
-    return spaceIds ? query.in("connection_id", spaceIds) : query;
+    return spaceIds ? query.in("space_id", spaceIds) : query;
   }
 
   async function emitForMessages(
@@ -142,10 +107,8 @@ export function createInboxRepoSupabase(
       p_offset: Math.max(params.offset ?? 0, 0),
       p_scope_id: scopeId,
       p_status: params.status ?? null,
+      p_space_ids: spaceIds,
       p_tenant_id: tenantId,
-      p_user_id: userId,
-      p_granted_connection_ids: grantedIds.length > 0 ? grantedIds : null,
-      p_space_connection_ids: spaceIds,
     });
     if (error) {
       throw new Error(`inbox list_threads failed: ${error.message}`);
@@ -179,9 +142,6 @@ export function createInboxRepoSupabase(
       .eq("tenant_id", tenantId)
       .eq("scope_id", scopeId)
       .eq("id", id);
-    if (visibilityOr) {
-      query = query.or(visibilityOr);
-    }
     query = inSpace(query);
     const { data, error } = await query.maybeSingle();
     if (error) {
@@ -198,9 +158,6 @@ export function createInboxRepoSupabase(
       .eq("tenant_id", tenantId)
       .eq("scope_id", scopeId)
       .eq("thread_id", threadId);
-    if (visibilityOr) {
-      query = query.or(visibilityOr);
-    }
     query = inSpace(query);
     const { data, error } = await query.order("received_at", {
       ascending: true,
@@ -220,9 +177,6 @@ export function createInboxRepoSupabase(
       .eq("tenant_id", tenantId)
       .eq("scope_id", scopeId)
       .eq("id", id);
-    if (visibilityOr) {
-      query = query.or(visibilityOr);
-    }
     query = inSpace(query);
     const { data, error } = await query.maybeSingle();
     if (error) {
@@ -239,9 +193,6 @@ export function createInboxRepoSupabase(
       .eq("tenant_id", tenantId)
       .eq("scope_id", scopeId)
       .is("ai_category", null);
-    if (visibilityOr) {
-      query = query.or(visibilityOr);
-    }
     query = inSpace(query);
     const { data, error } = await query
       .order("received_at", { ascending: false, nullsFirst: false })
@@ -260,9 +211,6 @@ export function createInboxRepoSupabase(
       .eq("tenant_id", tenantId)
       .eq("scope_id", scopeId)
       .is("ai_category", null);
-    if (visibilityOr) {
-      query = query.or(visibilityOr);
-    }
     query = inSpace(query);
     const { count, error } = await query;
     if (error) {
@@ -288,9 +236,6 @@ export function createInboxRepoSupabase(
         .eq("tenant_id", tenantId)
         .eq("scope_id", scopeId)
         .in("id", ids);
-      if (visibilityOr) {
-        query = query.or(visibilityOr);
-      }
       query = inSpace(query);
       const { data, error } = await query.select("id");
       if (error) {
@@ -318,9 +263,6 @@ export function createInboxRepoSupabase(
       .eq("tenant_id", tenantId)
       .eq("scope_id", scopeId)
       .in("id", ids);
-    if (visibilityOr) {
-      query = query.or(visibilityOr);
-    }
     query = inSpace(query);
     const { data, error } = await query.select("id");
     if (error) {
@@ -334,10 +276,9 @@ export function createInboxRepoSupabase(
   // ── sync state ─────────────────────────────────────────────────────────
 
   async function listSyncStates(): Promise<InboxSyncState[]> {
-    const { data, error } = await syncState()
-      .select("*")
-      .eq("tenant_id", tenantId)
-      .eq("scope_id", scopeId);
+    const { data, error } = await inSpace(
+      syncState().select("*").eq("tenant_id", tenantId).eq("scope_id", scopeId)
+    );
     if (error) {
       throw new Error(`inbox sync_state list failed: ${error.message}`);
     }
@@ -361,10 +302,9 @@ export function createInboxRepoSupabase(
   }
 
   async function upsertSyncSettings(
-    connectionId: string,
+    connection: InboxSyncConnection,
     patch: {
       backfill_days?: number;
-      owner_user_id?: string | null;
       sync_enabled?: boolean;
     }
   ): Promise<InboxSyncState> {
@@ -372,16 +312,14 @@ export function createInboxRepoSupabase(
     const { data, error } = await syncState()
       .upsert(
         {
-          connection_id: connectionId,
+          connection_id: connection.id,
           scope_id: scopeId,
+          space_id: connection.space_id,
           tenant_id: tenantId,
           updated_at: now,
           ...(patch.backfill_days === undefined
             ? {}
             : { backfill_days: patch.backfill_days }),
-          ...(patch.owner_user_id === undefined
-            ? {}
-            : { owner_user_id: patch.owner_user_id }),
           ...(patch.sync_enabled === undefined
             ? {}
             : { sync_enabled: patch.sync_enabled }),
@@ -427,7 +365,8 @@ export function createInboxRepoSupabase(
   // ── digests (optimized thread view cache) ──────────────────────────────
   // Visibility rides on the enclosing thread/message reads in the digest
   // operation (repo methods above); rows here are keyed by ids the caller
-  // already proved it can see, plus the tenant/scope guard.
+  // already proved it can see, plus the tenant/scope guard. Digest rows carry
+  // the thread's `space_id` for the authenticated (RLS) path.
 
   async function getThreadDigest(
     threadId: string
@@ -462,7 +401,7 @@ export function createInboxRepoSupabase(
 
   async function upsertMessageDigest(
     digest: Omit<InboxMessageDigest, "created_at" | "updated_at"> & {
-      owner_user_id: string | null;
+      space_id: string;
     }
   ): Promise<InboxMessageDigest> {
     const { data, error } = await messageDigests()
@@ -474,8 +413,8 @@ export function createInboxRepoSupabase(
           digest_version: digest.digest_version,
           message_id: digest.message_id,
           model_id: digest.model_id,
-          owner_user_id: digest.owner_user_id,
           scope_id: scopeId,
+          space_id: digest.space_id,
           tenant_id: tenantId,
           thread_id: digest.thread_id,
           updated_at: new Date().toISOString(),
@@ -492,7 +431,7 @@ export function createInboxRepoSupabase(
 
   async function upsertThreadDigest(
     digest: Omit<InboxThreadDigest, "created_at" | "updated_at"> & {
-      owner_user_id: string | null;
+      space_id: string;
     }
   ): Promise<InboxThreadDigest> {
     const { data, error } = await threadDigests()
@@ -502,9 +441,9 @@ export function createInboxRepoSupabase(
           digest_version: digest.digest_version,
           last_message_id: digest.last_message_id,
           model_id: digest.model_id,
-          owner_user_id: digest.owner_user_id,
           participants_json: digest.participants_json,
           scope_id: scopeId,
+          space_id: digest.space_id,
           suggested_actions: digest.suggested_actions,
           summarized_message_count: digest.summarized_message_count,
           summary_md: digest.summary_md,
@@ -526,7 +465,6 @@ export function createInboxRepoSupabase(
 
   async function findOrCreateThread(
     connection: InboxSyncConnection,
-    ownerUserId: string | null,
     providerThreadId: string | null,
     seed: InboundMessage
   ): Promise<string> {
@@ -545,9 +483,9 @@ export function createInboxRepoSupabase(
     const { error } = await threads().insert({
       connection_id: connection.id,
       id,
-      owner_user_id: ownerUserId,
       provider_thread_id: providerThreadId,
       scope_id: scopeId,
+      space_id: connection.space_id,
       subject: seed.subject,
       tenant_id: tenantId,
     });
@@ -619,9 +557,6 @@ export function createInboxRepoSupabase(
     if (items.length === 0) {
       return { new_messages: 0 };
     }
-    const ownerUserId =
-      connection.all_spaces === true ? null : connection.owner_user_id;
-
     const providerIds = items.map((item) => item.provider_message_id);
     const { data: existingRows, error: existingError } = await messages()
       .select("provider_message_id")
@@ -645,7 +580,6 @@ export function createInboxRepoSupabase(
     for (const item of fresh) {
       const threadId = await findOrCreateThread(
         connection,
-        ownerUserId,
         item.provider_thread_id,
         item
       );
@@ -660,11 +594,11 @@ export function createInboxRepoSupabase(
         from_name: item.from_name,
         has_attachments: item.attachments.length > 0,
         id,
-        owner_user_id: ownerUserId,
         provider_message_id: item.provider_message_id,
         provider_thread_id: item.provider_thread_id,
         received_at: item.received_at,
         scope_id: scopeId,
+        space_id: connection.space_id,
         snippet: buildSnippet(item),
         subject: item.subject,
         tenant_id: tenantId,

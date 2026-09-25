@@ -1,20 +1,15 @@
 import {
-  AgUiAgentInspectorWidget,
-  CopilotVoiceFab,
   EngentyAI,
   formatCopilotRunError,
-  isCopilotRiverPathname,
   resolveEngentyAiServiceBaseUrl,
 } from "@engenty/ai-ui";
 import { ApiClientResponseError } from "@engenty/api-client";
 import { ENGENTY_SERVICE_ERROR_CODES } from "@engenty/api-contracts";
 import {
-  AppLayout,
-  CopilotRailDockAnchor,
   CopilotShellProvider,
   useAgentUiFrontendToolExecutor,
   useAgentUiFrontendTools,
-  useAgentUiStateSnapshot,
+  useAgentUiStateSnapshotGetter,
 } from "@engenty/app-shell";
 import { applyDockModuleOrder } from "@engenty/app-shell/navigation";
 import {
@@ -25,54 +20,33 @@ import {
 } from "@engenty/auth-ui";
 import { useTranslation } from "@engenty/i18n/ui";
 import type { PostgresChangeRealtimeClient } from "@engenty/live-cache";
-import { NotificationBell } from "@engenty/notifications-ui";
 import { useQueryClient } from "@engenty/query-client";
 import {
   type UiBrandInfo,
   UiContributionsProvider,
 } from "@engenty/ui-plugin-sdk";
-import { type ReactNode, useCallback, useMemo, useState } from "react";
+import { memo, type ReactNode, useCallback, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { Toaster } from "sonner";
+import { AppLocationChrome } from "@/app-location-chrome";
 import { AboutDialog } from "@/components/AboutDialog";
 import { AppErrorCard } from "@/components/AppErrorCard";
 import { AppearanceBootstrap } from "@/components/AppearanceBootstrap";
 import { AppLoadingScreen } from "@/components/AppLoadingScreen";
 import { BrandProbe } from "@/components/BrandProbe";
-import { SidebarUserMenu } from "@/components/layout/SidebarUserMenu";
 import { LiveDataSync } from "@/components/live-data-sync";
-import { NavigationPrefetchRoot } from "@/components/navigation-prefetch-root";
-import { SettingsAboutFooter } from "@/components/settings/SettingsAboutFooter";
-import {
-  SpaceNavCrumbSlot,
-  SpaceNavFooterSlot,
-  SpaceNavLeadingSlot,
-  SpaceNavTitleSlot,
-} from "@/components/spaces/SpaceShellNavSlots";
-import { SpacesRailZone } from "@/components/spaces/SpacesRailZone";
+import { NotificationToastChannel } from "@/components/NotificationToastChannel";
 import { AppActiveCopilotProvider } from "@/copilot/app-active-copilot-provider";
-import { CopilotShellUiHost } from "@/copilot/copilot-shell-ui-host";
-import { GuideOverlayHostWithBridge } from "@/copilot/guide-overlay-host-with-bridge";
 import { DesktopBridge } from "@/desktop/DesktopBridge";
 import { useAppBarThemeMenu } from "@/hooks/use-app-bar-theme-menu";
 import { useAppMenuActions } from "@/hooks/use-app-menu-actions";
 import { useCopilotLayoutPersistence } from "@/lib/copilot-layout-persistence";
 import { buildLiveBindingMaps } from "@/lib/live-bindings";
-import { isModuleHubChatRoute } from "@/lib/module-chat-routes";
 import { useShellAppBarPositionPersistence } from "@/lib/shell-app-bar-position-persistence";
 import { useShellDockModuleOrderPersistence } from "@/lib/shell-dock-module-order-persistence";
 import { useShellSecondaryNavPinnedPersistence } from "@/lib/shell-secondary-nav-pinned-persistence";
-import { spaceNavLevel } from "@/lib/space-nav";
-import { spacePlacedModuleIds } from "@/lib/space-route-mirrors";
-import {
-  parseModulePath,
-  parseSpacePath,
-  spaceRootPath,
-} from "@/lib/space-routes";
 import { useAuthenticatedAppBootstrap } from "@/lib/use-authenticated-app-bootstrap";
-import { rememberedSpaceKey, useRouteSpace } from "@/lib/use-route-space";
 import { usePublicUiPluginContributions } from "@/plugins/public-ui-plugin-contributions";
-import { AuthenticatedRoutes } from "@/routes/AuthenticatedRoutes";
 import { UnauthenticatedRoutes } from "@/routes/UnauthenticatedRoutes";
 
 function EngentyAiShellProvider({
@@ -95,7 +69,7 @@ function EngentyAiShellProvider({
   const queryClient = useQueryClient();
   const frontendTools = useAgentUiFrontendTools();
   const executeFrontendTool = useAgentUiFrontendToolExecutor();
-  const stateSnapshot = useAgentUiStateSnapshot();
+  const getStateSnapshot = useAgentUiStateSnapshotGetter();
   // Which space the copilot's PERSISTED active thread is remembered under.
   return (
     <EngentyAI
@@ -103,10 +77,10 @@ function EngentyAiShellProvider({
       executeFrontendTool={executeFrontendTool}
       formatRequestError={formatCopilotRunError}
       frontendTools={frontendTools}
+      getStateSnapshot={getStateSnapshot}
       queryClient={queryClient}
       resolveKbArticleHref={resolveKbArticleHref}
       serviceBaseUrl={serviceBaseUrl}
-      stateSnapshot={stateSnapshot}
       tenantId={tenantId}
       threadsRealtimeClient={
         // Structurally compatible at runtime; live-cache's minimal interface
@@ -145,26 +119,18 @@ function workspaceErrorToServiceUnavailableState(error: unknown) {
   return null;
 }
 
-function App() {
+/**
+ * Authenticated app, deliberately not subscribed to the router.
+ *
+ * `App` below reads the URL only to choose this tree or a public surface.
+ * `memo` then bails out on a space switch, so copilot, AI, and live-sync stay
+ * mounted. The frame that does read the path is `AppLocationChrome`.
+ */
+const AuthenticatedShell = memo(function AuthenticatedShell() {
   const { t } = useTranslation("common");
-  const location = useLocation();
-  const { isAuthenticated, loading, error } = useCoreAuthSession();
   const [aboutOpen, setAboutOpen] = useState(false);
   const [brand, setBrand] = useState<UiBrandInfo>({});
   const appVersion = import.meta.env.VITE_APP_VERSION ?? "";
-  const isPortalPath = location.pathname.startsWith("/portal/");
-  const isOAuthConsentPath =
-    location.pathname === "/oauth/consent" ||
-    location.pathname.startsWith("/oauth/consent/");
-  const isAuthPath =
-    location.pathname === "/auth" || location.pathname.startsWith("/auth/");
-  // Standalone public surfaces: skip the authenticated shell/onboarding even
-  // when a session already exists (MCP OAuth consent + login must not boot the app).
-  const isStandalonePublicPath =
-    isPortalPath || isOAuthConsentPath || isAuthPath;
-  const publicContributions = usePublicUiPluginContributions(
-    !(loading || isAuthenticated) || isStandalonePublicPath
-  );
 
   const {
     onboardingReady,
@@ -176,7 +142,7 @@ function App() {
     pluginsReady,
     sections,
     fetchResolvedFeatureFlags,
-  } = useAuthenticatedAppBootstrap(isAuthenticated);
+  } = useAuthenticatedAppBootstrap(true);
 
   const { agentToolInvalidationMap, liveCacheBindings } = useMemo(
     () => buildLiveBindingMaps(contributions.liveBindings),
@@ -194,7 +160,6 @@ function App() {
   const brandLogoUrl = brand.logoUrl ?? undefined;
 
   const shellPersistenceEnabled =
-    isAuthenticated &&
     onboardingReady &&
     pluginsReady &&
     !workspaceQuery.error &&
@@ -226,83 +191,6 @@ function App() {
     tenantId: workspaceContext?.currentTenant?.id ?? "",
   });
 
-  // The URL decides which space the shell and every module are in; the server's
-  // default space is only the fallback outside `/s/…`. Resolved above the
-  // loading guard because it is a hook.
-  const routeSpace = useRouteSpace(workspaceContext?.currentSpace ?? null);
-
-  // Inside a space, the shell's secondary column belongs to the SPACE: it names
-  // it on Work/Data/Plan and its tabs sit above whatever the open module
-  // contributes (PLAN-spaces.md Phase 5a). Switching is the rail. One column,
-  // two levels — which is how "no surface shows two sidebars" is honoured
-  // without asking any module to change. Read from the URL, not from
-  // `routeSpace`: that falls back to the tenant default outside `/s/…`, so it
-  // is truthy everywhere and cannot tell us which routes are space routes.
-  const spacePath = parseSpacePath(location.pathname);
-
-  // Hold the space chrome across the `/mdl/…` hop.
-  //
-  // Modules build their internal links from an absolute `/mdl/<module>` base —
-  // `TasksRedirectPage` sends `/s/<key>/tasks` to `/mdl/tasks/briefing` — so a
-  // click inside a space leaves it for a frame or two before LegacyModuleRedirect
-  // lands it back. Without this the column unmounts and remounts in that gap and
-  // the content jumps left and back, which is what read as a page reload.
-  //
-  // Gated on the module being SPACE-PLACED, because only those redirect: a global
-  // app like the inbox stays at `/mdl/` and must not borrow a space's sidebar
-  // just because the user visited one earlier.
-  const spacePlacedModules = useMemo(
-    () => spacePlacedModuleIds(contributions.adminMenuItems),
-    [contributions.adminMenuItems]
-  );
-  const inFlightSpaceNav = useMemo(() => {
-    if (spacePath) {
-      return null;
-    }
-    const legacy = parseModulePath(location.pathname);
-    if (!(legacy && spacePlacedModules.has(legacy.moduleId))) {
-      return null;
-    }
-    const spaceKey = rememberedSpaceKey();
-    return spaceKey ? { moduleId: legacy.moduleId, spaceKey } : null;
-  }, [location.pathname, spacePath, spacePlacedModules]);
-
-  const spaceNav = spacePath
-    ? {
-        moduleId: spacePath.moduleId,
-        // The raw segment, so the space's OWN pages (Data, settings) can read
-        // as active. `moduleId` is deliberately undefined for those.
-        segment: spacePath.segment,
-        spaceKey: spacePath.spaceKey,
-      }
-    : inFlightSpaceNav
-      ? { ...inFlightSpaceNav, segment: inFlightSpaceNav.moduleId }
-      : null;
-
-  const spaceColumnLevel = useMemo(() => {
-    if (!spaceNav) {
-      return null;
-    }
-    return spaceNavLevel(spaceNav.moduleId, contributions.spaceTabs ?? []);
-  }, [contributions.spaceTabs, spaceNav]);
-
-  // Which way the column slides needs no history: going deeper always lands on
-  // the module level and coming back always lands on the space level, so the
-  // destination alone says the direction.
-  const spaceNavTransition = useMemo(() => {
-    if (!(spaceNav && spaceColumnLevel)) {
-      return null;
-    }
-    return {
-      enterFrom:
-        spaceColumnLevel === "module" ? ("right" as const) : ("left" as const),
-      // Keyed on the level, not the module: moving between two Work modules is
-      // a change of contents, not of level, and re-playing the slide there
-      // would animate something the user did not experience as a step.
-      key: `${spaceNav.spaceKey}:${spaceColumnLevel}`,
-    };
-  }, [spaceColumnLevel, spaceNav]);
-
   const orderedSections = useMemo(
     () =>
       applyDockModuleOrder(
@@ -313,67 +201,6 @@ function App() {
   );
 
   const appMenuActions = useAppMenuActions();
-
-  if (loading) {
-    return <AppLoadingScreen message={t("shell.loading")} shimmer />;
-  }
-
-  if (error) {
-    return (
-      <AppErrorCard
-        envPre={
-          <>
-            VITE_SUPABASE_URL=... VITE_SUPABASE_ANON_KEY=...
-            VITE_API_BASE_URL=...
-          </>
-        }
-        hint={t("shell.envHint")}
-        message={error}
-        offerSignOut
-        title={t("shell.authSetupRequired")}
-      />
-    );
-  }
-
-  if (!isAuthenticated) {
-    if (publicContributions.error) {
-      const message =
-        publicContributions.error instanceof Error
-          ? publicContributions.error.message
-          : "Failed to load public plugin contributions.";
-      return (
-        <AppErrorCard
-          message={message}
-          title="Public plugin bootstrap failed"
-        />
-      );
-    }
-    if (!publicContributions.ready) {
-      return <AppLoadingScreen message={t("shell.loading")} shimmer />;
-    }
-    return (
-      <UnauthenticatedRoutes
-        contributions={publicContributions.contributions}
-      />
-    );
-  }
-
-  // MCP OAuth consent (and portals) must not wait on workspace onboarding or
-  // mount the app shell — they are standalone public surfaces even with a
-  // live session (Supabase redirects here with only `authorization_id`).
-  if (isStandalonePublicPath) {
-    if (!publicContributions.ready) {
-      return <AppLoadingScreen message={t("shell.loading")} shimmer />;
-    }
-    return (
-      <>
-        <UnauthenticatedRoutes
-          contributions={publicContributions.contributions}
-        />
-        <Toaster position="bottom-right" richColors />
-      </>
-    );
-  }
 
   if (onboardingError) {
     return (
@@ -421,26 +248,15 @@ function App() {
     return <AppLoadingScreen message={t("shell.loading")} shimmer />;
   }
 
-  const isSuperAdmin = workspaceContext.isSuperAdmin;
-  const isTenantAdmin = workspaceContext.isTenantAdmin;
   const aiServiceBaseUrl = resolveEngentyAiServiceBaseUrl() ?? "";
-  const onSettingsChrome =
-    location.pathname.startsWith("/settings") ||
-    location.pathname.startsWith("/setup");
+  const planLabel = workspaceContext.planLabel || t("sidebar.plan");
 
   return (
     <>
       <AppearanceBootstrap
         resolvedAppearance={workspaceContext.resolvedAppearance}
       />
-      <CopilotShellProvider
-        copilotLayout={copilotLayoutPersistence}
-        hideCopilotChrome={
-          isCopilotRiverPathname(location.pathname) ||
-          isModuleHubChatRoute(location.pathname)
-        }
-        pathname={location.pathname}
-      >
+      <CopilotShellProvider copilotLayout={copilotLayoutPersistence}>
         <EngentyAiShellProvider
           agentToolInvalidation={agentToolInvalidationMap}
           resolveKbArticleHref={contributions.copilotArticleHrefResolver}
@@ -458,6 +274,7 @@ function App() {
               userId={workspaceContext.userId}
             />
             <DesktopBridge sections={orderedSections} />
+            <NotificationToastChannel userId={workspaceContext.userId} />
             {contributions.backgroundComponents.map((entry) => (
               <entry.component key={entry.id} />
             ))}
@@ -471,117 +288,37 @@ function App() {
                 copilot beside `AuthenticatedRoutes`, and its `navigate` tool
                 needs the route table to check paths against. */}
             <UiContributionsProvider contributions={contributions}>
-              <AppLayout
+              <AppLocationChrome
                 appBarPositionPersistence={appBarPositionPersistence}
                 appBarThemes={appBarThemes}
                 appMenuActions={appMenuActions}
-                currentSpace={routeSpace}
-                currentTenant={workspaceContext.currentTenant}
-                currentUserId={workspaceContext.userId}
-                defaultTopbarTitle={t("navigation.dashboard")}
+                appVersion={appVersion}
+                brandLogoUrl={brandLogoUrl}
+                brandName={brandName}
+                contributions={contributions}
                 fetchResolvedFeatureFlags={fetchResolvedFeatureFlags}
-                isSuperAdmin={isSuperAdmin}
-                isTenantAdmin={isTenantAdmin}
-                modulesReorderable={isTenantAdmin || isSuperAdmin}
+                onAboutClick={() => setAboutOpen(true)}
                 onModulesReorder={dockModuleOrderPersistence.setOrder}
-                railCopilotSlot={
-                  <CopilotRailDockAnchor label={t("copilot.title")} />
-                }
-                railEndSlot={<NotificationBell />}
-                secondaryNavFooterSlot={
-                  spaceNav ? (
-                    <SpaceNavFooterSlot
-                      moduleId={spaceNav.moduleId}
-                      spaceKey={spaceNav.spaceKey}
-                    />
-                  ) : onSettingsChrome ? (
-                    <SettingsAboutFooter
-                      aboutLabel={t("sidebar.appMenu.about")}
-                      appVersion={appVersion}
-                      brandLabel={brandName}
-                      logoUrl={brandLogoUrl}
-                      onAboutClick={() => setAboutOpen(true)}
-                      planLabel={
-                        workspaceContext.planLabel || t("sidebar.plan")
-                      }
-                    />
-                  ) : undefined
-                }
-                secondaryNavHeaderOverride={
-                  spaceNav ? (
-                    <SpaceNavTitleSlot spaceKey={spaceNav.spaceKey} />
-                  ) : undefined
-                }
-                secondaryNavLeadingSlot={
-                  spaceNav ? (
-                    <SpaceNavLeadingSlot
-                      moduleId={spaceNav.moduleId}
-                      segment={spaceNav.segment}
-                      spaceKey={spaceNav.spaceKey}
-                    />
-                  ) : undefined
-                }
+                planLabel={planLabel}
                 secondaryNavPersistence={secondaryNavPersistence}
-                // Collapsed, the column takes the name with it. Put that
-                // identity on the trail — tile + name, shrinking to the tile
-                // when the path is long or the screen is narrow. Switching
-                // stays on the rail.
-                secondaryNavRouteBreadcrumb={
-                  spaceNav
-                    ? {
-                        compactKept: true,
-                        label: (
-                          <SpaceNavCrumbSlot spaceKey={spaceNav.spaceKey} />
-                        ),
-                        menuLabel: routeSpace?.name ?? spaceNav.spaceKey,
-                        to: spaceRootPath(spaceNav.spaceKey),
-                      }
-                    : null
-                }
-                secondaryNavRouteTransition={spaceNavTransition ?? undefined}
                 sections={orderedSections}
-                shell={{
-                  appTitle: t("sidebar.brand"),
-                  appSubtitle: workspaceContext.planLabel || t("sidebar.plan"),
-                  searchPlaceholder: t("sidebar.search", {
-                    context: "placeholder",
-                  }),
-                  searchShortcut: "K",
-                  userMenu: (compact) => <SidebarUserMenu compact={compact} />,
+                workspace={{
+                  currentSpace: workspaceContext.currentSpace,
+                  currentTenant: workspaceContext.currentTenant,
+                  isSuperAdmin: workspaceContext.isSuperAdmin,
+                  isTenantAdmin: workspaceContext.isTenantAdmin,
+                  userId: workspaceContext.userId,
                 }}
-                shellUiHost={
-                  <>
-                    <CopilotShellUiHost />
-                    <GuideOverlayHostWithBridge />
-                  </>
-                }
-                spacesZone={<SpacesRailZone />}
-              >
-                <NavigationPrefetchRoot
-                  navigationPrefetch={contributions.navigationPrefetch}
-                />
-                <AuthenticatedRoutes
-                  contributions={contributions}
-                  isSuperAdmin={isSuperAdmin}
-                  isTenantAdmin={isTenantAdmin}
-                />
-              </AppLayout>
+              />
             </UiContributionsProvider>
             <AboutDialog
               brandLabel={t("sidebar.brand")}
               logoUrl={brandLogoUrl}
               onOpenChange={setAboutOpen}
               open={aboutOpen}
-              planLabel={workspaceContext.planLabel || t("sidebar.plan")}
+              planLabel={planLabel}
               tenantName={workspaceContext.currentTenant?.name}
               version={appVersion}
-            />
-            <AgUiAgentInspectorWidget serviceBaseUrl={aiServiceBaseUrl} />
-            <CopilotVoiceFab
-              hidden={
-                isCopilotRiverPathname(location.pathname) ||
-                isModuleHubChatRoute(location.pathname)
-              }
             />
           </AppActiveCopilotProvider>
         </EngentyAiShellProvider>
@@ -589,6 +326,77 @@ function App() {
       <Toaster position="bottom-right" richColors />
     </>
   );
+});
+
+function isStandalonePublicPath(pathname: string): boolean {
+  return (
+    pathname.startsWith("/portal/") ||
+    pathname === "/oauth/consent" ||
+    pathname.startsWith("/oauth/consent/") ||
+    pathname === "/auth" ||
+    pathname.startsWith("/auth/")
+  );
+}
+
+function App() {
+  const { t } = useTranslation("common");
+  const { pathname } = useLocation();
+  const { isAuthenticated, loading, error } = useCoreAuthSession();
+  const standalone = isStandalonePublicPath(pathname);
+  const publicContributions = usePublicUiPluginContributions(
+    !(loading || isAuthenticated) || standalone
+  );
+
+  if (loading) {
+    return <AppLoadingScreen message={t("shell.loading")} shimmer />;
+  }
+
+  if (error) {
+    return (
+      <AppErrorCard
+        envPre={
+          <>
+            VITE_SUPABASE_URL=... VITE_SUPABASE_ANON_KEY=...
+            VITE_API_BASE_URL=...
+          </>
+        }
+        hint={t("shell.envHint")}
+        message={error}
+        offerSignOut
+        title={t("shell.authSetupRequired")}
+      />
+    );
+  }
+
+  if (!isAuthenticated || standalone) {
+    if (publicContributions.error) {
+      const message =
+        publicContributions.error instanceof Error
+          ? publicContributions.error.message
+          : "Failed to load public plugin contributions.";
+      return (
+        <AppErrorCard
+          message={message}
+          title="Public plugin bootstrap failed"
+        />
+      );
+    }
+    if (!publicContributions.ready) {
+      return <AppLoadingScreen message={t("shell.loading")} shimmer />;
+    }
+    return (
+      <>
+        <UnauthenticatedRoutes
+          contributions={publicContributions.contributions}
+        />
+        {standalone && isAuthenticated ? (
+          <Toaster position="bottom-right" richColors />
+        ) : null}
+      </>
+    );
+  }
+
+  return <AuthenticatedShell />;
 }
 
 export default App;

@@ -6,6 +6,12 @@
       "sourceType": "github",
       "skillPath": "archify/SKILL.md",
       "computedHash": "3c2c8b1b45ccbeb92602fd87ed1337b8eed5c2f647816761f3e482053953fb50"
+    },
+    "typesafe-ai": {
+      "source": "typesafe-ai/skills",
+      "sourceType": "github",
+      "skillPath": "skills/typesafe-ai/SKILL.md",
+      "computedHash": "9cd84c5e535dec8dec59917c110f9c00b4a61faadb86b432ec7e41051170af12"
     }
   }
 }

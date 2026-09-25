@@ -4,7 +4,6 @@ import {
 } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
-  Badge,
   Button,
   Card,
   Empty,
@@ -23,12 +22,17 @@ import { Cable } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import type { CatalogConnection, CatalogConnector } from "../api.js";
+import type { CatalogConnector } from "../api.js";
 import { ConnectButton } from "../components/connect-button.js";
 import { ConnectCredentialsDialog } from "../components/connect-credentials-dialog.js";
 import { StatusBadge } from "../components/connection-panel.js";
 import { getConnectorConnectButton } from "../extensions.js";
+import {
+  useConnectionSpacesQuery,
+  useConnectSpaceId,
+} from "../hooks/use-connection-space.js";
 import { useConnectionsSettingsAgentUiSlice } from "../hooks/use-connections-agent-ui-slice.js";
+import { connectionsInSpace } from "../lib/connection-space.js";
 import { useConnectionsCatalogQuery } from "../queries.js";
 
 export const CONNECTIONS_SETTINGS_PATH = "/setup/connections";
@@ -64,7 +68,7 @@ export function useConnectResultToast() {
 }
 
 export function ConnectionsSettingsPage() {
-  const { isSuperAdmin, isTenantAdmin, currentUserId } = useWorkspaceContext();
+  const { isSuperAdmin, isTenantAdmin } = useWorkspaceContext();
   const { t } = useTranslation("connections");
   const { t: tCommon } = useTranslation("common");
   const navigate = useNavigate();
@@ -73,14 +77,15 @@ export function ConnectionsSettingsPage() {
   const { moduleRootCrumb, secondaryNavHeaderSlot } =
     isSuperAdmin || isTenantAdmin ? setupNav : settingsNav;
   const { data, isLoading } = useConnectionsCatalogQuery();
-  // PLAN-spaces.md CN.4 Flow A — arriving from a space's "Add account". The
-  // space rides the URL so it survives this page, the provider round trip and
-  // the callback, which is what turns "connect an account" into "this space can
-  // use this account". `back` returns the user where they started; without it
-  // a connect from a space would end on the tenant settings page, which is not
-  // where they were working.
+  // Accounts belong to a Space. Arriving from a Space's "Add account", the
+  // Space rides the URL (`?space=`) so it survives the provider round trip;
+  // otherwise this page shows — and connects into — the personal Space.
+  // `back` returns the user where they started.
   const [flowParams] = useSearchParams();
-  const fromSpaceId = flowParams.get("space")?.trim() || null;
+  const spaceId = useConnectSpaceId(flowParams.get("space")?.trim() || null);
+  const spacesQuery = useConnectionSpacesQuery();
+  const spaceName =
+    spacesQuery.data?.find((space) => space.id === spaceId)?.name ?? null;
   const backTo = flowParams.get("back")?.trim();
   const returnPath =
     backTo?.startsWith("/") && !backTo.startsWith("//")
@@ -110,6 +115,11 @@ export function ConnectionsSettingsPage() {
   return (
     <section className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto p-page pb-10">
       <div className="mx-auto w-full max-w-4xl space-y-4 pt-4">
+        {spaceName ? (
+          <p className="text-muted-foreground text-sm">
+            {t("catalog.spaceHint", { name: spaceName })}
+          </p>
+        ) : null}
         {isLoading ? (
           <ConnectorListSkeleton />
         ) : connectors.length === 0 ? (
@@ -126,13 +136,16 @@ export function ConnectionsSettingsPage() {
             {connectors.map((connector) => (
               <ConnectorCard
                 connector={connector}
-                currentUserId={currentUserId}
                 key={connector.id}
                 onManage={() =>
-                  navigate(`${CONNECTIONS_SETTINGS_PATH}/${connector.id}`)
+                  navigate(
+                    `${CONNECTIONS_SETTINGS_PATH}/${connector.id}${
+                      spaceId ? `?space=${encodeURIComponent(spaceId)}` : ""
+                    }`
+                  )
                 }
                 returnPath={returnPath}
-                spaceId={fromSpaceId}
+                spaceId={spaceId}
               />
             ))}
           </div>
@@ -144,21 +157,19 @@ export function ConnectionsSettingsPage() {
 
 function ConnectorCard({
   connector,
-  currentUserId,
   onManage,
   returnPath = CONNECTIONS_SETTINGS_PATH,
-  spaceId = null,
+  spaceId,
 }: {
   connector: CatalogConnector;
-  currentUserId: string | null;
   onManage: () => void;
   /** Where the OAuth callback returns to — the space, when one sent us here. */
   returnPath?: string;
-  /** Space to mount the new account into on success (CN.4 Flow A). */
-  spaceId?: string | null;
+  /** The Space whose accounts show here and new accounts connect into. */
+  spaceId: string | null;
 }) {
   const { t } = useTranslation("connections");
-  const myConnections = visibleConnections(connector, currentUserId);
+  const myConnections = connectionsInSpace(connector.connections, spaceId);
   const hasConnection = myConnections.length > 0;
 
   return (
@@ -186,9 +197,6 @@ function ConnectorCard({
                   t("catalog.connected")}
               </span>
               <StatusBadge connection={connection} />
-              {connection.all_spaces ? (
-                <Badge variant="outline">{t("sharing.orgBadge")}</Badge>
-              ) : null}
             </div>
           ))
         ) : (
@@ -245,6 +253,7 @@ function ConnectorConnectAffordance({
       <ConnectCredentialsDialog
         connector={connector}
         hasConnections={hasConnection}
+        spaceId={spaceId}
       />
     );
   }
@@ -302,16 +311,6 @@ function NeedsSetupAffordance() {
         defaultValue: "Ask an admin to set this up",
       })}
     </span>
-  );
-}
-
-/** Connections the caller can see: own accounts plus all-spaces. */
-export function visibleConnections(
-  connector: CatalogConnector,
-  currentUserId: string | null
-): CatalogConnection[] {
-  return connector.connections.filter(
-    (c) => c.all_spaces === true || c.owner_user_id === currentUserId
   );
 }
 

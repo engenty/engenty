@@ -73,6 +73,7 @@ export type {
   DocumentSourceMediaType,
   DocumentSourceMissingItemStrategy,
   DocumentSourceProbeMetadata,
+  DocumentSourceRetrieveContext,
   DocumentSourceRetrievedItem,
   DocumentSourceSchedule,
   DocumentSourceScheduleKind,

@@ -1,12 +1,10 @@
 // GET /ai/v1/settings/effective — resolved AI model + caps settings with
-// provenance, for the tenant-admin AI settings page. Every value is resolved
-// along tenant → platform(env) → default (no session/agent layer here — this is
-// the tenant-configuration view). Platform-scoped overrides are already in
-// process.env via @engenty/platform-settings boot hydration, so the env layer
-// reflects them.
+// provenance, for the tenant-admin AI settings page. Models resolve tenant →
+// platform role binding; caps resolve tenant → platform(env) → default (no
+// session/agent layer here — this is the tenant-configuration view).
 
 import {
-  AI_MODEL_PURPOSE_SPECS,
+  AI_MODEL_PURPOSE_TENANT_FIELDS,
   AI_MODEL_PURPOSES,
   type AiModelPurpose,
   type AiSettingSource,
@@ -23,7 +21,10 @@ import { createLogger } from "@engenty/telemetry";
 import { createTenantSettingsRepoSupabase } from "@engenty/tenant-settings";
 import type { Hono } from "hono";
 import { resolveSpaceComputerNetworkTier } from "../ai/sandbox/sandbox-env.js";
-import { resolveAgentMaxStepsWithSource } from "../ai/sessions/max-steps.js";
+import {
+  resolveAgentMaxStepsWithSource,
+  type SettingSource,
+} from "../ai/sessions/max-steps.js";
 import { AI_BASE_PATH } from "../config/constants.js";
 import { getTenantDbFactoryFromEnv } from "../infra/tenant-db.js";
 import { type AiScopeResolver, resolveScope } from "./http.js";
@@ -31,24 +32,20 @@ import { type AiScopeResolver, resolveScope } from "./http.js";
 const logger = createLogger({ name: "apps/ai/settings-routes" });
 
 interface ResolvedModelEntry {
-  /** What the value would be if the tenant pin were cleared (platform/default). */
+  /** What the value would be if the tenant pin were cleared (the binding). */
   inherited: { value: string; source: AiSettingSource };
   source: AiSettingSource;
   /** Raw tenant-pinned value, or null when inheriting. */
   tenant: string | null;
-  /** Effective model id (tenant → platform → default). */
+  /** Effective model id (tenant → platform binding). */
   value: string;
-}
-
-function readEnv(key: string): string | undefined {
-  return process.env[key];
 }
 
 function tenantFieldValue(
   settings: TenantAiSettings,
   purpose: AiModelPurpose
 ): string | null {
-  const field = AI_MODEL_PURPOSE_SPECS[purpose].tenantField;
+  const field = AI_MODEL_PURPOSE_TENANT_FIELDS[purpose];
   const value = settings[field];
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
@@ -58,12 +55,8 @@ function resolveModelEntry(
   purpose: AiModelPurpose
 ): ResolvedModelEntry {
   const tenant = tenantFieldValue(settings, purpose);
-  const effective = resolvePurposeModel({
-    purpose,
-    tenantDefault: tenant,
-    readEnv,
-  });
-  const inherited = resolvePurposeModel({ purpose, readEnv });
+  const effective = resolvePurposeModel({ purpose, tenantDefault: tenant });
+  const inherited = resolvePurposeModel({ purpose });
   return {
     value: effective.value,
     source: effective.source,
@@ -147,7 +140,7 @@ export function registerAiSettingsRoutes(
 }
 
 interface ResolvedApprovalModeEntry {
-  source: AiSettingSource;
+  source: SettingSource;
   /** Raw tenant-pinned mode, or null when nothing is set. */
   tenant: AgentApprovalMode | null;
   value: AgentApprovalMode;
@@ -164,12 +157,12 @@ function approvalModeEntry(
 }
 
 interface ResolvedNetworkTierEntry {
-  source: AiSettingSource;
+  source: SettingSource;
   value: ComputerNetworkTier;
 }
 
 function spaceComputerNetworkEntry(): ResolvedNetworkTierEntry {
-  const pinned = readEnv("ENGENTY_SPACE_COMPUTER_NETWORK_TIER")?.trim();
+  const pinned = process.env.ENGENTY_SPACE_COMPUTER_NETWORK_TIER?.trim();
   return {
     source: pinned === "none" || pinned === "egress" ? "platform" : "default",
     value: resolveSpaceComputerNetworkTier(),

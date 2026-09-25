@@ -56,7 +56,7 @@ export interface CopilotDrawerProps {
     id: string;
     name: string;
   }>;
-  /** A specialist's chat in the companion's place (the who chooser). */
+  /** A hired Engenty's chat in the companion's place (the who chooser). */
   workPanelContent?: ReactNode;
 }
 

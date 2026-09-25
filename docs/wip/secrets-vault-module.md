@@ -35,7 +35,7 @@ engenty already has the client entity: **`module_contacts.contacts` with `type =
 - **Owner scope** — exactly one, decides lifecycle + who may see the row. One of: `user` | `project` | `client` | `tenant`.
 - **Associations** — many, cosmetic/discovery: link a secret to projects and to services. A new quarterly project just *associates* the same client-owned secret; nothing migrates.
 
-### Scope ladder (generalises connections' `personal`/`org`)
+### Scope ladder (generalised connections' former `personal`/`org`; connections are Space-owned since 2026-09-23)
 
 | `owner_scope` | `owner_id` refers to | Visible to | Typical use |
 |---|---|---|---|

@@ -24,7 +24,7 @@ Each file:
 {
   "gateway": "openrouter",
   "label": "OpenRouter",
-  "roles": { "model.low": "…", "router": "…" }
+  "roles": { "model.low": "…", "classifier": "…" }
 }
 ```
 
@@ -32,11 +32,16 @@ Each file:
 
 ## Policy
 
-| Job | Pick |
-|-----|------|
-| **Router / classifier / safeguard** | Free or open-weight models when the gateway has them (`:free` on OpenRouter, `gpt-oss-*` on Vercel). These jobs are short and must stay cheap. |
-| **Chat (`model.low` / `medium` / `high`)** | The cheapest model that can actually run an agent turn (tools). Not `gpt-oss-20b` — too weak for product chat. |
-| **Planning & memory** | A chat-tier model known to finish structured output / workspace tools. |
+| Role | Pick |
+|------|------|
+| **`model.low` / `model.medium` / `model.high`** | Graded agent tiers. The cheapest model that can actually run an agent turn (tools) at that grade. Not `gpt-oss-20b` — too weak for product chat. |
+| **`classifier`** | Pick-one-of-N (effort routing, inbox lanes, guardrails). Jev (`typesafe-ai/jev`) — short, cheap choice calls. |
+| **`fast_text`** | Short prose without tools (titles, summaries, memory). Small, cheap, large context. |
+| **`image` / `embedding` / `video` / `realtime`** | Media roles. A ref (`vercel:…`) when the pack's gateway has no such model. |
+
+These packs apply to a first boot only. The committed bindings for a reset DB
+or a new server live in `apps/ai/config/default-models.json` (with
+`available-models.json` for the activated catalog + pricing).
 
 Wizard order when more than one key is set: Vercel → OpenRouter → Opper → OpenAI → Anthropic.
 

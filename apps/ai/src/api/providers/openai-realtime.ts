@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import {
+  parseModelRef,
   type RealtimeSessionDescriptor,
   RealtimeSessionError,
   type RealtimeSessionRequest,
@@ -11,7 +12,6 @@ import { env } from "@engenty/telemetry";
 
 const OPENAI_REALTIME_CLIENT_SECRETS_URL =
   "https://api.openai.com/v1/realtime/client_secrets";
-const DEFAULT_REALTIME_MODEL = "gpt-realtime-2";
 const DEFAULT_REALTIME_TRANSCRIPTION_MODEL = "gpt-realtime-whisper";
 const DEFAULT_REALTIME_VOICE = "marin";
 const OPENAI_API_KEY_ENV = "OPENAI_API_KEY";
@@ -52,13 +52,27 @@ function openAiSafetyIdentifier(parts: readonly string[]): string {
 
 export interface CreateOpenAiRealtimeProviderOptions {
   apiKey?: () => string | null;
+  /**
+   * The platform default (`realtime` role binding, a model ref). A workspace's
+   * own `openai_model` wins over it.
+   */
+  defaultModel: () => Promise<string>;
   fetchImpl?: RealtimeClientSecretFetch;
+}
+
+/** OpenAI's wire id for a realtime model ref: no gateway head, no vendor prefix. */
+export function openAiRealtimeWireModel(modelRef: string): string {
+  const { modelId } = parseModelRef(modelRef);
+  return modelId.startsWith("openai/")
+    ? modelId.slice("openai/".length)
+    : modelId;
 }
 
 export function createOpenAiRealtimeProvider({
   apiKey = readOpenAiApiKeyFromEnv,
+  defaultModel,
   fetchImpl = fetch,
-}: CreateOpenAiRealtimeProviderOptions = {}): RealtimeVoiceProvider {
+}: CreateOpenAiRealtimeProviderOptions): RealtimeVoiceProvider {
   return {
     id: "openai",
     async createSession(
@@ -72,7 +86,9 @@ export function createOpenAiRealtimeProvider({
       }
 
       const model =
-        request.model ?? prefs?.openai_model ?? DEFAULT_REALTIME_MODEL;
+        request.model ??
+        prefs?.openai_model ??
+        openAiRealtimeWireModel(await defaultModel());
       const transcriptionModel =
         prefs?.openai_transcription_model ??
         DEFAULT_REALTIME_TRANSCRIPTION_MODEL;

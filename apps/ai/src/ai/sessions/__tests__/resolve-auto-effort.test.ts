@@ -7,7 +7,7 @@ import {
 describe("resolveAutoEffort", () => {
   it("skips the classifier when heuristics are certain (coding)", async () => {
     const result = await resolveAutoEffort({
-      jev: null,
+      classifier: null,
       text: "Refactor the auth module across files",
     });
     expect(result).toMatchObject({
@@ -18,7 +18,7 @@ describe("resolveAutoEffort", () => {
 
   it("skips the classifier for tool-shaped asks (medium floor)", async () => {
     const result = await resolveAutoEffort({
-      jev: null,
+      classifier: null,
       text: "Create a contact for Acme Corp",
     });
     expect(result).toMatchObject({
@@ -28,13 +28,13 @@ describe("resolveAutoEffort", () => {
   });
 
   it("skips the classifier for greetings (low)", async () => {
-    const result = await resolveAutoEffort({ jev: null, text: "hi" });
+    const result = await resolveAutoEffort({ classifier: null, text: "hi" });
     expect(result).toMatchObject({ effort: "low", source: "heuristic" });
   });
 
   it("falls back to the guess when no classifier is configured", async () => {
     const result = await resolveAutoEffort({
-      jev: null,
+      classifier: null,
       text: "Can you help me think through how our onboarding should work for enterprise customers next quarter?",
     });
     expect(result).toMatchObject({ effort: "medium", source: "fallback" });
@@ -43,7 +43,7 @@ describe("resolveAutoEffort", () => {
   it("clamps classifier/heuristic results to the plan grant", async () => {
     const result = await resolveAutoEffort({
       allowedEfforts: ["low"],
-      jev: null,
+      classifier: null,
       text: "Refactor the auth module across files",
     });
     expect(result.effort).toBe("low");
@@ -52,7 +52,7 @@ describe("resolveAutoEffort", () => {
   it("short-circuits when the plan only grants one tier", async () => {
     const result = await resolveAutoEffort({
       allowedEfforts: ["medium"],
-      jev: null,
+      classifier: null,
       text: "anything goes here but we never classify",
     });
     expect(result).toMatchObject({
@@ -71,7 +71,7 @@ describe("resolveAutoEffort with Jev", () => {
     delayMs = 0
   ): {
     calls: unknown[];
-    client: import("@engenty/typesafe-client").TypeSafeClient;
+    client: import("@engenty/typesafe-client").ClassifierClient;
   } => {
     const calls: unknown[] = [];
     const rest = (1 - confidence) / 2;
@@ -96,14 +96,14 @@ describe("resolveAutoEffort with Jev", () => {
             model: "jev-test",
           };
         },
-      } as unknown as import("@engenty/typesafe-client").TypeSafeClient,
+      } as unknown as import("@engenty/typesafe-client").ClassifierClient,
     };
   };
 
   it("asks Jev when the heuristics are unsure", async () => {
     const jev = jevAnswering("high", 0.9);
     const result = await resolveAutoEffort({
-      jev: jev.client,
+      classifier: jev.client,
       text: ambiguous,
     });
     expect(jev.calls).toHaveLength(1);
@@ -113,7 +113,7 @@ describe("resolveAutoEffort with Jev", () => {
   it("ignores a pick below the confidence floor", async () => {
     const jev = jevAnswering("high", 0.4);
     const result = await resolveAutoEffort({
-      jev: jev.client,
+      classifier: jev.client,
       text: ambiguous,
     });
     expect(result).toMatchObject({ effort: "medium", source: "fallback" });
@@ -122,16 +122,44 @@ describe("resolveAutoEffort with Jev", () => {
   it("falls back when Jev is slower than the budget", async () => {
     const jev = jevAnswering("high", 0.9, 50);
     const result = await resolveAutoEffort({
-      jev: jev.client,
+      classifier: jev.client,
       text: ambiguous,
       timeoutMs: 10,
     });
     expect(result).toMatchObject({ effort: "medium", source: "fallback" });
   });
 
+  it("loads a lazy classifier only when the heuristics are unsure", async () => {
+    const jev = jevAnswering("high", 0.9);
+    let loads = 0;
+    const load = async () => {
+      loads += 1;
+      return jev.client;
+    };
+    await resolveAutoEffort({ classifier: load, text: "hi" });
+    expect(loads).toBe(0);
+    const result = await resolveAutoEffort({
+      classifier: load,
+      text: ambiguous,
+    });
+    expect(loads).toBe(1);
+    expect(result).toMatchObject({ effort: "high", source: "router" });
+  });
+
+  it("falls back when the classifier loader fails", async () => {
+    const result = await resolveAutoEffort({
+      classifier: () => Promise.reject(new Error("no bindings")),
+      text: ambiguous,
+    });
+    expect(result).toMatchObject({ effort: "medium", source: "fallback" });
+  });
+
   it("never asks Jev when the heuristics are certain", async () => {
     const jev = jevAnswering("low", 1);
-    const result = await resolveAutoEffort({ jev: jev.client, text: "hi" });
+    const result = await resolveAutoEffort({
+      classifier: jev.client,
+      text: "hi",
+    });
     expect(jev.calls).toHaveLength(0);
     expect(result.source).toBe("heuristic");
   });

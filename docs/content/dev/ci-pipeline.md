@@ -125,3 +125,28 @@ unreachable.
 Pushes touching only root-level markdown (plans, `AGENTS.md`, `README.md`,
 `CHANGELOG.md`) or `.claude/**` skip CI entirely. `docs/**` markdown is
 **not** skipped — it feeds the docs app build.
+
+## Browser smoke
+
+`.github/workflows/smoke.yml` is a separate nightly / `workflow_dispatch` lane
+(`pnpm test:smoke`). It drives the real UI through Playwright and **fails on
+gross interaction regression**:
+
+| Gate | Today (CI floor) | Product budget |
+|---|---|---|
+| Warm interaction response p95 | < 2000ms | < 100ms |
+| Any navigation | < 4500ms | never wait for React’s 5s transition expiration |
+| Cached paint p95 | < 3000ms | < 200ms |
+
+Timings are written to `e2e/.results/interaction-timings.json` and uploaded as
+the `interaction-timings` artifact. Tighten the CI floor toward the product
+budget after a baseline exists.
+
+`e2e/smoke/interaction.smoke.spec.ts` is required on **react / react-dom /
+react-router-dom** upgrades — the app opts `BrowserRouter` out of
+`startTransition` (`useTransitions={false}` in `apps/ui/src/main.tsx`) while
+`useSyncExternalStore` is in the tree.
+
+Production-build timings (UI dist served by the prod gateway) are not part of
+this job. The stub is `.github/workflows/interaction-prod.yml` /
+`pnpm test:smoke:prod` (`scripts/e2e-prod-preview.mjs`).

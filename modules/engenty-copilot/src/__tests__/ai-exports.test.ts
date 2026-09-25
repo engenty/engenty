@@ -97,6 +97,7 @@ describe("@engenty/engenty-copilot AI exports", () => {
       "routines",
       "space-data",
       "space-setup",
+      "getting-started",
     ]);
     expect(manifest.skills).toEqual(engentyCopilotAgentConfig.skillIds);
   });

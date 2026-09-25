@@ -161,14 +161,14 @@ describe("SPACE_TEMPLATES", () => {
     );
   });
 
-  it("never grants a connection implicitly", () => {
-    // Templates preselect apps. A connector reaches a third-party
-    // account, so mounting one is a decision someone makes on purpose — not
-    // something a starting point does on their behalf.
+  it("never enables a plugin implicitly", () => {
+    // Templates preselect apps. A plugin reaches a third-party account, so
+    // enabling one is a decision someone makes on purpose — not something a
+    // starting point does on their behalf.
     for (const template of SPACE_TEMPLATES) {
       expect(
-        template.mounts.filter((mount) => mount.resourceType === "connection"),
-        `${template.id} preselects a connector`
+        template.mounts.filter((mount) => mount.resourceType === "plugin"),
+        `${template.id} preselects a plugin`
       ).toEqual([]);
     }
   });

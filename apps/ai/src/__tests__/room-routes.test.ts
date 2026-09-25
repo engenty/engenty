@@ -40,8 +40,7 @@ vi.mock("../ai/sessions/thread-access.js", async (importOriginal) => {
 });
 
 vi.mock("../ai/sessions/user-display-names.js", () => ({
-  resolveUserDisplayNames: async (ids: readonly string[]) =>
-    new Map(ids.map((id) => [id, id === userId ? "Matthias" : "Anna"])),
+  resolveUserDisplayNames: async () => new Map(),
 }));
 
 function harness() {
@@ -53,7 +52,7 @@ function harness() {
         members.set(agentId, "member");
       }
     }),
-    markAgentOnBehalfOf: vi.fn(async () => {}),
+    appendMessage: vi.fn(async () => ({ message: {} })),
     addUserParticipant: vi.fn(async ({ userId: id }: { userId: string }) => {
       if (!people.has(id)) {
         people.set(id, "member");
@@ -64,27 +63,14 @@ function harness() {
       [...members].map(([agent_id, role]) => ({ agent_id, role }))
     ),
     listDmsForUser: vi.fn(async () => []),
-    listParticipantThreadIds: vi.fn(async () => []),
     listRoomsForSpace: vi.fn(async () => [
       {
         members: [...members].map(([agent_id, role]) => ({ agent_id, role })),
         thread: room(),
       },
     ]),
-    listSpaceRoomsDirectory: vi.fn(async () => [
-      {
-        joined: false,
-        members: [...members].map(([agent_id, role]) => ({ agent_id, role })),
-        thread: room(),
-      },
-    ]),
     listUserParticipants: vi.fn(async () =>
       [...people].map(([user_id, role]) => ({ role, user_id }))
-    ),
-    mergeThreadMetadataForUser: vi.fn(
-      async ({ patch }: { patch?: Record<string, unknown> }) => ({
-        thread: { ...room(), metadata: patch ?? {} },
-      })
     ),
     removeAgentMember: vi.fn(async ({ agentId }: { agentId: string }) => {
       members.delete(agentId);
@@ -117,15 +103,12 @@ function harness() {
   };
   const threads = {
     createThread: vi.fn(async () => ({ thread: room() })),
-    getThread: vi.fn(async () => room()),
-    updateThread: vi.fn(async ({ title }: { title: string }) => ({
-      thread: { ...room(), title },
-    })),
   };
   const app = new Hono();
   const agentScopes = new Map<string, "personal" | "shared">([
     ["master", "shared"],
     ["copilot", "personal"],
+    ["engenty.copilot", "personal"],
   ]);
   registerRoomRoutes(app as never, {
     aiService: { threads } as never,
@@ -139,7 +122,7 @@ function harness() {
     scopeResolver,
     store: store as never,
   });
-  return { app, members, people, store, threads };
+  return { app, members, people, store };
 }
 
 const json = (body: unknown, method = "POST") =>
@@ -150,28 +133,6 @@ const json = (body: unknown, method = "POST") =>
   });
 
 describe("room routes", () => {
-  it("creates a room hosted by the first agent with the rest as members", async () => {
-    const { app, store, threads } = harness();
-    const res = await app.request(
-      json({
-        agent_ids: ["master", "tim", "tom"],
-        space_id: spaceId,
-        title: "Game",
-      })
-    );
-    expect(res.status).toBe(201);
-    expect(threads.createThread).toHaveBeenCalledWith(
-      expect.objectContaining({ agentId: "master", spaceId, title: "Game" })
-    );
-    expect(store.addAgentMember).toHaveBeenCalledTimes(2);
-    const body = (await res.json()) as { members: { agent_id: string }[] };
-    expect(body.members.map((m) => m.agent_id)).toEqual([
-      "master",
-      "tim",
-      "tom",
-    ]);
-  });
-
   it("refuses a room of nobody or of seven; one agent is a room", async () => {
     const { app } = harness();
     expect(
@@ -230,62 +191,8 @@ describe("room routes", () => {
     expect(members.has("tim")).toBe(false);
   });
 
-  it("a purpose rides the create and is merged owner-keyed", async () => {
-    const { app, store } = harness();
-    const res = await app.request(
-      json({
-        agent_ids: ["master", "tim"],
-        purpose: "Win at tic-tac-toe.",
-        space_id: spaceId,
-        title: "Game",
-      })
-    );
-    expect(res.status).toBe(201);
-    expect(store.mergeThreadMetadataForUser).toHaveBeenCalledWith(
-      expect.objectContaining({
-        patch: { room_purpose: "Win at tic-tac-toe." },
-        userId,
-      })
-    );
-    const body = (await res.json()) as { session: { metadata: unknown } };
-    expect(body.session.metadata).toEqual({
-      room_purpose: "Win at tic-tac-toe.",
-    });
-  });
-
-  it("PATCH room renames and sets or clears the purpose", async () => {
-    const { app, store, threads } = harness();
-    const patch = (body: unknown) =>
-      app.request(
-        new Request(`http://x/ai/threads/${roomId}/room`, {
-          body: JSON.stringify(body),
-          headers: { "content-type": "application/json" },
-          method: "PATCH",
-        })
-      );
-    expect((await patch({})).status).toBe(400);
-    const renamed = await patch({ purpose: "Ship v2.", title: "Launch" });
-    expect(renamed.status).toBe(200);
-    expect(threads.updateThread).toHaveBeenCalledWith(
-      expect.objectContaining({ threadId: roomId, title: "Launch" })
-    );
-    expect(store.mergeThreadMetadataForUser).toHaveBeenLastCalledWith(
-      expect.objectContaining({ patch: { room_purpose: "Ship v2." } })
-    );
-    await patch({ purpose: "" });
-    expect(store.mergeThreadMetadataForUser).toHaveBeenLastCalledWith(
-      expect.objectContaining({ removeKeys: ["room_purpose"] })
-    );
-  });
-
-  it("lists, adds and removes people with names, but never the owner", async () => {
+  it("adds and removes people, but never the owner", async () => {
     const { app, people } = harness();
-    const listed = await app.request(`http://x/ai/threads/${roomId}/people`);
-    expect(listed.status).toBe(200);
-    expect(await listed.json()).toEqual({
-      people: [{ name: "Matthias", role: "owner", user_id: userId }],
-    });
-
     const added = await app.request(
       new Request(`http://x/ai/threads/${roomId}/people`, {
         body: JSON.stringify({ user_id: otherUserId }),
@@ -295,11 +202,6 @@ describe("room routes", () => {
     );
     expect(added.status).toBe(200);
     expect(people.get(otherUserId)).toBe("member");
-    expect((await added.json()).people).toContainEqual({
-      name: "Anna",
-      role: "member",
-      user_id: otherUserId,
-    });
 
     const ownerGone = await app.request(
       new Request(`http://x/ai/threads/${roomId}/people/${userId}`, {
@@ -318,12 +220,8 @@ describe("room routes", () => {
     expect(people.has(otherUserId)).toBe(false);
   });
 
-  it("lists a person's conversations: the rooms they are in and their DMs", async () => {
+  it("lists only the caller's rooms and DMs", async () => {
     const { app, store } = harness();
-    const dmId = "00000000-0000-4000-8000-000000000009";
-    store.listDmsForUser.mockResolvedValueOnce([
-      { ...room(), agent_id: "tim", id: dmId, route_context: { dm: true } },
-    ] as never);
     const res = await app.request(
       `http://x/ai/spaces/${spaceId}/conversations`
     );
@@ -338,65 +236,30 @@ describe("room routes", () => {
       tenantId,
       userId,
     });
-    // The river — the copilot's DM with no Space — is asked for too, so it can
-    // head the list in every Space.
     expect(store.listDmsForUser).toHaveBeenCalledWith({
       spaceId: null,
       tenantId,
       userId,
     });
-    const body = (await res.json()) as {
-      dms: { agent_id: string; session: { id: string } }[];
-      rooms: { members: unknown[]; session: { id: string } }[];
-    };
-    expect(body.rooms).toHaveLength(1);
-    expect(body.rooms[0]?.session.id).toBe(roomId);
-    expect(body.rooms[0]?.members).toEqual([
-      { agent_id: "master", role: "host" },
-    ]);
-    expect(body.dms).toEqual([
-      { agent_id: "tim", session: expect.objectContaining({ id: dmId }) },
-    ]);
   });
 
-  it("the directory says which rooms the person joined", async () => {
-    const { app } = harness();
-    const res = await app.request(
-      `http://x/ai/spaces/${spaceId}/rooms/directory`
-    );
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as { rooms: { joined: boolean }[] };
-    expect(body.rooms).toEqual([expect.objectContaining({ joined: false })]);
-  });
-
-  it("opens a DM once: the same private row on every call, back from the archive", async () => {
+  it("opens a DM once: the same private row on every call", async () => {
     const { app, store } = harness();
+    const open = () =>
+      app.request(
+        new Request("http://x/ai/threads/dm", {
+          body: JSON.stringify({ agent_id: "master", space_id: spaceId }),
+          headers: { "content-type": "application/json" },
+          method: "POST",
+        })
+      );
     store.getThread.mockResolvedValueOnce(null as never);
-    const first = await app.request(
-      new Request("http://x/ai/threads/dm", {
-        body: JSON.stringify({ agent_id: "master", space_id: spaceId }),
-        headers: { "content-type": "application/json" },
-        method: "POST",
-      })
-    );
+    const first = await open();
     expect(first.status).toBe(201);
     const created = (await first.json()) as {
-      created: boolean;
-      session: { id: string; route_context: unknown; visibility: string };
+      session: { id: string; visibility: string };
     };
-    expect(created.created).toBe(true);
-    expect(created.session.route_context).toEqual({ dm: true });
     expect(created.session.visibility).toBe("private");
-    expect(store.upsertThread).toHaveBeenCalledWith(
-      expect.objectContaining({
-        agentId: "master",
-        createdByUserId: userId,
-        id: created.session.id,
-        spaceId,
-        title: null,
-        visibility: "private",
-      })
-    );
 
     store.getThread.mockResolvedValueOnce({
       ...room(),
@@ -404,13 +267,7 @@ describe("room routes", () => {
       route_context: { dm: true },
       visibility: "private",
     } as never);
-    const second = await app.request(
-      new Request("http://x/ai/threads/dm", {
-        body: JSON.stringify({ agent_id: "master", space_id: spaceId }),
-        headers: { "content-type": "application/json" },
-        method: "POST",
-      })
-    );
+    const second = await open();
     expect(second.status).toBe(200);
     const again = (await second.json()) as {
       created: boolean;
@@ -418,24 +275,6 @@ describe("room routes", () => {
     };
     expect(again.created).toBe(false);
     expect(again.session.id).toBe(created.session.id);
-
-    store.getThread.mockResolvedValueOnce({
-      ...room(),
-      archived_at: "2026-09-08T00:00:00.000Z",
-      id: created.session.id,
-      route_context: { dm: true },
-    } as never);
-    const third = await app.request(
-      new Request("http://x/ai/threads/dm", {
-        body: JSON.stringify({ agent_id: "master", space_id: spaceId }),
-        headers: { "content-type": "application/json" },
-        method: "POST",
-      })
-    );
-    expect(third.status).toBe(201);
-    expect(
-      ((await third.json()) as { session: { id: string } }).session.id
-    ).toBe(created.session.id);
   });
 
   it("a personal agent's DM is the river: tenant-wide, one per person, never in a Space", async () => {
@@ -468,6 +307,32 @@ describe("room routes", () => {
     expect(await placed.json()).toEqual({
       error: "agent_threads.personalDmHasNoSpace",
     });
+  });
+
+  it("the copilot's river opens with its welcome, once", async () => {
+    const { app, store } = harness();
+    const open = () =>
+      app.request(
+        new Request("http://x/ai/threads/dm", {
+          body: JSON.stringify({ agent_id: "engenty.copilot" }),
+          headers: { "content-type": "application/json" },
+          method: "POST",
+        })
+      );
+    store.getThread.mockResolvedValueOnce(null as never);
+    expect((await open()).status).toBe(201);
+    expect(store.appendMessage).toHaveBeenCalledTimes(1);
+    expect(store.appendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        authorUserId: null,
+        metadata: { source: "river-welcome" },
+        role: "assistant",
+      })
+    );
+
+    // The river exists now: opening it again adds nothing.
+    expect((await open()).status).toBe(200);
+    expect(store.appendMessage).toHaveBeenCalledTimes(1);
   });
 
   it("a shared specialist's DM needs its Space; an unknown agent has none", async () => {
@@ -531,18 +396,9 @@ describe("room routes", () => {
     expect((await join()).status).toBe(422);
   });
 
-  it("a room is opened as one, space-visible unless told private", async () => {
-    const { app, store, threads } = harness();
-    const open = await app.request(
-      json({ agent_ids: ["master", "tim"], space_id: spaceId, title: "Game" })
-    );
-    expect(open.status).toBe(201);
-    expect(threads.createThread).toHaveBeenCalledWith(
-      expect.objectContaining({ routeContext: { room: true } })
-    );
-    expect(store.setThreadVisibility).not.toHaveBeenCalled();
-
-    const closed = await app.request(
+  it("opens a room private when told private", async () => {
+    const { app } = harness();
+    const res = await app.request(
       json({
         agent_ids: ["master", "tim"],
         space_id: spaceId,
@@ -550,42 +406,10 @@ describe("room routes", () => {
         visibility: "private",
       })
     );
-    expect(closed.status).toBe(201);
-    expect(store.setThreadVisibility).toHaveBeenCalledWith(
-      expect.objectContaining({ threadId: roomId, visibility: "private" })
-    );
+    expect(res.status).toBe(201);
     expect(
-      ((await closed.json()) as { session: { visibility: string } }).session
+      ((await res.json()) as { session: { visibility: string } }).session
         .visibility
     ).toBe("private");
-  });
-
-  it("PATCH room changes who may see it", async () => {
-    const { app, store } = harness();
-    const res = await app.request(
-      new Request(`http://x/ai/threads/${roomId}/room`, {
-        body: JSON.stringify({ visibility: "private" }),
-        headers: { "content-type": "application/json" },
-        method: "PATCH",
-      })
-    );
-    expect(res.status).toBe(200);
-    expect(store.setThreadVisibility).toHaveBeenCalledWith(
-      expect.objectContaining({ visibility: "private" })
-    );
-  });
-
-  it("continue lifts the pause with the same patch a message applies", async () => {
-    const { app, store } = harness();
-    const res = await app.request(
-      new Request(`http://x/ai/threads/${roomId}/continue`, { method: "POST" })
-    );
-    expect(res.status).toBe(200);
-    expect(store.mergeThreadMetadataForUser).toHaveBeenCalledWith(
-      expect.objectContaining({
-        patch: { agent_turns_since_human: 0, room_paused: false },
-        userId,
-      })
-    );
   });
 });

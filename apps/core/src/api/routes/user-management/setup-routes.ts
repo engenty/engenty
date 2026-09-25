@@ -9,7 +9,9 @@ import { requirePlatformSuperAdmin } from "../authz.js";
 import {
   AI_PROVIDER_GATEWAYS,
   isAiProviderGateway,
+  maskApiKey,
   probeAiProviderKey,
+  resolveProbeApiKey,
 } from "./ai-provider-probe.js";
 import { runSetupChecks } from "./setup-checks.js";
 import {
@@ -119,8 +121,9 @@ export function registerUserManagementSetupRoutes(
   });
 
   /**
-   * "Test key" for the AI-provider step. Superadmin only: it carries a
-   * credential to a third party, and the wizard's admin is one by then.
+   * "Test key" for the AI-provider step and manage's gateway settings. Tests
+   * `apiKey` when given, otherwise the stored key. Superadmin only: it carries
+   * a credential to a third party, and the wizard's admin is one by then.
    */
   params.app.post("/api/users/setup/ai-provider/test", async (c) => {
     const authResult = await requirePlatformSuperAdmin(c, params.config);
@@ -136,9 +139,11 @@ export function registerUserManagementSetupRoutes(
         message: `gateway must be one of ${Object.keys(AI_PROVIDER_GATEWAYS).join(", ")}`,
       });
     }
-    const apiKey = typeof body?.apiKey === "string" ? body.apiKey.trim() : "";
+    const apiKey = resolveProbeApiKey(body.apiKey, body.gateway);
     if (!apiKey) {
-      return jsonApiError(c, 400, { message: "apiKey is required." });
+      return jsonApiError(c, 400, {
+        message: "apiKey is required when no key is stored.",
+      });
     }
     const probe = await probeAiProviderKey({ apiKey, gateway: body.gateway });
     let modelCount: number | null = null;
@@ -155,6 +160,7 @@ export function registerUserManagementSetupRoutes(
     return jsonApiSuccess(c, {
       detail: probe.detail,
       envKey: AI_PROVIDER_GATEWAYS[body.gateway].envKey,
+      maskedKey: maskApiKey(apiKey),
       modelCount,
       status: probe.status,
     });

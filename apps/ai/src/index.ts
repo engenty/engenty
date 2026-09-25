@@ -63,19 +63,6 @@ async function main() {
   );
   await hydrateAiPlatformSettings(logger);
 
-  // The effort router's first Jev question must not pay the cold connection.
-  const { warmJev } = await import("@engenty/typesafe-client");
-  if (warmJev()) {
-    logger.info("Jev reachable; warming the connection");
-  } else {
-    // Named at boot because every symptom of a missing key is silent: Auto
-    // just stops picking high, search stops trimming, and classifying mail
-    // fails on a button nobody is watching.
-    logger.warn(
-      "No Jev key (AI_GATEWAY_API_KEY or TYPESAFE_API_KEY): Auto effort falls back to its lexical guess, KB search skips verification, and inbox classification is unavailable"
-    );
-  }
-
   const { createApp } = await import("./app.js");
   const { mastra } = await import("../ai/index.js");
   const { sweepEngentySandboxes } = await import(
@@ -94,6 +81,9 @@ async function main() {
   const wsBridge: { inject: ((server: unknown) => void) | null } = {
     inject: null,
   };
+  // Seed platform bindings (and the catalog) inside createApp before the
+  // classifier warm: after a DB reset `ai.model_binding` is empty, and the
+  // bindings-only resolvers throw until that seed lands.
   const app = await createApp({
     createUpgradeWebSocket: (honoApp) => {
       const nodeWs = createNodeWebSocket({ app: honoApp });
@@ -104,6 +94,28 @@ async function main() {
       return nodeWs.upgradeWebSocket;
     },
   });
+
+  // The effort router's first classifier question must not pay the cold
+  // connection (Jev; an LLM classifier has nothing to warm).
+  const { warmClassifier } = await import("@engenty/ai-core");
+  const { resolvePlatformClassifierModelId } = await import(
+    "./ai/classifier-model.js"
+  );
+  const classifierModelId = await resolvePlatformClassifierModelId();
+  if (classifierModelId && warmClassifier(classifierModelId)) {
+    logger.info("Classifier reachable; warming the connection", {
+      model: classifierModelId,
+    });
+  } else {
+    // Named at boot because every symptom of a missing classifier is silent:
+    // Auto just stops picking high, search stops trimming, and classifying
+    // mail fails on a button nobody is watching.
+    logger.warn(
+      "Platform classifier unreachable (no key for its bound model): Auto effort falls back to its lexical guess, KB search skips verification, and inbox classification is unavailable",
+      { model: classifierModelId }
+    );
+  }
+
   const server = serve(
     {
       fetch: app.fetch,

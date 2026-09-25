@@ -30,6 +30,7 @@ export async function destroyRunSandboxes(input: {
     await input.sandboxProvider?.destroy().catch(() => undefined);
   }
   // Sub-agent sandboxes (e.g. engenty.cli) are never kept alive across turns —
-  // parent HITL interrupts must not leave CLI docker containers running.
+  // parent HITL interrupts must not leave CLI docker containers running. On a
+  // Space computer destroy() only returns the run's slot; the container stays.
   await destroySubAgentSandboxes(input.subAgentSandboxProviders);
 }

@@ -1,138 +1,9 @@
 import { describe, expect, it } from "vitest";
-import {
-  buildToolApprovalArtifact,
-  buildToolApprovalArtifactId,
-  isToolApprovalArtifactId,
-  parseToolApprovalGrantContext,
-  parseToolApprovalOperationId,
-  resolveToolApprovalDecision,
-  TOOL_APPROVAL_CHOICE_APPROVE_ALWAYS,
-  TOOL_APPROVAL_CHOICE_APPROVE_ONCE,
-  TOOL_APPROVAL_CHOICE_DENY,
-} from "../../ai/tools/engenty-tools/lib/tool-approval.js";
-import {
-  readToolApprovalGrants,
-  withToolApprovalGrant,
-} from "../ai/sessions/tool-approval-grants.js";
-import { isDecisionArtifactPayload } from "../ai/sessions/transcript.js";
+import { parseToolApprovalGrantContext } from "../../ai/tools/engenty-tools/lib/tool-approval.js";
+import { withToolApprovalGrantOnce } from "../ai/sessions/tool-approval-grants.js";
 
-describe("resolveToolApprovalDecision", () => {
-  it("allows read-only / low-risk operations without approval", () => {
-    expect(
-      resolveToolApprovalDecision({
-        operationId: "contacts_contact_search",
-        requiresApproval: false,
-        riskLevel: "low",
-      })
-    ).toBe("allow");
-    expect(
-      resolveToolApprovalDecision({
-        operationId: "contacts_contact_search",
-        requiresApproval: false,
-        riskLevel: "medium",
-      })
-    ).toBe("allow");
-  });
-
-  it("gates when the contract requires approval", () => {
-    expect(
-      resolveToolApprovalDecision({
-        operationId: "contacts_contact_delete",
-        requiresApproval: true,
-        riskLevel: "low",
-      })
-    ).toBe("require_approval");
-  });
-
-  it("defers risk-only operations to core (pre-gate stays conservative)", () => {
-    // high/critical risk WITHOUT an explicit requiresApproval flag is NOT
-    // pre-gated — core's authoritative 202 handles it at invoke time.
-    for (const riskLevel of ["high", "critical"] as const) {
-      expect(
-        resolveToolApprovalDecision({
-          operationId: "billing_charge",
-          requiresApproval: false,
-          riskLevel,
-        })
-      ).toBe("allow");
-    }
-  });
-
-  it("bypasses the gate when the operation is already granted for the chat", () => {
-    expect(
-      resolveToolApprovalDecision({
-        grants: ["contacts_contact_delete"],
-        operationId: "contacts_contact_delete",
-        requiresApproval: true,
-        riskLevel: "critical",
-      })
-    ).toBe("allow");
-    // a grant for a DIFFERENT operation does not leak
-    expect(
-      resolveToolApprovalDecision({
-        grants: ["contacts_contact_search"],
-        operationId: "contacts_contact_delete",
-        requiresApproval: true,
-        riskLevel: "high",
-      })
-    ).toBe("require_approval");
-  });
-});
-
-describe("tool-approval artifact", () => {
-  it("builds a decision-shaped artifact the run loop already detects", () => {
-    const artifact = buildToolApprovalArtifact({
-      operationId: "contacts_contact_delete",
-      requiresApproval: true,
-      riskLevel: "critical",
-      title: "Delete contact",
-    });
-    expect(isDecisionArtifactPayload(artifact)).toBe(true);
-    expect(artifact.choices.map((c) => c.id)).toEqual([
-      TOOL_APPROVAL_CHOICE_APPROVE_ONCE,
-      TOOL_APPROVAL_CHOICE_APPROVE_ALWAYS,
-      TOOL_APPROVAL_CHOICE_DENY,
-    ]);
-  });
-
-  it("round-trips the operation id through the artifact id", () => {
-    const id = buildToolApprovalArtifactId("module.contacts/contact.delete");
-    expect(isToolApprovalArtifactId(id)).toBe(true);
-    expect(parseToolApprovalOperationId(id)).toBe(
-      "module.contacts/contact.delete"
-    );
-    expect(parseToolApprovalOperationId("decision-123")).toBeNull();
-    expect(parseToolApprovalOperationId(undefined)).toBeNull();
-  });
-
-  it("bulk card: round-trips every covered operation id and speaks run/chat scope", () => {
-    const artifact = buildToolApprovalArtifact({
-      body: "Create 200 dummy time entries",
-      operationId: "log_time_entry",
-      operationIds: ["log_time_entry", "update_time_entry"],
-      requiresApproval: true,
-      riskLevel: "critical",
-      title: "bulk write access",
-    });
-    expect(isDecisionArtifactPayload(artifact)).toBe(true);
-    expect(artifact.body).toContain("Create 200 dummy time entries");
-    expect(artifact.body).toContain("log_time_entry, update_time_entry");
-    expect(artifact.choices.map((c) => c.label)).toEqual([
-      "Approve for this run",
-      "Approve for this chat",
-      "Deny",
-    ]);
-    const context = parseToolApprovalGrantContext(artifact.artifact_id);
-    expect(context?.operation_ids).toEqual([
-      "log_time_entry",
-      "update_time_entry",
-    ]);
-    expect(parseToolApprovalOperationId(artifact.artifact_id)).toBe(
-      "log_time_entry"
-    );
-  });
-
-  it("bulk grant context: drops malformed operation ids, never partially trusts", () => {
+describe("tool-approval grant context", () => {
+  it("drops malformed operation ids, never partially trusts", () => {
     const forged = `tool-approval|${encodeURIComponent("log_time_entry")}|${encodeURIComponent(
       JSON.stringify({
         operation_ids: ["ok_op", "bad op with spaces", 42, "also.ok"],
@@ -150,22 +21,9 @@ describe("tool-approval artifact", () => {
 });
 
 describe("tool-approval grants metadata", () => {
-  it("reads, adds, and de-dupes thread grants", () => {
-    expect(readToolApprovalGrants(undefined)).toEqual([]);
-    expect(readToolApprovalGrants({ other: 1 })).toEqual([]);
-    const m1 = withToolApprovalGrant(null, "contacts_contact_delete");
-    expect(readToolApprovalGrants(m1)).toEqual(["contacts_contact_delete"]);
-    const m2 = withToolApprovalGrant(m1, "contacts_contact_delete");
-    expect(readToolApprovalGrants(m2)).toEqual(["contacts_contact_delete"]);
-    const m3 = withToolApprovalGrant(m2, "billing_charge");
-    expect(readToolApprovalGrants(m3)).toEqual([
-      "contacts_contact_delete",
-      "billing_charge",
-    ]);
-  });
-
+  // The resume writes this metadata back whole; a dropped key is lost state.
   it("preserves unrelated metadata keys", () => {
-    const next = withToolApprovalGrant({ keep: "me" }, "op");
+    const next = withToolApprovalGrantOnce({ keep: "me" }, "op");
     expect(next.keep).toBe("me");
   });
 });

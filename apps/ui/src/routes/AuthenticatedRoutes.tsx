@@ -1,25 +1,11 @@
-import {
-  AGENTS_WORKSPACE_ROOT_PATH,
-  AiGeneralSettingsPage,
-  COPILOT_RIVER_PATH,
-} from "@engenty/ai-ui";
-import {
-  NotificationStreamsSettingsPage,
-  NotificationsPage,
-} from "@engenty/notifications-ui";
+import { AGENTS_WORKSPACE_ROOT_PATH, COPILOT_RIVER_PATH } from "@engenty/ai-ui";
+import { NotificationsPage } from "@engenty/notifications-ui";
 import {
   type UiContributions,
   UiContributionsProvider,
 } from "@engenty/ui-plugin-sdk";
 import { useEffect, useMemo } from "react";
-import {
-  Navigate,
-  Route,
-  Routes,
-  useLocation,
-  useNavigate,
-  useParams,
-} from "react-router-dom";
+import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import { SpaceModuleGate } from "@/components/spaces/SpaceModuleGate";
 import { useDeveloperModeEnabled } from "@/hooks/use-developer-mode-enabled";
 import {
@@ -27,41 +13,12 @@ import {
   spaceMirrorPath,
   spacePlacedModuleIds,
 } from "@/lib/space-route-mirrors";
-import {
-  SPACE_WORKFLOW_ROUTE_PATTERN,
-  SPACE_WORKFLOW_RUN_ROUTE_PATTERN,
-} from "@/lib/space-routes";
-import { AppearanceSettingsPage } from "@/pages/AppearanceSettingsPage";
 import { CopilotDeskPage } from "@/pages/CopilotDeskPage";
-import { DevelopmentSettingsPage } from "@/pages/DevelopmentSettingsPage";
 import { DeviceApprovalPage } from "@/pages/DeviceApprovalPage";
-import { FeatureFlagsPage } from "@/pages/FeatureFlagsPage";
-import {
-  PlatformSettingsPage,
-  TenantIntegrationKeysPage,
-} from "@/pages/PlatformSettingsPage";
-import { RolesSettingsPage } from "@/pages/RolesSettingsPage";
-import { SearchIndexSettingsPage } from "@/pages/SearchIndexSettingsPage";
-import { SettingsPage } from "@/pages/SettingsPage";
-import { SetupPage } from "@/pages/SetupPage";
-import { SetupPluginsPage } from "@/pages/SetupPluginsPage";
-import { SetupStudioPage } from "@/pages/SetupStudioPage";
-import { SpaceAgentDeskPage } from "@/pages/SpaceAgentDeskPage";
-import { SpaceAgentHirePage } from "@/pages/SpaceAgentHirePage";
-import { SpaceAgentsPage } from "@/pages/SpaceAgentsPage";
-import { SpaceChatsPage } from "@/pages/SpaceChatsPage";
-import { SpaceDataPage } from "@/pages/SpaceDataPage";
-import { SpaceLayout } from "@/pages/SpaceLayout";
-import { SpaceRoomPage } from "@/pages/SpaceRoomPage";
-import { SpaceSettingsPage } from "@/pages/SpaceSettingsPage";
-import { SpacesSettingsPage } from "@/pages/SpacesSettingsPage";
-import { SpaceWorkflowPage } from "@/pages/SpaceWorkflowPage";
-import { SpaceWorkHome } from "@/pages/SpaceWorkHome";
-import { TenantSettingsPage } from "@/pages/TenantSettingsPage";
+import { adminSettingsRoutes } from "@/routes/admin-settings-routes";
 import { DefaultPlaceRedirect } from "@/routes/DefaultPlaceRedirect";
 import { LegacyModuleRedirect } from "@/routes/LegacyModuleRedirect";
-import { LegacySpaceSettingsRedirect } from "@/routes/LegacySpaceSettingsRedirect";
-import { PersonalSpaceRedirect } from "@/routes/PersonalSpaceRedirect";
+import { spaceAuthenticatedRoutes } from "@/routes/space-authenticated-routes";
 
 interface AuthenticatedRoutesProps {
   contributions: UiContributions;
@@ -82,6 +39,13 @@ const PERSONAL_SETTINGS_PREFIXES = [
 
 const SETUP_TENANT_ADMIN_PREFIXES = ["/setup/ai", "/setup/integration-keys"];
 const SETUP_PERSONAL_PREFIXES = ["/setup/connections"];
+
+// The Engenty agents workspace (every module page under it, too) is a debugging
+// surface: superadmins with developer mode on only. `useDeveloperModeEnabled`
+// already carries the superadmin gate.
+function isAgentsWorkspacePath(path: string): boolean {
+  return pathMatchesPrefix(path, AGENTS_WORKSPACE_ROOT_PATH);
+}
 
 function pathMatchesPrefix(path: string, prefix: string): boolean {
   return path === prefix || path.startsWith(`${prefix}/`);
@@ -107,22 +71,6 @@ function isBlockedSetupPath(
     return !opts.isAdmin;
   }
   return !opts.isSuperAdmin;
-}
-
-function RedirectPreserveSearch({ to }: { to: string }) {
-  const { hash, search } = useLocation();
-  return <Navigate replace to={`${to}${search}${hash}`} />;
-}
-
-// Where a member lands when they hit an admin-only settings page. Profile is
-// always present (user-management) and personal.
-const MEMBER_SETTINGS_HOME = "/settings/profile";
-
-function LegacyAdminUserRedirect() {
-  const { id } = useParams<{ id: string }>();
-  return (
-    <Navigate replace to={id ? `/settings/users/${id}` : "/settings/users"} />
-  );
 }
 
 export function AuthenticatedRoutes({
@@ -161,6 +109,88 @@ export function AuthenticatedRoutes({
       navigator.serviceWorker.removeEventListener("message", onMessage);
   }, [navigate]);
 
+  // Built once per contributions/admin change, not on every navigation. A new
+  // element for every module route is what made the router reconcile the
+  // whole table on a space switch.
+  const pluginRoutes = useMemo(
+    () =>
+      contributions.routes.map((pluginRoute) => {
+        const PluginPage = pluginRoute.component;
+        const isPersonalSettings = PERSONAL_SETTINGS_PREFIXES.some((prefix) =>
+          pluginRoute.path.startsWith(prefix)
+        );
+        const isSetupPath =
+          pluginRoute.path === "/setup" ||
+          pluginRoute.path.startsWith("/setup/");
+        const defaultAdminOnly =
+          pluginRoute.path.startsWith("/admin/") ||
+          isSetupPath ||
+          (pluginRoute.path.startsWith("/settings/") && !isPersonalSettings);
+        const adminOnly = pluginRoute.requiresAdmin ?? defaultAdminOnly;
+        let blocked = adminOnly && !isAdmin;
+        if (isSetupPath) {
+          blocked = isBlockedSetupPath(pluginRoute.path, {
+            isAdmin,
+            isSuperAdmin,
+          });
+        } else if (isAgentsWorkspacePath(pluginRoute.path)) {
+          blocked = !developerModeEnabled;
+        }
+        const element = blocked ? <DefaultPlaceRedirect /> : <PluginPage />;
+        const redirects =
+          !blocked &&
+          spaceMirrorPath(pluginRoute.path) !== null &&
+          spacePlaced.has(pluginRoute.pluginId);
+        return (
+          <Route
+            element={
+              redirects ? (
+                <LegacyModuleRedirect Fallback={PluginPage} />
+              ) : (
+                element
+              )
+            }
+            key={pluginRoute.id}
+            path={pluginRoute.path}
+          />
+        );
+      }),
+    [
+      contributions.routes,
+      developerModeEnabled,
+      isAdmin,
+      isSuperAdmin,
+      spacePlaced,
+    ]
+  );
+
+  const mirroredSpaceRoutes = useMemo(
+    () =>
+      spaceMirroredRoutes(contributions.routes)
+        .filter(({ route }) => !(route.requiresAdmin && !isAdmin))
+        .flatMap(({ legacyPath, path, route }) => {
+          const PluginPage = route.component;
+          const element = (
+            <SpaceModuleGate key={route.id} moduleId={route.pluginId}>
+              <PluginPage />
+            </SpaceModuleGate>
+          );
+          return [
+            <Route element={element} key={route.id} path={path} />,
+            ...(legacyPath
+              ? [
+                  <Route
+                    element={element}
+                    key={`${route.id}:legacy`}
+                    path={legacyPath}
+                  />,
+                ]
+              : []),
+          ];
+        }),
+    [contributions.routes, isAdmin]
+  );
+
   return (
     <UiContributionsProvider contributions={contributions}>
       <Routes>
@@ -173,340 +203,22 @@ export function AuthenticatedRoutes({
         <Route element={<CopilotDeskPage />} path={COPILOT_RIVER_PATH} />
         <Route element={<DeviceApprovalPage />} path="/auth/device" />
         <Route element={<NotificationsPage />} path="/notifications" />
-        <Route
-          element={
-            isAdmin ? (
-              <NotificationStreamsSettingsPage />
-            ) : (
-              <Navigate replace to={MEMBER_SETTINGS_HOME} />
-            )
-          }
-          path="/settings/notifications"
-        />
-        <Route
-          element={isAdmin ? <SetupPage /> : <DefaultPlaceRedirect />}
-          path="/setup"
-        />
-        <Route
-          element={
-            isSuperAdmin ? <SetupPluginsPage /> : <DefaultPlaceRedirect />
-          }
-          path="/setup/plugins"
-        />
-        <Route
-          element={<Navigate replace to="/setup/plugins" />}
-          path="/admin/plugins"
-        />
-        <Route
-          element={<Navigate replace to="/setup/audit-logs" />}
-          path="/admin/audit-logs"
-        />
-        <Route
-          element={<Navigate replace to="/settings/users" />}
-          path="/admin/users"
-        />
-        <Route element={<LegacyAdminUserRedirect />} path="/admin/users/:id" />
-        <Route
-          element={
-            isAdmin ? (
-              <SettingsPage />
-            ) : (
-              // Members can't open the tenant-admin General page — land them on
-              // their personal Profile.
-              <Navigate replace to={MEMBER_SETTINGS_HOME} />
-            )
-          }
-          path="/settings"
-        />
-        <Route
-          element={
-            isAdmin ? (
-              <AiGeneralSettingsPage />
-            ) : (
-              <Navigate replace to={MEMBER_SETTINGS_HOME} />
-            )
-          }
-          path="/setup/ai"
-        />
-        <Route
-          element={<RedirectPreserveSearch to="/setup/ai" />}
-          path="/settings/ai"
-        />
-        <Route
-          element={<Navigate replace to={AGENTS_WORKSPACE_ROOT_PATH} />}
-          path="/settings/ai-instructions"
-        />
-        <Route
-          element={<Navigate replace to={AGENTS_WORKSPACE_ROOT_PATH} />}
-          path="/settings/agents"
-        />
-        <Route
-          element={
-            isAdmin ? (
-              // Tenant-wide branding (colors/fonts/sidebar) — admins only.
-              // Members change their own theme/language via the user menu.
-              <AppearanceSettingsPage />
-            ) : (
-              <Navigate replace to={MEMBER_SETTINGS_HOME} />
-            )
-          }
-          path="/settings/appearance"
-        />
-        <Route
-          element={<RedirectPreserveSearch to="/setup/ai?tab=usage" />}
-          path="/settings/ai-usage"
-        />
-        <Route
-          element={
-            isSuperAdmin ? <RolesSettingsPage /> : <DefaultPlaceRedirect />
-          }
-          path="/setup/roles"
-        />
-        <Route
-          element={<Navigate replace to="/setup/roles" />}
-          path="/settings/roles"
-        />
-        <Route
-          // Members may see the list (they work in these spaces); the page hides
-          // its write affordances for them, and the API refuses them anyway.
-          element={<SpacesSettingsPage />}
-          path="/settings/spaces"
-        />
-        <Route
-          element={
-            isSuperAdmin ? (
-              <TenantSettingsPage />
-            ) : (
-              <Navigate
-                replace
-                to={isAdmin ? "/settings" : MEMBER_SETTINGS_HOME}
-              />
-            )
-          }
-          path="/settings/tenant"
-        />
-        {/* The uuid form is a legacy deep link now — space settings live at
-            `/s/<key>/settings` with the rest of the space. */}
-        <Route
-          element={<LegacySpaceSettingsRedirect />}
-          path="/settings/spaces/:spaceId"
-        />
-        <Route
-          element={
-            isSuperAdmin ? <PlatformSettingsPage /> : <DefaultPlaceRedirect />
-          }
-          path="/setup/platform"
-        />
-        <Route
-          element={
-            isSuperAdmin || isTenantAdmin ? (
-              <TenantIntegrationKeysPage />
-            ) : (
-              <Navigate replace to={MEMBER_SETTINGS_HOME} />
-            )
-          }
-          path="/setup/integration-keys"
-        />
-        <Route
-          element={<RedirectPreserveSearch to="/setup/integration-keys" />}
-          path="/settings/integration-keys"
-        />
-        <Route
-          element={
-            developerModeEnabled ? (
-              <DevelopmentSettingsPage />
-            ) : (
-              <Navigate replace to="/setup" />
-            )
-          }
-          path="/setup/development"
-        />
-        <Route
-          element={<RedirectPreserveSearch to="/setup/development" />}
-          path="/settings/development"
-        />
-        <Route
-          element={
-            developerModeEnabled ? (
-              <SetupStudioPage />
-            ) : (
-              <Navigate replace to="/setup" />
-            )
-          }
-          path="/setup/studio"
-        />
-        <Route
-          element={
-            developerModeEnabled && isSuperAdmin ? (
-              <FeatureFlagsPage />
-            ) : (
-              <DefaultPlaceRedirect />
-            )
-          }
-          path="/setup/features"
-        />
-        <Route
-          element={<RedirectPreserveSearch to="/setup/features" />}
-          path="/settings/features"
-        />
-        <Route
-          element={
-            developerModeEnabled && isSuperAdmin ? (
-              <SearchIndexSettingsPage />
-            ) : (
-              <DefaultPlaceRedirect />
-            )
-          }
-          path="/setup/search-index"
-        />
-        <Route
-          element={<RedirectPreserveSearch to="/setup/search-index" />}
-          path="/settings/search-index"
-        />
+        {adminSettingsRoutes({
+          developerModeEnabled,
+          isAdmin,
+          isSuperAdmin,
+        })}
         <Route element={<DefaultPlaceRedirect />} path="/initial_setup" />
         <Route element={<DefaultPlaceRedirect />} path="/auth/login" />
         <Route element={<DefaultPlaceRedirect />} path="/auth/callback" />
-        {contributions.routes.map((pluginRoute) => {
-          const PluginPage = pluginRoute.component;
-          // Admin surfaces: any /admin/* console (agents workspace, users,
-          // files, context graph) plus tenant-config /settings/* pages
-          // outside the personal allowlist. Audit logs live under Setup.
-          // A contribution can override the default either way via `requiresAdmin`.
-          const isPersonalSettings = PERSONAL_SETTINGS_PREFIXES.some((prefix) =>
-            pluginRoute.path.startsWith(prefix)
-          );
-          // Setup is the install-owner surface. Most /setup/* paths are
-          // superadmin-only; tenant-admin config (AI models, integration keys)
-          // and the personal connections page are the exceptions.
-          const isSetupPath =
-            pluginRoute.path === "/setup" ||
-            pluginRoute.path.startsWith("/setup/");
-          const defaultAdminOnly =
-            pluginRoute.path.startsWith("/admin/") ||
-            isSetupPath ||
-            (pluginRoute.path.startsWith("/settings/") && !isPersonalSettings);
-          const adminOnly = pluginRoute.requiresAdmin ?? defaultAdminOnly;
-          const blocked = isSetupPath
-            ? isBlockedSetupPath(pluginRoute.path, { isAdmin, isSuperAdmin })
-            : adminOnly && !isAdmin;
-          const element = blocked ? <DefaultPlaceRedirect /> : <PluginPage />;
-          // A space-placed module's legacy path redirects into its space; a
-          // global one keeps `/mdl/` as canonical. Blocked routes never
-          // redirect.
-          const redirects =
-            !blocked &&
-            spaceMirrorPath(pluginRoute.path) !== null &&
-            spacePlaced.has(pluginRoute.pluginId);
-          return (
-            <Route
-              element={
-                redirects ? (
-                  <LegacyModuleRedirect Fallback={PluginPage} />
-                ) : (
-                  element
-                )
-              }
-              key={pluginRoute.id}
-              path={pluginRoute.path}
-            />
-          );
-        })}
+        {pluginRoutes}
         {/* Everything inside a space. The Work/Data/Plan tabs live in the shell's
             secondary column (App.tsx `secondaryNavLeadingSlot`), so a module
             opened here keeps them and contributes its own nav directly below —
             one column, never two. Module components are the SAME ones registered
             at `/mdl/…`; they are mounted a second time and read the space from
             WorkspaceContext.currentSpace, which follows the URL. */}
-        {/* Before the `:spaceKey` route, or `me` would be read as a key and 404
-            against a space nobody has. */}
-        <Route element={<PersonalSpaceRedirect />} path="/s/me/*" />
-        <Route element={<PersonalSpaceRedirect />} path="/s/me" />
-        <Route element={<SpaceLayout />} path="/s/:spaceKey">
-          {/* The space root IS Work — the list of mounted modules, which lives in
-              the sidebar. Nothing is selected yet, so the content area says so
-              rather than redirecting into an arbitrary module. */}
-          <Route element={<SpaceWorkHome />} index />
-          {/* Declared before the mirrors for readability only — React Router
-              ranks by specificity, and `settings` is a static segment that no
-              module id can collide with (settings is a PLACEMENT, not a
-              module). */}
-          <Route element={<SpaceSettingsPage />} path="settings" />
-          {/* The space's inbox. Reserved like `settings`: not a module, and
-              the full-screen page keeps the Work sidebar with Dashboard
-              selected. The dashboard bell opens the same list in a popover. */}
-          <Route element={<NotificationsPage />} path="notifications" />
-          {/* Static `agents` and `agents/new` before `:agentId`, or those
-              segments are captured as an id. */}
-          <Route element={<SpaceAgentsPage />} path="agents" />
-          <Route element={<SpaceAgentHirePage />} path="agents/new" />
-          <Route
-            element={<SpaceAgentDeskPage canManageAgents={isAdmin} />}
-            path="agents/:agentId"
-          />
-          {/* A room by its thread id — its own page, not a desk's engagement.
-              `rooms` is a reserved segment for the same reason `chats` is. */}
-          <Route
-            element={<SpaceRoomPage canManageAgents={isAdmin} />}
-            path="rooms/:threadId"
-          />
-          {/* A wizard: page 0 by workflow id (stored uuid or module id), a run
-              by its run id. `workflows` is a reserved segment for the same
-              reason `rooms` is. */}
-          <Route
-            element={<SpaceWorkflowPage />}
-            path={SPACE_WORKFLOW_ROUTE_PATTERN}
-          />
-          <Route
-            element={<SpaceWorkflowPage />}
-            path={SPACE_WORKFLOW_RUN_ROUTE_PATTERN}
-          />
-          {/* The space's Data tree — its own page, not a module's. `data` is a
-              RESERVED segment (space-module-url.ts) for the same reason
-              `settings` is: without that, every reader of the URL infers a
-              module called "data" and the shell hides the space's sidebar to
-              show its (non-existent) nav. */}
-          <Route element={<SpaceDataPage />} path="data" />
-          {/* The river inside this space: the person's one conversation with
-              their copilot, opened at this space's chapters, with the space's
-              own column kept beside it. `copilot` is a RESERVED segment for
-              the same reason `data` is. */}
-          <Route element={<CopilotDeskPage />} path="copilot" />
-          {/* Every conversation in the space, across its agents. Reserved for
-              the same reason `data` is — it is the SPACE's view over what
-              several modules produced, and a module called "chats" would take
-              the space's own sidebar away to show its nav. */}
-          <Route element={<SpaceChatsPage />} path="chats" />
-          {spaceMirroredRoutes(contributions.routes)
-            // An explicitly admin-only module route keeps that gate inside a
-            // space; dropping the mirror is better than mounting an unguarded
-            // second copy of it.
-            .filter(({ route }) => !(route.requiresAdmin && !isAdmin))
-            .flatMap(({ legacyPath, path, route }) => {
-              const PluginPage = route.component;
-              // Mirrored for every module, reachable only while mounted: the
-              // gate reads the space's surface, so a module the space never
-              // added shows "not in this space" instead of its pages.
-              const element = (
-                <SpaceModuleGate key={route.id} moduleId={route.pluginId}>
-                  <PluginPage />
-                </SpaceModuleGate>
-              );
-              return [
-                <Route element={element} key={route.id} path={path} />,
-                // The pre-alias URL, still mounted so in-flight deep links open
-                // the page instead of falling through to the catch-all.
-                ...(legacyPath
-                  ? [
-                      <Route
-                        element={element}
-                        key={`${route.id}:legacy`}
-                        path={legacyPath}
-                      />,
-                    ]
-                  : []),
-              ];
-            })}
-        </Route>
+        {spaceAuthenticatedRoutes({ isAdmin, mirroredSpaceRoutes })}
         <Route element={<DefaultPlaceRedirect />} path="*" />
       </Routes>
     </UiContributionsProvider>

@@ -1,17 +1,24 @@
 /**
- * The caller's OWN browser consent (PLAN-user-browser.md D3) — the person's,
- * tenant-wide, not a space's. Keyed on the token's user: nobody reads or
- * sets another person's, and a service principal has no browser (403).
- * A run inside a space gets the same row on the space surface; a run
- * outside any space reads it here.
+ * A Space's browser consent (PLAN-user-browser.md D3;
+ * PLAN-space-owned-connections.md): every person who can enter the Space may
+ * read it; only the Space's owners — or a tenant admin — may change it,
+ * because it decides what the Space's agents do with its shared logins while
+ * nobody watches. A Space the caller cannot enter is 404, like every other
+ * space-scoped route.
  */
+
+import { capabilityCovers } from "@engenty/plugin-sdk";
 import type { OpenAPIHono } from "@hono/zod-openapi";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import {
-  getUserBrowserGrant,
-  upsertUserBrowserGrant,
-} from "../../dal/user-browser-grants.js";
+  getSpaceBrowserGrant,
+  upsertSpaceBrowserGrant,
+} from "../../dal/space-browser-grants.js";
+import {
+  findAccessibleSpace,
+  isSpaceOwner,
+} from "../../dal/space-membership.js";
 import { createDatabaseAdapter } from "../../infra/index.js";
 import { jsonApiError, jsonApiSuccess } from "./api-response.js";
 import { requireAuth } from "./authz.js";
@@ -44,7 +51,10 @@ export function registerBrowserGrantRoutes(params: {
     return client;
   }
 
-  async function requireUser(c: Parameters<typeof requireAuth>[0]) {
+  async function requireSpaceMember(
+    c: Parameters<typeof requireAuth>[0],
+    spaceIdOrKey: string
+  ) {
     const authResult = await requireAuth(c, config);
     if ("error" in authResult) {
       return { error: authResult.error };
@@ -56,18 +66,32 @@ export function registerBrowserGrantRoutes(params: {
     if (authResult.auth.principalType !== "user" || !authResult.auth.userId) {
       return { error: jsonApiError(c, 403, { message: "Not a user" }) };
     }
-    return { tenantId, userId: authResult.auth.userId };
+    const space = await findAccessibleSpace(
+      db(tenantId),
+      tenantId,
+      authResult.auth.userId,
+      spaceIdOrKey
+    );
+    if (!space) {
+      return { error: jsonApiError(c, 404, { message: "Space not found" }) };
+    }
+    return {
+      capabilities: authResult.auth.capabilities ?? [],
+      spaceId: space.id,
+      tenantId,
+      userId: authResult.auth.userId,
+    };
   }
 
-  app.get("/api/me/browser-grant", async (c) => {
-    const who = await requireUser(c);
+  app.get("/api/spaces/:spaceId/browser-grant", async (c) => {
+    const who = await requireSpaceMember(c, c.req.param("spaceId"));
     if ("error" in who) {
       return who.error;
     }
-    const grant = await getUserBrowserGrant(
+    const grant = await getSpaceBrowserGrant(
       db(who.tenantId),
       who.tenantId,
-      who.userId
+      who.spaceId
     );
     return jsonApiSuccess(c, {
       autostart: grant?.autostart ?? false,
@@ -75,10 +99,26 @@ export function registerBrowserGrantRoutes(params: {
     });
   });
 
-  app.put("/api/me/browser-grant", async (c) => {
-    const who = await requireUser(c);
+  app.put("/api/spaces/:spaceId/browser-grant", async (c) => {
+    const who = await requireSpaceMember(c, c.req.param("spaceId"));
     if ("error" in who) {
       return who.error;
+    }
+    if (
+      !(
+        capabilityCovers([...who.capabilities], "core.users.manage") ||
+        (await isSpaceOwner(
+          db(who.tenantId),
+          who.tenantId,
+          who.spaceId,
+          who.userId
+        ))
+      )
+    ) {
+      return jsonApiError(c, 403, {
+        message:
+          "Only the space's owners (or a tenant admin) can change what its agents may do with its browser.",
+      });
     }
     const parsed = browserGrantBodySchema.safeParse(
       await c.req.json().catch(() => ({}))
@@ -86,11 +126,11 @@ export function registerBrowserGrantRoutes(params: {
     if (!parsed.success) {
       return jsonApiError(c, 400, { message: "Invalid browser grant" });
     }
-    const grant = await upsertUserBrowserGrant(
+    const grant = await upsertSpaceBrowserGrant(
       db(who.tenantId),
       who.tenantId,
-      who.userId,
-      parsed.data
+      who.spaceId,
+      { ...parsed.data, updatedBy: who.userId }
     );
     return jsonApiSuccess(c, {
       autostart: grant.autostart,

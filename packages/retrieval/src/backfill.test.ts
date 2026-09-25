@@ -13,12 +13,17 @@ const T2 = "2026-07-02T00:00:00Z";
 const T3 = "2026-07-03T00:00:00Z";
 
 function setup(options: {
-  indexed?: { content_updated_at: string; doc_id: string }[];
+  indexed?: {
+    content_updated_at: string;
+    doc_id: string;
+    embedding_model?: string;
+  }[];
   sourceDocs: { doc_id: string; updated_at: string }[];
 }) {
   const supabase = createFakeSupabase({
     tables: {
       documents: (options.indexed ?? []).map((row) => ({
+        embedding_model: "fake/embed-3",
         ...row,
         indexed_at: row.content_updated_at,
       })),
@@ -82,6 +87,21 @@ describe("runBackfill", () => {
     built.length = 0;
     await runBackfill(deps, { force: true, tenant_id: "tenant-1" });
     expect(built.toSorted()).toEqual(["a", "b"]);
+  });
+
+  it("docs embedded by another model are stale, so a rebind re-embeds them", async () => {
+    const { built, deps } = setup({
+      indexed: [
+        { content_updated_at: T2, doc_id: "a", embedding_model: "old/model" },
+        { content_updated_at: T2, doc_id: "b" },
+      ],
+      sourceDocs: [
+        { doc_id: "a", updated_at: T2 },
+        { doc_id: "b", updated_at: T2 },
+      ],
+    });
+    await runBackfill(deps, { tenant_id: "tenant-1" });
+    expect(built).toEqual(["a"]);
   });
 
   it("a build failure records the doc as failed without aborting the batch", async () => {

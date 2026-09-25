@@ -1,3 +1,4 @@
+import { bindingsFromList, setPlatformBindings } from "@engenty/ai-core";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { clearCatalogRankingEmbeddingCache } from "../../dal/api-catalog/catalog-record-ranking.js";
@@ -34,6 +35,11 @@ function setupApp() {
 
 describe("POST /ai/v1/catalog/rank", () => {
   beforeEach(() => {
+    setPlatformBindings(
+      bindingsFromList([
+        { gateway: "vercel", modelId: "cohere/embed-v4.0", role: "embedding" },
+      ])
+    );
     clearCatalogRankingEmbeddingCache();
     embedMock.mockReset();
     embedManyMock.mockReset();
@@ -42,6 +48,7 @@ describe("POST /ai/v1/catalog/rank", () => {
   });
 
   afterEach(() => {
+    setPlatformBindings(undefined);
     vi.unstubAllEnvs();
   });
 
@@ -110,6 +117,13 @@ describe("POST /ai/v1/catalog/rank", () => {
     };
     expect(body.ranked.map((item) => item.id)).toEqual(["engenty-apps"]);
     expect(body.ranked[0]?.semantic).toBeGreaterThan(0.9);
+    // Query and entries embed with the model bound to the embedding role.
+    expect(embedMock.mock.calls[0]?.[0]).toMatchObject({
+      model: "cohere/embed-v4.0",
+    });
+    expect(embedManyMock.mock.calls[0]?.[0]).toMatchObject({
+      model: "cohere/embed-v4.0",
+    });
   });
 
   it("rejects an empty catalog payload", async () => {

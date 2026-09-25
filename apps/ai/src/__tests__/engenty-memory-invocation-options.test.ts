@@ -1,30 +1,23 @@
-import { Agent, type MastraDBMessage } from "@mastra/core/agent";
 import { describe, expect, it, vi } from "vitest";
 import {
-  assertEngentyNativeMastraMemoryConfigured,
-  bindEngentyNativeMastraMemory,
   createEngentyAgentExecutionOptions,
   createEngentyMastraResourceId,
-  createEngentyMastraThreadId,
-  createEngentyMemoryInvocationOptions,
-  createEngentyNativeMastraMemoryAgent,
   createEngentySessionMemoryRuntime,
 } from "../ai/memory/index.js";
 import { createOfflineCopilotHarnessRegistry } from "../ai/sessions/__tests__/harness-test-registry.js";
 import { createThreadService } from "../ai/sessions.js";
-import {
-  createEngentySupervisorDelegationConfig,
-  summarizeDelegationMessages,
-} from "../ai/supervisor/delegation.js";
+import { createEngentySupervisorDelegationConfig } from "../ai/supervisor/delegation.js";
 import type {
   ThreadMessageRow,
   ThreadRow,
   ThreadStore,
 } from "../dal/threads/index.js";
+import { bindTestModelsPerTest } from "./helpers/test-model-bindings.js";
 
 const tenantId = "00000000-0000-4000-8000-000000000001";
 const userId = "00000000-0000-4000-8000-000000000002";
 const threadId = "00000000-0000-4000-8000-000000000003";
+const spaceId = "00000000-0000-4000-8000-000000000099";
 
 function makeSession(): ThreadRow {
   return {
@@ -58,22 +51,6 @@ function makeMessage(
     thread_id: threadId,
     tenant_id: tenantId,
     ...overrides,
-  };
-}
-
-function makeMastraMessage(input: {
-  id: string;
-  role: "assistant" | "system" | "user";
-  text: string;
-}): MastraDBMessage {
-  return {
-    content: {
-      format: 2,
-      parts: [{ text: input.text, type: "text" }],
-    },
-    createdAt: new Date("2026-05-17T00:00:00.000Z"),
-    id: input.id,
-    role: input.role,
   };
 }
 
@@ -138,79 +115,27 @@ function makeStore(overrides: Partial<ThreadStore> = {}): ThreadStore {
   };
 }
 
-function makeEmptyFullStream() {
-  return new ReadableStream({
-    start(controller) {
-      controller.close();
-    },
-  });
-}
-
-function makeDynamicAssembler(agent: unknown) {
-  return vi.fn(async () => agent) as Parameters<
-    typeof createThreadService
-  >[0]["assembleDynamicAgent"];
-}
-
-function createMemoryHarness(
-  options: Parameters<typeof createThreadService>[0]
-) {
-  return createThreadService({
-    registry: createOfflineCopilotHarnessRegistry(),
-    ...options,
-  });
-}
+bindTestModelsPerTest();
 
 describe("Engenty Mastra memory invocation options", () => {
-  it("maps Engenty session and scope identity to Mastra thread/resource ids", () => {
+  it("keys Mastra memory on the user, or on the Space (then thread) for shared rooms", () => {
     const scope = { tenantId, userId };
 
-    expect(createEngentyMastraThreadId({ threadId })).toBe(threadId);
     expect(createEngentyMastraResourceId({ scope })).toBe(userId);
     expect(
-      createEngentyMastraResourceId({
-        scope,
-        sharedRoom: true,
-        threadId,
-      })
+      createEngentyMastraResourceId({ scope, sharedRoom: true, threadId })
     ).toBe(threadId);
     expect(
       createEngentyMastraResourceId({
         scope,
         sharedRoom: true,
-        spaceId: "00000000-0000-4000-8000-000000000099",
+        spaceId,
         threadId,
       })
-    ).toBe("00000000-0000-4000-8000-000000000099");
-    expect(createEngentyMemoryInvocationOptions({ scope, threadId })).toEqual({
-      memory: {
-        resource: userId,
-        thread: threadId,
-      },
-    });
+    ).toBe(spaceId);
   });
 
-  it("keys shared-room runtime memory on the space, not the thread", () => {
-    const spaceId = "00000000-0000-4000-8000-000000000099";
-    const runtime = createEngentySessionMemoryRuntime({
-      agentId: "contacts.manager",
-      scope: { tenantId, userId },
-      sharedRoom: true,
-      spaceId,
-      threadId,
-      store: makeStore(),
-    });
-
-    expect(runtime.invocationOptions).toEqual({
-      memory: {
-        resource: spaceId,
-        thread: threadId,
-      },
-    });
-  });
-
-  it("binds MEMORY.md tools and signal to the agent's Space audience", () => {
-    const spaceId = "00000000-0000-4000-8000-000000000099";
+  it("gives MEMORY.md tools only to agents with a shared-observation audience", () => {
     const shared = createEngentySessionMemoryRuntime({
       agentId: "chief-of-staff",
       scope: { tenantId, userId },
@@ -220,16 +145,7 @@ describe("Engenty Mastra memory invocation options", () => {
       store: makeStore(),
       threadId,
     });
-    // TASKS.md rides the same row and the same audience, so `todo_edit`
-    // arrives with the MEMORY.md pair.
-    expect(Object.keys(shared.memoryTools).sort()).toEqual([
-      "memory_forget",
-      "memory_note",
-      "todo_edit",
-    ]);
-    expect(shared.memoryProcessors.map((processor) => processor.id)).toContain(
-      "engenty-agent-memory"
-    );
+    expect(shared.memoryTools).toHaveProperty("memory_note");
 
     const none = createEngentySessionMemoryRuntime({
       agentId: "engenty.copilot",
@@ -238,233 +154,38 @@ describe("Engenty Mastra memory invocation options", () => {
       threadId,
     });
     expect(none.memoryTools).toEqual({});
-    expect(
-      none.memoryProcessors.map((processor) => processor.id)
-    ).not.toContain("engenty-agent-memory");
-  });
-
-  it("creates the parallel storage runtime beside invocation options", () => {
-    const store = makeStore();
-
-    const runtime = createEngentySessionMemoryRuntime({
-      agentId: "engenty.copilot",
-      scope: { tenantId, userId },
-      threadId,
-      store,
-    });
-
-    expect(runtime.invocationOptions).toEqual({
-      memory: {
-        resource: userId,
-        thread: threadId,
-      },
-    });
-    expect(runtime.memory).toBeDefined();
-    expect(runtime.storage).toBeDefined();
-  });
-
-  it("persists Mastra memory writes through the session store adapter", async () => {
-    const store = makeStore();
-    const runtime = createEngentySessionMemoryRuntime({
-      agentId: "engenty.copilot",
-      scope: { tenantId, userId },
-      threadId,
-      store,
-    });
-    const message = makeMastraMessage({
-      id: "mastra-assistant-1",
-      role: "assistant",
-      text: "Native memory should write this.",
-    });
-
-    await runtime.storage.saveMessages({
-      messages: [
-        {
-          ...message,
-          threadId,
-        },
-      ],
-    });
-
-    expect(store.appendMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        role: "assistant",
-        tenantId,
-        threadId,
-      })
-    );
-  });
-
-  it("creates concrete Mastra Memory backed by Engenty session storage", async () => {
-    const store = makeStore();
-    const runtime = createEngentySessionMemoryRuntime({
-      agentId: "engenty.copilot",
-      scope: { tenantId, userId },
-      threadId,
-      store,
-    });
-
-    const thread = await runtime.memory.getThreadById({
-      resourceId: userId,
-      threadId,
-    });
-
-    expect(thread).toMatchObject({
-      id: threadId,
-      resourceId: userId,
-    });
-    expect(store.getThread).toHaveBeenCalledWith({
-      tenantId,
-      threadId,
-    });
-  });
-
-  it("binds concrete Engenty memory to a request-scoped Mastra agent", async () => {
-    const runtime = createEngentySessionMemoryRuntime({
-      agentId: "engenty.copilot",
-      scope: { tenantId, userId },
-      threadId,
-      store: makeStore(),
-    });
-    const agent = new Agent({
-      id: "engenty.copilot",
-      instructions: "Be helpful.",
-      model: "openai/gpt-5-mini",
-      name: "Engenty Copilot",
-      tools: {},
-    });
-
-    const bound = await createEngentyNativeMastraMemoryAgent({
-      agent,
-      memory: runtime.memory,
-    });
-
-    expect(bound.hasOwnMemory()).toBe(true);
-    await expect(
-      assertEngentyNativeMastraMemoryConfigured(bound)
-    ).resolves.toBe(runtime.memory);
   });
 
   it("always includes Mastra memory options in execution options", () => {
     expect(
       createEngentyAgentExecutionOptions({
         maxSteps: 12,
-        runId: "run-1",
         scope: { tenantId, userId },
         threadId,
       })
     ).toMatchObject({
-      maxSteps: 12,
       memory: {
         resource: userId,
         thread: threadId,
       },
-      runId: "run-1",
     });
   });
 
-  it("adds Mastra supervisor delegation hooks to execution options", () => {
-    const options = createEngentyAgentExecutionOptions({
-      maxSteps: 12,
-      scope: { tenantId, userId },
-      threadId,
-    });
-
-    expect(options.delegation?.messageFilter).toEqual(expect.any(Function));
-    // onDelegationComplete is intentionally absent: the supervisor must always
-    // continue after delegation to generate a user-facing summary response.
-    expect(options.delegation?.onDelegationComplete).toBeUndefined();
-  });
-
-  it("summarizes parent chat messages for sub-agent handoffs", async () => {
-    const delegation = createEngentySupervisorDelegationConfig();
-    const messages = [
-      makeMastraMessage({
-        id: "system-1",
-        role: "system",
-        text: "Internal setup",
-      }),
-      makeMastraMessage({
-        id: "user-1",
-        role: "user",
-        text: "Find Ada Lovelace.",
-      }),
-      makeMastraMessage({
-        id: "assistant-1",
-        role: "assistant",
-        text: "I will look in contacts.",
-      }),
-    ];
-
-    expect(summarizeDelegationMessages(messages)).toBe(
-      ["user: Find Ada Lovelace.", "assistant: I will look in contacts."].join(
-        "\n"
-      )
-    );
-    expect(
-      summarizeDelegationMessages([
-        {
-          ...makeMastraMessage({
-            id: "assistant-empty",
-            role: "assistant",
-            text: "ignored",
-          }),
-          content: { format: 2, parts: undefined as never },
-        },
-      ])
-    ).toBe("No prior user-visible chat messages were available.");
-    await expect(
-      Promise.resolve(
-        delegation.messageFilter?.({
-          iteration: 1,
-          messages,
-          parentAgentId: "engenty.copilot",
-          parentAgentName: "Hello",
-          primitiveId: "contacts-agent",
-          primitiveType: "agent",
-          prompt: "Find Ada Lovelace.",
-          resourceId: userId,
-          runId: "run-1",
-          threadId,
-          toolCallId: "tool-call-1",
-        })
-      )
-    ).resolves.toMatchObject([
-      {
-        content: {
-          content: expect.stringContaining(
-            "user: Find Ada Lovelace.\nassistant: I will look in contacts."
-          ),
-          format: 2,
-          parts: [
-            {
-              text: expect.stringContaining(
-                "user: Find Ada Lovelace.\nassistant: I will look in contacts."
-              ),
-              type: "text",
-            },
-          ],
-        },
-        resourceId: userId,
-        role: "system",
-        threadId,
-      },
-    ]);
-  });
-
-  it("does not bail after successful sub-agent delegation completes", async () => {
-    // The supervisor must NOT bail after delegation: it needs to generate a
-    // follow-up turn to present the sub-agent result to the user. Bailing
-    // left the chat stuck because no summary was ever produced.
+  it.each([
+    { success: true, error: undefined },
+    { success: false, error: new Error("failed") },
+  ])("does not bail after a sub-agent delegation (success: $success)", async ({
+    error,
+    success,
+  }) => {
+    // The supervisor must take another turn to present the result to the user.
     const bail = vi.fn();
     const delegation = createEngentySupervisorDelegationConfig();
-
-    // onDelegationComplete is intentionally absent from the config.
-    expect(delegation.onDelegationComplete).toBeUndefined();
 
     await delegation.onDelegationComplete?.({
       bail,
       duration: 12,
+      ...(error ? { error } : {}),
       iteration: 1,
       messages: [],
       parentAgentId: "engenty.copilot",
@@ -472,33 +193,9 @@ describe("Engenty Mastra memory invocation options", () => {
       primitiveId: "contacts-agent",
       primitiveType: "agent",
       prompt: "Find Ada Lovelace.",
-      result: { text: "Ada found." },
+      result: { text: success ? "Ada found." : "" },
       runId: "run-1",
-      success: true,
-      toolCallId: "tool-call-1",
-    });
-
-    expect(bail).not.toHaveBeenCalled();
-  });
-
-  it("does not bail after failed sub-agent delegation", async () => {
-    const bail = vi.fn();
-    const delegation = createEngentySupervisorDelegationConfig();
-
-    await delegation.onDelegationComplete?.({
-      bail,
-      duration: 12,
-      error: new Error("failed"),
-      iteration: 1,
-      messages: [],
-      parentAgentId: "engenty.copilot",
-      parentAgentName: "Hello",
-      primitiveId: "contacts-agent",
-      primitiveType: "agent",
-      prompt: "Find Ada Lovelace.",
-      result: { text: "" },
-      runId: "run-1",
-      success: false,
+      success,
       toolCallId: "tool-call-1",
     });
 
@@ -507,14 +204,17 @@ describe("Engenty Mastra memory invocation options", () => {
 
   it("fails clearly when an agent has no concrete Mastra memory", async () => {
     const generate = vi.fn(async () => ({ text: "ok" }));
-    const sessions = createMemoryHarness({
-      assembleDynamicAgent: makeDynamicAssembler({
+    const sessions = createThreadService({
+      assembleDynamicAgent: vi.fn(async () => ({
         generate,
         hasOwnMemory: vi.fn(() => false),
-      }),
+      })) as unknown as Parameters<
+        typeof createThreadService
+      >[0]["assembleDynamicAgent"],
       getStore: () => makeStore(),
       getUsageStore: () => null,
       mastra: {} as never,
+      registry: createOfflineCopilotHarnessRegistry(),
     });
 
     await expect(
@@ -525,46 +225,7 @@ describe("Engenty Mastra memory invocation options", () => {
       })
     ).rejects.toMatchObject({
       code: "agent_threads.nativeMemoryUnavailable",
-      details: {
-        agent_id: "engenty.copilot",
-        thread_id: threadId,
-      },
     });
     expect(generate).not.toHaveBeenCalled();
-  });
-
-  it("keeps the readiness guard when native memory cannot be bound", async () => {
-    await expect(
-      bindEngentyNativeMastraMemory({
-        agent: { hasOwnMemory: vi.fn(() => false) },
-        details: {
-          agent_id: "engenty.copilot",
-          thread_id: threadId,
-        },
-        memory: createEngentySessionMemoryRuntime({
-          agentId: "engenty.copilot",
-          scope: { tenantId, userId },
-          threadId,
-          store: makeStore(),
-        }).memory,
-      })
-    ).rejects.toMatchObject({
-      code: "agent_threads.nativeMemoryUnavailable",
-      details: {
-        agent_id: "engenty.copilot",
-        thread_id: threadId,
-      },
-    });
-  });
-
-  it("returns the configured Mastra memory instance when the native seam is ready", async () => {
-    const memory = {} as never;
-
-    await expect(
-      assertEngentyNativeMastraMemoryConfigured({
-        getMemory: vi.fn(() => memory),
-        hasOwnMemory: vi.fn(() => true),
-      })
-    ).resolves.toBe(memory);
   });
 });

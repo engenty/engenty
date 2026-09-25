@@ -59,7 +59,7 @@ const registerInboxPlugin: EngentyPluginFactory = (engenty) => {
 
   // `inbox.message` is a managed retrieval source (retrieval-service
   // Phase 3): the central service owns embeddings/fusion/backfill; the
-  // module supplies the mail document builder, owner visibility, and
+  // module supplies the mail document builder, Space visibility, and
   // connection/status filters. The host manufactures the provider and
   // synthesizes the unchanged `inbox_message_search` tool. Events: `synced`
   // and `updated` re-ingest (status is filterable metadata), `deleted`
@@ -81,36 +81,25 @@ const registerInboxPlugin: EngentyPluginFactory = (engenty) => {
 
   const repoForAuth = (
     auth: PluginAuthContext | undefined,
-    grantedConnectionIds?: ReadonlySet<string>,
-    spaceConnectionIds?: ReadonlySet<string> | null
+    spaceIds: ReadonlySet<string>
   ) => {
     if (!auth) {
       throw new Error("Inbox operations require an authenticated context");
     }
-    const userId =
-      (auth as PluginAuthContext & { userId?: string }).userId ??
-      auth.principalId ??
-      null;
     return createInboxRepoSupabase(
       getDb(auth),
       auth.tenantId,
       auth.scopeId ?? "default",
-      userId,
-      {
-        emitInboxEvent,
-        ...(grantedConnectionIds ? { grantedConnectionIds } : {}),
-        // E1 — undefined means "no space named"; an empty set means "this
-        // space placed no mailbox", and the two must not collapse.
-        ...(spaceConnectionIds === undefined ? {} : { spaceConnectionIds }),
-      }
+      { emitInboxEvent, spaceIds }
     );
   };
 
-  // "Service" = userId null (sync sees personal connections too), NOT the
-  // service-role client — the handle is still locked to the sync's tenant.
+  // The service (sync, bind): no Space narrowing — it writes each mailbox's
+  // rows for that mailbox's Space. Still a tenant-locked handle.
   const serviceRepoFor = (tenantId: string) =>
-    createInboxRepoSupabase(getDb({ tenantId }), tenantId, "default", null, {
+    createInboxRepoSupabase(getDb({ tenantId }), tenantId, "default", {
       emitInboxEvent,
+      spaceIds: null,
     });
 
   registerInboxGatewayMethods(server, {
@@ -118,7 +107,6 @@ const registerInboxPlugin: EngentyPluginFactory = (engenty) => {
     getConnector: getConnectorDefinition,
     getDb,
     repoForAuth,
-    serviceDb,
     serviceRepoFor,
   });
 

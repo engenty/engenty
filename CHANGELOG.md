@@ -4,6 +4,147 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.2.19] - 2026-09-24
+- ADDED **[ai]** Per-Space egress allowlist — a Space computer reaches the shared registries plus the hosts its Space allows
+- ADDED **[ai]** The computer prompt says the Space computer is the current_space's, so a new $HOME after the conversation moves Spaces reads as expected
+- ADDED **[ai]** The Copilot uses the computer and browser of the Space the person stands in, and runs commands without approval
+- ADDED **[engenty-copilot]** The Copilot runs on the person's personal Space computer
+- ADDED **[ai]** Engenty.cli runs on the Space computer of the run it is delegated from
+- ADDED **[ai]** A purged Space's folder, computer and browser are removed; each Space folder is measured with du against a quota
+- ADDED **[ai]** One host root and one folder per Space — ENGENTY_SPACES_DIR holds each Space drive; the space computer's /sandbox is no longer synced
+- ADDED **[ai]** Engenty tools list|schema|call in every sandbox shell, relayed over docker exec stdio with a ticket per command
+- ADDED **[ai]** Browser_sign_in — a CLI on the Space computer signs in through the person in the Space browser, its loopback callback forwarded into the computer
+- ADDED **[ai]** Computer skills are any skills/<name>/SKILL.md in $HOME or /sandbox, links inside the tree followed
+- ADDED **[ai]** Skills and MCP servers an installer leaves on the Space computer are offered to the Space
+- ADDED **[ai]** Delta fetch for thread messages via after/after_id
+- ADDED **[notifications]** Short titles, stored links, decide at the source
+- ADDED **[ai-ui]** The copilot's full chat on the sidebar's light fill
+- ADDED **[ai-ui]** Messenger layout for agent bubbles
+- ADDED **[ai-ui]** Clips and date lines in the chat, step list for developers
+- ADDED **[ui]** Agent messages as bubbles, chosen in appearance settings
+- ADDED **[ui]** The copilot steps aside while a guide is on screen
+- ADDED **[ai-ui]** Name the guide step a click answered
+- ADDED **[ai-ui]** Show a guide click as the button pressed, not the raw line
+- ADDED **[ai-ui]** Show an agent-to-agent thread as the pair, not as the host's desk
+- ADDED **[ai-ui]** Developer tools in the copilot's menu
+- ADDED **[copilot]** Approval mode under the composer, voice from the blob only
+- ADDED **[ai-ui]** Attach the copilot window to the sidebar from its title bar
+- ADDED **[plugin-sdk]** Bind the approval mode to the agent, auto for the copilot
+- ADDED **[copilot]** Welcome a new person in a window beside the blob
+- ADDED **[engenty-specialists]** Add a getting-started skill for the first setup
+- ADDED **[global]** Space-owned connections and a browser per Space
+- ADDED **[ai]** Run the copilot out of its person's personal Space
+- ADDED **[notifications]** One attention rule behind a Wichtig tab, toasts and Space dashboard cards
+- ADDED **[ai]** Approve sandbox commands per exact command and per agent
+- ADDED **[ai-ui]** Open a connection's details from the agent's connection rows
+- ADDED **[ai-ui]** Move agent settings one level down behind a gear in the pane
+- ADDED **[ai-ui]** List agent connections as logo rows above skills, actions in the headings
+- ADDED **[manage]** Lead wire rows with timings and add hover copy on run rows
+- ADDED **[ai-ui]** Scroll long routine prompts and show summary and destinations on routine cards
+- ADDED **[ai]** Let coordinators remove specialists behind an approval card
+- ADDED **[ai]** Ask before a routine gains an external destination where the Space asks
+- ADDED **[ai]** Let routine tools set delivery destinations
+- ADDED **[manage]** Fold wire chunks into one row and show compact run timings
+- ADDED **[ag-ui-bridge]** Stamp trajectory rows with start/end times from stored events
+- ADDED **[ai-ui]** Use the full-screen copilot header in sidebar and window
+- CHANGED **[ai-ui]** Remove the copilot's context picker
+- DOCS **[internal]** Tenant box marked superseded by the Space computer
+- DOCS **[global]** Docs match the code on mounts, coordinators, artifact scopes and memory; Copilot manifest drops removed tool ids
+- DOCS **[global]** Tighten test-writing rules for agents
+- DOCS **[engenty-specialists]** Route notify requests to routine destinations
+- FIXED **[ai]** Thread message writes drop U+0000, so a tool output carrying one no longer aborts the run
+- FIXED **[ai]** Chat runs are told what their computer is — which paths the shell reaches, where installs go and whether they stay
+- FIXED **[ai]** A space computer no longer binds a staged /data every run shares
+- FIXED **[ai]** A space computer no longer binds the first run's /home for every agent
+- FIXED **[ai-ui]** Chats land at their bottom before the first paint and stay where the person left them
+- FIXED **[ai-ui]** A colleague's message is a bubble on the right, its name above and its face in the margin
+- FIXED **[shell]** Park the closed hover column past its own shadow
+- FIXED **[ai-ui]** The more menu sits last in a tall bubble's action column
+- FIXED **[ai-ui]** Message actions stack beside tall bubbles, the link moves to a menu; replies fold only past 70vh, never the newest
+- FIXED **[ai-ui]** Clip lines get a little more air
+- FIXED **[ai-ui]** The copilot's full chat on its card fill, its own face in the margin
+- FIXED **[ai-ui]** Actions under a bubble take no room until it is tapped
+- FIXED **[ai-ui]** A new speaker opens with the full gap, clips included
+- FIXED **[ai-ui]** A turn of only silent tools takes no gap and parts no bubbles
+- FIXED **[ai-ui]** Measure chat gaps edge to edge
+- FIXED **[ai-ui]** One spacing rule for the chat, a narrow lane like a phone messenger
+- FIXED **[ai-ui]** Part bubbles where clips are drawn, not where calls sit
+- FIXED **[ai-ui]** The agent's name on its first bubble with words
+- FIXED **[ai-ui]** No face on a row without words, name only when the speaker changes
+- FIXED **[ai-ui]** Hover actions beside the agent's bubble
+- FIXED **[ai-ui]** A face on every bubble a clip or date line stands apart
+- FIXED **[ui]** Two chat styles to pick, bubbles visible on every canvas
+- FIXED **[ai-ui]** Each agent's own face beside its bubbles
+- FIXED **[ai-ui]** The copilot's own face beside its bubbles
+- FIXED **[app-shell]** Render guide bodies as Markdown, translate the close button
+- FIXED **[app-shell]** Solid fill for the guide card
+- FIXED **[engenty-copilot]** A closed guide's next step is a new show_ui_guide
+- FIXED **[app-shell]** Keep the guide card on screen beside a full-height target
+- FIXED **[auth-ui]** The setup wizard's language becomes the tenant's
+- FIXED **[cli]** Retry the AI service credential check after a db reset
+- FIXED **[ui]** Mount the AG-UI inspector inside the workspace provider
+- FIXED **[ai]** Translate the copilot's welcome into the person's language
+- FIXED **[ai-ui]** Name the pair in the desk crumb, link hand-offs to their thread
+- FIXED **[ai-ui]** Keep close on the outer edge of the docked copilot header
+- FIXED **[connections]** Read the connect card's state from its own Space
+- FIXED **[i18n]** Load namespaces for a regional browser language
+- FIXED **[i18n]** Start in the browser's language until the person chooses one
+- FIXED **[ai]** Let the scheduler wait quietly for the first tenant
+- FIXED **[ai-ui]** Never dock an older question behind a newer suspended one
+- FIXED **[ai]** Keep the copilot oriented across a Space switch and an unanswered chooser
+- FIXED **[ai-ui]** Keep the composer flap closed for an interrupt with no card
+- FIXED **[ai]** Run the copilot in the Space the person stands in
+- FIXED **[ai-ui]** Show a delegated approval as a summary, not as a shell command
+- FIXED **[ai]** Do not announce the resumed tool call again
+- FIXED **[engenty-specialists]** Hire a Chief of Staff as the Space coordinator, no Routine
+- FIXED **[core]** Give the AI service credential connections and agent provisioning caps
+- FIXED **[core]** Give the AI service credential connections and agent provisioning caps
+- FIXED **[ai-ui]** Label routine destinations Zustellung and show the promise on prompt routines
+- FIXED **[cli]** Re-mint the local AI service credential after db reset
+- FIXED **[connections]** Ask agents to request a connect card once per conversation
+- FIXED **[connections]** Show live connect state on chat connect cards
+- PERFORMANCE **[ui]** The last three chats of a space stay mounted between visits
+- PERFORMANCE **[ai]** Cache a granted Space entry for 30 s per tenant, user and Space
+- PERFORMANCE **[ai-ui]** A settled run re-reads only the newest stretch of a long transcript
+- PERFORMANCE **[ai]** Slim transcript pages, full row on expand
+- PERFORMANCE **[core]** Index ai.thread_message for transcript paging by (created_at, id)
+- PERFORMANCE **[ai-ui]** Long transcripts open tail first and skip off-screen rows
+- PERFORMANCE **[ai-ui]** Transcript rows share one resize observer
+- PERFORMANCE **[ai-ui]** Markdown blocks render once with the shared plugin set
+- PERFORMANCE **[ai-ui]** Composer keystrokes no longer redraw the transcript
+- PERFORMANCE **[ai-ui]** A streaming token redraws only the transcript row it lands in
+- PERFORMANCE **[ai-ui]** Unchanged transcript messages keep their objects across stream events
+- PERFORMANCE **[ai-ui]** Chats open from cache and load before they are clicked
+
+## [0.2.18] - 2026-09-23
+- FIXED **[ai]** Boot after DB reset when role bindings are still empty
+
+## [0.2.17] - 2026-09-23
+- ADDED **[ai]** Stamp catalog sync runs and keep new models inactive
+- ADDED **[manage]** Capabilities and price columns, media and voice rows on model bindings
+- ADDED **[ai-core]** Image, embedding, video and realtime model roles
+- ADDED **[manage]** Classifier and fast text rows on the model bindings page
+- ADDED **[manage]** Model catalog privacy, region and gateway settings polish
+- ADDED **[ui-core]** Optional icon on ListFilterChip options
+- ADDED **[core]** Mask the probed gateway key and test Mistral and SpaceX keys
+- ADDED **[ai-core]** Add Mistral and SpaceX AI as direct model gateways
+- ADDED **[ai]** Store data-usage coverage and inference regions per catalog model
+- ADDED **[manage]** Model defaults export/reset, gateway settings and catalog UI
+- ADDED **[core]** Test the stored gateway key when the probe gets none
+- ADDED **[ai]** Commit model defaults with bindings and apply them on fresh catalogs
+- ADDED **[a2ui-catalog]** Chart components and a composed inbox dashboard
+- ADDED **[ai-ui]** Restrict /admin/engenty to superadmins in developer mode
+- ADDED **[routines]** Add extensible outcome destination providers
+- ADDED **[app-shell]** Widen ⌘K with space tabs and open copilot on ⌘O
+- CHANGED **[ai]** Make platform role bindings the sole model source of truth
+- CHANGED **[time-tracking]** Group summaries on the fast_text model
+- CHANGED **[ai-core]** Collapse model roles to graded, classifier and fast text
+- FIXED **[ai-ui]** Drop remaining normal-flow links into /admin/engenty
+- FIXED **[ai]** Don't nudge a turn the provider failed
+- FIXED **[ai]** Map unconfigured model gateway to a clear client error
+- FIXED **[ai-ui]** Make Mod+. toggle dictation only in chat inputs
+- PERFORMANCE **[ui]** Keep space switches off React’s 5s transition expiration
+
 ## [0.2.16] - 2026-09-22
 - ADDED **[copilot]** The desk's ⋮ menu steps aside to sidebar or window over the space
 - ADDED **[browser]** A person's browser is one — per user, not per space

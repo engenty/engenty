@@ -202,23 +202,6 @@ export function createConnectionsModuleClientFromRepo(
       return all.filter((c) => c.status === "active");
     },
 
-    /**
-     * Connection ids granted to the acting agent (PLAN-spaces.md CN.5).
-     *
-     * `agentId` is the core.agents principal uuid — the value the grant rows
-     * store and the one `PluginAuthContext.agentId` carries. Consumers use it
-     * to treat a granted personal account as visible in agent-driven calls,
-     * the same rule the action policy already applies at execution.
-     */
-    async listAgentGrantedConnectionIds(params: {
-      agentId: string;
-      tenantId: string;
-    }): Promise<Set<string>> {
-      return getRepo(params.tenantId).listAgentGrantedConnectionIds({
-        agentId: params.agentId,
-      });
-    },
-
     /** Active connections whose connector declares the files capability. */
     async listFileSources(params: {
       tenantId: string;
@@ -476,7 +459,7 @@ export function createConnectionsModuleClientFromRepo(
         );
       }
       const principal: ConnectionPolicyPrincipal = params.principal ?? {
-        principalId: connection.owner_user_id ?? "",
+        principalId: "",
         principalType: "service",
       };
       const overrides = await repo.listPolicyOverrides([connection.id]);

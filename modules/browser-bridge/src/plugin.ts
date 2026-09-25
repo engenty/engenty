@@ -35,7 +35,7 @@ const registerBrowserBridgePlugin: EngentyPluginFactory = (engenty) => {
     createConnectionsRepo(getDb(auth));
 
   registerConnectorModule(engenty, createBrowserConnector({ getRepo }));
-  registerBrowserBridgeRoutes(server, { getConnectionsRepo, getRepo });
+  registerBrowserBridgeRoutes(server, { getConnectionsRepo, getDb, getRepo });
 };
 
 export default registerBrowserBridgePlugin;

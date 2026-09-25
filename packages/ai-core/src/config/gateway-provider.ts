@@ -21,10 +21,12 @@ import { withLlmTrace } from "./llm-trace.js";
 import {
   ANTHROPIC_GATEWAY_ID,
   DEFAULT_MODEL_GATEWAY_ID,
+  MISTRAL_GATEWAY_ID,
   OPENAI_GATEWAY_ID,
   OPENROUTER_GATEWAY_ID,
   OPPER_GATEWAY_ID,
   parseModelRef,
+  SPACEXAI_GATEWAY_ID,
   vendorModelId,
 } from "./model-ref.js";
 
@@ -32,6 +34,8 @@ const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
 /** Opper's OpenAI-compatible surface; chat completions live under it. */
 export const OPPER_COMPAT_BASE_URL = "https://api.opper.ai/v3/compat";
+export const MISTRAL_BASE_URL = "https://api.mistral.ai/v1";
+export const SPACEXAI_BASE_URL = "https://api.x.ai/v1";
 
 /**
  * OpenRouter ranks and attributes traffic by these. They are optional, cost
@@ -80,6 +84,11 @@ function buildClient(gatewayId: string, apiKey: string): ChatModelFactory {
       return createOpenAI({ apiKey, baseURL: OPPER_COMPAT_BASE_URL });
     case OPENAI_GATEWAY_ID:
       return createOpenAI({ apiKey });
+    // Both speak the OpenAI chat protocol, like OpenRouter and Opper.
+    case MISTRAL_GATEWAY_ID:
+      return createOpenAI({ apiKey, baseURL: MISTRAL_BASE_URL });
+    case SPACEXAI_GATEWAY_ID:
+      return createOpenAI({ apiKey, baseURL: SPACEXAI_BASE_URL });
     case ANTHROPIC_GATEWAY_ID: {
       const anthropic = createAnthropic({ apiKey });
       return { chat: (modelId) => anthropic(modelId) as LanguageModel };

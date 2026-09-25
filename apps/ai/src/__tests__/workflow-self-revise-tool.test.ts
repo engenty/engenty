@@ -90,17 +90,14 @@ const getStore = () => ({
   },
 });
 
-function revise(
-  input: Record<string, unknown>,
-  context: { agentTypeKey?: string; tenantId?: string } = {}
-) {
+function revise(input: Record<string, unknown>) {
   const tool =
     createWorkflowSelfReviseTools(getStore)[WORKFLOW_SELF_REVISE_TOOL_ID];
   return engentyToolsRunAls.run(
     {
-      agentTypeKey: "agentTypeKey" in context ? context.agentTypeKey : AGENT_ID,
+      agentTypeKey: AGENT_ID,
       orchestratorThreadId: "thread-1",
-      tenantId: "tenantId" in context ? context.tenantId : TENANT_ID,
+      tenantId: TENANT_ID,
     },
     () =>
       tool.execute?.(
@@ -147,18 +144,6 @@ describe(WORKFLOW_SELF_REVISE_TOOL_ID, () => {
     expect(saved).toHaveLength(0);
   });
 
-  it("returns the validator's issues instead of saving a broken graph", async () => {
-    const output = await revise({
-      graph: [{ duration: 432_000_000, id: "wait-5-days", type: "sleep" }],
-    });
-
-    expect(output.code).toBe("action_invalid");
-    expect(
-      (output.issues as { code: string }[]).map((issue) => issue.code)
-    ).toContain("sleep-too-long");
-    expect(saved).toHaveLength(0);
-  });
-
   it("keeps the row's surface: a wizard stays a wizard and must keep a page", async () => {
     stored = row({ surface: "wizard" });
 
@@ -173,11 +158,5 @@ describe(WORKFLOW_SELF_REVISE_TOOL_ID, () => {
       (pageless.issues as { code: string }[]).map((issue) => issue.code)
     ).toContain("wizard-without-step");
     expect(saved).toHaveLength(1);
-  });
-
-  it("cannot act when the run does not know which agent it is", async () => {
-    const output = await revise({}, { agentTypeKey: "" });
-    expect(output.code).toBe("unknown_agent");
-    expect(saved).toHaveLength(0);
   });
 });

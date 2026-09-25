@@ -4,8 +4,10 @@ import path from "node:path";
 
 import { createLogger } from "@engenty/telemetry";
 
+import { getTenantDbFactoryFromEnv } from "../../infra/tenant-db.js";
+
 import {
-  resolveEngentyLocalWorkspaceRoot,
+  resolveEngentyHostRoot,
   SANDBOX_CACHE_TOOLS,
 } from "../workspace/local-workspace-paths.js";
 import { resolveEngentyWorkspaceFsMode } from "../workspace/workspace-fs-mode.js";
@@ -18,6 +20,7 @@ import { parseEngentySandboxId } from "./parse-engenty-sandbox-id.js";
 import { reconcileSandboxSlots } from "./sandbox-admission.js";
 import { sweepIdleUserBrowsers } from "./space-browser.js";
 import { sweepIdleSpaceComputers } from "./space-computer.js";
+import { type SpacesWithRow, sweepSpaceDrives } from "./space-drives.js";
 
 const logger = createLogger({ name: "apps/ai/sandbox-staging-reaper" });
 
@@ -184,10 +187,8 @@ async function listSandboxScopeDirs(
 }
 
 /**
- * Every `ai/cache/<tool>` dir on the host, tenant- and space-rooted.
- *
- * Same two tiers as the scope dirs, for the same reason: a run bound to a space
- * caches under the space.
+ * Every package cache on the host: `ai/cache/<tool>` for a tenant-rooted run,
+ * `cache/<tool>` in the Space drive for a run bound to a space.
  */
 async function listCacheDirs(root: string): Promise<string[]> {
   const found: string[] = [];
@@ -200,8 +201,11 @@ async function listCacheDirs(root: string): Promise<string[]> {
     for (const spaceId of await listDirNames(spacesDir)) {
       bases.push(path.join(spacesDir, spaceId));
     }
-    for (const base of bases) {
-      const cacheDir = path.join(base, "ai", "cache");
+    const cacheDirs = [
+      path.join(tenantDir, "ai", "cache"),
+      ...bases.slice(1).map((spaceDir) => path.join(spaceDir, "cache")),
+    ];
+    for (const cacheDir of cacheDirs) {
       for (const tool of await listDirNames(cacheDir)) {
         if (tools.has(tool)) {
           found.push(path.join(cacheDir, tool));
@@ -240,7 +244,9 @@ async function removeScopeDir(scopeDir: string): Promise<boolean> {
  *
  * Scoped to `ai/sandboxes/` on purpose: the commons and home staging dirs under
  * `ai/workspace/` are caches shared across concurrent runs and may be live
- * under a bind mount right now, so they need their own in-use check.
+ * under a bind mount right now, so they need their own in-use check. A space
+ * computer's `/sandbox` is not here at all — it is a folder of the Space
+ * drive, kept while the machine is stopped.
  *
  * Returns the number of scope dirs removed. Never rejects.
  */
@@ -257,7 +263,7 @@ export async function reapSandboxStagingDirs(): Promise<number> {
     return 0;
   }
 
-  const root = resolveEngentyLocalWorkspaceRoot();
+  const root = resolveEngentyHostRoot();
   const scopeDirs = await listSandboxScopeDirs(root);
   const cacheDirs = await listCacheDirs(root);
   if (scopeDirs.length === 0 && cacheDirs.length === 0) {
@@ -274,13 +280,6 @@ export async function reapSandboxStagingDirs(): Promise<number> {
   let removed = 0;
 
   for (const { scopeDir, scopeKey } of scopeDirs) {
-    // `ai/sandboxes/space/` is the space computer's drive — one bounded dir
-    // per space. A STOPPED machine binds nothing and holds no live scope key,
-    // so without this exemption the TTL pass would delete the drive out from
-    // under it. Reset and space deletion are the removal paths.
-    if (scopeKey === "space") {
-      continue;
-    }
     if (live.scopeKeys.has(scopeKey) || boundHostPaths.has(scopeDir)) {
       continue;
     }
@@ -444,6 +443,29 @@ export async function sweepAgedSandboxes(): Promise<number> {
 }
 
 /**
+ * `core.spaces` over each tenant's own lane — the rows RLS lets that tenant
+ * see, soft-deleted ones included. Null without a database.
+ */
+function spacesWithRowFromEnv(): SpacesWithRow | null {
+  const factory = getTenantDbFactoryFromEnv();
+  if (!factory) {
+    return null;
+  }
+  return async (tenantId) => {
+    const { data, error } = await factory
+      .getTenantDb({ tenantId })
+      .schema("core")
+      .from("spaces")
+      .select("id")
+      .eq("tenant_id", tenantId);
+    if (error) {
+      throw new Error(error.message);
+    }
+    return new Set(((data ?? []) as { id: string }[]).map((row) => row.id));
+  };
+}
+
+/**
  * Run both reapers once at boot (to clear the backlog accumulated before they
  * existed), then hourly. The interval is `unref`'d so it cannot by itself keep
  * the process alive, and a tick never rejects — a reaper that throws must not
@@ -459,6 +481,10 @@ export function startSandboxStagingReaper(): NodeJS.Timeout {
       await sweepIdleSpaceComputers(running);
       await sweepIdleUserBrowsers(running);
       await reapSandboxStagingDirs();
+      const spacesWithRow = spacesWithRowFromEnv();
+      if (spacesWithRow) {
+        await sweepSpaceDrives({ spacesWithRow });
+      }
     })().catch((err) => {
       logger.warn("sandbox staging reaper tick failed", {
         message: err instanceof Error ? err.message : String(err),

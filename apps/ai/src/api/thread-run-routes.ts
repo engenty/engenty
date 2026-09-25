@@ -16,6 +16,7 @@ import {
   type AiUsageStore,
   agentDefaultEffort,
   checkUsageLimits,
+  createClassifierClient,
   type DynamicAiModuleCapabilityLoader,
   formatUsageLimitError,
 } from "@engenty/ai-core";
@@ -30,6 +31,7 @@ import {
   TOOL_APPROVAL_CHOICE_APPROVE_ALWAYS,
   TOOL_APPROVAL_CHOICE_APPROVE_ONCE,
 } from "../../ai/tools/engenty-tools/lib/tool-approval.js";
+import { resolveCoreAgentId } from "../ai/agent-identity.js";
 import { persistCoreApprovalDecision } from "../ai/approval-decision.js";
 import { buildChatTurnContextEntries } from "../ai/chat-commands.js";
 import { startConversationRun } from "../ai/conversation/conversation-run.js";
@@ -43,6 +45,10 @@ import { noteHumanTurnInRoom } from "../ai/rooms/deliver.js";
 import { persistSecretsGoalGrant } from "../ai/secrets-goal-grant.js";
 import { steerActiveThreadRun } from "../ai/sessions/active-thread-runs.js";
 import {
+  loadAgentApprovalGrants,
+  persistAgentApprovalGrants,
+} from "../ai/sessions/agent-approval-grants.js";
+import {
   loadConnectionApprovalGrants,
   mergeApprovalGrants,
 } from "../ai/sessions/connection-approval-grants.js";
@@ -54,7 +60,10 @@ import {
   resumePayloadToModelContent,
   runInputHasNewUserMessages,
 } from "../ai/sessions/interrupts.js";
-import { resolveEffortForRun } from "../ai/sessions/resolve-auto-effort.js";
+import {
+  AUTO_EFFORT_JEV_TIMEOUT_MS,
+  resolveEffortForRun,
+} from "../ai/sessions/resolve-auto-effort.js";
 import { resolveToolCallResultInHistory } from "../ai/sessions/resolve-tool-call-history.js";
 import {
   getLiveRunEventsSnapshot,
@@ -66,9 +75,7 @@ import { auditToolApprovalDecision } from "../ai/sessions/tool-approval-audit.js
 import {
   clearOnceToolApprovalGrants,
   readToolApprovalGrants,
-  TOOL_APPROVAL_GRANTS_METADATA_KEY,
   TOOL_APPROVAL_GRANTS_ONCE_METADATA_KEY,
-  withToolApprovalGrant,
   withToolApprovalGrantOnce,
 } from "../ai/sessions/tool-approval-grants.js";
 import { resolveDecisionResumeChoice } from "../ai/sessions/transcript.js";
@@ -101,6 +108,20 @@ export {
 // AG-UI message content is a string or a parts array ([{ type:"text", text }]).
 // Extract plain text — never JSON.stringify, or the user turn persists as raw
 // JSON and renders as `[{"type":"text",...}]` in the chat.
+/**
+ * The thread as this run sees it: the route context the run was sent from
+ * replaces the stored one, so the workspace — and with it the computer —
+ * resolves the same Space the conversation run does (`resolveRunSpaceForThread`).
+ * The copilot's one thread is walked through many Spaces.
+ */
+function sessionAtRunPlace<T extends { route_context?: unknown }>(
+  session: T,
+  forwardedProps: unknown
+): T {
+  const routeContext = readRunRouteContext(forwardedProps);
+  return routeContext ? { ...session, route_context: routeContext } : session;
+}
+
 function messageContentToText(content: unknown): string {
   if (typeof content === "string") {
     return content;
@@ -744,19 +765,16 @@ export function registerThreadRunRoutes(
           // The local copy feeds this request's in-process gate re-check; the
           // DB write unions just these grants, so a grant added concurrently
           // (or Mastra's own metadata) is not reverted by a whole-blob write.
+          // "For this agent" also carries THIS request as a once grant, so the
+          // approved call runs even if the agent grant write fails.
           resumeSessionMetadata = grantOperationIds.reduce(
-            (metadata, id) =>
-              always
-                ? withToolApprovalGrant(metadata, id)
-                : withToolApprovalGrantOnce(metadata, id),
+            (metadata, id) => withToolApprovalGrantOnce(metadata, id),
             session.metadata as Record<string, unknown>
           );
           try {
             await conversationStore.mergeThreadMetadataForUser({
               appendSets: {
-                [always
-                  ? TOOL_APPROVAL_GRANTS_METADATA_KEY
-                  : TOOL_APPROVAL_GRANTS_ONCE_METADATA_KEY]: grantOperationIds,
+                [TOOL_APPROVAL_GRANTS_ONCE_METADATA_KEY]: grantOperationIds,
               },
               tenantId: scope.scope.tenantId,
               threadId,
@@ -764,6 +782,14 @@ export function registerThreadRunRoutes(
             });
           } catch (err) {
             console.error("conversation approval grant persist failed", err);
+          }
+          if (always) {
+            await persistAgentApprovalGrants({
+              agentId: session.agent_id,
+              grantedBy: scope.scope.userId,
+              operationIds: grantOperationIds,
+              tenantId: scope.scope.tenantId,
+            });
           }
           // Approving an agent's secret reveal also persists the durable
           // goal-scoped grant in core (goal = this conversation thread). Must
@@ -789,7 +815,9 @@ export function registerThreadRunRoutes(
             approvalRequestId: grantContext.approval_request_id,
             coreBaseUrl: opts.coreBaseUrl,
             decision: always ? "always" : once ? "once" : "deny",
-            subjectId: threadId,
+            subjectId: always
+              ? await resolveCoreAgentId(scope.scope.tenantId, session.agent_id)
+              : null,
           });
         }
         resumeData = {
@@ -851,7 +879,7 @@ export function registerThreadRunRoutes(
             agentId: child.agentId,
             runId: child.runId,
             scope: scope.scope,
-            session,
+            session: sessionAtRunPlace(session, body.data.forwardedProps),
             threadId: child.threadId,
           }),
         // Called LAZILY on purpose: resolving unconditionally would build a
@@ -862,7 +890,7 @@ export function registerThreadRunRoutes(
           opts.aiService.threads.resolveRunWorkspaces({
             runId,
             scope: scope.scope,
-            session,
+            session: sessionAtRunPlace(session, body.data.forwardedProps),
             threadId,
           }),
         resumeData,
@@ -1009,18 +1037,23 @@ export function registerThreadRunRoutes(
         // approvalPolicy "artifact") did not.
         let grantAppendSets: Record<string, string[]> | undefined;
         if (once || always) {
+          // "For this agent" also carries THIS request as a once grant, so the
+          // approved call runs even if the agent grant write fails.
           hsSessionMetadata = hsGrantOperationIds.reduce(
-            (metadata, id) =>
-              always
-                ? withToolApprovalGrant(metadata, id)
-                : withToolApprovalGrantOnce(metadata, id),
+            (metadata, id) => withToolApprovalGrantOnce(metadata, id),
             hsSessionMetadata as Record<string, unknown>
           );
           grantAppendSets = {
-            [always
-              ? TOOL_APPROVAL_GRANTS_METADATA_KEY
-              : TOOL_APPROVAL_GRANTS_ONCE_METADATA_KEY]: hsGrantOperationIds,
+            [TOOL_APPROVAL_GRANTS_ONCE_METADATA_KEY]: hsGrantOperationIds,
           };
+          if (always) {
+            await persistAgentApprovalGrants({
+              agentId: session.agent_id,
+              grantedBy: scope.scope.userId,
+              operationIds: hsGrantOperationIds,
+              tenantId: scope.scope.tenantId,
+            });
+          }
           // Approving an agent's secret reveal also persists the durable
           // goal-scoped grant in core (goal = this conversation thread), or core
           // re-gates the reveal on the re-run's agent-forwarded invoke.
@@ -1045,7 +1078,9 @@ export function registerThreadRunRoutes(
             approvalRequestId: hsGrantContext.approval_request_id,
             coreBaseUrl: opts.coreBaseUrl,
             decision: always ? "always" : once ? "once" : "deny",
-            subjectId: threadId,
+            subjectId: always
+              ? await resolveCoreAgentId(scope.scope.tenantId, session.agent_id)
+              : null,
           });
         }
         // The gate already returned the Approve/Deny card as this tool call's
@@ -1168,7 +1203,7 @@ export function registerThreadRunRoutes(
         .resolveRunWorkspaces({
           runId,
           scope: scope.scope,
-          session,
+          session: sessionAtRunPlace(session, body.data.forwardedProps),
           threadId,
         })
         .catch((err) => {
@@ -1218,6 +1253,18 @@ export function registerThreadRunRoutes(
             agentId: session.agent_id,
             allowedEfforts: effortCtx.allowedEfforts,
             choice: effortChoice,
+            // The tenant's classifier binding, resolved only when the
+            // heuristics cannot size the turn on their own.
+            classifier: async () =>
+              createClassifierClient(
+                (
+                  await opts.aiService.threads.resolveRunModelConfig({
+                    agentId: session.agent_id,
+                    scope: scope.scope,
+                  })
+                ).modelConfig.classifierModelId,
+                { timeoutMs: AUTO_EFFORT_JEV_TIMEOUT_MS }
+              )?.client ?? null,
             hasAttachments: isResumeRun
               ? false
               : latestUserAttachmentParts(body.data).length > 0,
@@ -1303,6 +1350,12 @@ export function registerThreadRunRoutes(
       const hsConnectionGrants = await loadConnectionApprovalGrants({
         accessToken: scopeAccessToken(scope.scope),
       });
+      // Standing "approve for this agent" grants — the same set every other
+      // run of this agent spends.
+      const hsAgentGrants = await loadAgentApprovalGrants({
+        agentId: session.agent_id,
+        tenantId: scope.scope.tenantId,
+      });
       // Tiered attachments: images → multimodal files; PDFs/office stay as
       // extracted markdown (sidecar + 32 KiB inline). Never attach original
       // PDF bytes — that blows the token limiter.
@@ -1387,8 +1440,8 @@ export function registerThreadRunRoutes(
         attachments: hsTieredAttachments.modelAttachments,
         attachmentParts: hsAttachmentParts,
         approvalGrants: mergeApprovalGrants(
-          hsApprovalGrants,
-          hsConnectionGrants
+          mergeApprovalGrants(hsApprovalGrants, hsConnectionGrants),
+          hsAgentGrants
         ),
         ...(autoEffortForRun ? { autoEffortResolved: autoEffortForRun } : {}),
         // Persisted onto the interrupt if this turn suspends, so the resume
@@ -1407,7 +1460,7 @@ export function registerThreadRunRoutes(
             agentId: child.agentId,
             runId: child.runId,
             scope: scope.scope,
-            session,
+            session: sessionAtRunPlace(session, body.data.forwardedProps),
             threadId: child.threadId,
           }),
         // The run's own place first — the thread only remembers where it was
@@ -1432,6 +1485,9 @@ export function registerThreadRunRoutes(
         userMessageId: isResumeRun ? null : latestUserMessageId(body.data),
         threadId,
         usageStore: opts.getUsageStore?.() ?? null,
+        ...(hsWorkspaces.computeInstructions
+          ? { computeInstructions: hsWorkspaces.computeInstructions }
+          : {}),
         ...(hsWorkspaces.sandboxProvider
           ? { sandboxProvider: hsWorkspaces.sandboxProvider }
           : {}),

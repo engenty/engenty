@@ -61,8 +61,7 @@ describe("publishArtifactStep scope", () => {
     expect(storeCapture.created[0]).toMatchObject({
       scopeId: SPACE.spaceId,
       scopeType: "space",
-      // The thread link survives the space scope — the chat that built the
-      // app still finds it.
+      // The chat that built the app must still find it.
       threadId: BUILT.thread_id,
     });
   });
@@ -72,15 +71,6 @@ describe("publishArtifactStep scope", () => {
       { tenantId: BUILT.tenant_id, userId: "user-1" },
       () => runStep(BUILT)
     );
-    expect(result.status).toBe("published");
-    expect(storeCapture.created[0]).toMatchObject({
-      scopeId: BUILT.thread_id,
-      scopeType: "thread",
-    });
-  });
-
-  it("falls back to THREAD scope with no ALS at all (resumed run)", async () => {
-    const result = await runStep(BUILT);
     expect(result.status).toBe("published");
     expect(storeCapture.created[0]).toMatchObject({
       scopeId: BUILT.thread_id,

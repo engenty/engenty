@@ -1,6 +1,7 @@
 // skills_find / skills_install: search the public skill registry and install
 // into this tenant (optional space mount + custom-agent preferred list).
-// The find tool's payload is rendered as an in-chat install card.
+// computer_skills_find: the same card for skills on this Space's computer.
+// The find tools' payload is rendered as an in-chat install card.
 
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
@@ -8,6 +9,10 @@ import {
   EngentyCoreClient,
   getEngentyCoreBaseUrlFromEnv,
 } from "../../src/ai/core-http-client.js";
+import {
+  COMPUTER_SKILL_PROVIDER_ID,
+  createComputerSkillProvider,
+} from "../../src/ai/skills/providers/computer-skills-provider.js";
 import {
   createDefaultSkillRegistryProviderRegistry,
   type SkillRegistryProviderRegistry,
@@ -31,6 +36,7 @@ import { isUnresolvedSpaceGate } from "./engenty-tools/lib/space-gate.js";
 
 export const SKILLS_FIND_TOOL_ID = "skills_find";
 export const SKILLS_INSTALL_TOOL_ID = "skills_install";
+export const COMPUTER_SKILLS_FIND_TOOL_ID = "computer_skills_find";
 
 const DEFAULT_PROVIDER = "skills_sh";
 
@@ -107,6 +113,106 @@ export function createSkillsFindTools(deps: SkillsFindToolDeps = {}) {
   const registryStoreFor = deps.registryStoreFor ?? registryStoreFromEnv;
   const scopedStorageFor = deps.scopedStorageFor ?? storageFromContext;
 
+  // One search for both registries: the public one and this Space's
+  // computer. Same card, same install route — only the provider differs.
+  async function findSkills(input: { provider?: string; query: string }) {
+    const onComputer = input.provider === COMPUTER_SKILL_PROVIDER_ID;
+    const resolved = onComputer
+      ? null
+      : resolveProvider(providerRegistry, input.provider);
+    if (resolved && "error" in resolved) {
+      return {
+        ok: false as const,
+        code: "unknown_provider",
+        message: resolved.error,
+      };
+    }
+    const scoped = scopedStorageFor();
+    if (!scoped) {
+      return {
+        ok: false as const,
+        code: "unauthorized",
+        message:
+          "skills search is unavailable in this run (no core access token).",
+      };
+    }
+    const ctx = getEngentyToolsRunContext();
+    if (isUnresolvedSpaceGate(ctx.space)) {
+      return {
+        ok: false as const,
+        code: "space_context_unresolved",
+        message:
+          `This run claimed a Space (${ctx.space.reason}) but could not resolve it, so skills_find cannot present tenant-wide choices. ` +
+          "This is not a missing catalog and not a transient miss — do not retry as if every tenant skill were in this Space. " +
+          "Tell the user the Space context is unresolved.",
+      };
+    }
+    const spaceId = ctx.space?.spaceId;
+    if (onComputer && !spaceId) {
+      return {
+        ok: false as const,
+        code: "not_in_space",
+        message:
+          "This run is not in a Space, so there is no Space computer to look on.",
+      };
+    }
+    const provider =
+      onComputer && spaceId
+        ? createComputerSkillProvider({ spaceId, tenantId: scoped.tenantId })
+        : resolved?.provider;
+    if (!provider) {
+      return {
+        ok: false as const,
+        code: "unknown_provider",
+        message: `Unknown skill registry provider: ${input.provider}`,
+      };
+    }
+    const core = coreClientFor({
+      accessToken: scoped.accessToken,
+      coreBaseUrl: scoped.coreBaseUrl,
+    });
+    let mountedSkillNames: string[] | undefined;
+    if (ctx.space?.spaceId) {
+      try {
+        const surface = await core.getSpaceSurface(ctx.space.spaceId);
+        mountedSkillNames = surface.skills ?? [];
+      } catch {
+        return {
+          ok: false as const,
+          code: "space_context_unresolved",
+          message:
+            "The active Space surface could not be loaded, so skills_find cannot present tenant-wide choices. " +
+            "This is not a missing catalog — do not retry as if every tenant skill were in this Space.",
+        };
+      }
+    }
+    const agentTypeKey = ctx.agentTypeKey?.trim();
+    let agent:
+      | { canPrefer: boolean; id: string; preferredSkillIds?: string[] }
+      | undefined;
+    if (agentTypeKey) {
+      const store = registryStoreFor();
+      const config = store
+        ? await store.getAgentConfig(scoped.tenantId, agentTypeKey)
+        : undefined;
+      agent = {
+        canPrefer: Boolean(config),
+        id: agentTypeKey,
+        ...(config ? { preferredSkillIds: config.skillIds } : {}),
+      };
+    }
+    const payload = await buildSkillsFindPayload({
+      provider,
+      query: input.query,
+      storage: scoped.storage,
+      ...(ctx.space?.spaceId
+        ? { space: { id: ctx.space.spaceId, mountedSkillNames } }
+        : {}),
+      ...(agent ? { agent } : {}),
+    });
+    return { ok: true as const, ...payload };
+  }
+
   const skills_find = createTool({
     id: SKILLS_FIND_TOOL_ID,
     description:
@@ -124,80 +230,31 @@ export function createSkillsFindTools(deps: SkillsFindToolDeps = {}) {
         .optional()
         .describe("Registry id. Default skills_sh."),
     }),
-    execute: async (input) => {
-      const resolved = resolveProvider(providerRegistry, input.provider);
-      if ("error" in resolved) {
-        return {
-          ok: false as const,
-          code: "unknown_provider",
-          message: resolved.error,
-        };
-      }
-      const scoped = scopedStorageFor();
-      if (!scoped) {
-        return {
-          ok: false as const,
-          code: "unauthorized",
-          message:
-            "skills_find is unavailable in this run (no core access token).",
-        };
-      }
-      const ctx = getEngentyToolsRunContext();
-      if (isUnresolvedSpaceGate(ctx.space)) {
-        return {
-          ok: false as const,
-          code: "space_context_unresolved",
-          message:
-            `This run claimed a Space (${ctx.space.reason}) but could not resolve it, so skills_find cannot present tenant-wide choices. ` +
-            "This is not a missing catalog and not a transient miss — do not retry as if every tenant skill were in this Space. " +
-            "Tell the user the Space context is unresolved.",
-        };
-      }
-      const core = coreClientFor({
-        accessToken: scoped.accessToken,
-        coreBaseUrl: scoped.coreBaseUrl,
-      });
-      let mountedSkillNames: string[] | undefined;
-      if (ctx.space?.spaceId) {
-        try {
-          const surface = await core.getSpaceSurface(ctx.space.spaceId);
-          mountedSkillNames = surface.skills ?? [];
-        } catch {
-          return {
-            ok: false as const,
-            code: "space_context_unresolved",
-            message:
-              "The active Space surface could not be loaded, so skills_find cannot present tenant-wide choices. " +
-              "This is not a missing catalog — do not retry as if every tenant skill were in this Space.",
-          };
-        }
-      }
-      const agentTypeKey = ctx.agentTypeKey?.trim();
-      let agent:
-        | { canPrefer: boolean; id: string; preferredSkillIds?: string[] }
-        | undefined;
-      if (agentTypeKey) {
-        const store = registryStoreFor();
-        const config = store
-          ? await store.getAgentConfig(scoped.tenantId, agentTypeKey)
-          : undefined;
-        agent = {
-          canPrefer: Boolean(config),
-          id: agentTypeKey,
-          ...(config ? { preferredSkillIds: config.skillIds } : {}),
-        };
-      }
-      const payload = await buildSkillsFindPayload({
-        provider: resolved.provider,
-        query: input.query,
-        storage: scoped.storage,
-        ...(ctx.space?.spaceId
-          ? { space: { id: ctx.space.spaceId, mountedSkillNames } }
-          : {}),
-        ...(agent ? { agent } : {}),
-      });
-      return { ok: true as const, ...payload };
-    },
+    execute: (input) => findSkills(input),
+  });
+
+  const computer_skills_find = createTool({
+    id: COMPUTER_SKILLS_FIND_TOOL_ID,
+    description:
+      "List the skills an installer left on this Space's computer (any " +
+      "skills/<name>/SKILL.md under $HOME or /sandbox — ~/.agents/skills, " +
+      "~/.claude/skills and every other agent's folder) and offer them in a card: a " +
+      "person adds each to the Space or to you. Call it after running an " +
+      "installer (npx … install, npx skills add) — skills there are " +
+      "invisible to /skills and to the Space's other agents until added. " +
+      "Do not restate the hits in prose — the card is the answer.",
+    inputSchema: z.object({
+      query: z
+        .string()
+        .max(200)
+        .optional()
+        .describe("Filter by name or description. Omit for all."),
+    }),
+    execute: (input) =>
+      findSkills({
+        provider: COMPUTER_SKILL_PROVIDER_ID,
+        query: input.query?.trim() || "*",
+      }),
   });
 
   const skills_install = createTool({
@@ -295,6 +352,7 @@ export function createSkillsFindTools(deps: SkillsFindToolDeps = {}) {
   });
 
   return {
+    [COMPUTER_SKILLS_FIND_TOOL_ID]: computer_skills_find,
     [SKILLS_FIND_TOOL_ID]: skills_find,
     [SKILLS_INSTALL_TOOL_ID]: skills_install,
   };

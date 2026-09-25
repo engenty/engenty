@@ -6,7 +6,6 @@ import type {
 } from "./types.js";
 
 export const TYPESAFE_API_KEY_ENV = "TYPESAFE_API_KEY";
-export const TYPESAFE_MODEL_ENV = "TYPESAFE_MODEL";
 export const DEFAULT_TYPESAFE_BASE_URL = "https://api.typesafe.ai";
 export const DEFAULT_TYPESAFE_MODEL = "jev-latest";
 /**
@@ -17,6 +16,10 @@ export const DEFAULT_TYPESAFE_MODEL = "jev-latest";
 export const AI_GATEWAY_API_KEY_ENV = "AI_GATEWAY_API_KEY";
 export const VERCEL_TYPESAFE_BASE_URL = "https://ai-gateway.vercel.sh/typesafe";
 export const VERCEL_JEV_MODEL = "typesafe-ai/jev";
+/** Vercel's vendor prefix for TypeSafe models (`typesafe-ai/jev`). */
+const VERCEL_TYPESAFE_PREFIX = "typesafe-ai/";
+/** A ref head that names TypeSafe's own API (`typesafe:jev-latest`). */
+const TYPESAFE_REF_HEAD = "typesafe:";
 /** A keyed GET that spends no tokens: 200 for a live key, 401 for a dead one. */
 export const TYPESAFE_PROBE_PATH = "/v1/models";
 
@@ -86,21 +89,58 @@ export interface ResolvedTypeSafeClientOptions {
 }
 
 /**
- * Which door to Jev this environment opens: TypeSafe's own API when a
- * TypeSafe key is set, else the Vercel AI Gateway's TypeSafe-compatible
- * route on the gateway key. `TYPESAFE_MODEL` overrides the model on either.
- * Null when neither key is present.
+ * Whether a bound classifier model is Jev: Vercel's `typesafe-ai/*` ids,
+ * TypeSafe's own `jev-*` ids, or a `typesafe:` ref. Anything else is an LLM
+ * that answers the same questions through structured output.
+ */
+export function isJevModel(modelId: string): boolean {
+  const value = modelId.trim().toLowerCase();
+  return (
+    value.startsWith(TYPESAFE_REF_HEAD) ||
+    value.startsWith(VERCEL_TYPESAFE_PREFIX) ||
+    value === "jev" ||
+    value.startsWith("jev-")
+  );
+}
+
+/**
+ * The name one bound Jev model goes by on a route. The two APIs spell the
+ * same model differently: Vercel says `typesafe-ai/jev` for the current
+ * release where TypeSafe says `jev-latest`, and prefixes pinned releases.
+ */
+export function jevModelForRoute(
+  modelId: string,
+  route: TypeSafeRoute
+): string {
+  let name = modelId.trim();
+  if (name.toLowerCase().startsWith(TYPESAFE_REF_HEAD)) {
+    name = name.slice(TYPESAFE_REF_HEAD.length).trim();
+  }
+  if (name.toLowerCase().startsWith(VERCEL_TYPESAFE_PREFIX)) {
+    name = name.slice(VERCEL_TYPESAFE_PREFIX.length);
+  }
+  if (route === "typesafe") {
+    return name === "jev" ? DEFAULT_TYPESAFE_MODEL : name;
+  }
+  return `${VERCEL_TYPESAFE_PREFIX}${name === DEFAULT_TYPESAFE_MODEL ? "jev" : name}`;
+}
+
+/**
+ * Which door to Jev this environment opens for the bound model: TypeSafe's
+ * own API when a TypeSafe key is set, else the Vercel AI Gateway's
+ * TypeSafe-compatible route on the gateway key. The model is the classifier
+ * binding's, renamed for the route. Null when neither key is present.
  */
 export function resolveTypeSafeClientOptions(
-  env: Readonly<Record<string, string | undefined>>
+  env: Readonly<Record<string, string | undefined>>,
+  modelId: string
 ): ResolvedTypeSafeClientOptions | null {
-  const override = env[TYPESAFE_MODEL_ENV]?.trim();
   const direct = readTypeSafeApiKey(env);
   if (direct) {
     return {
       apiKey: direct,
       baseUrl: DEFAULT_TYPESAFE_BASE_URL,
-      model: override || DEFAULT_TYPESAFE_MODEL,
+      model: jevModelForRoute(modelId, "typesafe"),
       route: "typesafe",
     };
   }
@@ -109,7 +149,7 @@ export function resolveTypeSafeClientOptions(
     return {
       apiKey: gateway,
       baseUrl: VERCEL_TYPESAFE_BASE_URL,
-      model: override || VERCEL_JEV_MODEL,
+      model: jevModelForRoute(modelId, "vercel-gateway"),
       route: "vercel-gateway",
     };
   }

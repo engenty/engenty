@@ -16,6 +16,7 @@ import {
   shouldAttemptAppsAiRunRecovery,
   shouldContinueAppsAiRunRecovery,
   transcriptMissingAssistantMessage,
+  withLanePrefixBeforeTail,
 } from "./apps-ai-run-recovery-gating.js";
 
 function runSummary(
@@ -651,5 +652,32 @@ describe("apps-ai-run-recovery-gating", () => {
         })
       ).toBe(true);
     });
+  });
+});
+
+describe("withLanePrefixBeforeTail", () => {
+  const msg = (id: string, content = id): EngentyAgUiMessage =>
+    ({ content, id, role: "user" }) as EngentyAgUiMessage;
+  const ids = (messages: readonly EngentyAgUiMessage[]) =>
+    messages.map((message) => message.id);
+
+  it("keeps the lane's older rows in front of the persisted tail", () => {
+    const merged = withLanePrefixBeforeTail({
+      liveMessages: [msg("a"), msg("b"), msg("c", "partial")],
+      tailMessages: [msg("c", "final"), msg("d")],
+    });
+    expect(ids(merged)).toEqual(["a", "b", "c", "d"]);
+    expect(merged[2]?.content).toBe("final");
+  });
+
+  it("takes the tail as is when the lane never saw its first row", () => {
+    expect(
+      ids(
+        withLanePrefixBeforeTail({
+          liveMessages: [msg("x")],
+          tailMessages: [msg("c"), msg("d")],
+        })
+      )
+    ).toEqual(["c", "d"]);
   });
 });

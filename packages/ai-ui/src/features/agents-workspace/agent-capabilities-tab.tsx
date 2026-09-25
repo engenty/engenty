@@ -7,7 +7,6 @@ import type {
   AiRegisteredAction,
   AiSkillCatalogEntry,
 } from "../../lib/admin/ai-runtime-api";
-import { AgentConnectionsPanel } from "./agent-connections-panel";
 import {
   AgentEffectiveToolsPanel,
   AgentSkillsPanel,
@@ -58,14 +57,8 @@ export function AgentCapabilitiesTab({
           t={t}
         />
       </SettingsFormSection>
-      {/* Plugins this agent may use (space-enabled subset + personal accounts). */}
-      <SettingsFormSection
-        cardClassName="overflow-hidden p-0 sm:p-0"
-        description={t("agentConnections.description")}
-        title={t("agentConnections.title")}
-      >
-        <AgentConnectionsPanel agentId={agent.id} />
-      </SettingsFormSection>
+      {/* No accounts here: an agent uses the accounts of the Space it runs
+          in — its desk's Connect dialog in that Space shows them. */}
       {/* Where else it may act: the person's screen, and remote channels as
           itself. Registry rows only — a module's agent declares these in its
           manifest, and the copilot always drives the screen. */}

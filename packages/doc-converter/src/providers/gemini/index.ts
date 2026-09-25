@@ -3,6 +3,7 @@
  */
 
 import { createLogger } from "@engenty/telemetry";
+import { DEFAULT_DOC_CONVERTER_GEMINI_MODEL } from "../../default-models.js";
 import type {
   ConversionOptions,
   ConversionResult,
@@ -10,8 +11,6 @@ import type {
 } from "../../interface.js";
 
 const logger = createLogger({ name: "doc-converter-gemini" });
-
-const DEFAULT_MODEL = "google/gemini-2.5-flash";
 
 const SUPPORTED_TYPES = [
   "application/pdf",
@@ -38,7 +37,7 @@ export class GeminiProvider implements DocConverterProvider {
   private readonly model: string;
 
   constructor(config?: GeminiProviderConfig) {
-    this.model = config?.model?.trim() || DEFAULT_MODEL;
+    this.model = config?.model?.trim() || DEFAULT_DOC_CONVERTER_GEMINI_MODEL;
   }
 
   canConvert(mimeType: string): boolean {

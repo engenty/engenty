@@ -6,41 +6,22 @@
  * cursor that moved with every refetch would clear the done cards the moment
  * you glanced at them (PLAN-space-home.md §6 open question 2). It is written
  * back when the page goes away, so the next visit starts where this one ended.
+ *
+ * A space switch starts a new visit on the same render. Reading the cursor in
+ * an effect would fire `/ai/spaces/<id>/home` with the previous space's `since`.
  */
 import { useSpaceHomeQuery } from "@engenty/ai-ui";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import {
   resolveSpaceHomeCards,
   type SpaceHomeCardsModel,
 } from "@/lib/space-home-cards";
+import {
+  holdSpaceHomeVisit,
+  type SpaceHomeVisit,
+  writeSpaceHomeCursor,
+} from "@/lib/space-home-visit";
 import { useSpaceConversationSidebar } from "@/lib/use-space-conversation-sidebar";
-
-function cursorKey(spaceId: string): string {
-  return `engenty:space-home:${spaceId}:seen-at`;
-}
-
-function readCursor(spaceId: string | null): string | null {
-  if (!spaceId || typeof localStorage === "undefined") {
-    return null;
-  }
-  try {
-    return localStorage.getItem(cursorKey(spaceId));
-  } catch {
-    return null;
-  }
-}
-
-function writeCursor(spaceId: string, cursor: string): void {
-  if (typeof localStorage === "undefined") {
-    return;
-  }
-  try {
-    localStorage.setItem(cursorKey(spaceId), cursor);
-  } catch {
-    // private mode / quota — the page then reports the last day, which is the
-    // same answer a first visit gets.
-  }
-}
 
 export interface UseSpaceHomeResult extends SpaceHomeCardsModel {
   isPending: boolean;
@@ -55,31 +36,31 @@ export interface UseSpaceHomeResult extends SpaceHomeCardsModel {
 }
 
 export function useSpaceHome(spaceId: string | null): UseSpaceHomeResult {
-  const [since, setSince] = useState<string | null>(null);
-  const [pinned, setPinned] = useState(false);
-  // The cursor is per space: switching spaces re-reads it, then freezes again.
-  useEffect(() => {
-    setSince(readCursor(spaceId));
-    setPinned(Boolean(spaceId));
-  }, [spaceId]);
+  const visitRef = useRef<SpaceHomeVisit | null>(null);
+  visitRef.current = holdSpaceHomeVisit(spaceId, visitRef.current);
+  const since = visitRef.current.since;
 
   const homeQuery = useSpaceHomeQuery({
-    enabled: pinned,
+    enabled: Boolean(spaceId),
     since,
     spaceId,
   });
   const sidebar = useSpaceConversationSidebar(spaceId);
 
-  // Written on the way out, from the newest answer this visit received.
-  const latestCursor = useRef<string | null>(null);
-  latestCursor.current = homeQuery.data?.cursor ?? latestCursor.current;
+  // Written on the way out, keyed by the space that produced the cursor so a
+  // switch cannot store the new space's answer under the previous space.
+  const latestCursorBySpace = useRef(new Map<string, string>());
+  if (spaceId && homeQuery.data?.cursor) {
+    latestCursorBySpace.current.set(spaceId, homeQuery.data.cursor);
+  }
   useEffect(() => {
     if (!spaceId) {
       return;
     }
     return () => {
-      if (latestCursor.current) {
-        writeCursor(spaceId, latestCursor.current);
+      const cursor = latestCursorBySpace.current.get(spaceId);
+      if (cursor) {
+        writeSpaceHomeCursor(spaceId, cursor);
       }
     };
   }, [spaceId]);

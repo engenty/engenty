@@ -339,6 +339,13 @@ export interface ChatVisibilityBandProps extends ChatVisibilityCopyInput {
   kind?: ChatKind | null;
   /** When the conversation last moved — right-aligned, compact ("vor 3 Min."). */
   lastActivityAt?: string | null;
+  /** First row of the band — the title and actions, on the same ground. */
+  toolbar?: ReactNode;
+  /**
+   * Room for a transparent page topbar floating over the band. Companion
+   * chrome passes its own title row as `toolbar` instead.
+   */
+  topbarClearance?: boolean;
 }
 
 /**
@@ -355,6 +362,8 @@ export function ChatVisibilityBand({
   gutterClassName = "pr-3 pb-2 pl-5",
   kind,
   lastActivityAt,
+  toolbar,
+  topbarClearance = true,
   ...copyInput
 }: ChatVisibilityBandProps) {
   const copy = useChatVisibilityCopy(copyInput);
@@ -375,7 +384,11 @@ export function ChatVisibilityBand({
       {tone.rule ? (
         <div aria-hidden className={cn("h-[3px] w-full", tone.rule)} />
       ) : null}
-      <div aria-hidden className={tone.rule ? "h-[41px]" : "h-11"} />
+      {toolbar ? (
+        <div className="shrink-0">{toolbar}</div>
+      ) : topbarClearance ? (
+        <div aria-hidden className={tone.rule ? "h-[41px]" : "h-11"} />
+      ) : null}
       <div
         className={cn(
           "flex items-center gap-2 text-muted-foreground text-xs",

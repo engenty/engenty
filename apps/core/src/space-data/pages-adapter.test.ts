@@ -2,9 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   createPagesSpaceDataAdapter,
   PAGE_EXTENSION,
-  PAGES_MODULE_ID,
   PAGES_PAGE_NODE_TYPE,
-  PAGES_ROOT,
 } from "./pages-adapter.js";
 import {
   type PageArtifactRow,
@@ -130,27 +128,27 @@ const ctx = {
 };
 
 describe("the Pages adapter", () => {
-  it("is space-native: always visible, not knowledge-base", () => {
-    const adapter = createPagesSpaceDataAdapter({ store: memoryStore() });
-    expect(adapter.alwaysVisible).toBe(true);
-    expect(adapter.moduleId).toBe(PAGES_MODULE_ID);
-    expect(adapter.root).toBe(PAGES_ROOT);
-    expect(adapter.recordScopes).toEqual(["all", "space"]);
-  });
-
-  it("lists markdown as pages and folders as folders, with ids in the names", async () => {
+  it("lists pages and folders under paths the other operations accept", async () => {
     const store = memoryStore();
     store.rows.push(
       row({ id: "aaaa-1111", title: "Notes", type: "markdown" }),
       row({ id: "bbbb-2222", title: "Briefs", type: "folder" })
     );
+    store.contents.set("aaaa-1111", "# hi");
     const adapter = createPagesSpaceDataAdapter({ store });
     const listing = await adapter.list(ctx, "");
-    expect(listing.entries[0]?.name).toBe(`notes__aaaa-1111${PAGE_EXTENSION}`);
-    expect(listing.entries[0]?.title).toBe("Notes");
-    expect(listing.entries[0]?.nodeType).toBe(PAGES_PAGE_NODE_TYPE);
-    expect(listing.folders[0]?.name).toBe("briefs__bbbb-2222");
-    expect(listing.folders[0]?.nodeType).toBe("pages.folder");
+    const page = listing.entries[0];
+    const folder = listing.folders[0];
+    if (!(page && folder)) {
+      throw new Error("expected a page and a folder");
+    }
+    expect(page.nodeType).toBe(PAGES_PAGE_NODE_TYPE);
+    expect(folder.nodeType).toBe("pages.folder");
+
+    const read = await adapter.read(ctx, page.path);
+    expect(read.members[0]?.content).toBe("# hi");
+    const inside = await adapter.list(ctx, folder.path);
+    expect(inside.entries).toEqual([]);
   });
 
   it("creates a markdown page at the root and a folder beneath it", async () => {

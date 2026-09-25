@@ -9,7 +9,7 @@ import {
 describe("kbSettingsFromKvRows", () => {
   it("assembles defaults when no rows", () => {
     const s = kbSettingsFromKvRows([]);
-    expect(s.embedding_model).toContain("embedding");
+    expect(s.search_vector_min_similarity).toBe(0.45);
     expect(s.kb_chunking_by_id).toEqual({});
     expect(s.kb_display_by_id).toEqual({});
     expect(s.sidebar_article_tree_defaults_by_kb).toEqual({});
@@ -17,9 +17,10 @@ describe("kbSettingsFromKvRows", () => {
 
   it("reads scope scalars and per-kb json rows", () => {
     const rows = [
+      // A stale row from the retired tenant embedding override is ignored.
       {
         context: KB_KV_SCOPE_CONTEXT,
-        name: KB_KV_KEY.embeddingModel,
+        name: "kb.embedding_model",
         type: "string",
         value: "openai/custom",
       },
@@ -67,7 +68,7 @@ describe("kbSettingsFromKvRows", () => {
       },
     ];
     const s = kbSettingsFromKvRows(rows);
-    expect(s.embedding_model).toBe("openai/custom");
+    expect(s).not.toHaveProperty("embedding_model");
     expect(s.kb_chunking_by_id["kb-a"]).toEqual({
       max_length: 2000,
       overlap: 50,

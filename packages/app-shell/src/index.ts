@@ -33,6 +33,7 @@ export {
   useWorkspaceEndPaneTarget,
 } from "./components/app-layout/workspace-end-pane";
 export { WorkspaceEndPaneItem } from "./components/app-layout/workspace-end-pane-item";
+export type { AppMenuContent } from "./components/app-menu-dialog";
 export { AppSidebar } from "./components/app-sidebar";
 export { type AppMenuActions, AppTopbar } from "./components/app-topbar";
 export { CopilotRailDockAnchor } from "./components/copilot-rail-dock-anchor";
@@ -67,6 +68,7 @@ export {
   useAgentUiFrontendToolHandler,
   useAgentUiFrontendTools,
   useAgentUiStateSnapshot,
+  useAgentUiStateSnapshotGetter,
   useFrontendTool,
   useRegisterAgentUiDialog,
   useRegisterAgentUiField,
@@ -77,9 +79,20 @@ export {
   useAppBarChromeContext,
 } from "./context/app-bar-chrome-context";
 export {
+  CopilotPathProvider,
   CopilotShellContentArea,
   CopilotShellMain,
   CopilotShellProvider,
+  useCopilotActions,
+  useCopilotActionsOrNull,
+  useCopilotChromeHidden,
+  useCopilotHost,
+  useCopilotHostOrNull,
+  useCopilotLayout,
+  useCopilotLayoutOrNull,
+  useCopilotPath,
+  useCopilotPathname,
+  useCopilotRoute,
   useCopilotShell,
   useCopilotShellOrNull,
 } from "./context/copilot-shell-context";
@@ -96,10 +109,12 @@ export {
   DEFAULT_UI_GUIDE_ACTIONS,
   dismissUiGuideSession,
   formatUiGuideFollowUpMessage,
+  type GuideCardText,
   GuideOverlayHost,
   type GuideOverlayHostProps,
   getUiGuideSession,
   type ResolveUiGuideTargetHelpers,
+  readUiGuideFollowUp,
   resetUiGuideSessionForTests,
   resolveUiGuideAction,
   resolveUiGuideTarget,
@@ -108,6 +123,7 @@ export {
   UI_GUIDE_SPOTLIGHT_PADDING_PX,
   type UiGuideAction,
   type UiGuideActionVariant,
+  type UiGuideFollowUp,
   type UiGuideInputConfig,
   type UiGuideInputField,
   type UiGuideInputType,
@@ -133,6 +149,11 @@ export {
   isPlausibleAgentUiFieldActiveElement,
   queryAgentUiFieldElement,
 } from "./lib/agent-ui-field-element";
+export {
+  type AppMenuLabels,
+  type AppMenuSpaceTab,
+  latestAppMenuSpaces,
+} from "./lib/app-menu-tabs";
 export {
   isCopilotShellSlotOpen,
   shouldShowInlineCopilotSidebar,
@@ -195,6 +216,10 @@ export {
   COPILOT_LAYOUT_NOOP,
   type CopilotCompanionWho,
   type CopilotLayoutPersistence,
+  type CopilotShellActionsValue,
+  type CopilotShellContextValue,
+  type CopilotShellHostValue,
+  type CopilotShellLayoutValue,
   type CopilotSlotProps,
 } from "./types/copilot-shell";
 export type {

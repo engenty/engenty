@@ -7,9 +7,10 @@ import {
 } from "../browser-tickets.js";
 
 const payload = {
-  sandbox_id: "engenty-browser-t-u",
+  agent_id: "agent-a",
+  sandbox_id: "engenty-browser-t-s",
+  space_id: "s",
   tenant_id: "t",
-  user_id: "u",
 };
 
 describe("browser tickets", () => {
@@ -36,9 +37,19 @@ describe("browser tickets", () => {
     expect(verifyBrowserTicket(ticket, "other", () => 2000)).toBeNull();
     const [body, sig] = ticket.split(".");
     const forged = `${Buffer.from(
-      JSON.stringify({ ...payload, user_id: "someone-else", exp: 999_999 })
+      JSON.stringify({ ...payload, agent_id: "someone-else", exp: 999_999 })
     ).toString("base64url")}.${sig}`;
     expect(verifyBrowserTicket(forged, "secret", () => 2000)).toBeNull();
     expect(body).toBeTruthy();
+  });
+
+  it("refuses a validly signed ticket that names no agent or space", () => {
+    const { agent_id: _agent, ...withoutAgent } = payload;
+    const ticket = mintBrowserTicket(
+      withoutAgent as typeof payload,
+      "secret",
+      () => 1000
+    );
+    expect(verifyBrowserTicket(ticket, "secret", () => 2000)).toBeNull();
   });
 });

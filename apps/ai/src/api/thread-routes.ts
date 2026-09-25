@@ -41,10 +41,15 @@ const updateThreadBodySchema = z.object({
 /** Both or neither: a cursor is the (created_at, id) of the oldest row held. */
 const messagesPageCursorQuery = z
   .object({
+    /** Delta cursor: rows strictly newer than (after, after_id), oldest first. */
+    after: z.string().datetime({ offset: true }).optional(),
+    after_id: uuidString.optional(),
     before: z.string().datetime({ offset: true }).optional(),
     before_id: uuidString.optional(),
   })
-  .refine((q) => Boolean(q.before) === Boolean(q.before_id));
+  .refine((q) => Boolean(q.before) === Boolean(q.before_id))
+  .refine((q) => Boolean(q.after) === Boolean(q.after_id))
+  .refine((q) => !(q.after && q.before));
 
 const dismissInterruptBodySchema = z.object({
   interrupt_id: z.string().min(1).max(512).nullable().optional(),
@@ -476,7 +481,10 @@ export function registerThreadRoutes(
       .max(2000)
       .safeParse(c.req.query("limit") ?? "500");
     const lim = limit.success ? limit.data : 500;
+    const view = c.req.query("view") === "slim" ? "slim" : "full";
     const cursor = messagesPageCursorQuery.safeParse({
+      after: c.req.query("after"),
+      after_id: c.req.query("after_id"),
       before: c.req.query("before"),
       before_id: c.req.query("before_id"),
     });
@@ -485,6 +493,14 @@ export function registerThreadRoutes(
     }
     try {
       const { has_more, messages } = await opts.aiService.threads.listMessages({
+        ...(cursor.data.after && cursor.data.after_id
+          ? {
+              after: {
+                createdAt: cursor.data.after,
+                id: cursor.data.after_id,
+              },
+            }
+          : {}),
         ...(cursor.data.before && cursor.data.before_id
           ? {
               before: {
@@ -496,6 +512,7 @@ export function registerThreadRoutes(
         scope: scope.scope,
         threadId,
         limit: lim,
+        view,
       });
       // Read-sync: the person opened this conversation, so the FYI rows
       // about it (agent messages, finished hand-offs) are read. Best-effort.
@@ -513,6 +530,39 @@ export function registerThreadRoutes(
       return handleRouteError(
         c,
         "listMessages failed",
+        "agent_threads.listFailed",
+        err
+      );
+    }
+  });
+
+  // One row in full — what `view=slim` dropped from it, on demand.
+  app.get(`${base}/:threadId/messages/:messageId`, async (c) => {
+    const scope = await resolveScope(c, opts.scopeResolver);
+    if (!scope.ok) {
+      return scope.response;
+    }
+    const threadId = c.req.param("threadId");
+    const messageId = c.req.param("messageId");
+    if (
+      !(
+        uuidString.safeParse(threadId).success &&
+        uuidString.safeParse(messageId).success
+      )
+    ) {
+      return c.json({ error: "agent_threads.invalidThreadId" }, 400);
+    }
+    try {
+      const { message } = await opts.aiService.threads.getMessage({
+        messageId,
+        scope: scope.scope,
+        threadId,
+      });
+      return c.json({ message });
+    } catch (err) {
+      return handleRouteError(
+        c,
+        "getMessage failed",
         "agent_threads.listFailed",
         err
       );

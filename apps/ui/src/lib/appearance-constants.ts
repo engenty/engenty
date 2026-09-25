@@ -14,6 +14,7 @@ export const APPEARANCE_KEYS = {
   colorSecondary: "appearance.color_secondary",
   colorBackground: "appearance.color_background",
   contrast: "appearance.contrast",
+  chatStyle: "appearance.chat_style",
 } as const;
 
 export const DEFAULT_LANGUAGE = "en";

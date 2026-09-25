@@ -43,6 +43,8 @@ export interface ChunkUpsertInput {
 export interface IndexedDocState {
   content_updated_at: string;
   doc_id: string;
+  /** Model that embedded the document's chunks; null on legacy rows. */
+  embedding_model: string | null;
   indexed_at: string;
 }
 
@@ -180,7 +182,7 @@ export function createRetrievalStore(source: RetrievalDbSource) {
     const map = new Map<string, IndexedDocState>();
     for (let page = 0; page < MAX_PAGES; page++) {
       const { data, error } = await documents(tenantId)
-        .select("doc_id, content_updated_at, indexed_at")
+        .select("doc_id, content_updated_at, embedding_model, indexed_at")
         .eq("tenant_id", tenantId)
         .eq("source_type", sourceType)
         .order("doc_id", { ascending: true })
@@ -195,6 +197,7 @@ export function createRetrievalStore(source: RetrievalDbSource) {
         map.set(String(row.doc_id), {
           content_updated_at: String(row.content_updated_at),
           doc_id: String(row.doc_id),
+          embedding_model: row.embedding_model ?? null,
           indexed_at: String(row.indexed_at),
         });
       }

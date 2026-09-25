@@ -23,7 +23,11 @@ export interface AgentTurnMessageLike {
    * names the preview artifact the row renders, review banner and all.
    */
   appRelease?: { artifactId: string } | null;
+  /** The agent that wrote an assistant row (`metadata.author_agent_id`). */
+  authorAgentId?: string | null;
   authorName?: string | null;
+  /** When the row was written; absent for one this session just streamed. */
+  createdAt?: string | null;
   parts?: readonly unknown[];
   role: string;
 }

@@ -27,8 +27,6 @@ import { ImportedConnectorRow } from "./imported-connector-row.js";
 /** Install-owner setup area (not tenant Settings). */
 export const SETUP_ROOT_PATH = "/setup";
 export const EXTERNAL_IMPORT_PATH = `${SETUP_ROOT_PATH}/connectors`;
-/** Former Agents-workspace URL — keep a redirect for bookmarks. */
-export const EXTERNAL_IMPORT_LEGACY_PATH = "/admin/engenty/connections/import";
 
 export function ExternalImportPage() {
   const { t } = useTranslation("common");

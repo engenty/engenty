@@ -47,6 +47,7 @@ vi.mock("../../lib/runtime/runs-api.js", () => ({
 }));
 
 vi.mock("./apps-ai-thread-api.js", () => ({
+  APPS_AI_THREAD_MESSAGES_PAGE_SIZE: 60,
   getAppsAiThread: vi.fn(async () => ({ status: "running" })),
   listAppsAiThreadMessages: vi.fn(async () => [
     {

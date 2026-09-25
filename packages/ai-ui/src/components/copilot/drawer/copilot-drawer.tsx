@@ -8,4 +8,3 @@ export type {
   CopilotPanelMode,
   CopilotRouteContext,
 } from "./copilot-drawer-types";
-export { formatCopilotRouteStatusLabel } from "./copilot-drawer-utils";

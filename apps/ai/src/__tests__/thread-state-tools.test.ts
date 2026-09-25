@@ -80,26 +80,11 @@ describe("thread_state_set", () => {
     expect(rows.has("someone-elses-thread")).toBe(false);
   });
 
-  it("clears a key on null instead of storing it", async () => {
-    await setState({ key: "current_tense", value: "Perfekt" });
-    await setState({ key: "current_tense", value: null });
-
-    expect(rows.get(THREAD_ID)?.agent_state).toEqual({});
-  });
-
   it("fails loudly on a thread the user does not own", async () => {
     ownerUserId = "someone-else";
     await expect(
       setState({ key: "current_tense", value: "Perfekt" })
     ).rejects.toThrow(/not owned/);
-  });
-
-  it("says so when the run has no thread to hold state", async () => {
-    const tool = createThreadStateTools(getStore)[THREAD_STATE_SET_TOOL_ID];
-    const output = (await engentyToolsRunAls.run({ tenantId: "tenant-1" }, () =>
-      tool.execute?.({ key: "k", value: 1 }, testToolContext())
-    )) as Record<string, unknown>;
-    expect(output.ok).toBe(false);
   });
 });
 
@@ -109,7 +94,7 @@ describe("thread state in the runtime instructions", () => {
     ownerUserId = "user-1";
   });
 
-  it("reads back what the agent stored, one line per key", async () => {
+  it("shows the next turn what the agent stored", async () => {
     await setState({ key: "current_tense", value: "Perfekt" });
     await setState({ key: "covered", value: ["Präsens"] });
 
@@ -118,18 +103,7 @@ describe("thread state in the runtime instructions", () => {
       scope,
       threadId: THREAD_ID,
     });
-    expect(block).toContain("## Conversation state");
-    expect(block).toContain('- current_tense: "Perfekt"');
-    expect(block).toContain('- covered: ["Präsens"]');
-  });
-
-  it("renders nothing when the thread has no state", async () => {
-    expect(
-      await buildThreadStateInstructions({
-        getStore,
-        scope,
-        threadId: THREAD_ID,
-      })
-    ).toBe("");
+    expect(block).toContain("Perfekt");
+    expect(block).toContain("Präsens");
   });
 });

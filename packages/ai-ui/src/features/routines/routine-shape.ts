@@ -16,6 +16,8 @@ import type {
 import { storedGraphToCanvas } from "../workflow-canvas/graph-model.js";
 import type {
   RoutineDto,
+  RoutineOutcomeDto,
+  RoutineOutcomeMode,
   RoutineReportMode,
   RoutineTriggerDto,
 } from "./routines-api.js";
@@ -48,10 +50,27 @@ export interface RoutineShapeMiddle {
   workflowId: string;
 }
 
+/** One destination, as display data under the promise. */
+export interface RoutineShapeBinding {
+  enabled: boolean;
+  id: string;
+  label: string;
+  mode: RoutineOutcomeMode;
+  modeLabel: string;
+}
+
+export interface RoutineShapeOutcome {
+  bindings: RoutineShapeBinding[];
+  /** Shown when report is `ask`, even if destinations replace the desk post. */
+  holdLine: string | null;
+  report: RoutineReportMode;
+  text: string | null;
+}
+
 export interface RoutineShape {
   middle: RoutineShapeMiddle;
   /** Null when the shape draws a bare Action — no routine, so no promise. */
-  outcome: { report: RoutineReportMode; text: string | null } | null;
+  outcome: RoutineShapeOutcome | null;
   /** Empty when the shape draws a bare Action — it runs when pressed. */
   triggers: RoutineShapeTrigger[];
 }
@@ -127,6 +146,101 @@ export function routineTriggers(
   );
 }
 
+const BUILTIN_OUTCOME_LABELS: Record<string, { de: string; en: string }> = {
+  "agent.message": { de: "Engenty-Nachricht", en: "Engenty message" },
+  "artifact.pointer": { de: "Artefakt-Hinweis", en: "Artifact pointer" },
+  "desk.chat": { de: "Schreibtisch-Chat", en: "Desk chat" },
+  email: { de: "E-Mail", en: "Email" },
+  "notification.high": {
+    de: "Update mit Priorität",
+    en: "High-priority update",
+  },
+  "notification.update": { de: "Inbox-Update", en: "Inbox update" },
+  webhook: { de: "Webhook", en: "Webhook" },
+};
+
+function outcomeModeLabel(mode: RoutineOutcomeMode, isDe: boolean): string {
+  if (mode === "agent") {
+    return isDe ? "Wenn der Lauf es aufruft" : "When the run calls it";
+  }
+  return isDe ? "Jeder Lauf" : "Every run";
+}
+
+/** One destination as display data — a row on the outcome node and list. */
+export function outcomeDisplay(
+  row: RoutineOutcomeDto,
+  locale = "en",
+  catalogLabel?: string
+): RoutineShapeBinding {
+  const isDe = locale.startsWith("de");
+  const builtin = BUILTIN_OUTCOME_LABELS[row.provider_id];
+  return {
+    enabled: row.enabled,
+    id: row.id,
+    label:
+      catalogLabel ?? (isDe ? builtin?.de : builtin?.en) ?? row.provider_id,
+    mode: row.mode,
+    modeLabel: outcomeModeLabel(row.mode, isDe),
+  };
+}
+
+/** Every destination of the routine, in display shape. */
+export function routineOutcomes(
+  routine: RoutineDto,
+  locale = "en"
+): RoutineShapeBinding[] {
+  return (routine.outcomes ?? []).map((row) => outcomeDisplay(row, locale));
+}
+
+/**
+ * What wakes the routine, in one line: the enabled triggers' detail ("Every
+ * 30 minutes", "/daily", "Webhook") joined with a middle dot, the kind's
+ * name when a trigger has no detail. Null when nothing wakes it.
+ */
+export function routineTriggerLine(
+  routine: RoutineDto,
+  locale = "en"
+): string | null {
+  // The card has no room for the zone; the detail page still names it.
+  const parts = (routine.triggers ?? [])
+    .filter((trigger) => trigger.enabled)
+    .map((trigger) => {
+      if (trigger.kind === "schedule" && trigger.cron) {
+        return cronToHumanLabel(trigger.cron, locale, trigger.timezone, {
+          showTimezone: false,
+        });
+      }
+      const display = triggerDisplay(trigger, locale);
+      return display.detail ?? display.label;
+    });
+  return parts.length ? parts.join(" · ") : null;
+}
+
+/**
+ * Where a fire delivers, in one line: the enabled destinations' labels joined
+ * with a middle dot. Null when the routine has none — the report floor
+ * (`report`) then decides what a run leaves behind.
+ */
+export function routineOutcomeLine(
+  routine: RoutineDto,
+  locale = "en"
+): string | null {
+  const labels = routineOutcomes(routine, locale)
+    .filter((binding) => binding.enabled)
+    .map((binding) => binding.label);
+  return labels.length ? labels.join(" · ") : null;
+}
+
+function outcomeHoldLine(
+  report: RoutineReportMode,
+  isDe: boolean
+): string | null {
+  if (report !== "ask") {
+    return null;
+  }
+  return isDe ? "Hält den Lauf zur Rückfrage" : "Holds the run for review";
+}
+
 /**
  * The graph's top-level steps, in order. Container children (a branch's arms,
  * a loop's body) are left out on purpose: this is an overview, and the canvas
@@ -168,7 +282,14 @@ export function buildRoutineShape({
       pending: !graph,
       steps: graph ? actionSpine(graph) : [],
     },
-    outcome: routine ? { report: routine.report, text: routine.outcome } : null,
+    outcome: routine
+      ? {
+          bindings: routineOutcomes(routine, locale),
+          holdLine: outcomeHoldLine(routine.report, locale.startsWith("de")),
+          report: routine.report,
+          text: routine.outcome,
+        }
+      : null,
     triggers: routine ? routineTriggers(routine, locale) : [],
   };
 }

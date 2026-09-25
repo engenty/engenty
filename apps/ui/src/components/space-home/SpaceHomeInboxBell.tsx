@@ -4,7 +4,7 @@
  * It left the Work list to sit here: the home is where a person lands, and
  * "what waits for me in this space" is a number you glance at from there
  * rather than a row you scroll past. The count is this SPACE's open
- * Freigaben + Fehler — the same number the rail bell shows here.
+ * attention rows (Wichtig) — the same number the rail bell shows here.
  *
  * A popover, not a link: glance and act without leaving the dashboard. "View
  * all" still opens the full-screen list, which keeps this sidebar (Dashboard
@@ -14,7 +14,7 @@ import { useTranslation } from "@engenty/i18n/ui";
 import {
   NotificationInboxPanel,
   notificationInboxPopoverClassName,
-  useSpaceNeedsInputCount,
+  useAttentionCount,
 } from "@engenty/notifications-ui";
 import {
   Button,
@@ -36,7 +36,7 @@ export function SpaceHomeInboxBell({
   spaceKey: string;
 }) {
   const { t } = useTranslation("common");
-  const count = useSpaceNeedsInputCount();
+  const count = useAttentionCount("space");
   const [open, setOpen] = useState(false);
 
   return (

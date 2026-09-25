@@ -22,8 +22,8 @@ import { MockLanguageModelV3 } from "ai/test";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import {
-  describeWorkspaceToolCall,
   workspaceApprovalSuspendPayload,
+  workspaceApprovalTitle,
   workspaceToolGrantId,
 } from "../../workspace/workspace-tool-guards.js";
 import { runHeadlessViaMastraAgent } from "../delegate-run-agui-driver.js";
@@ -100,7 +100,7 @@ function run(log: string[], extra: Record<string, unknown> = {}) {
     agent: gatedAgent(log),
     agentId: "gated",
     content: "write the brief",
-    describeCall: describeWorkspaceToolCall,
+    describeCall: workspaceApprovalTitle,
     grantIdOf: workspaceToolGrantId,
     resourceId: "resource-1",
     runId: "run-gate",
@@ -128,8 +128,8 @@ describe("the card a chat turn shows for the same gate", () => {
       kind: "tool_approval",
       requires_approval: true,
       risk_level: "high",
-      title:
-        "mastra_workspace_delete — /shared/reports and everything inside it",
+      body: "/shared/reports and everything inside it",
+      title: "Delete",
     });
   });
 });
@@ -145,16 +145,16 @@ describe("a requireApproval gate on the headless lane", () => {
       },
     });
 
-    // The grant id is the one a standing approval is written under — path-less
-    // for execute_command, so a routine's allow-list can hold it.
+    // The grant id is the one a standing approval is written under — the
+    // exact command, so approving `date` does not approve every command.
     expect(asked).toEqual([
       {
-        operationId: "workspace:mastra_workspace_execute_command",
-        title: "mastra_workspace_execute_command — target not stated",
+        operationId: "workspace:mastra_workspace_execute_command:date",
+        title: "Run command: date",
       },
     ]);
     expect([...outcome.workspaceSuspensions]).toEqual([
-      "workspace:mastra_workspace_execute_command",
+      "workspace:mastra_workspace_execute_command:date",
     ]);
     expect(log).toEqual([]);
   });

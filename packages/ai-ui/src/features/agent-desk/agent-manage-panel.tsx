@@ -1,9 +1,11 @@
 // The specialist's one page below Chat: who it IS (one identity card — name
 // with the same module pill as the desk header, mandate, the id facts — at
 // the top, no section heading), then what it DOES
-// (routines, its own Actions, tasks), then its capabilities. One tab, so a
-// hire's proposed workflow, the routine that fires it and the mandate it runs
-// under are read in one scroll.
+// (routines, its own Actions, tasks), then what it reaches (connections).
+// One scroll, so a hire's proposed workflow, the routine that fires it and
+// the mandate it runs under read together. How it works — skills, its
+// pads (AGENTS.md, MEMORY.md, TASKS.md), recent runs — is the `settings`
+// view one level down, behind the pane's gear.
 //
 // A CUSTOM specialist is editable in place — the point of the tab is that
 // routine care never requires leaving the Space: the mandate saves on blur,
@@ -23,9 +25,10 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@engenty/ui-core";
-import { Cable, ExternalLink, Sparkles } from "lucide-react";
+import { ExternalLink, Sparkles } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { useDeveloperModeEnabled } from "../../components/ag-ui-inspector/ag-ui-inspector-hooks.js";
 import { AgentFace } from "../../components/agent-face.js";
 import { useUpdateCustomAgentMutation } from "../../lib/admin/ai-runtime-queries.js";
 import {
@@ -43,6 +46,7 @@ import {
   AgentConnectDialog,
   type AgentConnectTab,
 } from "./agent-connect-dialog.js";
+import { AgentConnectorRows } from "./agent-connector-rows.js";
 import {
   AgentMemorySection,
   AgentTasksSection,
@@ -82,6 +86,7 @@ export function AgentManagePanel({
   locale = "en",
   moduleLabel,
   spaceId,
+  view = "overview",
 }: {
   agent: AgentDeskAgent;
   /**
@@ -95,10 +100,16 @@ export function AgentManagePanel({
   moduleLabel?: string;
   /** Null on the copilot's desk outside a space; its pads are its person's. */
   spaceId: string | null;
+  /**
+   * `overview` = who it is, what it does, what it reaches; `settings` (one
+   * level down, behind the pane's gear) = how it works: skills, pads, runs.
+   */
+  view?: "overview" | "settings";
 }) {
   const { t } = useTranslation("ai-ui");
   const description = agent.description?.trim() ?? "";
   const editable = canManage && agent.source === "database";
+  const developerMode = useDeveloperModeEnabled();
   const update = useUpdateCustomAgentMutation();
   // null = untouched; a string while the textarea holds an unsaved edit. The
   // edit saves on blur and the draft is kept until the refetch lands, so the
@@ -108,6 +119,7 @@ export function AgentManagePanel({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [connectOpen, setConnectOpen] = useState(false);
   const [connectTab, setConnectTab] = useState<AgentConnectTab>("plugins");
+  const [connectDetailsId, setConnectDetailsId] = useState<string | null>(null);
   // The work sections swap to a routine's setup in place; the identity half
   // yields the tab while one is open. An open Action is a MODAL over the
   // current view, so it hides nothing.
@@ -117,6 +129,93 @@ export function AgentManagePanel({
   const workSections = <AgentWorkSections agentId={agent.id} locale={locale} />;
   if (subviewOpen) {
     return workSections;
+  }
+
+  const connectDialog = canManage ? (
+    <AgentConnectDialog
+      agent={agent}
+      canEditSkills={editable}
+      initialDetailsId={connectDetailsId}
+      initialTab={connectTab}
+      onOpenChange={setConnectOpen}
+      open={connectOpen}
+      // The Copilot always works out of its person's personal Space.
+      spaceId={agent.role === "copilot" ? null : spaceId}
+    />
+  ) : null;
+
+  if (view === "settings") {
+    return (
+      <div className="flex flex-col gap-5">
+        <CardSection
+          cardVariant="compact"
+          description={t("agentDesk.manage.skillsDescription")}
+          headerVariant="compact"
+          title={t("agentDesk.skills")}
+          titleAction={
+            canManage ? (
+              <HeaderAction
+                label={t("agentDesk.manage.editSkills")}
+                onClick={() => {
+                  setConnectTab("skills");
+                  setConnectDetailsId(null);
+                  setConnectOpen(true);
+                }}
+              />
+            ) : null
+          }
+        >
+          <Chips
+            chips={agent.skills}
+            empty={t("agentDesk.manage.noSkills")}
+            icon={<Sparkles className="size-3" />}
+          />
+        </CardSection>
+
+        {/* Every agent with an audience has both pads (the route answers
+          `enabled: false` for one without); a person who can manage the
+          space may correct them, whichever module or hire the agent is. */}
+        {agent.agentScope === "personal" ? (
+          // The person's own things, on their copilot's pane: the profile it
+          // keeps of them (reset is the only human edit) and their personal
+          // Space's browser with its standing consents.
+          <>
+            <WorkingMemoryProfileSection />
+            <UserBrowserSection target={{ spaceId: null }} />
+          </>
+        ) : spaceId ? (
+          // The Space's browser this agent works in, in its own window.
+          <UserBrowserSection target={{ spaceId }} />
+        ) : null}
+        <AgentInstructionsSection agentId={agent.id} editable={canEditPads} />
+        <AgentMemorySection
+          agentId={agent.id}
+          editable={canEditPads}
+          spaceId={spaceId}
+        />
+        <AgentTasksSection
+          agentId={agent.id}
+          editable={canEditPads}
+          spaceId={spaceId}
+        />
+
+        {/* What the agent has actually done, last three. The full feed is its
+          own drawer — a tab strip over the settings made the two read as one
+          page they are not. */}
+        <AgentRecentRuns agentId={agent.id} locale={locale} />
+
+        {/* The agent's admin page lives in the /admin/engenty debugging area. */}
+        {canManage && developerMode ? (
+          <Button asChild size="sm" variant="outline">
+            <Link to={buildAgentDetailPath(agent.id)}>
+              {t("agentDesk.manage.openAdmin")}
+              <ExternalLink className="ml-1.5 size-3.5" />
+            </Link>
+          </Button>
+        ) : null}
+        {connectDialog}
+      </div>
+    );
   }
 
   return (
@@ -269,96 +368,59 @@ export function AgentManagePanel({
 
       <CardSection
         cardVariant="compact"
-        description={t("agentDesk.manage.skillsDescription")}
-        headerVariant="compact"
-        title={t("agentDesk.skills")}
-      >
-        <Chips
-          chips={agent.skills}
-          empty={t("agentDesk.manage.noSkills")}
-          icon={<Sparkles className="size-3" />}
-        />
-        {canManage ? (
-          <ConnectLink
-            label={t("agentDesk.manage.connect")}
-            onClick={() => {
-              setConnectTab("skills");
-              setConnectOpen(true);
-            }}
-          />
-        ) : null}
-      </CardSection>
-
-      <CardSection
-        cardVariant="compact"
         description={t("agentDesk.manage.connectorsDescription")}
         headerVariant="compact"
         title={t("agentDesk.connectors")}
+        titleAction={
+          canManage ? (
+            <HeaderAction
+              label={t("agentDesk.manage.connect")}
+              onClick={() => {
+                setConnectTab("plugins");
+                setConnectDetailsId(null);
+                setConnectOpen(true);
+              }}
+            />
+          ) : null
+        }
       >
-        <Chips
-          chips={agent.connectors}
+        <AgentConnectorRows
+          connectors={agent.connectors}
           empty={t("agentDesk.manage.noConnectors")}
-          icon={<Cable className="size-3" />}
+          onOpen={
+            canManage
+              ? (connectorId) => {
+                  setConnectTab("plugins");
+                  setConnectDetailsId(connectorId);
+                  setConnectOpen(true);
+                }
+              : undefined
+          }
         />
-        {canManage ? (
-          <ConnectLink
-            label={t("agentDesk.manage.connect")}
-            onClick={() => {
-              setConnectTab("plugins");
-              setConnectOpen(true);
-            }}
-          />
-        ) : null}
       </CardSection>
 
-      {/* Every agent with an audience has both pads (the route answers
-          `enabled: false` for one without); a person who can manage the
-          space may correct them, whichever module or hire the agent is. */}
-      {agent.agentScope === "personal" ? (
-        // The person's own things, on their copilot's pane: the profile it
-        // keeps of them (reset is the only human edit) and their browser
-        // with its standing consents.
-        <>
-          <WorkingMemoryProfileSection />
-          <UserBrowserSection />
-        </>
-      ) : null}
-      <AgentInstructionsSection agentId={agent.id} editable={canEditPads} />
-      <AgentMemorySection
-        agentId={agent.id}
-        editable={canEditPads}
-        spaceId={spaceId}
-      />
-      <AgentTasksSection
-        agentId={agent.id}
-        editable={canEditPads}
-        spaceId={spaceId}
-      />
-
-      {canManage ? (
-        <AgentConnectDialog
-          agent={agent}
-          canEditSkills={editable}
-          initialTab={connectTab}
-          onOpenChange={setConnectOpen}
-          open={connectOpen}
-        />
-      ) : null}
-
-      {/* What the agent has actually done, last three. The full feed is its
-          own drawer — a tab strip over the settings made the two read as one
-          page they are not. */}
-      <AgentRecentRuns agentId={agent.id} locale={locale} />
-
-      {canManage ? (
-        <Button asChild size="sm" variant="outline">
-          <Link to={buildAgentDetailPath(agent.id)}>
-            {t("agentDesk.manage.openAdmin")}
-            <ExternalLink className="ml-1.5 size-3.5" />
-          </Link>
-        </Button>
-      ) : null}
+      {connectDialog}
     </div>
+  );
+}
+
+function HeaderAction({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <Button
+      className="h-6 px-2 text-primary text-xs"
+      onClick={onClick}
+      size="sm"
+      type="button"
+      variant="ghost"
+    >
+      {label}
+    </Button>
   );
 }
 
@@ -370,24 +432,6 @@ export function AgentManagePanel({
  * "reset" drops the override. Same document + API as Settings → Instructions
  * (`apps/ai/src/ai/instructions/base-documents.ts` names the key).
  */
-function ConnectLink({
-  label,
-  onClick,
-}: {
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      className="mt-2 font-medium text-[12px] text-primary hover:underline"
-      onClick={onClick}
-      type="button"
-    >
-      {label}
-    </button>
-  );
-}
-
 function AgentInstructionsSection({
   agentId,
   editable,

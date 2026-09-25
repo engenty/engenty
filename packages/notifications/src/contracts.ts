@@ -67,17 +67,22 @@ export const BUILTIN_NOTIFICATION_KINDS = {
   // A colleague finished work it was handed (notify mode); carries the
   // report's first line.
   agent_work_completed: "update",
-  // Core's approval gate, whatever module the operation belongs to. The
-  // older name is kept for rows written before the rename.
+  // Core's approval gate, whatever module the operation belongs to.
   approval_requested: "decision",
-  connection_approval_requested: "decision",
   // An agent gave itself (or a colleague) a standing job without a card —
   // the mode allowed it; the people in the Space still get to know.
   routine_created: "update",
   routine_failed: "alert",
+  // A routine outcome binding landed in the Updates lane (`notification.update`
+  // / `notification.high`). Class stays `update`; high/urgent priority is what
+  // the bell counts (owned by the badge change).
+  routine_outcome: "update",
   // A routine with `report: ask` finished and holds until someone has looked.
   routine_review: "decision",
   skill_proposed: "decision",
+  // An agent found a remote MCP server on the Space computer; importing it
+  // as a connector takes a tenant admin.
+  connector_import_requested: "decision",
   stream_escalation: "todo",
   stream_update: "update",
   task_assigned: "todo",
@@ -89,6 +94,8 @@ export const BUILTIN_NOTIFICATION_KINDS = {
   // An agent principal ran a non-trivial write operation (core's
   // `operation.afterInvoke`, medium+ risk); batches coalesce.
   records_written: "update",
+  // A room hit its agent-turn budget and waits for a person to resume it.
+  room_paused: "todo",
   "team_chat.message": "update",
   tool_approval: "decision",
   workflow_proposed: "decision",
@@ -96,15 +103,44 @@ export const BUILTIN_NOTIFICATION_KINDS = {
 
 export type BuiltinNotificationKind = keyof typeof BUILTIN_NOTIFICATION_KINDS;
 
-/** Classes that count on the badge. `update` is FYI and never does. */
-export const BADGE_CLASSES: readonly NotificationClass[] = [
+/**
+ * Classes that always need attention. An `update` is FYI and stays out
+ * unless `priority` is `high` or `urgent` — same exception `channelsFor`
+ * uses for web push. The row still lives in the Updates lane.
+ */
+export const ATTENTION_CLASSES: readonly NotificationClass[] = [
   "decision",
   "alert",
   "todo",
 ];
 
-export function isBadgeClass(cls: NotificationClass): boolean {
-  return BADGE_CLASSES.includes(cls);
+/** Priorities that make an `update` need attention. */
+export const ATTENTION_UPDATE_PRIORITIES: readonly NotificationPriority[] = [
+  "high",
+  "urgent",
+];
+
+/**
+ * "Needs attention" (Wichtig): an OPEN record that is a decision, todo or
+ * alert, or a high/urgent update. The one rule behind the bell, the
+ * attention count, the Wichtig lane and the space dashboard — seen or not:
+ * an attention record nags until handled (a decision until resolved, an FYI
+ * until dismissed). The UI mirrors it in
+ * `packages/notifications-ui/src/classification.ts`.
+ */
+export function isAttention(
+  record: Pick<NotificationRecord, "class" | "priority" | "status">
+): boolean {
+  if (record.status !== "pending") {
+    return false;
+  }
+  if (ATTENTION_CLASSES.includes(record.class)) {
+    return true;
+  }
+  return (
+    record.class === "update" &&
+    ATTENTION_UPDATE_PRIORITIES.includes(record.priority)
+  );
 }
 
 export type NotificationAudience =
@@ -128,6 +164,8 @@ export interface NotificationRecord {
   actor_kind: NotificationActorKind | null;
   audience_id: string | null;
   audience_kind: NotificationAudienceKind;
+  /** One plain line under the title (≤140), never raw agent output. */
+  body: string | null;
   class: NotificationClass;
   coalesce_key: string | null;
   coalesced_count: number;
@@ -145,8 +183,14 @@ export interface NotificationRecord {
   status: NotificationStatus;
   subject_id: string | null;
   subject_type: string | null;
+  /** English one-liner: the title as the server says it (push, mail, fallback). */
   summary: string;
+  /** In-app route of the subject, with the record's own space. */
+  target: string | null;
   tenant_id: string;
+  /** `notifications.titles.<key>` — what the UI says, in the viewer's language. */
+  title_key: string | null;
+  title_params: Record<string, string | number> | null;
   updated_at: string;
 }
 

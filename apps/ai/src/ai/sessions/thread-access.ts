@@ -108,6 +108,38 @@ export function sharedMastraRoomFromThread(input: {
   });
 }
 
+/**
+ * How long a "yes, may enter" from core is reused. Every transcript page of a
+ * Space thread asks, and each ask is an HTTP round trip to core; a removal
+ * from the Space therefore takes at most this long to lock the person out.
+ * A "no" is never cached — access granted a moment later must work at once.
+ */
+export const SPACE_ENTRY_CACHE_TTL_MS = 30_000;
+const SPACE_ENTRY_CACHE_MAX = 5000;
+const spaceEntryGrantedUntil = new Map<string, number>();
+
+function spaceEntryCacheKey(scope: AiSessionScope, spaceId: string): string {
+  return `${scope.tenantId}:${scope.userId}:${spaceId}`;
+}
+
+function rememberSpaceEntry(key: string, now: number): void {
+  if (spaceEntryGrantedUntil.size >= SPACE_ENTRY_CACHE_MAX) {
+    for (const [cachedKey, until] of spaceEntryGrantedUntil) {
+      if (until <= now) {
+        spaceEntryGrantedUntil.delete(cachedKey);
+      }
+    }
+    if (spaceEntryGrantedUntil.size >= SPACE_ENTRY_CACHE_MAX) {
+      spaceEntryGrantedUntil.clear();
+    }
+  }
+  spaceEntryGrantedUntil.set(key, now + SPACE_ENTRY_CACHE_TTL_MS);
+}
+
+export function clearSpaceEntryCacheForTests(): void {
+  spaceEntryGrantedUntil.clear();
+}
+
 export async function canEnterSpaceDefault(
   scope: AiSessionScope,
   spaceId: string
@@ -117,11 +149,18 @@ export async function canEnterSpaceDefault(
   if (!(accessToken && coreBaseUrl)) {
     return false;
   }
+  const key = spaceEntryCacheKey(scope, spaceId);
+  const now = Date.now();
+  if ((spaceEntryGrantedUntil.get(key) ?? 0) > now) {
+    return true;
+  }
   try {
     const client = new EngentyCoreClient({ accessToken, coreBaseUrl });
     await client.getSpaceSurface(spaceId);
+    rememberSpaceEntry(key, Date.now());
     return true;
   } catch {
+    spaceEntryGrantedUntil.delete(key);
     return false;
   }
 }

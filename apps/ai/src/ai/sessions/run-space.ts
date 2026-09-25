@@ -128,28 +128,24 @@ export interface RunSpace {
   /** Tool prefixes of EVERY connector, so the gate can recognise one. */
   allConnectorPrefixes: ReadonlySet<string>;
   /**
-   * The person whose browser this run may drive, with their unattended and
-   * autostart consents (PLAN-user-browser.md §2.2, D3). The chat user, or the
-   * human a headless lane acts for; null when there is nobody — then there is
-   * no browser and no `browser_*` tools.
+   * The Space's consents for its browser (PLAN-user-browser.md §2.2, D3):
+   * may agents drive it unattended, and start it without asking.
    */
-  browser: { autostart: boolean; unattended: boolean; userId: string } | null;
-  /** Tool prefixes of the connectors this space mounts. */
+  browser: { autostart: boolean; unattended: boolean };
+  /** Tool prefixes of the connectors enabled on this space. */
   connectorPrefixes: ReadonlySet<string>;
   /** Modules mounted with `agent_access` above `none`. */
   moduleIds: ReadonlySet<string>;
-  /**
-   * The ACCOUNTS this space mounts (connection ids), for the finer refusal
-   * (PLAN-spaces.md Phase CN.3).
-   *
-   * The prefix set above answers "may this space use Gmail at all"; this one
-   * answers "which mailbox", and only the code that has resolved a call to a
-   * connection can ask it. Empty when the space mounts no accounts — which,
-   * paired with an empty prefix set, refuses every connector operation.
-   */
-  mountedConnectionIds: ReadonlySet<string>;
   /** Modules the space's engentys may read but not write. */
   readOnlyModuleIds: ReadonlySet<string>;
+  /**
+   * Where the run's connections live, when that is not `spaceId` — the
+   * copilot's personal Space while it stands in another one
+   * (PLAN-space-owned-connections.md). `connectorPrefixes` describes this
+   * Space then; everything else — the computer and the browser included —
+   * describes `spaceId`.
+   */
+  resourceSpaceId?: string;
   spaceId: string;
   /**
    * The raw surface, including `skills`.
@@ -211,6 +207,9 @@ export function toolsSpaceFromResolution(
     connectorPrefixes: space.connectorPrefixes,
     moduleIds: space.moduleIds,
     readOnlyModuleIds: space.readOnlyModuleIds,
+    ...(space.resourceSpaceId
+      ? { resourceSpaceId: space.resourceSpaceId }
+      : {}),
     spaceId: space.spaceId,
     topLevelAgentIds: space.topLevelAgentIds,
   };
@@ -232,14 +231,15 @@ function prefixesForConnectorIds(
 }
 
 /**
- * Union space plugins, all-spaces accounts, and this agent's grants; then
- * apply an optional preferred connector-id list. Pure so tests can drive it
- * without a core round trip.
+ * Connector reach for one agent: the connectors enabled on its Space, narrowed
+ * by the agent's preferred list when it has one (empty = all the Space offers).
+ * A run with no Space reaches no connector — a connection always belongs to
+ * some Space (PLAN-space-owned-connections.md). Pure so tests can drive it
+ * without a core round trip; the SDK's `connectorPrefixesForAgent` is the same
+ * rule on the execute side.
  */
 export function applyAgentConnectorReach(params: {
   allConnectorPrefixes: ReadonlySet<string>;
-  allSpacesPrefixes: ReadonlySet<string>;
-  grantPrefixes: ReadonlySet<string>;
   preferredPrefixes: ReadonlySet<string>;
   space: SpaceGateContext | null;
 }): SpaceGateContext | null {
@@ -249,36 +249,29 @@ export function applyAgentConnectorReach(params: {
   }
   const surface: SpaceGateSurface | null =
     space != null && !("kind" in space) ? space : null;
-  const enabled = new Set(params.allSpacesPrefixes);
-  if (surface) {
-    for (const prefix of surface.connectorPrefixes) {
-      enabled.add(prefix);
-    }
+  if (!surface) {
+    const global: GlobalConnectorGate = {
+      allConnectorPrefixes: params.allConnectorPrefixes,
+      connectorPrefixes: new Set(),
+      kind: "global",
+    };
+    return global;
   }
-  const allowed =
+  const connectorPrefixes =
     params.preferredPrefixes.size === 0
-      ? new Set([...enabled, ...params.grantPrefixes])
-      : new Set([
-          ...[...enabled].filter((prefix) =>
+      ? new Set(surface.connectorPrefixes)
+      : new Set(
+          [...surface.connectorPrefixes].filter((prefix) =>
             params.preferredPrefixes.has(prefix)
-          ),
-          ...params.grantPrefixes,
-        ]);
-  if (surface) {
-    return { ...surface, connectorPrefixes: allowed };
-  }
-  const global: GlobalConnectorGate = {
-    allConnectorPrefixes: params.allConnectorPrefixes,
-    connectorPrefixes: allowed,
-    kind: "global",
-  };
-  return global;
+          )
+        );
+  return { ...surface, connectorPrefixes };
 }
 
 /**
- * Restrict connector tools for this agent: grants ∪ space mounts ∪ all-spaces,
- * intersected with a non-empty preferred plugin list. `{kind:"global"}` is
- * this surface — never a silent fallback to Company or the personal space.
+ * Restrict connector tools for this agent: the Space's connectors, intersected
+ * with a non-empty preferred plugin list. `{kind:"global"}` (no Space) carries
+ * no connector — never a silent fallback to Company or the personal space.
  */
 export async function enrichToolsSpaceForAgentRun(params: {
   agentId: string;
@@ -294,55 +287,16 @@ export async function enrichToolsSpaceForAgentRun(params: {
   if (!(accessToken && coreBaseUrl)) {
     return applyAgentConnectorReach({
       allConnectorPrefixes: params.space?.allConnectorPrefixes ?? new Set(),
-      allSpacesPrefixes: new Set(),
-      grantPrefixes: new Set(),
       preferredPrefixes: new Set(),
       space: params.space,
     });
   }
-  const client = new EngentyCoreClient({ accessToken, coreBaseUrl });
   const prefixesById = await resolveConnectorPrefixes(
-    client,
+    new EngentyCoreClient({ accessToken, coreBaseUrl }),
     params.scope.tenantId
   );
-  const [grantsResult, catalogResult] = await Promise.all([
-    client
-      .invokeTool<
-        { agent_id: string },
-        { grants?: Array<{ connector_id?: string | null }> }
-      >("connections_agent_grants_list", { agent_id: params.agentId })
-      .catch(() => ({ grants: [] as Array<{ connector_id?: string | null }> })),
-    client
-      .invokeTool<
-        Record<string, never>,
-        {
-          connectors?: Array<{
-            connections?: Array<{ all_spaces?: boolean }>;
-            id?: string;
-          }>;
-        }
-      >("connections_catalog", {})
-      .catch(() => ({ connectors: [] })),
-  ]);
-  const grantPrefixes = prefixesForConnectorIds(
-    (grantsResult.grants ?? [])
-      .map((grant) => grant.connector_id)
-      .filter((id): id is string => Boolean(id)),
-    prefixesById
-  );
-  const allSpacesIds: string[] = [];
-  for (const connector of catalogResult.connectors ?? []) {
-    if (
-      connector.id &&
-      connector.connections?.some((connection) => connection.all_spaces)
-    ) {
-      allSpacesIds.push(connector.id);
-    }
-  }
   return applyAgentConnectorReach({
     allConnectorPrefixes: new Set(prefixesById.values()),
-    allSpacesPrefixes: prefixesForConnectorIds(allSpacesIds, prefixesById),
-    grantPrefixes,
     preferredPrefixes: prefixesForConnectorIds(
       params.preferredConnectorIds ?? [],
       prefixesById
@@ -488,15 +442,11 @@ function runSpaceFromSurface(
   return {
     agentIds: new Set(surface.agents),
     allConnectorPrefixes: new Set(prefixesById.values()),
-    browser: actingUserId
-      ? {
-          autostart: surface.browserGrant?.autostart === true,
-          unattended: surface.browserGrant?.unattended === true,
-          userId: actingUserId,
-        }
-      : null,
+    browser: {
+      autostart: surface.browserGrant?.autostart === true,
+      unattended: surface.browserGrant?.unattended === true,
+    },
     connectorPrefixes,
-    mountedConnectionIds: new Set(surface.connections),
     moduleIds,
     readOnlyModuleIds,
     spaceId,
@@ -518,9 +468,16 @@ async function fetchSpaceSurface(
   );
 }
 
+/** The copilot's connections are its person's personal Space's, wherever it stands. */
+const COPILOT_AGENT_ID = "engenty.copilot";
+
 /**
  * Resolve and VALIDATE the run's space, then fetch what it contains.
  *
+ * - the copilot → the Space the person stands in (the route context), else
+ *   their personal Space (`/s/me`). Its connections are always the personal
+ *   Space's (`resourceSpaceId`); its computer and browser, hiring, apps,
+ *   routines and the agent roster are the Space it stands in.
  * - no Space claim → `global` (intentional tenant-wide behaviour)
  * - core confirms the caller may enter → `resolved` with the surface
  * - claimed but inaccessible, deleted, or unreachable → `unresolved`
@@ -539,12 +496,27 @@ export async function resolveRunSpace(input: {
   /** Headless runs identify themselves by task, not thread — see the warn below. */
   taskId?: string;
   thread: {
+    agent_id?: string | null;
     route_context?: Record<string, unknown> | null;
     space_id?: string | null;
   };
   threadId?: string;
 }): Promise<RunSpaceResolution> {
-  const spaceId = candidateRunSpaceId(input.thread);
+  let spaceId: string | null;
+  let resourceSpaceId: string | null = null;
+  if (input.thread.agent_id === COPILOT_AGENT_ID) {
+    resourceSpaceId = await resolvePersonalSpaceId(input.scope);
+    if (!resourceSpaceId) {
+      return {
+        claimed_space_id: "personal",
+        kind: "unresolved",
+        reason: "not_found",
+      };
+    }
+    spaceId = candidateRunSpaceId(input.thread) ?? resourceSpaceId;
+  } else {
+    spaceId = candidateRunSpaceId(input.thread);
+  }
   if (!spaceId) {
     return { kind: "global" };
   }
@@ -573,20 +545,23 @@ export async function resolveRunSpace(input: {
   // forward the task id (already on the client) and the task's acting user so
   // core can authorize a server-resolved task Space without treating a 404 as
   // tenant-wide reach.
-  const cacheKey = `${input.scope.tenantId}:${input.scope.userId}:${input.actingUserId ?? ""}:${input.taskId ?? ""}:${input.routineId ?? ""}:${spaceId}`;
-  const cached = surfaceCache.get(cacheKey);
-  const now = Date.now();
+  const surfaceOf = async (id: string): Promise<EngentySpaceSurface> => {
+    const cacheKey = `${input.scope.tenantId}:${input.scope.userId}:${input.actingUserId ?? ""}:${input.taskId ?? ""}:${input.routineId ?? ""}:${id}`;
+    const cached = surfaceCache.get(cacheKey);
+    const now = Date.now();
+    if (cached && cached.expiresAt > now) {
+      return cached.surface;
+    }
+    const surface = await fetchSpaceSurface(client, id, input.actingUserId);
+    surfaceCache.set(cacheKey, {
+      expiresAt: now + SURFACE_CACHE_TTL_MS,
+      surface,
+    });
+    return surface;
+  };
   let surface: EngentySpaceSurface;
   try {
-    if (cached && cached.expiresAt > now) {
-      surface = cached.surface;
-    } else {
-      surface = await fetchSpaceSurface(client, spaceId, input.actingUserId);
-      surfaceCache.set(cacheKey, {
-        expiresAt: now + SURFACE_CACHE_TTL_MS,
-        surface,
-      });
-    }
+    surface = await surfaceOf(spaceId);
   } catch (err) {
     const unresolved = unresolvedFromError(err, spaceId);
     warnUnresolved(input, spaceId, unresolved.reason, err);
@@ -597,36 +572,48 @@ export async function resolveRunSpace(input: {
     client,
     input.scope.tenantId
   );
+  const space = runSpaceFromSurface(
+    spaceId,
+    surface,
+    prefixesById,
+    // The human this run acts for: named by the headless lane, else the
+    // token's user. A service principal names nobody by itself.
+    input.actingUserId ?? scopeAttributionUserId(input.scope)
+  );
+  if (!resourceSpaceId || resourceSpaceId === spaceId) {
+    return { kind: "resolved", space };
+  }
+  let resources: RunSpace;
+  try {
+    resources = runSpaceFromSurface(
+      resourceSpaceId,
+      await surfaceOf(resourceSpaceId),
+      prefixesById,
+      input.actingUserId ?? scopeAttributionUserId(input.scope)
+    );
+  } catch (err) {
+    const unresolved = unresolvedFromError(err, resourceSpaceId);
+    warnUnresolved(input, resourceSpaceId, unresolved.reason, err);
+    return unresolved;
+  }
   return {
     kind: "resolved",
-    space: runSpaceFromSurface(
-      spaceId,
-      surface,
-      prefixesById,
-      // The human this run acts for: named by the headless lane, else the
-      // token's user. A service principal names nobody by itself.
-      input.actingUserId ?? scopeAttributionUserId(input.scope)
-    ),
+    space: {
+      ...space,
+      connectorPrefixes: resources.connectorPrefixes,
+      resourceSpaceId,
+    },
   };
 }
 
 /**
- * The caller's OWN personal space, or null when they have none.
- *
- * The fallback for a PERSONAL-scope agent whose thread carries no space claim
- * (PLAN-space-chats.md S4b). A thread predating Phase C2's backfill, or one
- * minted in the window before the shell's space list resolved, arrives with
- * `space_id` null — and `{kind:"global"}` for the copilot is not an intentional
- * tenant-wide mode, it is a hole: the run would then read the TENANT DEFAULT
- * space, which is the shared Company space, and reach every module mounted
- * there on behalf of a chat nobody placed anywhere.
- *
- * The personal space is the right answer and not an invention — it is the same
- * rule Phase C2 backfilled those very threads with, and the same one the shell
- * applies outside `/s/…` (`resolveCopilotSpaceId`).
+ * The caller's OWN personal space, or null when they have none — where the
+ * copilot's connections live
+ * (PLAN-space-owned-connections.md).
  *
  * `listSpaces` is membership-filtered by core, so the only owned space it can
- * return is the caller's own.
+ * return is the caller's own. Every user gets one on creation (core trigger),
+ * so null means core was unreachable, not that the person has none.
  */
 export async function resolvePersonalSpaceId(
   scope: AiSessionScope
@@ -698,15 +685,16 @@ export async function resolveRunSpaceById(input: {
 export async function resolveRunSpaceForThread(input: {
   /**
    * The RUN's route context, when the caller has one fresher than the
-   * thread's. A thread with no space of its own — the copilot's river — is
-   * placed by where the person is standing for this turn, and only there.
-   * A thread's own `space_id` still wins: a desk cannot be walked elsewhere.
+   * thread's. A thread's own `space_id` still wins: a desk cannot be walked
+   * elsewhere. The copilot's river has none, so the route context places it;
+   * its resources stay in the personal Space (`resolveRunSpace`).
    */
   routeContext?: Record<string, unknown> | null;
   runId?: string;
   scope: AiSessionScope;
   store: {
     getThread: (params: { tenantId: string; threadId: string }) => Promise<{
+      agent_id?: string | null;
       route_context?: Record<string, unknown> | null;
       space_id?: string | null;
     } | null>;
@@ -714,6 +702,7 @@ export async function resolveRunSpaceForThread(input: {
   threadId: string;
 }): Promise<RunSpaceResolution> {
   let thread: {
+    agent_id?: string | null;
     route_context?: Record<string, unknown> | null;
     space_id?: string | null;
   } | null;
@@ -731,6 +720,7 @@ export async function resolveRunSpaceForThread(input: {
   return resolveRunSpace({
     scope: input.scope,
     thread: {
+      agent_id: thread.agent_id ?? null,
       route_context: input.routeContext ?? thread.route_context,
       space_id: thread.space_id,
     },

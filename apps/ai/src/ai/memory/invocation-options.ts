@@ -59,8 +59,8 @@ export interface EngentySessionMemoryRuntimeInput
   /** The person this agent writes for in a room (rooms/alter-ego.ts). */
   alterEgo?: AlterEgo | null;
   /**
-   * Configured routing-tier model id. Observational memory uses the AI
-   * Gateway with this id (or the platform routing default).
+   * Configured fast-text model id. Observational memory and thread titles use
+   * the AI Gateway with this id (or the platform fast-text default).
    */
   observationalModelId?: string | null;
   /**

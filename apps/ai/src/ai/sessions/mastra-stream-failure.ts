@@ -73,7 +73,30 @@ export function isProviderContentFilterError(error: unknown): boolean {
   );
 }
 
+export const AGENT_THREADS_MODEL_GATEWAY_UNCONFIGURED =
+  "agent_threads.modelGatewayUnconfigured" as const;
+
+export function isUnconfiguredModelGatewayError(error: unknown): boolean {
+  if (!error) {
+    return false;
+  }
+  const record = error as { message?: unknown; name?: unknown };
+  if (record.name === "UnconfiguredModelGatewayError") {
+    return true;
+  }
+  const message =
+    typeof error === "string"
+      ? error
+      : typeof record.message === "string"
+        ? record.message
+        : "";
+  return /model gateway .+ is not configured/i.test(message);
+}
+
 export function formatAgentStreamFailureMessage(error: unknown): string {
+  if (isUnconfiguredModelGatewayError(error)) {
+    return AGENT_THREADS_MODEL_GATEWAY_UNCONFIGURED;
+  }
   if (isContextLengthExceededError(error)) {
     return AGENT_THREADS_CONTEXT_LENGTH_EXCEEDED;
   }
@@ -125,6 +148,8 @@ export function agentRunErrorCode(failureMessage: string): string {
       return "empty_reply";
     case AGENT_THREADS_GUARDRAIL_TRIPPED:
       return "tripwire";
+    case AGENT_THREADS_MODEL_GATEWAY_UNCONFIGURED:
+      return "model_gateway_unconfigured";
     default:
       return "run_error";
   }

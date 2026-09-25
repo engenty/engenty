@@ -1,19 +1,21 @@
-// The `browser_*` tools an agent gets for the acting user's browser
-// (PLAN-user-browser.md §2.3–2.4).
+// The `browser_*` tools an agent gets for its window in the Space's browser
+// (PLAN-user-browser.md §2.3–2.4; PLAN-space-owned-connections.md).
 //
 // Mastra's `AgentBrowser` supplies the tools; they reach the agent WRAPPED,
 // through the normal `tools` map rather than `Agent({ browser })`, because the
 // wrapper is the one place where the seat, the unattended gate, the audit
 // event and the last-use stamp live. D11: the set is attached only when the
-// acting user has a browser (running or stopped), or has allowed agents to
-// start one (`autostart`). The browser is the person's, in every space and
-// outside any. Without either, a run gets one
-// small `browser_start` tool that asks the person for permission to start —
-// everything else keeps the ~18 KB of schema out of its prompt.
+// Space has a browser (running or stopped), or allows agents to start one
+// (`autostart`). Without either, a run gets one small `browser_start` tool
+// that asks a person for permission to start — everything else keeps the
+// ~18 KB of schema out of its prompt.
 
-import { createRequestDecisionArtifact } from "@engenty/ai-core";
+import {
+  createClassifierClient,
+  createRequestDecisionArtifact,
+  type ResolvedClassifier,
+} from "@engenty/ai-core";
 import { createLogger } from "@engenty/telemetry";
-import { resolveJevClient } from "@engenty/typesafe-client";
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 
@@ -29,8 +31,11 @@ import {
   markUserBrowserUsed,
   readUserBrowserStatus,
   startUserBrowser,
-  type UserBrowserIdentity,
 } from "../sandbox/space-browser.js";
+import {
+  BROWSER_SIGN_IN_TOOL_ID,
+  createSignInTool,
+} from "./browser-sign-in-tool.js";
 import {
   createFieldText,
   type FastLoopPage,
@@ -41,6 +46,9 @@ import {
 } from "./fast-loop/index.js";
 import {
   acquireAgentSeat,
+  type BrowserWindowIdentity,
+  browserWindowKey,
+  ensureBrowserWindow,
   getSeat,
   getUserBrowser,
   releaseAgentSeat,
@@ -63,11 +71,24 @@ const BROWSER_DECLINE_START_CHOICE_ID = "browser_decline_start";
 export const BROWSER_ACTION_EVENT_NAME = "engenty.browser.action";
 
 export interface UserBrowserToolsInput {
-  /** Whose browser, and their standing consents (`resolveRunBrowser`). */
+  /**
+   * The Space whose browser this run uses, the agent whose window it drives,
+   * and the Space's standing consents (`resolveRunBrowser`).
+   */
   browser:
-    | { autostart?: boolean; unattended: boolean; userId: string }
+    | {
+        agentId: string;
+        autostart?: boolean;
+        spaceId: string;
+        unattended: boolean;
+      }
     | null
     | undefined;
+  /**
+   * The run's `classifier` binding (`modelConfig.classifierModelId`): the fast
+   * loop's step picker. No reachable classifier, no `browser_run_fast`.
+   */
+  classifierModelId?: string | null;
   /** Audit sink — the lane's run-event emitter. Agent steps only. */
   emit?: (name: string, value: Record<string, unknown>) => void;
   /** No human at the keyboard: routine fires, task jobs, delegated children. */
@@ -81,9 +102,9 @@ export interface UserBrowserToolsInput {
 }
 
 const NEEDS_USER_UNATTENDED =
-  "This run is unattended and the browser's owner has not allowed agents to use their browser while they are away. The browser was NOT touched. Do not retry; finish without it and say what you needed the browser for.";
+  "This run is unattended and this Space has not allowed agents to use its browser while nobody is watching. The browser was NOT touched. Do not retry; finish without it and say what you needed the browser for.";
 const NEEDS_USER_START =
-  "Nobody is at the keyboard for this run, and the person has not allowed agents to start their browser on their own. No browser was started. Finish without it and report what you needed the browser for.";
+  "Nobody is at the keyboard for this run, and this Space has not allowed agents to start its browser on their own. No browser was started. Finish without it and report what you needed the browser for.";
 
 /** Tool arguments as the audit trail keeps them: shape, not payload. */
 function redactForAudit(input: unknown): unknown {
@@ -117,7 +138,7 @@ const HAND_BACK_CHOICE_ID = "browser_hand_back";
 const DECLINE_CHOICE_ID = "browser_decline";
 
 /**
- * Suspend the run and hand the browser to its owner — for a login, a
+ * Suspend the run and hand the agent's window to the person — for a login, a
  * captcha, a consent screen. The park is a DECISION artifact, so the chat
  * renders the card it already knows (title = the agent's reason, two
  * choices) and the person answers it after doing the thing in their live
@@ -126,13 +147,13 @@ const DECLINE_CHOICE_ID = "browser_decline";
  */
 function createRequestUserTool(input: {
   headless: boolean;
-  identity: UserBrowserIdentity;
-  sandboxId: string;
+  identity: BrowserWindowIdentity;
+  windowKey: string;
 }) {
   return createTool({
     id: BROWSER_REQUEST_USER_TOOL_ID,
     description:
-      "Hand the browser to its owner and WAIT: use when a page needs something only the person can give — a login, a one-time code, a captcha, a consent — or when you are unsure a click is what they want. Say in `reason` what they should do. Their browser pane opens with the controls already theirs; the tool returns once they hand it back, and the controls are yours again. Then take a fresh browser_snapshot before continuing.",
+      "Hand your browser window to the person and WAIT: use when a page needs something only the person can give — a login, a one-time code, a captcha, a consent — or when you are unsure a click is what they want. Say in `reason` what they should do. The window opens for them with the controls already theirs; the tool returns once they hand it back, and the controls are yours again. Then take a fresh browser_snapshot before continuing.",
     inputSchema: z.object({
       reason: z
         .string()
@@ -149,7 +170,7 @@ function createRequestUserTool(input: {
       if (resume) {
         releaseFrontendToolSuspendSlot(lockKey);
         // Whatever they answered, the page is the agent's to drive again.
-        releaseUserSeat(input.sandboxId);
+        releaseUserSeat(input.windowKey);
         const declined =
           resume.cancelled === true ||
           resume.choice_id === DECLINE_CHOICE_ID ||
@@ -174,9 +195,9 @@ function createRequestUserTool(input: {
       // The controls are theirs before they are asked: no "Take over" click
       // stands between the question and the page.
       getUserBrowser(input.identity);
-      takeUserSeat(input.sandboxId);
+      takeUserSeat(input.windowKey);
       const artifact = createRequestDecisionArtifact({
-        body: "Your browser pane is open and the controls are yours. Do it there, then answer here.",
+        body: "The agent's browser window is open and the controls are yours. Do it there, then answer here.",
         choices: [
           {
             description: "I am done in the browser; continue.",
@@ -195,7 +216,11 @@ function createRequestUserTool(input: {
       try {
         await ctx.agent?.suspend({
           ...artifact,
-          browser: { sandbox_id: input.sandboxId },
+          browser: {
+            agent_id: input.identity.agentId,
+            sandbox_id: buildUserBrowserSandboxId(input.identity),
+            space_id: input.identity.spaceId,
+          },
         });
         releaseFrontendToolSuspendSlot(lockKey, ticket);
       } catch (error) {
@@ -216,13 +241,13 @@ function createRequestUserTool(input: {
  */
 function createHandOverTool(input: {
   emit?: UserBrowserToolsInput["emit"];
-  identity: UserBrowserIdentity;
-  sandboxId: string;
+  identity: BrowserWindowIdentity;
+  windowKey: string;
 }) {
   return createTool({
     id: BROWSER_HAND_OVER_TOOL_ID,
     description:
-      'Switch who drives the browser, without waiting. `to: "person"` gives the page to its owner (their pane opens with the controls theirs) — say in `note` what they can do there. `to: "agent"` takes the controls back, only after the person said they are done. To hand over AND wait for them, use browser_request_user instead.',
+      'Switch who drives your browser window, without waiting. `to: "person"` gives the page to the person in the chat (the window opens with the controls theirs) — say in `note` what they can do there. `to: "agent"` takes the controls back, only after the person said they are done. To hand over AND wait for them, use browser_request_user instead.',
     inputSchema: z.object({
       note: z
         .string()
@@ -235,26 +260,26 @@ function createHandOverTool(input: {
       const runId = getEngentyToolsRunContext().runId ?? "";
       if (inputData.to === "person") {
         getUserBrowser(input.identity);
-        takeUserSeat(input.sandboxId);
+        takeUserSeat(input.windowKey);
       } else {
-        releaseUserSeat(input.sandboxId);
+        releaseUserSeat(input.windowKey);
       }
-      const holder = getSeat(input.sandboxId).holder;
+      const holder = getSeat(input.windowKey).holder;
       const seat =
         holder === null ? "free" : holder === "user" ? "user" : "agent";
       input.emit?.(BROWSER_ACTION_EVENT_NAME, {
         input: { note: inputData.note ?? null, to: inputData.to },
         ok: true,
+        agent_id: input.identity.agentId,
         run_id: runId,
-        sandbox_id: input.sandboxId,
         seat,
+        space_id: input.identity.spaceId,
         tool: BROWSER_HAND_OVER_TOOL_ID,
-        user_id: input.identity.userId,
       });
       return {
         note:
           inputData.to === "person"
-            ? 'The person has the browser now. Do not touch it until they say they are done; then hand it back to yourself with browser_hand_over to: "agent".'
+            ? 'The person has the window now. Do not touch it until they say they are done; then hand it back to yourself with browser_hand_over to: "agent".'
             : "The browser is yours again. Take a fresh browser_snapshot before you continue — the page may have changed.",
         seat,
       } as never;
@@ -271,18 +296,18 @@ function createHandOverTool(input: {
  */
 function createStartTool(input: {
   headless: boolean;
-  identity: UserBrowserIdentity;
+  identity: BrowserWindowIdentity;
 }) {
   return createTool({
     id: BROWSER_START_TOOL_ID,
     description:
-      "Ask the person for permission to start their own browser in this Space, and WAIT. Use when a task needs the web (a site to visit, a form to fill, something to read behind a login) and you have no browser_* tools. Say in `reason` what you want to do there. Once they allow it, the browser starts and the browser_* tools (browser_goto, browser_snapshot, browser_click, …) become available to you; begin with browser_goto.",
+      "Ask the person for permission to start this Space's browser, and WAIT. Use when a task needs the web (a site to visit, a form to fill, something to read behind a login) and you have no browser_* tools. Say in `reason` what you want to do there. Once they allow it, the browser starts and the browser_* tools (browser_goto, browser_snapshot, browser_click, …) become available to you; begin with browser_goto.",
     inputSchema: z.object({
       reason: z
         .string()
         .min(1)
         .max(500)
-        .describe("What you want to do in their browser, one sentence."),
+        .describe("What you want to do in the browser, one sentence."),
     }),
     resumeSchema: requestDecisionResumeSchema,
     execute: async (inputData, ctx) => {
@@ -299,14 +324,14 @@ function createStartTool(input: {
               (c) => c.id === BROWSER_ALLOW_START_CHOICE_ID
             ));
         if (!allowed) {
-          return "The person did not allow starting their browser. Do not ask again in this conversation; finish without it and say what you needed." as never;
+          return "The person did not allow starting the Space's browser. Do not ask again in this conversation; finish without it and say what you needed." as never;
         }
         // The resume lane started it already; make sure, and confirm.
         const status = await readUserBrowserStatus(input.identity);
         if (status.state === "absent") {
           await startUserBrowser(input.identity);
         }
-        return "The person allowed it and their browser is running. Use the browser_* tools now, starting with browser_goto." as never;
+        return "The person allowed it and the Space's browser is running. Use the browser_* tools now, starting with browser_goto." as never;
       }
       if (
         input.headless ||
@@ -320,10 +345,11 @@ function createStartTool(input: {
         } as never;
       }
       const artifact = createRequestDecisionArtifact({
-        body: "A private browser for you in this Space — logins, cookies and downloads are yours; you can watch and take over any time from the monitor icon. Allow it to start?",
+        body: "A browser for this Space — its logins, cookies and downloads are shared by the Space's agents, each working in its own window; you can watch and take over any time from the monitor icon. Allow it to start?",
         choices: [
           {
-            description: "Start my browser and let the Engenty use it.",
+            description:
+              "Start the Space's browser and let the Engenty use it.",
             id: BROWSER_ALLOW_START_CHOICE_ID,
             label: "Allow",
           },
@@ -371,9 +397,10 @@ export async function startUserBrowserOnResume(
   if (!input.browser) {
     return;
   }
-  const identity: UserBrowserIdentity = {
+  const identity: BrowserWindowIdentity = {
+    agentId: input.browser.agentId,
+    spaceId: input.browser.spaceId,
     tenantId: input.tenantId,
-    userId: input.browser.userId,
   };
   try {
     const status = await readUserBrowserStatus(identity);
@@ -396,8 +423,7 @@ function wrapBrowserTool(params: {
   emit?: UserBrowserToolsInput["emit"];
   headless: boolean;
   id: string;
-  identity: UserBrowserIdentity;
-  sandboxId: string;
+  identity: BrowserWindowIdentity;
   tool: {
     description: string;
     execute?: (inputData: unknown, ctx: unknown) => Promise<unknown>;
@@ -405,7 +431,9 @@ function wrapBrowserTool(params: {
   };
   unattended: boolean;
 }) {
-  const { identity, sandboxId } = params;
+  const { identity } = params;
+  const sandboxId = buildUserBrowserSandboxId(identity);
+  const windowKey = browserWindowKey(identity);
   return createTool({
     id: params.id,
     description: params.tool.description,
@@ -414,10 +442,10 @@ function wrapBrowserTool(params: {
       const runId = getEngentyToolsRunContext().runId?.trim() || "unknown";
       const audit = (value: Record<string, unknown>) =>
         params.emit?.(BROWSER_ACTION_EVENT_NAME, {
+          agent_id: identity.agentId,
           input: redactForAudit(inputData),
-          sandbox_id: sandboxId,
+          space_id: identity.spaceId,
           tool: params.id,
-          user_id: identity.userId,
           ...value,
         });
       if (params.headless && !params.unattended) {
@@ -435,8 +463,8 @@ function wrapBrowserTool(params: {
           error: seat.error,
           note:
             seat.error === "held_by_user"
-              ? "The person is using their browser right now. Do not retry in a loop; wait for them to hand it back (browser_request_user) or continue without the browser."
-              : "Another run is using this browser. Try again shortly or continue without it.",
+              ? "The person is using your browser window right now. Do not retry in a loop; wait for them to hand it back (browser_request_user) or continue without the browser."
+              : "Another run of yours is using your browser window. Try again shortly or continue without it.",
         } as never;
       }
       markUserBrowserUsed(sandboxId);
@@ -446,15 +474,14 @@ function wrapBrowserTool(params: {
         return { error: "tool_not_executable" } as never;
       }
       const run = async () => {
-        const browser = getUserBrowser(identity);
         try {
-          await browser.ensureReady();
+          await ensureBrowserWindow(identity);
         } catch {
           // Asleep (idle-stop), not yet reachable, or never created under
-          // `autostart`: start it — the person declared this browser once,
-          // or allowed agents to — then connect again.
+          // `autostart`: start it — a person declared this browser once, or
+          // the Space allowed agents to — then connect again.
           await startUserBrowser(identity);
-          await getUserBrowser(identity).ensureReady();
+          await ensureBrowserWindow(identity);
         }
         return execute(inputData, ctx);
       };
@@ -480,12 +507,12 @@ function wrapBrowserTool(params: {
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         audit({ error: message, ms: Date.now() - startedAt, ok: false });
-        logger.warn("user browser tool failed", {
+        logger.warn("browser window tool failed", {
           message,
-          sandboxId,
           tool: params.id,
+          windowKey,
         });
-        releaseAgentSeat(sandboxId, runId);
+        releaseAgentSeat(windowKey, runId);
         throw err;
       }
     },
@@ -500,18 +527,19 @@ const RUN_FAST_DESCRIPTION =
 /**
  * `browser_run_fast`: the fast loop as one wrapped tool, so it shares the
  * seat, the unattended gate, wake-on-first-use and the audit event with
- * every other browser step (D1, D3). Offered only with the switch on and a
- * TypeSafe key present. Runs on the page Mastra's `AgentBrowser` already
+ * every other browser step (D1, D3). Offered only with the switch on and the
+ * run's classifier binding reachable. Runs on the page Mastra's `AgentBrowser` already
  * holds — `getPage()` is not in the provider's public types but is the
  * method its own tools use; `fast-loop-page.real.test.ts` pins it.
  */
 function createRunFastTool(params: {
+  classifier: ResolvedClassifier;
   emit?: UserBrowserToolsInput["emit"];
-  identity: UserBrowserIdentity;
-  sandboxId: string;
+  identity: BrowserWindowIdentity;
   textModelId: string | null;
 }) {
-  const { identity, sandboxId } = params;
+  const { identity } = params;
+  const windowKey = browserWindowKey(identity);
   return {
     description: RUN_FAST_DESCRIPTION,
     inputSchema: z.object({
@@ -534,21 +562,18 @@ function createRunFastTool(params: {
     }),
     execute: async (inputData: unknown) => {
       const input = inputData as { goal: string; max_steps?: number };
-      const jev = resolveJevClient();
-      if (!jev) {
-        return { error: "typesafe_key_missing", status: "error" };
-      }
+      const { classifier } = params;
       const browser = getUserBrowser(identity) as unknown as {
         getPage(): Promise<FastLoopPage>;
       };
       const page = await browser.getPage();
       const runId = getEngentyToolsRunContext().runId?.trim() || "unknown";
-      const { client } = jev;
+      const { client } = classifier;
       const result = await runFastLoop({
         client,
         fieldText: createFieldText({
           ...(params.textModelId ? { modelId: params.textModelId } : {}),
-          spans: { client, model: jev.model },
+          spans: { client },
         }),
         goal: input.goal,
         maxSteps: Math.min(
@@ -558,14 +583,14 @@ function createRunFastTool(params: {
         minMargin: resolveFastLoopMinMargin(),
         onStep: (step) =>
           params.emit?.(BROWSER_ACTION_EVENT_NAME, {
+            agent_id: identity.agentId,
             fast_step: step,
-            sandbox_id: sandboxId,
+            space_id: identity.spaceId,
             tool: BROWSER_RUN_FAST_TOOL_ID,
-            user_id: identity.userId,
           }),
         page,
         shouldStop: () => {
-          const holder = getSeat(sandboxId).holder;
+          const holder = getSeat(windowKey).holder;
           return (
             holder === "user" || (holder !== null && holder.runId !== runId)
           );
@@ -573,12 +598,12 @@ function createRunFastTool(params: {
       });
       logger.info("browser fast loop finished", {
         elapsed_ms: result.elapsed_ms,
-        model: jev.model,
-        route: jev.route,
-        sandboxId,
+        model: classifier.model,
+        route: classifier.route,
         status: result.status,
         steps: result.steps,
         totals: result.totals,
+        windowKey,
       });
       return result;
     },
@@ -586,11 +611,11 @@ function createRunFastTool(params: {
 }
 
 /**
- * The browser toolset for a run (D11): the full wrapped set when the acting
- * user has a browser (running or stopped) or allows agents to start one
+ * The browser toolset for a run (D11): the full wrapped set when the Space
+ * has a browser (running or stopped) or allows agents to start one
  * (`autostart` — the wrapper's wake-on-first-use then creates it); only
- * `browser_start` (ask the person) when they have neither; `{}` with no
- * acting user.
+ * `browser_start` (ask a person) when it has neither; `{}` for a run with no
+ * Space.
  */
 export async function createUserBrowserTools(
   input: UserBrowserToolsInput
@@ -598,15 +623,16 @@ export async function createUserBrowserTools(
   if (!input.browser) {
     return {};
   }
-  const identity: UserBrowserIdentity = {
+  const identity: BrowserWindowIdentity = {
+    agentId: input.browser.agentId,
+    spaceId: input.browser.spaceId,
     tenantId: input.tenantId,
-    userId: input.browser.userId,
   };
   let status: Awaited<ReturnType<typeof readUserBrowserStatus>>;
   try {
     status = await readUserBrowserStatus(identity);
   } catch (err) {
-    logger.warn("user browser status unavailable; no browser tools", {
+    logger.warn("space browser status unavailable; no browser tools", {
       message: err instanceof Error ? err.message : String(err),
     });
     return {};
@@ -619,7 +645,7 @@ export async function createUserBrowserTools(
       }) as unknown as MastraToolDefinition,
     };
   }
-  const sandboxId = buildUserBrowserSandboxId(identity);
+  const windowKey = browserWindowKey(identity);
   const tools: Record<string, MastraToolDefinition> = {};
   const browser = getUserBrowser(identity);
   for (const [id, tool] of Object.entries(browser.getTools())) {
@@ -628,7 +654,6 @@ export async function createUserBrowserTools(
       headless: input.headless,
       id,
       identity,
-      sandboxId,
       tool: tool as unknown as Parameters<typeof wrapBrowserTool>[0]["tool"],
       unattended: input.browser.unattended,
     }) as unknown as MastraToolDefinition;
@@ -636,27 +661,43 @@ export async function createUserBrowserTools(
   tools[BROWSER_REQUEST_USER_TOOL_ID] = createRequestUserTool({
     headless: input.headless,
     identity,
-    sandboxId,
+    windowKey,
+  }) as unknown as MastraToolDefinition;
+  tools[BROWSER_SIGN_IN_TOOL_ID] = createSignInTool({
+    audit: (value) =>
+      input.emit?.(BROWSER_ACTION_EVENT_NAME, {
+        agent_id: identity.agentId,
+        run_id: getEngentyToolsRunContext().runId ?? "",
+        space_id: identity.spaceId,
+        tool: BROWSER_SIGN_IN_TOOL_ID,
+        ...value,
+      }),
+    headless: input.headless,
+    identity,
+    lockKey: suspendLockKey,
+    windowKey,
   }) as unknown as MastraToolDefinition;
   if (!input.headless) {
     // Nobody at the keyboard can take the page in a headless run.
     tools[BROWSER_HAND_OVER_TOOL_ID] = createHandOverTool({
       emit: input.emit,
       identity,
-      sandboxId,
+      windowKey,
     }) as unknown as MastraToolDefinition;
   }
-  if (isFastLoopEnabled()) {
+  const classifier = isFastLoopEnabled(input.classifierModelId)
+    ? createClassifierClient(input.classifierModelId)
+    : null;
+  if (classifier) {
     tools[BROWSER_RUN_FAST_TOOL_ID] = wrapBrowserTool({
       emit: input.emit,
       headless: input.headless,
       id: BROWSER_RUN_FAST_TOOL_ID,
       identity,
-      sandboxId,
       tool: createRunFastTool({
+        classifier,
         emit: input.emit,
         identity,
-        sandboxId,
         textModelId: input.textModelId ?? null,
       }),
       unattended: input.browser.unattended,
@@ -674,9 +715,10 @@ export function releaseUserBrowserForRun(
     return;
   }
   releaseAgentSeat(
-    buildUserBrowserSandboxId({
+    browserWindowKey({
+      agentId: input.browser.agentId,
+      spaceId: input.browser.spaceId,
       tenantId: input.tenantId,
-      userId: input.browser.userId,
     }),
     runId
   );

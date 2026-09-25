@@ -1,5 +1,5 @@
 import { Agent } from "@mastra/core/agent";
-import type { MastraMemory, MemoryConfig } from "@mastra/core/memory";
+import type { MastraMemory } from "@mastra/core/memory";
 import { MastraCompositeStore, type MemoryStorage } from "@mastra/core/storage";
 import { Memory } from "@mastra/memory";
 import { z } from "zod";
@@ -73,7 +73,7 @@ const GENERATE_TITLE_INSTRUCTIONS = `
 - the entire text you return will be used as the title`;
 
 export interface EngentySessionMastraMemoryOptions {
-  /** Configured routing/chat model id; resolved via the AI Gateway. */
+  /** Fast-text model id (titles, observational memory); AI Gateway id. */
   modelId?: string | null;
   storage: MemoryStorage;
 }
@@ -109,9 +109,11 @@ export function createEngentySessionMemoryOptions(
 ): EngentyMemoryOptions {
   return {
     lastMessages: ENGENTY_MEMORY_LAST_MESSAGES,
+    // Titles are fast-text work — not the agent's (possibly high-tier) model.
     generateTitle: {
       instructions: GENERATE_TITLE_INSTRUCTIONS,
-    } as NonNullable<MemoryConfig["generateTitle"]>,
+      model: observationalMemoryLanguageModel(modelId),
+    },
     workingMemory: {
       agentManaged: false,
       enabled: true,

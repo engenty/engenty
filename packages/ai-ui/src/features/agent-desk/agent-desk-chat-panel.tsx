@@ -30,6 +30,7 @@ import { normalizeCopilotPositionMenuValue } from "../../components/copilot/draw
 import { CopilotPanelContent } from "../../components/copilot/panel/copilot-panel-content.js";
 import type { CopilotPanelContentProps } from "../../components/copilot/panel/copilot-panel-content-types.js";
 import { ThreadContextPane } from "../../components/copilot/thread-context/thread-context-pane.js";
+import { ChatDeskAgentProvider } from "../../components/copilot/transcript/chat-agent-face.js";
 import { formatCopilotThreadCopyText } from "../../components/copilot/transcript/copilot-thread-copy.js";
 import { TranscriptLoadOlder } from "../../components/copilot/transcript/transcript-load-older.js";
 import { registerCopilotComposerDraftSetter } from "../../copilot/copilot-composer-draft-intent.js";
@@ -107,6 +108,12 @@ export function AgentDeskChatPanel(props: {
    */
   scrollHeader?: ReactNode;
   /**
+   * Compact identity band pinned under the companion title bar. The window
+   * and the drawer always show it; the desk reveals it only once the intro
+   * has scrolled away.
+   */
+  stickyBand?: ReactNode;
+  /**
    * Work / Window: bottom-docked composer, no desk empty-landing squeeze.
    */
   companion?: boolean;
@@ -130,17 +137,16 @@ export function AgentDeskChatPanel(props: {
   emptyStateTitle?: string;
   /**
    * Realtime voice (the copilot's): its turns splice into the transcript,
-   * its call strip replaces the composer while a session runs, and its
-   * control sits beside the effort chooser.
+   * and its call strip replaces the composer while a session runs. It is
+   * started from the blob's menu — a different mode, not a composer chip.
    */
   realtimeVoice?: {
-    composerLeadingControl?: ReactNode;
     composerOverride?: ReactNode;
     session: { isActive: boolean };
     transcriptMessages: readonly (AgentTurnMessageLike & { id: string })[];
   };
   /**
-   * The companion's chrome — its header (title, context switcher, browser
+   * The companion's chrome — its header (title, browser
    * toggle, close / position) and body style — laid over the lane's own
    * props last. The desk page sets none of it; the drawer sets all of it.
    */
@@ -155,22 +161,14 @@ export function AgentDeskChatPanel(props: {
       | "centerEmptyLanding"
       | "chatKind"
       | "closeLabel"
-      | "compactContextControl"
-      | "contextMenuLabel"
-      | "contextOptions"
       | "detachLabel"
       | "headerChrome"
       | "headerVariant"
       | "onClose"
       | "onPanelModeChange"
-      | "onSelectContext"
       | "onToggleBrowserPanel"
       | "panelMode"
       | "positionMenu"
-      | "recentContextMenuLabel"
-      | "recentContextOptions"
-      | "routeStatusLabel"
-      | "selectedContextId"
       | "title"
     >
   >;
@@ -479,14 +477,7 @@ export function AgentDeskChatPanel(props: {
     autoScrollKey: host.threadId ?? host.threadResetKey,
     awaitingInterrupt: host.awaitingInterrupt,
     composerFocusKey: `${host.threadResetKey}:${props.composerFocusToken ?? 0}`,
-    composerLeadingControl: props.realtimeVoice?.composerLeadingControl ? (
-      <div className="flex min-w-0 items-center gap-1">
-        {props.composerLeadingControl}
-        {props.realtimeVoice.composerLeadingControl}
-      </div>
-    ) : (
-      props.composerLeadingControl
-    ),
+    composerLeadingControl: props.composerLeadingControl,
     composerOverride,
     composerPlaceholder: wizardGate
       ? t("agentDesk.wizard.utterancePlaceholder")
@@ -496,17 +487,16 @@ export function AgentDeskChatPanel(props: {
     dockedInterruptSurface,
     dockedInterruptToolCallId: lane.dockInterrupt?.tool_call_id ?? null,
     draft: lane.draft,
-    ...(props.companion
+    ...(props.companion && !props.scrollHeader
       ? { centerEmptyLanding: false as const }
       : { emptyLandingAlign: "start" as const }),
     // The agent's identity heads the transcript (AgentDeskHeader) — but an
     // empty chat hides the transcript for the landing, so the landing shows
-    // the same block at the top of the lane, where the transcript would put
-    // it. A companion pane has no room for it.
-    emptyStateHeader:
-      props.companion || !props.scrollHeader ? undefined : (
-        <div className={CHAT_LANE_COLUMN_CLASS}>{props.scrollHeader}</div>
-      ),
+    // the same block at the top of the lane. The sidebar and the window pass
+    // it; the drawer does not.
+    emptyStateHeader: props.scrollHeader ? (
+      <div className={CHAT_LANE_COLUMN_CLASS}>{props.scrollHeader}</div>
+    ) : undefined,
     ...(props.emptyStateSubtitle
       ? { emptyStateSubtitle: props.emptyStateSubtitle }
       : {}),
@@ -568,6 +558,7 @@ export function AgentDeskChatPanel(props: {
     }),
     slashCommands,
     starterPrompts: props.starterPromptsOverride ?? starterPrompts,
+    stickyBand: props.stickyBand,
     status: composerStatus,
     // Reasoning/tool deltas don't change `messages` — feed raw stream activity
     // so the no-response guard never errors a live run.
@@ -629,7 +620,18 @@ export function AgentDeskChatPanel(props: {
       // the topbar no longer overlaps this lane.
       className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
     >
-      <CopilotPanelContent {...panelProps} {...definedChrome} />
+      {/* Rows without an author are this desk's agent: its face, not a
+          stranger's. */}
+      <ChatDeskAgentProvider
+        value={{
+          engenty: props.agentEngenty,
+          id: props.agentId,
+          name: props.agentName,
+          role: props.agentRole,
+        }}
+      >
+        <CopilotPanelContent {...panelProps} {...definedChrome} />
+      </ChatDeskAgentProvider>
     </div>
   );
   // The desk lays the context card out as its own column beside header AND

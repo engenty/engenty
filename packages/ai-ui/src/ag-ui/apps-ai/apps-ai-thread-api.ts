@@ -5,7 +5,13 @@ import {
   type AgentSessionStatus,
   buildAgUiMessagesFromSessionMessages,
 } from "@engenty/ai-core/browser";
-import { useInfiniteQuery, useQuery } from "@engenty/query-client";
+import {
+  infiniteQueryOptions,
+  type QueryClient,
+  queryOptions,
+  useInfiniteQuery,
+  useQuery,
+} from "@engenty/query-client";
 import { useMemo } from "react";
 import type { EngentyAgUiMessage } from "../conversation.js";
 import {
@@ -332,14 +338,20 @@ export async function clearAppsAiThreadsForHost(params: {
   }
 }
 
-/** The oldest row a transcript holds — the next page ends just before it. */
+/**
+ * A row a transcript holds: as `before`, the oldest — the next page ends just
+ * before it; as `after`, the newest — the delta page starts just after it.
+ */
 export interface AppsAiThreadMessagesCursor {
   created_at: string;
   id: string;
 }
 
 export interface AppsAiThreadMessagesPage {
-  /** An older page exists before `messages[0]`. */
+  /**
+   * Another page exists: an older one before `messages[0]` — or, for an
+   * `after` (delta) page, a newer one after the last row.
+   */
   hasMore: boolean;
   /** Oldest first. */
   messages: AppsAiThreadMessageRecord[];
@@ -352,17 +364,36 @@ export interface AppsAiThreadMessagesPage {
  */
 export const APPS_AI_THREAD_MESSAGES_PAGE_SIZE = 60;
 
-/** The newest `limit` rows of a thread (before `before`), oldest first. */
+/**
+ * The newest `limit` rows of a thread (before `before`), oldest first — or,
+ * with `after`, the first `limit` rows strictly after that row (a delta).
+ * `after` and `before` are exclusive.
+ */
 export async function listAppsAiThreadMessagesPage(params: {
+  after?: AppsAiThreadMessagesCursor | null;
   before?: AppsAiThreadMessagesCursor | null;
   limit?: number;
   serviceBaseUrl: string;
   threadId: string;
   signal?: AbortSignal;
+  /**
+   * `slim` (default): reasoning text and large tool results the collapsed
+   * transcript never reads come back as flagged placeholders — the full row
+   * loads on expand (`useAppsAiThreadMessageQuery`). `full` for callers that
+   * need every byte.
+   */
+  view?: "full" | "slim";
 }): Promise<AppsAiThreadMessagesPage> {
   const search = new URLSearchParams();
   if (params.limit != null) {
     search.set("limit", String(params.limit));
+  }
+  if ((params.view ?? "slim") === "slim") {
+    search.set("view", "slim");
+  }
+  if (params.after) {
+    search.set("after", params.after.created_at);
+    search.set("after_id", params.after.id);
   }
   if (params.before) {
     search.set("before", params.before.created_at);
@@ -397,11 +428,45 @@ export async function listAppsAiThreadMessages(params: {
   serviceBaseUrl: string;
   threadId: string;
   signal?: AbortSignal;
+  view?: "full" | "slim";
 }): Promise<AppsAiThreadMessageRecord[]> {
   return (await listAppsAiThreadMessagesPage(params)).messages;
 }
 
+/** One persisted row in full — what the slim page view dropped from it. */
+export async function getAppsAiThreadMessage(params: {
+  messageId: string;
+  serviceBaseUrl: string;
+  threadId: string;
+  signal?: AbortSignal;
+}): Promise<AppsAiThreadMessageRecord> {
+  const href = `${appsAiThreadsPath(params.serviceBaseUrl)}/${encodeURIComponent(params.threadId)}/messages/${encodeURIComponent(params.messageId)}`;
+  const res = await fetch(href, {
+    headers: await appsAiRequestHeaders(),
+    method: "GET",
+    signal: params.signal,
+  });
+  const raw = await res.text();
+  if (!res.ok) {
+    throw new Error(
+      `ai session message HTTP ${res.status}: ${raw.slice(0, 500)}`
+    );
+  }
+  const parsed = JSON.parse(raw) as { message?: unknown };
+  if (!parsed.message || typeof parsed.message !== "object") {
+    throw new Error("ai session message: missing message");
+  }
+  return parsed.message as AppsAiThreadMessageRecord;
+}
+
 export const appsAiThreadQueryRoot = ["apps-ai", "threads"] as const;
+
+/**
+ * How long a thread's detail and transcript stay cached after the last lane
+ * showing them unmounts. Switching back within this window shows the held
+ * transcript at once while it refreshes.
+ */
+export const APPS_AI_THREAD_CACHE_GC_MS = 30 * 60 * 1000;
 
 function shouldRetryAppsAiThreadQuery(
   failureCount: number,
@@ -479,6 +544,20 @@ export function appsAiThreadMessagesQueryKey(params: {
   ] as const;
 }
 
+export function appsAiThreadMessageQueryKey(params: {
+  messageId: string;
+  serviceBaseUrl: string;
+  threadId: string;
+}) {
+  return [
+    ...appsAiThreadQueryRoot,
+    "message",
+    params.serviceBaseUrl,
+    params.threadId,
+    params.messageId,
+  ] as const;
+}
+
 export function appsAiThreadDetailQueryKey(params: {
   serviceBaseUrl: string;
   threadId: string;
@@ -491,25 +570,143 @@ export function appsAiThreadDetailQueryKey(params: {
   ] as const;
 }
 
+/** One thread's detail — shared by the lane's hook and prefetch. */
+export function appsAiThreadDetailQueryOptions(params: {
+  serviceBaseUrl: string;
+  threadId: string;
+}) {
+  return queryOptions({
+    queryKey: appsAiThreadDetailQueryKey(params),
+    queryFn: ({ signal }) =>
+      getAppsAiThread({
+        serviceBaseUrl: params.serviceBaseUrl,
+        threadId: params.threadId,
+        signal,
+      }),
+    gcTime: APPS_AI_THREAD_CACHE_GC_MS,
+    retry: shouldRetryAppsAiThreadQuery,
+  });
+}
+
 export function useAppsAiThreadQuery(params: {
   enabled: boolean;
   serviceBaseUrl: string;
   threadId: string | null;
 }) {
   return useQuery({
-    queryKey: appsAiThreadDetailQueryKey({
+    ...appsAiThreadDetailQueryOptions({
+      serviceBaseUrl: params.serviceBaseUrl,
+      threadId: params.threadId ?? "",
+    }),
+    enabled: params.enabled && Boolean(params.threadId),
+  });
+}
+
+/**
+ * The transcript's pages — shared by the lane's hook and prefetch. Page 0 is
+ * the thread's tail; each further page is the stretch before the oldest row
+ * held.
+ */
+export function appsAiThreadMessagesQueryOptions(params: {
+  serviceBaseUrl: string;
+  threadId: string;
+}) {
+  return infiniteQueryOptions({
+    queryKey: appsAiThreadMessagesQueryKey(params),
+    queryFn: ({ pageParam, signal }) =>
+      listAppsAiThreadMessagesPage({
+        before: pageParam,
+        limit: APPS_AI_THREAD_MESSAGES_PAGE_SIZE,
+        serviceBaseUrl: params.serviceBaseUrl,
+        threadId: params.threadId,
+        signal,
+      }),
+    initialPageParam: null as AppsAiThreadMessagesCursor | null,
+    getNextPageParam: (lastPage): AppsAiThreadMessagesCursor | null => {
+      const oldest = lastPage.messages[0];
+      return lastPage.hasMore && oldest
+        ? { created_at: oldest.created_at, id: oldest.id }
+        : null;
+    },
+    gcTime: APPS_AI_THREAD_CACHE_GC_MS,
+    retry: shouldRetryAppsAiThreadQuery,
+  });
+}
+
+/**
+ * One row in full, for a slimmed step someone opened. A persisted row does
+ * not change once written, so it is fetched once and kept.
+ */
+export function useAppsAiThreadMessageQuery(params: {
+  enabled: boolean;
+  messageId: string | null;
+  serviceBaseUrl: string;
+  threadId: string | null;
+}) {
+  return useQuery({
+    queryKey: appsAiThreadMessageQueryKey({
+      messageId: params.messageId ?? "",
       serviceBaseUrl: params.serviceBaseUrl,
       threadId: params.threadId ?? "",
     }),
     queryFn: ({ signal }) =>
-      getAppsAiThread({
+      getAppsAiThreadMessage({
+        messageId: params.messageId as string,
         serviceBaseUrl: params.serviceBaseUrl,
         threadId: params.threadId as string,
         signal,
       }),
-    enabled: params.enabled && Boolean(params.threadId),
+    enabled:
+      params.enabled && Boolean(params.threadId) && Boolean(params.messageId),
     retry: shouldRetryAppsAiThreadQuery,
+    staleTime: Number.POSITIVE_INFINITY,
   });
+}
+
+/** Rows a delta refresh takes in one go before it falls back to a refetch. */
+const APPS_AI_THREAD_DELTA_LIMIT = 500;
+
+/**
+ * Bring a held transcript up to date after a run. One page held: refetch it
+ * (one request either way). Several held: re-read only the stretch after the
+ * newest row of the second page — the newest page's range, where rows change
+ * — and keep the older pages as they are, instead of re-reading every page.
+ */
+export async function refreshAppsAiThreadMessages(
+  queryClient: QueryClient,
+  params: { serviceBaseUrl: string; threadId: string }
+): Promise<void> {
+  const queryKey = appsAiThreadMessagesQueryKey(params);
+  const held = queryClient.getQueryData<{
+    pageParams: (AppsAiThreadMessagesCursor | null)[];
+    pages: AppsAiThreadMessagesPage[];
+  }>(queryKey);
+  const boundary = held?.pages[1]?.messages.at(-1);
+  if (!(held && boundary)) {
+    await queryClient.invalidateQueries({ queryKey });
+    return;
+  }
+  try {
+    const delta = await listAppsAiThreadMessagesPage({
+      after: { created_at: boundary.created_at, id: boundary.id },
+      limit: APPS_AI_THREAD_DELTA_LIMIT,
+      serviceBaseUrl: params.serviceBaseUrl,
+      threadId: params.threadId,
+    });
+    if (delta.hasMore) {
+      await queryClient.invalidateQueries({ queryKey });
+      return;
+    }
+    queryClient.setQueryData(queryKey, {
+      ...held,
+      pages: [
+        { hasMore: true, messages: delta.messages },
+        ...held.pages.slice(1),
+      ],
+    });
+  } catch {
+    await queryClient.invalidateQueries({ queryKey });
+  }
 }
 
 /**
@@ -523,27 +720,11 @@ export function useAppsAiThreadMessagesQuery(params: {
   threadId: string | null;
 }) {
   const query = useInfiniteQuery({
-    queryKey: appsAiThreadMessagesQueryKey({
+    ...appsAiThreadMessagesQueryOptions({
       serviceBaseUrl: params.serviceBaseUrl,
       threadId: params.threadId ?? "",
     }),
-    queryFn: ({ pageParam, signal }) =>
-      listAppsAiThreadMessagesPage({
-        before: pageParam,
-        limit: APPS_AI_THREAD_MESSAGES_PAGE_SIZE,
-        serviceBaseUrl: params.serviceBaseUrl,
-        threadId: params.threadId as string,
-        signal,
-      }),
-    initialPageParam: null as AppsAiThreadMessagesCursor | null,
-    getNextPageParam: (lastPage): AppsAiThreadMessagesCursor | null => {
-      const oldest = lastPage.messages[0];
-      return lastPage.hasMore && oldest
-        ? { created_at: oldest.created_at, id: oldest.id }
-        : null;
-    },
     enabled: params.enabled && Boolean(params.threadId),
-    retry: shouldRetryAppsAiThreadQuery,
   });
 
   const messages = useMemo((): EngentyAgUiMessage[] => {

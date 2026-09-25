@@ -1,6 +1,6 @@
 // What this specialist is supposed to do — ONE compact list, one row per
-// ROUTINE: name, and what wakes it in a few words ("Every 30 minutes ·
-// Webhook"). Everything runnable is a routine; the workflow is the flow
+// ROUTINE: name, its short summary, what wakes it in a few words ("Every 30
+// minutes · Webhook") and where it delivers. Everything runnable is a routine; the workflow is the flow
 // inside it. A workflow nobody wrapped gets a row too: "Awaiting publish"
 // while it is still a DRAFT, otherwise a published flow that runs on request.
 //
@@ -39,13 +39,11 @@ import {
 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { RoutineCardSummary } from "../routines/routine-card-summary.js";
 import { RoutineCreateDialog } from "../routines/routine-create-dialog.js";
 import { RoutineDetailBody } from "../routines/routine-detail-body.js";
 import { RoutineEditor } from "../routines/routine-editor.js";
-import {
-  routineBelongsToAgent,
-  routineTriggers,
-} from "../routines/routine-shape.js";
+import { routineBelongsToAgent } from "../routines/routine-shape.js";
 import type { RoutineDto } from "../routines/routines-api.js";
 import {
   useDeleteCustomRoutineMutation,
@@ -54,22 +52,6 @@ import {
 import type { WorkflowDto } from "../workflow-canvas/workflow-api.js";
 import { WorkflowModal } from "../workflow-canvas/workflow-modal.js";
 import { useWorkflowListQuery } from "../workflow-canvas/workflow-queries.js";
-
-/**
- * What wakes the routine, in one line: the enabled triggers' detail ("Every
- * 30 minutes", "/daily", "Webhook") joined with a middle dot, the kind's
- * name when a trigger has no detail. A routine nobody wakes says so.
- */
-function triggerSummary(routine: RoutineDto, locale: string): string {
-  const isDe = locale.startsWith("de");
-  const parts = routineTriggers(routine, locale)
-    .filter((trigger) => trigger.enabled)
-    .map((trigger) => trigger.detail ?? trigger.label);
-  if (parts.length === 0) {
-    return isDe ? "Kein Auslöser" : "No trigger";
-  }
-  return parts.join(" · ");
-}
 
 export function AgentWorkSections({
   agentId,
@@ -344,7 +326,7 @@ export function AgentWorkSections({
                   {/* One row, one click: a routine opens its detail, a draft
                       opens the canvas that carries Publish. */}
                   <button
-                    className="flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none"
+                    className="flex w-full items-start gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none"
                     onClick={() =>
                       card.routine
                         ? selectRoutine(card.routine.id)
@@ -353,25 +335,30 @@ export function AgentWorkSections({
                     type="button"
                   >
                     <CalendarClock
-                      className={`size-4 shrink-0 ${
+                      className={`mt-0.5 size-4 shrink-0 ${
                         isDraft || paused
                           ? "text-muted-foreground"
                           : "text-emerald-600 dark:text-emerald-400"
                       }`}
                     />
-                    <div className="min-w-0 flex-1">
+                    <div className="min-w-0 flex-1 space-y-1">
                       <p className="truncate font-medium text-sm">{title}</p>
-                      <p className="truncate text-muted-foreground text-xs">
-                        {card.routine
-                          ? triggerSummary(card.routine, locale)
-                          : isDraft
+                      {card.routine ? (
+                        <RoutineCardSummary
+                          locale={locale}
+                          routine={card.routine}
+                        />
+                      ) : (
+                        <p className="truncate text-muted-foreground text-xs">
+                          {isDraft
                             ? isDe
                               ? "Noch keine Routine — beim Veröffentlichen wird eine angelegt."
                               : "No routine yet — publishing creates one."
                             : isDe
                               ? "Keine Routine — läuft auf Anfrage."
                               : "No routine — runs on request."}
-                      </p>
+                        </p>
+                      )}
                     </div>
                     {/* A draft is WAITING ON A HUMAN — the row must say so. A
                         paused routine is muted and says so; active is the
@@ -391,7 +378,7 @@ export function AgentWorkSections({
                         {isDe ? "Pausiert" : "Paused"}
                       </Badge>
                     ) : null}
-                    <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                    <ChevronRight className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                   </button>
                 </li>
               );

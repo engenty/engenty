@@ -16,6 +16,11 @@ import { getEngentyToolsRunContext } from "./engenty-tools/lib/run-context.js";
 
 export const SKILL_PROPOSE_TOOL_ID = "skill_propose";
 
+/** The subject of a `skill_proposed` row; its id is the proposal's name. */
+export const SKILL_PROPOSAL_SUBJECT = "skill_proposal";
+
+const SKILLS_CATALOG_ROUTE = "/admin/engenty/skills";
+
 export const skillProposeTool = createTool({
   id: SKILL_PROPOSE_TOOL_ID,
   description:
@@ -68,17 +73,26 @@ export const skillProposeTool = createTool({
         proposedBy,
       });
       await emitInboxNotification({
+        actor: { id: proposedBy, kind: proposedBy ? "agent" : "system" },
+        body: input.description,
         dedupeKey: `skill-proposal:${tenantId}:${input.name}`,
         spaceId: executionSpaceId(ctx.space) ?? null,
         kind: "skill_proposed",
         metadata: {
           skill_name: input.name,
-          ...(proposedBy ? { agent_type_key: proposedBy } : {}),
+          ...(proposedBy
+            ? { agent_id: proposedBy, agent_type_key: proposedBy }
+            : {}),
         },
         priority: "medium",
         source: "memory",
-        summary: `${proposedBy ?? "An agent"} proposed a new skill "${input.name}" — review and enable it to make it discoverable.`,
+        // Approve / reject (skills-routes) resolve by this subject.
+        subject: { id: proposal.name, type: SKILL_PROPOSAL_SUBJECT },
+        // No page decides a skill proposal yet; the skills catalog is where
+        // the approved skill lands.
+        target: SKILLS_CATALOG_ROUTE,
         tenantId,
+        title: { key: "skill_proposed", params: { name: input.name } },
       });
       return {
         ok: true as const,

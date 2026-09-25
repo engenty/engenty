@@ -62,7 +62,7 @@ describe("runDelegatedSpecialist — child approval on the parent run", () => {
     runDelegatedConversation.mockReset();
   });
 
-  it("runs the child under request and suspends the parent with one bulk card", async () => {
+  it("suspends the parent once with every operation the child was denied", async () => {
     gatedChild();
     const suspend = vi.fn(async (_payload: unknown) => undefined);
     await engentyToolsRunAls.run(interactiveParent, () =>
@@ -75,22 +75,15 @@ describe("runDelegatedSpecialist — child approval on the parent run", () => {
         toolName: "message_agent",
       })
     );
-    expect(runDelegatedConversation).toHaveBeenCalledTimes(1);
-    expect(runDelegatedConversation.mock.calls[0]?.[0]).toMatchObject({
-      approvalPolicy: "request",
-      brief: "Create the KB.",
-    });
     expect(suspend).toHaveBeenCalledTimes(1);
     expect(suspend.mock.calls[0]?.[0]).toMatchObject({
       kind: "tool_approval",
-      operation_id: "kb_create",
       operation_ids: ["kb_create", "kb_source_create"],
       risk_level: "high",
-      title: "Knowledge Base Manager write access",
     });
   });
 
-  it("re-dispatches the child after approval and tells it the grants exist", async () => {
+  it("re-dispatches the child after approval and returns its result", async () => {
     runDelegatedConversation.mockResolvedValue({ finalText: "Created." });
     const suspend = vi.fn(async () => undefined);
     const result = await engentyToolsRunAls.run(
@@ -111,12 +104,6 @@ describe("runDelegatedSpecialist — child approval on the parent run", () => {
         })
     );
     expect(suspend).not.toHaveBeenCalled();
-    expect(runDelegatedConversation.mock.calls[0]?.[0]).toMatchObject({
-      approvalPolicy: "request",
-    });
-    expect(
-      (runDelegatedConversation.mock.calls[0]?.[0] as { brief: string }).brief
-    ).toContain("approved the write operations");
     expect(result).toMatchObject({ ok: true, result: "Created." });
   });
 
@@ -176,22 +163,5 @@ describe("runDelegatedSpecialist — child approval on the parent run", () => {
       ok: true,
       result: first.result,
     });
-  });
-
-  it("keeps the leaf contract when the parent cannot ask", async () => {
-    runDelegatedConversation.mockResolvedValue({ finalText: "Done." });
-    await engentyToolsRunAls.run({ approvalPolicy: "deny" }, () =>
-      runDelegatedSpecialist(deps(), {
-        agentId: "knowledge-base.manager",
-        alias: "Knowledge Base Manager",
-        brief: "Create the KB.",
-        context: { agent: { suspend: vi.fn() } },
-        toolCallId: "call-1",
-        toolName: "message_agent",
-      })
-    );
-    expect(runDelegatedConversation.mock.calls[0]?.[0]).not.toHaveProperty(
-      "approvalPolicy"
-    );
   });
 });

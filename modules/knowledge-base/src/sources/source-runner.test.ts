@@ -1,8 +1,9 @@
+import { bindingsFromList, setPlatformBindings } from "@engenty/ai-core";
 import type {
   DocumentSourceAdapter,
   DocumentSourceAdapterRegistry,
 } from "@engenty/document-sources";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { KbRepoFactory } from "../dal/contracts.js";
 import type {
   InboxItem,
@@ -49,6 +50,18 @@ function sourceFixture(settings: Record<string, unknown> = {}): KbSource {
 }
 
 describe("runKbSource structured item persistence", () => {
+  beforeEach(() => {
+    setPlatformBindings(
+      bindingsFromList([
+        { gateway: "vercel", modelId: "openai/gpt-5-mini", role: "fast_text" },
+      ])
+    );
+  });
+
+  afterEach(() => {
+    setPlatformBindings(undefined);
+  });
+
   it("persists retrieved sections, media, and links", async () => {
     const source = sourceFixture({ media_capture_mode: "catalog" });
     const run: KbSourceRun = {

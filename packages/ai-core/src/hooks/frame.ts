@@ -3,7 +3,6 @@
 // are synchronous, so a single slot never interleaves — same discipline as
 // Preact's `currentComponent` (and Flue's frame.ts). Hooks throw when the
 // slot is empty (called from tools, callbacks, or module scope).
-import { DEFAULT_AI_CHAT_MODEL_ID } from "../config/chat-model-id.js";
 import { type AgentConfig, agentConfigSchema } from "../dynamic-contracts.js";
 import {
   type AgentFnDescriptor,
@@ -23,7 +22,7 @@ export interface RenderFrame {
   };
   /** `useInstruction` contributions, joined after the returned base. */
   instructions: string[];
-  /** Guard: `useModel`/`usePurpose` at most once per render. */
+  /** Guard: `useModel`/`useEffort` at most once per render. */
   modelDeclared: boolean;
   state: AgentRenderContext | undefined;
   /** `useThreadState` keys declared this render; duplicates throw. */
@@ -105,14 +104,10 @@ export function renderAgentFn(
     id: descriptor.id,
     instructions,
     // Function agents have no static model column; resolution happens via
-    // purpose/tenant tiers (or an explicit useModel pin) downstream. The
-    // schema requires `model`, so fall back to the platform default — the
-    // same fallback `defineModuleAi` seeds for scanned agents — which only
-    // matters on paths assembled without a tenant modelConfig.
-    model:
-      frame.draft.modelOverride ??
-      frame.draft.model ??
-      DEFAULT_AI_CHAT_MODEL_ID,
+    // the effort tier's binding (or an explicit useModel pin) downstream.
+    ...((frame.draft.modelOverride ?? frame.draft.model)
+      ? { model: frame.draft.modelOverride ?? frame.draft.model }
+      : {}),
     name: descriptor.name,
     // Ownership (`source`, `moduleId`, `kind`) is the owner's declaration on
     // the descriptor — a module function agent is a module agent, never an

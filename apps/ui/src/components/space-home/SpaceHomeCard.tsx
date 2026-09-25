@@ -27,6 +27,7 @@ import { spaceConversationSearch } from "@/lib/space-conversation-open";
 import type { SpaceHomeCard as SpaceHomeCardModel } from "@/lib/space-home-cards";
 import { spaceAgentDeskPath, spaceRoomPath } from "@/lib/space-routes";
 import type { SpaceRosterAgent } from "@/lib/use-space-roster-agents";
+import { AgentAttentionPill } from "../spaces/AgentAttentionPill";
 import { SpaceHomeComposer } from "./SpaceHomeComposer";
 import { SpaceHomeJobRow } from "./SpaceHomeJobRow";
 
@@ -84,10 +85,13 @@ function StateBadge({ card }: { card: SpaceHomeCardModel }) {
 }
 
 export function SpaceHomeCard({
+  attentionCount,
   card,
   rosterById,
   space,
 }: {
+  /** A desk's open attention rows (Wichtig) whose actor is its agent. */
+  attentionCount: number;
   card: SpaceHomeCardModel;
   rosterById: ReadonlyMap<string, SpaceRosterAgent>;
   space: Space;
@@ -210,6 +214,13 @@ export function SpaceHomeCard({
                 message below, but naming that below it only repeated a name
                 already in the title, so the date comes up here on its own. */}
             <div className="flex shrink-0 items-center gap-2">
+              {item.kind === "desk" ? (
+                <AgentAttentionPill
+                  agentId={item.agent.id}
+                  agentName={item.agent.name}
+                  count={attentionCount}
+                />
+              ) : null}
               {card.lastMessage ? (
                 <span className="text-[12px] text-muted-foreground leading-none">
                   {formatRelativeDate(card.lastMessage.at)}

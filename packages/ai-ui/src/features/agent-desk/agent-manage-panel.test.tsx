@@ -16,6 +16,9 @@ vi.mock("../../lib/admin/ai-runtime-queries.js", () => ({
 vi.mock("./agent-work-sections.js", () => ({
   AgentWorkSections: () => null,
 }));
+vi.mock("./agent-connector-rows.js", () => ({
+  AgentConnectorRows: () => null,
+}));
 vi.mock("./agent-runs-panel.js", () => ({
   AgentRecentRuns: () => null,
 }));

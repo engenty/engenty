@@ -179,6 +179,23 @@ export function addMountedAgentToRunSpace(
   ]);
 }
 
+/**
+ * The other direction: an agent this run just deleted must stop being a
+ * delegation or routine target for the rest of the turn. Narrows only the
+ * in-memory surface of the current run, like the add above.
+ */
+export function removeMountedAgentFromRunSpace(
+  space: SpaceGateContext | null | undefined,
+  agentId: string
+): void {
+  if (!space || isUnresolvedSpaceGate(space) || isGlobalConnectorGate(space)) {
+    return;
+  }
+  if (space.agentIds instanceof Set) {
+    (space.agentIds as Set<string>).delete(agentId);
+  }
+}
+
 /** Fill `coreBaseUrl` from env when a run forgot to stamp it (chat ALS). */
 export function withEnvCoreBaseUrl(
   ctx: EngentyToolsRunContext

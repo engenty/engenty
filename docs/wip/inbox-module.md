@@ -1,5 +1,12 @@
 # Inbox module — design & plan
 
+> **Superseded in part (2026-09-23):** connections belong to a Space
+> (`module_connections.connections.space_id`; `connected_by` is audit only).
+> `sharing`, `non_owner_max_group`, owner-based reach and owner approvals are
+> gone. Current model: `docs/content/dev/connections.md`,
+> `PLAN-space-owned-connections.md`. Inbox rows carry the mailbox's
+> `space_id` instead of `owner_user_id`.
+
 Status: v1 IMPLEMENTED 2026-07-05 on `feat/connections` (phases 1–4:
 schema/repo, sync engine, UI, search + agent surface). Phases 5–6 (triage
 model, reply/send) remain open.

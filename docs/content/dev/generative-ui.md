@@ -122,6 +122,10 @@ The catalog is `engenty:core/v1`, in `packages/a2ui-catalog`:
 | `Actions` | `children` | horizontal button group |
 | `Button` | `label`, `action` | pill button |
 | `Text` | `text`, `variant?: h3\|h4\|body\|muted` | typography |
+| `Grid` | `children`, `columns?: 2\|3\|4` | dashboard tile row |
+| `Metric` | `label`, `value`, `caption?`, `tone?`, `sparkline?` | KPI tile |
+| `BarChart` / `LineChart` / `AreaChart` | `title?`, `points?` / `series?`, `action?` | cartesian chart |
+| `DonutChart` | `title?`, `slices`, `center?`, `action?` | donut |
 
 Two properties do the heavy lifting:
 

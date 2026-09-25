@@ -1,3 +1,4 @@
+import { applyChatStyle } from "@engenty/ai-ui";
 import { useTranslation } from "@engenty/i18n/ui";
 import { useTheme } from "next-themes";
 import { useEffect, useRef } from "react";
@@ -37,6 +38,7 @@ export function AppearanceBootstrap({
   useEffect(() => {
     applyFont(resolvedAppearance.font);
     applyFontSize(resolvedAppearance.fontSize);
+    applyChatStyle(resolvedAppearance.chatStyle);
     // Seed light/dark from the server's resolved value EXACTLY once, on first
     // load. After that next-themes is the sole owner of the theme; re-asserting
     // the server value on every workspace-context refetch is what made a user's
@@ -137,6 +139,7 @@ export function AppearanceBootstrap({
     // when the user changes language in the menu (i18n reference changes), which
     // would overwrite their choice with stale resolvedAppearance from initial load.
   }, [
+    resolvedAppearance.chatStyle,
     resolvedAppearance.font,
     resolvedAppearance.fontSize,
     resolvedAppearance.layoutMode,

@@ -21,9 +21,9 @@ describe("buildAppNavigationPathsPromptSection", () => {
     expect(text).toContain("`/s/<space_key>/agents/new`");
   });
 
-  it("lists the workflow catalog and rejects the legacy /flows segment", () => {
-    expect(text).toContain("`/admin/engenty/workflows/<id>`");
-    expect(text).toContain("never `/admin/engenty/flows/…`");
+  it("routes workflows through the Space and never links the admin area", () => {
+    expect(text).toContain("`/s/<space_key>/workflows/<id>`");
+    expect(text).toContain("Never link to `/admin/engenty/…`");
   });
 
   it("does not treat the module id as the Space URL segment", () => {

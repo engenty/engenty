@@ -247,6 +247,15 @@ export {
   CardTitle,
   cardVariants,
 } from "./components/ui/card";
+export {
+  type ChartConfig,
+  ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
+  ChartTooltip,
+  ChartTooltipContent,
+  emberChartConfig,
+} from "./components/ui/chart";
 export { Checkbox } from "./components/ui/checkbox";
 export {
   Collapsible,

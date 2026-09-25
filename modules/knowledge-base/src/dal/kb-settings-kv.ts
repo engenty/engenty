@@ -17,7 +17,6 @@ export function kbKvContextForKbId(kbId: string): ScopedKvContext {
 }
 
 export const KB_KV_KEY = {
-  embeddingModel: "kb.embedding_model",
   searchVectorMinSimilarity: "kb.search_vector_min_similarity",
   searchVerifierMinQueryTerms: "kb.search_verifier_min_query_terms",
   searchVerifierMaxCandidates: "kb.search_verifier_max_candidates",
@@ -125,18 +124,6 @@ function parseSidebarDefaultsFromRows(
   return out;
 }
 
-function getScopeString(
-  rows: KbKvRow[],
-  name: string,
-  fallback: string
-): string {
-  const row = rows.find((r) => isScopeContext(r.context) && r.name === name);
-  if (!row || row.value === null || row.value === undefined) {
-    return fallback;
-  }
-  return String(row.value);
-}
-
 function getScopeNumber(
   rows: KbKvRow[],
   name: string,
@@ -156,11 +143,6 @@ function getScopeNumber(
 /** Assemble aggregate KB settings from scoped KV rows (for tests + repo). */
 export function kbSettingsFromKvRows(rows: KbKvRow[]): KbSettings {
   return {
-    embedding_model: getScopeString(
-      rows,
-      KB_KV_KEY.embeddingModel,
-      DEFAULT_KB_SETTINGS.embedding_model
-    ),
     search_vector_min_similarity: getScopeNumber(
       rows,
       KB_KV_KEY.searchVectorMinSimilarity,

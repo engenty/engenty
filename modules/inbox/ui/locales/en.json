@@ -14,9 +14,6 @@
   },
   "filters": {
     "allAccounts": "All accounts",
-    "allSpaces": "All spaces",
-    "org": "All spaces",
-    "personal": "Mine",
     "searchPlaceholder": "Search messages…"
   },
   "lanes": {

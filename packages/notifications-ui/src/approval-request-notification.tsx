@@ -17,18 +17,13 @@ import {
   useNotificationSurface,
 } from "./renderers.js";
 
-/** The request id: on the subject (canonical) or, for older rows, metadata. */
+/** The request id: the row's subject. */
 function approvalRequestId(
   notification: NotificationRendererProps["notification"]
 ): string | null {
-  if (
-    notification.subject_type === "approval_request" &&
-    notification.subject_id
-  ) {
-    return notification.subject_id;
-  }
-  const fromMetadata = notification.metadata?.approval_request_id;
-  return typeof fromMetadata === "string" ? fromMetadata : null;
+  return notification.subject_type === "approval_request"
+    ? notification.subject_id
+    : null;
 }
 
 function readString(value: unknown): string | null {
@@ -172,11 +167,8 @@ export function ApprovalRequestNotification({
   );
 }
 
-/** Kinds this body answers: the current name and the pre-rename one. */
-export const APPROVAL_REQUEST_KINDS = [
-  "approval_requested",
-  "connection_approval_requested",
-] as const;
+/** Kinds this body answers. */
+export const APPROVAL_REQUEST_KINDS = ["approval_requested"] as const;
 
 /**
  * The package owns this kind, so it registers the body itself (a module

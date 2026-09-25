@@ -2,7 +2,10 @@
 // the step budget, an ambiguous step (the planner LLM takes over), or
 // the seat is gone. Ported from jev-ultrafast `agent.py` `Agent.command`.
 
-import type { SystemOneUsage, TypeSafeClient } from "@engenty/typesafe-client";
+import type {
+  ClassifierClient,
+  SystemOneUsage,
+} from "@engenty/typesafe-client";
 
 import { buildActionSpace, type ElementSummary } from "./action-space.js";
 import {
@@ -64,7 +67,7 @@ export interface FastLoopResult {
 }
 
 export interface RunFastLoopInput {
-  client: TypeSafeClient;
+  client: ClassifierClient;
   fieldText: FieldTextFn;
   goal: string;
   maxSteps: number;

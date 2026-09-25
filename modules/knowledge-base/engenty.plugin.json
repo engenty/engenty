@@ -139,20 +139,6 @@
         "secret": true
       },
       {
-        "description": "AI Gateway model id for cover image generation (built-in default when unset).",
-        "group": "Knowledge base",
-        "key": "AI_GATEWAY_IMAGE_MODEL",
-        "obtain": {
-          "kind": "manual",
-          "instructions": [
-            "Set to an image-capable model id available through the configured AI gateway."
-          ]
-        },
-        "required": "optional",
-        "scopes": ["root"],
-        "secret": false
-      },
-      {
         "description": "IANA timezone for source refresh schedules (falls back to TZ, then UTC).",
         "exampleValue": "Europe/Vienna",
         "group": "Knowledge base",

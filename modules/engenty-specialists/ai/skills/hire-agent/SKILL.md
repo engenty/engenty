@@ -2,7 +2,7 @@
 name: hire-agent
 title: Hire and configure an Engenty
 description: Create, revise, or mount a custom Engenty AND give its recurring job a Routine. Complete on its own — do not also load work-routing or durable-work.
-allowed-tools: engenty_tools_search engenty_tool_execute registry_agents_list agent_propose workflows_list workflow_propose invoke_workflow requestDecision
+allowed-tools: engenty_tools_search engenty_tool_execute registry_agents_list agent_propose agent_remove workflows_list workflow_propose invoke_workflow requestDecision
 ---
 
 # Hire an agent
@@ -51,6 +51,25 @@ report the pending revision, never click Approve, continue when the approval
 resumes. Never claim the agent exists or is mounted without that tool result;
 there is no `agents_create` / `agents_update` / `space_agents_mount`.
 
+## Hire a Chief of Staff (coordinator)
+
+A Chief of Staff / coordinator / lead is the Engenty that runs this Space —
+not an assistant with a recurring job. Every hire mounted without a manager
+already is one: at run time it carries the setup and hiring tools and the
+**chief-of-staff** playbook (set the Space up, route work, hire and
+coordinate teammates). That playbook is the hire's, handed to it at run time —
+it is not in your catalog, so do not search for it. Its mandate is fixed; do
+not ask what it should do and do not offer assistant jobs (briefing, inbox,
+meeting prep) as its mandate.
+
+- `id`: `<space>.chief-of-staff`, `name`: "Chief of Staff", `engenty`: `round`;
+- `description`: "Sets the space up, routes work, hires a teammate when a
+  job deserves its own owner, and does what nobody else owns yet.";
+- `instructions`: that mandate, plus "Load the **chief-of-staff** skill for
+  setup, routing and hiring — it is your playbook here.";
+- `for_work`: `chat`. The hire is complete without a Routine — people talk to
+  it. Offer a Routine only when the person names a recurring job.
+
 ## Give the job its Routine
 
 After a successful live hire (or immediately when an approval resumes
@@ -93,3 +112,15 @@ meanwhile. If the change affects a recurring job, patch the Routine row via
 `quiet_hours`, `enabled`) and target fields (`prompt` or `workflow_id`,
 `name`, `description`, `outcome`, `report`) all live flat on it. Moving a job
 to another Engenty = `routines_update` with the new `agent_id`.
+
+## Remove an Engenty
+
+`agent_remove` with its `agent_id` — always shows the person a card first,
+whatever the Space's approval setting:
+
+- a **custom** (hired) Engenty is deleted with its routines and the workflows
+  it owns — cannot be undone;
+- a **module** agent is only removed from this Space: its routines here are
+  paused, its open tasks here unassigned, and it can be added back.
+
+The copilot, coordinators and you yourself cannot be removed.

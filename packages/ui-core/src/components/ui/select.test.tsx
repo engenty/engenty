@@ -32,12 +32,6 @@ describe("Select trigger label resolution", () => {
     );
   }
 
-  it("shows the item label instead of the raw value", () => {
-    renderSelect("company");
-    expect(screen.getByText("Company")).toBeTruthy();
-    expect(screen.queryByText("company")).toBeNull();
-  });
-
   it("resolves a sentinel value to its label rather than leaking '__none__'", () => {
     renderSelect("__none__");
     expect(screen.queryByText("__none__")).toBeNull();

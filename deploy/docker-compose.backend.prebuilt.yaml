@@ -42,8 +42,11 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ENGENTY_APP_HOST_URL: http://engenty-app-host:8795
       ENGENTY_APP_HOST_TOKEN: ${ENGENTY_APP_HOST_TOKEN:-}
-      # The spaces tree, shared with app-host: a space's apps/ is bound into
-      # that space's computer at /sandbox/apps.
+      # The one host root, shared with app-host: each Space's folder (its
+      # computer's $HOME, /sandbox and caches, its browser profile and
+      # downloads, its Apps) and the staging of object storage. Same path
+      # inside and outside the container — apps/ai hands it to the Docker
+      # daemon as a bind source for sibling containers.
       ENGENTY_SPACES_DIR: /opt/engenty/spaces
     networks:
       - runtime
@@ -97,7 +100,6 @@ services:
       # otherwise look for a bare name on Docker Hub.
       ENGENTY_BROWSER_DOCKER_IMAGE: ghcr.io/engenty/engenty-browser:${ENGENTY_BACKEND_RELEASE_TAG}
       ENGENTY_BROWSER_VIEW_NETWORK: engenty-browser-view
-      ENGENTY_LOCAL_WORKSPACE_ROOT: /opt/engenty/sandboxes
       SUPABASE_URL: ${SUPABASE_URL}
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
@@ -114,12 +116,14 @@ services:
       ENGENTY_AI_SERVICE_SECRET: ${ENGENTY_AI_SERVICE_SECRET:-}
       ENGENTY_APP_HOST_URL: http://engenty-app-host:8795
       ENGENTY_APP_HOST_TOKEN: ${ENGENTY_APP_HOST_TOKEN:-}
-      # The spaces tree, shared with app-host: a space's apps/ is bound into
-      # that space's computer at /sandbox/apps.
+      # The one host root, shared with app-host: each Space's folder (its
+      # computer's $HOME, /sandbox and caches, its browser profile and
+      # downloads, its Apps) and the staging of object storage. Same path
+      # inside and outside the container — apps/ai hands it to the Docker
+      # daemon as a bind source for sibling containers.
       ENGENTY_SPACES_DIR: /opt/engenty/spaces
     volumes:
-      - /opt/engenty/sandboxes:/opt/engenty/sandboxes
-      # The spaces tree, same rule: literal path, mirrored 1:1.
+      # The one host root, mirrored 1:1 — see docker-compose.yaml.
       - /opt/engenty/spaces:/opt/engenty/spaces
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
@@ -230,25 +234,30 @@ services:
   # database, or anything else this stack runs. Sandboxes with `network:
   # "none"` (the default) join nothing.
   #
-  # The allowlist is `deploy/egress-proxy/filter` — one host regex per line,
-  # default-deny. It ships with the package registries an agent needs to install
-  # what its script imports; add the APIs your agents call.
+  # The shared allowlist is `deploy/egress-proxy/filter` — one host regex per
+  # line, default-deny, the package registries an agent needs to install what
+  # its script imports. A Space adds its own hosts in its settings.
   engenty-egress-proxy:
-    image: monokal/tinyproxy:latest
+    image: node:24-alpine
     pull_policy: always
     restart: unless-stopped
-    # Run tinyproxy against OUR config rather than the image's generated one:
-    # the image's arguments configure which CLIENTS may connect, and what this
-    # proxy exists to control is which UPSTREAMS they may reach.
-    entrypoint: ["tinyproxy", "-d", "-c", "/etc/tinyproxy/tinyproxy.conf"]
+    # Our own proxy (egress-proxy/proxy.mjs, no dependencies): the shared
+    # allowlist in `filter` for every sandbox, plus a Space computer's own
+    # hosts when it names its Space in the proxy URL. apps/ai publishes
+    # those lists under <spaces>/egress/.
+    user: node
+    command: ["node", "/opt/egress-proxy/proxy.mjs"]
+    environment:
+      EGRESS_FILTER: /opt/egress-proxy/filter
+      EGRESS_SPACES_DIR: /etc/engenty-egress/spaces
     # Small by construction: it forwards bytes and holds no state.
     mem_limit: 256m
     cpus: 0.5
     volumes:
       # Literal paths, no `${VAR}` — Coolify's compose parser drops the
       # fallback in volume definitions.
-      - ./egress-proxy/tinyproxy.conf:/etc/tinyproxy/tinyproxy.conf:ro
-      - ./egress-proxy/filter:/etc/tinyproxy/filter:ro
+      - ./egress-proxy:/opt/egress-proxy:ro
+      - /opt/engenty/spaces/egress:/etc/engenty-egress/spaces:ro
     # No published port. Also on `runtime` because `engenty-egress` is
     # `internal` (no gateway) — the proxy needs the upstream route its
     # clients do not have.

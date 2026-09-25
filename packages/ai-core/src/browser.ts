@@ -23,6 +23,13 @@ export {
   sortPersistedAgUiSessionMessageRecords,
   sortPersistedAgUiThreadMessageRecords,
 } from "./ag-ui/ag-ui-messages.js";
+export {
+  isSlimToolResult,
+  SLIM_TOOL_RESULT_MARKER,
+  SLIM_TOOL_RESULT_MAX_CHARS,
+  type SlimToolResultPlaceholder,
+  slimThreadMessage,
+} from "./ag-ui/slim-thread-message.js";
 export { isToolApprovalResumeNudgeText } from "./ag-ui/tool-approval-resume-nudge.js";
 export {
   AGENT_DESK_LANES,
@@ -75,8 +82,6 @@ export {
 export {
   buildAgentLookImagePrompt,
   buildAgentLookSvgPrompt,
-  DEFAULT_AGENT_LOOK_IMAGE_MODEL,
-  DEFAULT_AGENT_LOOK_SVG_MODEL,
 } from "./agents/agent-look-prompt.js";
 export {
   type AgentMessageHeader,
@@ -126,19 +131,12 @@ export { chatCommandArgsToWorkflowInput } from "./chat-commands/contracts.js";
 export { isCapableAgentModel } from "./config/capable-agent-model.js";
 export {
   type ChatModelResolutionPurpose,
-  DEFAULT_AI_CHAT_MODEL_ID,
-  DEFAULT_AI_CLASSIFIER_MODEL_ID,
-  DEFAULT_AI_CODE_EXECUTION_MODEL_ID,
-  DEFAULT_AI_LOW_MODEL_ID,
-  DEFAULT_AI_SAFEGUARD_MODEL_ID,
   resolveChatModelId,
-  resolveSafeguardModelId,
 } from "./config/chat-model-id.js";
 export {
   AI_MODEL_PURPOSES,
   type AiModelPurpose,
   type AiSettingSource,
-  DEFAULT_AI_PLANNING_CODING_MODEL_ID,
   type ResolvedModel,
 } from "./config/model-purposes.js";
 export {
@@ -172,7 +170,16 @@ export {
   PURPOSE_TO_ROLE,
   seedBindings,
 } from "./config/model-roles.js";
-export type { AgentSessionStatus } from "./contracts.js";
+export {
+  ModelRoleNotBoundError,
+  platformBindings,
+  setPlatformBindings,
+} from "./config/platform-bindings-snapshot.js";
+export type {
+  AgentSessionStatus,
+  JsonSchema,
+  OutcomeProviderDefinition,
+} from "./contracts.js";
 export {
   type ColumnEdit,
   coerceColumnValue,
@@ -210,8 +217,14 @@ export type {
   SupportedEmbeddingModel,
   SupportedEmbeddingModelsData,
 } from "./models/supported-embeddings.js";
-export { supportedEmbeddingModels } from "./models/supported-embeddings.js";
 export {
+  isIndexCompatibleEmbeddingModel,
+  SEARCH_INDEX_EMBEDDING_DIMENSIONS,
+  supportedEmbeddingModels,
+} from "./models/supported-embeddings.js";
+export {
+  type A2uiLiveInboxDashboard,
+  type A2uiLiveMeta,
   type A2uiRenderMeta,
   readA2uiRenderMeta,
 } from "./objects/a2ui-render.js";
@@ -260,6 +273,7 @@ export {
   type AgentApprovalTenantPrefs,
   type AiCapsConfig,
   type BrowserParseProvider,
+  DEFAULT_AGENT_APPROVAL_MODES,
   type DocConverterTenantPrefs,
   parseAgentApprovalMode,
   parseTenantAiSettings,

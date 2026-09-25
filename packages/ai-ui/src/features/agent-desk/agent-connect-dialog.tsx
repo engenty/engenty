@@ -1,6 +1,7 @@
 // Connect from an agent's settings pane: plugins (accounts, MCP) and skills
-// in one modal. Plugins are the shared marketplace panel; skills bind on
-// a custom engenty and can be installed from skills.sh first.
+// in one modal. Plugins are the shared marketplace panel for the agent's
+// Space — the agent uses that Space's accounts, and connecting lands there;
+// skills bind on a custom engenty and can be installed from skills.sh first.
 
 import type { AgentDeskAgent } from "@engenty/ai-core/browser";
 import { useTranslation } from "@engenty/i18n/ui";
@@ -30,15 +31,24 @@ export type AgentConnectTab = "plugins" | "skills";
 export function AgentConnectDialog({
   agent,
   canEditSkills,
+  initialDetailsId = null,
   initialTab,
   onOpenChange,
   open,
+  spaceId,
 }: {
   agent: AgentDeskAgent;
   canEditSkills: boolean;
+  /** Open straight on one connector's details (its catalog id). */
+  initialDetailsId?: string | null;
   initialTab: AgentConnectTab;
   onOpenChange: (open: boolean) => void;
   open: boolean;
+  /**
+   * The Space whose accounts the agent uses. Null = the viewer's personal
+   * Space — always so for the Copilot.
+   */
+  spaceId: string | null;
 }) {
   const { t } = useTranslation("ai-ui");
   const [tab, setTab] = useState<AgentConnectTab>(initialTab);
@@ -50,7 +60,8 @@ export function AgentConnectDialog({
       return;
     }
     setTab(initialTab);
-  }, [initialTab, open]);
+    setDetailsId(initialDetailsId);
+  }, [initialDetailsId, initialTab, open]);
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
@@ -101,9 +112,11 @@ export function AgentConnectDialog({
           >
             {open && tab === "plugins" ? (
               <AgentConnectionsPanel
-                agentId={agent.id}
+                // Only a custom agent's preferred-plugin list is editable.
+                agentId={canEditSkills ? agent.id : null}
                 detailsId={detailsId}
                 onDetailsIdChange={setDetailsId}
+                spaceId={spaceId}
               />
             ) : null}
           </TabsContent>

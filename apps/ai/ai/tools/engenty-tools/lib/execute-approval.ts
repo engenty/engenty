@@ -34,7 +34,8 @@ export const toolApprovalSuspendSchema = z.object({
   // card covers — approving persists a grant for each. `operation_id` stays
   // the primary op so existing single-op parsing keeps working.
   operation_ids: z.array(z.string()).optional(),
-  // Agent-authored plan summary shown in the card body (bulk cards only).
+  // Card body: the agent-authored plan summary (bulk cards), or the exact
+  // command / path a workspace call would act on.
   body: z.string().optional(),
 });
 
@@ -132,6 +133,8 @@ export async function settleCoreApprovalAndRetry(params: {
   err: EngentyCoreHttpError;
   input: Record<string, unknown>;
   operationId: string;
+  /** The Space the original call named (`callSpaceIdFor`). */
+  spaceId?: string;
 }): Promise<{ data: unknown; ok: true } | null> {
   const details = isRecord(params.err.details) ? params.err.details : {};
   const approvalRequestId =
@@ -152,7 +155,8 @@ export async function settleCoreApprovalAndRetry(params: {
     });
     const data = await params.client.client.invokeTool(
       params.operationId,
-      params.input
+      params.input,
+      params.spaceId ? { spaceId: params.spaceId } : undefined
     );
     return { data, ok: true };
   } catch (retryErr) {

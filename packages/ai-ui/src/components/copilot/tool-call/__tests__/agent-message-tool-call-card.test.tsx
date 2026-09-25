@@ -1,6 +1,7 @@
 /**
  * @vitest-environment happy-dom
  */
+import { EngentyQueryProvider } from "@engenty/query-client";
 import { cleanup, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it } from "vitest";
@@ -10,9 +11,11 @@ type CardProps = Parameters<typeof AgentMessageToolCallCard>[0];
 
 function renderCard(props: Partial<CardProps>) {
   return render(
-    <MemoryRouter>
-      <AgentMessageToolCallCard {...(props as CardProps)} />
-    </MemoryRouter>
+    <EngentyQueryProvider>
+      <MemoryRouter>
+        <AgentMessageToolCallCard {...(props as CardProps)} />
+      </MemoryRouter>
+    </EngentyQueryProvider>
   );
 }
 

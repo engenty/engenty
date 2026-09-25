@@ -86,10 +86,21 @@ export async function holdRunForReview(
   await notifyRunSuspended({
     actorAgentId: input.routine.agent_id,
     ask: {
+      // The result's first line under the title; the whole result is on the
+      // run page the row opens.
+      ...(input.summary ? { body: input.summary } : {}),
       kind: "routine_review",
       ...(input.summary ? { payload: { summary: input.summary } } : {}),
       priority: "medium",
-      title: `Routine "${input.routine.name}" finished — review the result`,
+      summary: "A routine finished — review the result",
+      ...(input.routine.name?.trim()
+        ? {
+            title: {
+              key: "routine_review",
+              params: { name: input.routine.name.trim() },
+            },
+          }
+        : {}),
     },
     initiatorUserId: input.initiatorUserId ?? null,
     metadata: {

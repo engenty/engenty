@@ -108,7 +108,7 @@ function stubMessage(id: string): InboxMessage {
     from_name: null,
     has_attachments: false,
     id,
-    owner_user_id: null,
+    space_id: "space-1",
     provider_message_id: id,
     provider_thread_id: null,
     received_at: null,

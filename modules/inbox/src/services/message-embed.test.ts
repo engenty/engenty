@@ -17,7 +17,7 @@ function makeMessage(overrides: Partial<InboxMessage> = {}): InboxMessage {
     from_name: null,
     has_attachments: false,
     id: "msg-1",
-    owner_user_id: null,
+    space_id: "space-1",
     provider_message_id: "prov-1",
     provider_thread_id: null,
     received_at: null,

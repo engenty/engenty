@@ -2,7 +2,7 @@
 name: chief-of-staff
 description: "The coordinator's playbook — every engenty that reports to nobody in a Space: set the Space up, route its work, hire teammates, keep shared knowledge in one file."
 license: MIT
-allowed-tools: space_setup registry_agents_list agent_propose agent_status message_agent routines_list routines_create routines_update skill_propose agent_self_revise engenty_tools_search engenty_tool_execute requestDecision mastra_workspace_list_files mastra_workspace_read_file mastra_workspace_grep
+allowed-tools: space_setup registry_agents_list agent_propose agent_remove agent_status message_agent routines_list routines_create routines_update skill_propose agent_self_revise engenty_tools_search engenty_tool_execute requestDecision mastra_workspace_list_files mastra_workspace_read_file mastra_workspace_grep
 metadata:
   engenty:
     category: spaces
@@ -52,6 +52,10 @@ Adding an app is admin work — on a 403 say so plainly and stop.
   mandate in `instructions`, the procedure in the routine. Say what you did:
   "Inbox is the teammate whose only job is …; you are talking to me, that
   work goes to them."
+- A teammate that is no longer needed: `agent_remove`. A custom (hired) one
+  is deleted with its routines and its own workflows — cannot be undone; a
+  module agent is only removed from this Space (its routines here paused) and
+  can be added back. It always asks the person on a card first.
 - Hand a job to an existing teammate with `message_agent`: `mode: "ask"` when
   you need the answer now, `mode: "notify"` when it is theirs from here on —
   the message is posted in the room you share and they take the next turn

@@ -5,6 +5,8 @@ import {
   isModelAllowed,
   type ModelAllowList,
   renderedToolsOf,
+  resolveChatModelId,
+  resolvePurposeModelId,
 } from "@engenty/ai-core";
 import {
   buildEngentyCopilotInstructions,
@@ -161,9 +163,8 @@ export interface AssembleDynamicAgentOptions {
 
 export interface RuntimeModelConfig {
   chatModelId: string;
-  // Work-coordinator tier (chat-grade planning); falls back to chat when
-  // unset. Distinct from `routingModelId`, which is the router's small model.
-  coordinatorModelId?: string;
+  /** Classifier ref: pick-one-of-N questions, guardrails included. */
+  classifierModelId?: string;
   /**
    * True when the run's tier was decided by whoever resolved this config
    * (a person's pick, or Auto for their own agent). Agents assembled under a
@@ -171,6 +172,8 @@ export interface RuntimeModelConfig {
    * tier (`agentDefaultEffort`) is placed on that tier's model.
    */
   effortPinned?: boolean;
+  /** Background text jobs without tools (observational memory, titles). */
+  fastTextModelId?: string;
   /** The model behind each graded tier, clamped to the plan. */
   gradedModelIds?: Partial<Record<AiEffort, string>>;
   /**
@@ -179,23 +182,12 @@ export interface RuntimeModelConfig {
    * read per assembled agent. Absent/unrestricted = no filtering.
    */
   grants?: ModelAllowList | null;
-  // Observational memory (observer + reflector). Its own role — the reflector
-  // must finish a structured rewrite, which the router tier could not.
-  memoryModelId?: string;
-  // Planning & coding tier; falls back to chat when unset.
-  planningCodingModelId?: string;
-  // Research / retrieval tier; falls back to chat when unset.
-  researchModelId?: string;
   /**
    * The model's context window from the platform catalog, for the recalled-
    * history budget (history-token-budget.ts). Absent or null = unknown window,
    * fixed default budget.
    */
   resolveContextTokens?: ContextTokensResolver;
-  routingModelId: string;
-  // Mastra guardrail processors classify with this model id; the harness
-  // resolves it from tenant `ai.config.safeguard_model_id` (defaulted).
-  safeguardModelId?: string;
 }
 
 export async function assembleDynamicAgent(
@@ -403,14 +395,20 @@ async function assembleDynamicAgentWithAncestors(
     instructions = `${instructions}\n\n${SHARED_ROOM_INSTRUCTIONS}`;
   }
 
-  // Mastra guardrail processors (prompt-injection / moderation / PII /
-  // system-prompt scrubber / batch parts) — opt-in per agent via
-  // `AgentConfig.guardrails.enabled`. Safeguard model shared across detectors.
+  // Guardrail processors (prompt-injection / moderation / PII / system-prompt
+  // scrubber / batch parts) — opt-in per agent via
+  // `AgentConfig.guardrails.enabled`. Detection asks the classifier binding;
+  // redaction runs on the fast-text model. A config without them resolves the
+  // purposes' platform bindings.
   const { inputProcessors: guardrailInput, outputProcessors } =
     buildGuardrailProcessors(config.guardrails, {
       agentId: config.id,
-      safeguardModelId:
-        options.modelConfig?.safeguardModelId ?? "openai/gpt-oss-safeguard-20b",
+      classifierModelId:
+        options.modelConfig?.classifierModelId ??
+        resolvePurposeModelId({ purpose: "classifier" }),
+      textModelId:
+        options.modelConfig?.fastTextModelId ??
+        resolveChatModelId({ purpose: "fast_text" }),
     });
   // History hygiene, always on (before the guardrail classifiers): strip bulky
   // `engenty_tool_execute` transcripts from RECALLED history — the last two
@@ -520,12 +518,12 @@ export function resolveAgentModelId(
   config: AgentConfig,
   modelConfig: RuntimeModelConfig | undefined
 ): string {
-  // Precedence flip: an explicit per-agent pin beats the tenant/purpose default
+  // Precedence flip: an explicit per-agent pin beats the tenant default
   // — but only within the tenant's grants. An ungoverned pin used to be returned
   // verbatim, which let a pinned sub-agent run a model the tenant is not
   // licensed for: sub-agents are assembled here and never reach the usage
   // preflight, so nothing downstream would have caught it. A disallowed pin now
-  // falls through to purpose inheritance, which is itself governed.
+  // falls through to the tenant default, which is itself governed.
   const override = config.modelOverride?.trim();
   if (
     override &&
@@ -534,7 +532,7 @@ export function resolveAgentModelId(
     return override;
   }
   if (!modelConfig) {
-    return config.model;
+    return config.model ?? resolveChatModelId({ purpose: "chat" });
   }
   // The agent's own default tier — when nobody pinned one for this run. This
   // is how a coding agent runs high in a hand-off or a delegation, where no
@@ -550,35 +548,7 @@ export function resolveAgentModelId(
       return tierModelId;
     }
   }
-  // Inherit by purpose — explicit `purpose` wins, else structural default
-  // (supervisors route, leaves chat), preserving pre-Phase-4 behavior.
-  const purpose =
-    config.purpose ?? (isRoutingAgent(config) ? "routing" : "chat");
-  return modelForPurpose(modelConfig, purpose);
-}
-
-function modelForPurpose(
-  modelConfig: RuntimeModelConfig,
-  purpose: NonNullable<AgentConfig["purpose"]>
-): string {
-  switch (purpose) {
-    case "routing":
-      return modelConfig.routingModelId;
-    case "coordinator":
-      return modelConfig.coordinatorModelId ?? modelConfig.chatModelId;
-    case "research":
-      return modelConfig.researchModelId ?? modelConfig.chatModelId;
-    case "planning_coding":
-      return modelConfig.planningCodingModelId ?? modelConfig.chatModelId;
-    case "safeguard":
-      return modelConfig.safeguardModelId ?? modelConfig.chatModelId;
-    default:
-      return modelConfig.chatModelId;
-  }
-}
-
-function isRoutingAgent(config: AgentConfig): boolean {
-  return (config.subAgents?.length ?? 0) > 0;
+  return modelConfig.chatModelId;
 }
 
 export function buildAgentInstructions(

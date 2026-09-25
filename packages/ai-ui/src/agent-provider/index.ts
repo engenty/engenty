@@ -7,6 +7,7 @@ export {
   useAgentHost,
   useAgentHostConfig,
   useOptionalAgentHost,
+  useSetTurnContext,
 } from "./engenty-agent.js";
 export { EngentyAI, useEngentyAIContext } from "./engenty-ai-provider.js";
 export {

@@ -20,7 +20,7 @@ import {
   PanelRightOpen,
   PictureInPicture2,
 } from "lucide-react";
-import type { PointerEvent as ReactPointerEvent } from "react";
+import type { ReactNode, PointerEvent as ReactPointerEvent } from "react";
 import { useCallback, useRef, useState } from "react";
 import type { CopilotDockMode } from "./copilot-drawer-types";
 
@@ -33,6 +33,8 @@ export interface CopilotDrawerPositionMenuProps {
   compactTrigger?: boolean;
   copyThreadCopiedLabel?: string;
   copyThreadLabel?: string;
+  /** More menu content after the position options (the approval mode). */
+  extraSection?: ReactNode;
   /** Render the trigger as a drag grip: dragging moves the dock, a plain
    *  click (no movement) opens the menu. Replaces the three-dots trigger. */
   gripLabel?: string;
@@ -71,6 +73,7 @@ export function CopilotDrawerPositionMenu({
   copyThreadCopiedLabel = "Copied",
   copyThreadLabel = "Copy thread",
   compactTrigger = false,
+  extraSection = null,
   gripLabel,
   gripPointerDown,
   gripPointerMove,
@@ -227,6 +230,12 @@ export function CopilotDrawerPositionMenu({
                 </DropdownMenuRadioItem>
               ) : null}
             </DropdownMenuRadioGroup>
+          </>
+        ) : null}
+        {extraSection ? (
+          <>
+            {showCopy || showPositions ? <DropdownMenuSeparator /> : null}
+            {extraSection}
           </>
         ) : null}
       </DropdownMenuContent>

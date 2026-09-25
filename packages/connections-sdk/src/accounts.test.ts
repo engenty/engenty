@@ -9,18 +9,16 @@ function connection(
   overrides: Partial<ConnectionSummary> & { id: string }
 ): ConnectionSummary {
   return {
-    all_spaces: false,
     auth_kind: "oauth2",
     autonomous_mode: "off",
+    connected_by: "user-1",
     connector_id: "google-gmail",
     created_at: "2026-07-04T00:00:00Z",
     display_name: null,
     error_message: null,
     external_account: null,
     granted_scopes: [],
-    non_owner_max_group: null,
-    owner_user_id: "user-1",
-    sharing: "personal",
+    space_id: "space-1",
     status: "active",
     tenant_id: "tenant-1",
     ...overrides,
@@ -35,8 +33,7 @@ const orgGmail = connection({
   display_name: "Office mailbox",
   external_account: "office@example.com",
   id: "c-org",
-  owner_user_id: "admin-1",
-  sharing: "org",
+  connected_by: "admin-1",
 });
 
 describe("selectConnectionForAccount", () => {
@@ -71,7 +68,6 @@ describe("selectConnectionForAccount", () => {
         account: "office@example.com",
         connection_id: "c-org",
         display_name: "Office mailbox",
-        sharing: "org",
       });
     }
   });

@@ -12,21 +12,21 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { type ChatKind, ChatKindBadge } from "../chat-kind-badge.js";
-import type { CopilotCompactContextOption } from "../composer/copilot-compact-context-option";
-import { CopilotContextDropdown } from "../composer/copilot-context-dropdown";
 import type { CopilotHeaderChrome } from "./copilot-panel-content-types";
 import { CopilotTitle } from "./copilot-panel-debug-details";
 
 /** Matches app-shell `AppTopbar` height and surface for the copilot header row. */
 export function resolveCopilotHeaderBarClass(
   chrome: CopilotHeaderChrome = "default",
-  options?: { draggable?: boolean }
+  options?: { draggable?: boolean; onBand?: boolean }
 ): string {
   return cn(
     "flex min-w-0 shrink-0 items-center justify-between overflow-x-clip",
-    chrome === "contentBlend"
-      ? "h-11 gap-1 border-0 bg-card px-2 py-0 shadow-none"
-      : "h-11 gap-2 border-b bg-card px-3",
+    options?.onBand
+      ? "h-11 gap-2 border-0 bg-transparent px-3 shadow-none"
+      : chrome === "contentBlend"
+        ? "h-11 gap-1 border-0 bg-card px-2 py-0 shadow-none"
+        : "h-11 gap-2 border-b bg-card px-3",
     options?.draggable && "cursor-grab touch-none active:cursor-grabbing"
   );
 }
@@ -46,12 +46,6 @@ export function CopilotPanelHeader({
   closeLabel,
   clearLabel = "New chat",
   variant = "docked",
-  contextMenuLabel,
-  contextOptions,
-  onSelectContext,
-  recentContextMenuLabel,
-  recentContextOptions,
-  selectedContextId,
   headerChrome = "default",
 }: {
   title?: string;
@@ -67,44 +61,20 @@ export function CopilotPanelHeader({
   onCompact?: () => void;
   attachLabel: string;
   compactLabel?: string;
-  contextMenuLabel?: string;
-  contextOptions?: CopilotCompactContextOption[];
   detachLabel: string;
   dragHandleLabel?: string;
   closeLabel: string;
   /** Label for `onNewChat`. */
   clearLabel?: string;
-  onSelectContext?: (contextId: string) => void;
-  recentContextMenuLabel?: string;
-  recentContextOptions?: CopilotCompactContextOption[];
-  selectedContextId?: string;
   variant?: "docked" | "floating";
   headerChrome?: CopilotHeaderChrome;
 }) {
   const headerBlend = headerChrome === "contentBlend";
   const headerActionClass = headerBlend ? "size-8 shrink-0" : undefined;
-  const showContext = Boolean(
-    contextOptions &&
-      contextOptions.length > 0 &&
-      onSelectContext &&
-      selectedContextId != null
-  );
   const content = (
     <>
       <div className="flex min-w-0 flex-1 items-center gap-2">
-        {showContext ? (
-          <CopilotContextDropdown
-            contextLabel={contextMenuLabel}
-            onSelect={onSelectContext!}
-            options={contextOptions!}
-            recentLabel={recentContextMenuLabel}
-            recentOptions={recentContextOptions}
-            selectedId={selectedContextId!}
-            variant="panel"
-          />
-        ) : (
-          <CopilotTitle title={title} />
-        )}
+        <CopilotTitle title={title} />
       </div>
       <div className="flex shrink-0 items-center gap-1">
         {onNewChat ? (
@@ -193,13 +163,6 @@ export function CopilotPanelInlineHeader({
   chatKind = null,
   headerVariant,
   headerChrome,
-  showHeaderContext,
-  contextMenuLabel,
-  contextOptions,
-  onSelectContext,
-  recentContextMenuLabel,
-  recentContextOptions,
-  selectedContextId,
   positionMenu,
   browserPanelLabel,
   browserPanelOpen = false,
@@ -212,6 +175,8 @@ export function CopilotPanelInlineHeader({
   onNewChat,
   onPanelModeChange,
   onClose,
+  /** Sit on the visibility band: no card fill, the band owns the color. */
+  onBand = false,
 }: {
   browserPanelLabel?: string;
   browserPanelOpen?: boolean;
@@ -221,13 +186,6 @@ export function CopilotPanelInlineHeader({
   chatKind?: ChatKind | null;
   headerVariant: "docked" | "floating";
   headerChrome: CopilotHeaderChrome;
-  showHeaderContext: boolean;
-  contextMenuLabel?: string;
-  contextOptions?: CopilotCompactContextOption[];
-  onSelectContext?: (contextId: string) => void;
-  recentContextMenuLabel?: string;
-  recentContextOptions?: CopilotCompactContextOption[];
-  selectedContextId?: string;
   positionMenu?: ReactNode;
   clearLabel?: string;
   closeLabel: string;
@@ -238,6 +196,7 @@ export function CopilotPanelInlineHeader({
   onNewChat?: () => void;
   onPanelModeChange: (mode: "docked" | "floating") => void;
   onClose: () => void;
+  onBand?: boolean;
 }) {
   const headerBlend = headerChrome === "contentBlend";
   const headerActionClass = headerBlend ? "size-8 shrink-0" : undefined;
@@ -247,19 +206,7 @@ export function CopilotPanelInlineHeader({
         {headerVariant === "floating" && (
           <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground" />
         )}
-        {showHeaderContext ? (
-          <CopilotContextDropdown
-            contextLabel={contextMenuLabel}
-            onSelect={onSelectContext!}
-            options={contextOptions!}
-            recentLabel={recentContextMenuLabel}
-            recentOptions={recentContextOptions}
-            selectedId={selectedContextId!}
-            variant="panel"
-          />
-        ) : (
-          <CopilotTitle title={title} />
-        )}
+        <CopilotTitle title={title} />
         {chatKind ? (
           <ChatKindBadge className="hidden sm:inline-flex" kind={chatKind} />
         ) : null}
@@ -289,7 +236,10 @@ export function CopilotPanelInlineHeader({
           </Button>
         ) : null}
         {headerVariant === "docked" && positionMenu ? (
+          // Close stays on the outer edge, the menu just inside it — the
+          // same order as the window's title bar.
           <>
+            {positionMenu}
             <Button
               aria-label={closeLabel}
               className={headerActionClass}
@@ -299,7 +249,6 @@ export function CopilotPanelInlineHeader({
             >
               <X className="h-4 w-4" />
             </Button>
-            {positionMenu}
           </>
         ) : (
           <>
@@ -339,18 +288,15 @@ export function CopilotPanelInlineHeader({
     </>
   );
 
-  return headerVariant === "floating" ? (
+  return (
     <div
       className={resolveCopilotHeaderBarClass(headerChrome, {
-        draggable: true,
+        draggable: headerVariant === "floating",
+        onBand,
       })}
-    >
-      {headerContent}
-    </div>
-  ) : (
-    <div
-      className={resolveCopilotHeaderBarClass(headerChrome)}
-      data-topbar-chrome={headerBlend ? "content-blend" : undefined}
+      data-topbar-chrome={
+        onBand ? undefined : headerBlend ? "content-blend" : undefined
+      }
     >
       {headerContent}
     </div>

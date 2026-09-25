@@ -72,11 +72,13 @@ export {
   resolveOrigin,
   type SpaceLabel,
 } from "./src/origin.js";
+export * from "./src/presentation.js";
 export {
   channelsFor,
   createNotificationsService,
   type EmitNotificationInput,
   type NotificationsService,
+  presentNotification,
   type ResolveNotificationsInput,
   resolveNotificationAudiences,
   subscribersFor,
@@ -363,12 +365,26 @@ const registerNotificationsPlugin: EngentyPluginFactory = (engenty) => {
           source: "connections",
           ...(spaceId ? { spaceId } : {}),
           subject: { id: requestId, type: "approval_request" },
+          // The reason is the one line a person needs to decide; the
+          // operation's name is the title. Decided at the source (the
+          // approval card on the task or chat), shown here in short.
+          body: reason,
           summary: approvalSummary({
             actorLabel: origin?.metadata.actor_label,
             operationId,
             spaceName: origin?.metadata.space_name,
           }),
           tenantId,
+          title: {
+            key: "approval_requested",
+            params: {
+              actor: origin?.metadata.actor_label ?? "An agent",
+              operation: humanizeOperationId(
+                operationId,
+                str(payload.module_id)
+              ),
+            },
+          },
         })
         .catch(() => {
           // Best-effort: the request row is already durable.
@@ -411,8 +427,17 @@ const registerNotificationsPlugin: EngentyPluginFactory = (engenty) => {
           priority: "low",
           source: str(payload.module_id) ?? "core",
           ...(spaceId ? { spaceId } : {}),
-          summary: `ran ${humanizeOperationId(operationId)}`,
+          summary: `An agent ran ${humanizeOperationId(operationId)}`,
           tenantId,
+          title: {
+            key: "records_written",
+            params: {
+              operation: humanizeOperationId(
+                operationId,
+                str(payload.module_id)
+              ),
+            },
+          },
         })
         .catch(() => {
           // FYI only; nothing to recover.

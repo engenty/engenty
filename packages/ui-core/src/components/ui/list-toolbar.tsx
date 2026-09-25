@@ -208,6 +208,8 @@ const FILTER_CHIP_CN =
   "h-8 shrink-0 gap-1 rounded-full border px-3 text-sm shadow-none [box-shadow:var(--shadow-ember-elevated)] focus-visible:ring-0";
 
 interface ListFilterChipOption {
+  /** Optional leading icon in the menu (the chip itself stays text). */
+  icon?: React.ComponentType<{ className?: string }>;
   label: string;
   value: string;
 }
@@ -240,6 +242,19 @@ function defaultMultiActiveLabel(
       (item) => options.find((option) => option.value === item)?.label ?? item
     )
     .join(", ");
+}
+
+function FilterOptionLabel({ option }: { option: ListFilterChipOption }) {
+  if (!option.icon) {
+    return option.label;
+  }
+  const Icon = option.icon;
+  return (
+    <span className="flex items-center gap-2">
+      <Icon aria-hidden className="size-4 text-muted-foreground" />
+      {option.label}
+    </span>
+  );
 }
 
 function ListFilterChip({
@@ -327,7 +342,7 @@ function ListFilterChip({
                 onValuesChange?.([...selected]);
               }}
             >
-              {option.label}
+              <FilterOptionLabel option={option} />
             </DropdownMenuCheckboxItem>
           ))
         ) : (
@@ -338,7 +353,7 @@ function ListFilterChip({
                 key={option.value}
                 value={option.value}
               >
-                {option.label}
+                <FilterOptionLabel option={option} />
               </DropdownMenuRadioItem>
             ))}
           </DropdownMenuRadioGroup>

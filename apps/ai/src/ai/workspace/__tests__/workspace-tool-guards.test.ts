@@ -11,6 +11,7 @@ import { engentyToolsRunAls } from "../../../../ai/tools/engenty-tools/lib/run-c
 import {
   describeWorkspaceToolCall,
   sandboxExecuteApprovalGate,
+  workspaceApprovalCard,
   workspaceDeleteApprovalGate,
   workspaceDeleteNeedsApproval,
   workspaceToolGrantId,
@@ -86,14 +87,34 @@ describe("what the human is asked", () => {
   it("says the cascade out loud", () => {
     // The part someone approving in a hurry would otherwise not see.
     expect(
-      describeWorkspaceToolCall({ path: "/shared/imports", recursive: true })
-    ).toBe("/shared/imports and everything inside it");
+      describeWorkspaceToolCall("mastra_workspace_delete", {
+        path: "/shared/imports",
+        recursive: true,
+      })
+    ).toEqual({
+      target: "/shared/imports and everything inside it",
+      title: "Delete",
+    });
   });
 
   it("names the plain target when nothing cascades", () => {
-    expect(describeWorkspaceToolCall({ path: "/shared/a.md" })).toBe(
-      "/shared/a.md"
-    );
+    expect(
+      describeWorkspaceToolCall("mastra_workspace_delete", {
+        path: "/shared/a.md",
+      }).target
+    ).toBe("/shared/a.md");
+  });
+
+  it("shows a command as the command, with its directory", () => {
+    expect(
+      workspaceApprovalCard("mastra_workspace_execute_command", {
+        command: " python3 check_mail.py ",
+        cwd: "/task",
+      })
+    ).toEqual({
+      body: "cd /task && python3 check_mail.py",
+      title: "Run command",
+    });
   });
 });
 
@@ -105,22 +126,36 @@ describe("running a command in the sandbox", () => {
     expect(gate({ args: { command: "python script.py" } })).toBe(true);
   });
 
-  it("does not ask when the run's grants cover it", () => {
-    // A routine's standing allow-list lands here. Without this the schedule
-    // would gate, park for a human who is not there, and gate again on the
-    // next fire — forever.
+  it("does not ask when the run's grants cover this exact command", () => {
+    // A routine's standing allow-list or an agent grant lands here. Without
+    // this the schedule would gate, park for a human who is not there, and
+    // gate again on the next fire — forever.
     const granted = engentyToolsRunAls.run(
-      { approvalGrants: [`workspace:${TOOL}`] } as never,
+      { approvalGrants: [`workspace:${TOOL}:python script.py`] } as never,
       () => gate({ args: { command: "python script.py" } })
     );
     expect(granted).toBe(false);
   });
 
-  it("is not satisfied by a grant for some other tool", () => {
+  it("asks again for a different command", () => {
     const other = engentyToolsRunAls.run(
-      { approvalGrants: ["workspace:mastra_workspace_delete"] } as never,
+      { approvalGrants: [`workspace:${TOOL}:python script.py`] } as never,
       () => gate({ args: { command: "rm -rf /" } })
     );
     expect(other).toBe(true);
+  });
+
+  it("is not satisfied by a tool-wide grant", () => {
+    const toolWide = engentyToolsRunAls.run(
+      { approvalGrants: [`workspace:${TOOL}`] } as never,
+      () => gate({ args: { command: "python script.py" } })
+    );
+    expect(toolWide).toBe(true);
+  });
+
+  it("keys the grant on the working directory too", () => {
+    expect(
+      workspaceToolGrantId(TOOL, { command: "rm -rf *", cwd: "/shared" })
+    ).toBe(`workspace:${TOOL}:cd /shared && rm -rf *`);
   });
 });

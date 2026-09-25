@@ -13,7 +13,6 @@ export {
 export {
   ENGENTY_DEVELOPER_MODE_STORAGE_KEY,
   getDeveloperModePreference,
-  isEngentyDeveloperModeUiEnabled,
   setDeveloperModePreference,
   subscribeDeveloperModePreference,
 } from "./developer-mode-preference.js";

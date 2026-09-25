@@ -2,7 +2,9 @@
 # Snapshot the spaces tree — every App's source repository and /data directory.
 #
 # It is tenant data with no other copy: the repositories are not mirrored
-# anywhere and the SQLite files under data/ are the Apps' databases. Run it
+# anywhere and the SQLite files under data/ are the Apps' databases. The same
+# tree holds each Space computer's state, which is losable by design and left
+# out: package caches (cache/) and staged copies of object storage (ai/). Run it
 # from cron on the host that binds /opt/engenty/spaces, e.g. daily:
 #
 #   15 3 * * * /opt/engenty/deploy/scripts/backup-spaces.sh >> /var/log/engenty-backup.log 2>&1
@@ -22,8 +24,9 @@ mirror="$BACKUP_DIR/spaces-mirror"
 archive="$BACKUP_DIR/spaces-$stamp.tar.zst"
 
 install -d -m 700 "$BACKUP_DIR"
-rsync -a --delete "$SPACES_DIR/" "$mirror/"
-rsync -a --delete "$SPACES_DIR/" "$mirror/"
+skip=(--exclude '/tenants/*/ai/' --exclude '/tenants/*/spaces/*/ai/' --exclude '/tenants/*/spaces/*/cache/')
+rsync -a --delete --delete-excluded "${skip[@]}" "$SPACES_DIR/" "$mirror/"
+rsync -a --delete --delete-excluded "${skip[@]}" "$SPACES_DIR/" "$mirror/"
 tar --zstd -cf "$archive" -C "$mirror" .
 
 # Prune, newest first.

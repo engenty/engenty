@@ -1,7 +1,7 @@
 import { useTranslation } from "@engenty/i18n/ui";
 import { Badge } from "@engenty/ui-core";
 import type { SpaceMountDeclaration } from "@engenty/ui-plugin-sdk";
-import { Boxes, Plug, Sparkles } from "lucide-react";
+import { Boxes, Sparkles } from "lucide-react";
 import { useMemo } from "react";
 import { isModuleSkill } from "./space-capability-recommendations";
 import type { SpaceMountCatalog } from "./space-mount-catalog";
@@ -10,11 +10,6 @@ import type { SpaceSelection } from "./space-setup-selection";
 const GROUPS = [
   { icon: Boxes, kind: "module", titleKey: "spaces.setup.appsTitle" },
   { icon: Sparkles, kind: "skill", titleKey: "spaces.setup.skillsTitle" },
-  {
-    icon: Plug,
-    kind: "connection",
-    titleKey: "spaces.setup.connectionsTitle",
-  },
 ] as const;
 
 export function SpaceCreateReviewStep({
@@ -35,7 +30,6 @@ export function SpaceCreateReviewStep({
     baseline.map((entry) => `${entry.resourceType}:${entry.resourceKey}`)
   );
   const catalogs = {
-    connection: catalog.connections,
     module: catalog.modules,
     skill: catalog.skills,
   };

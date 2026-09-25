@@ -13,9 +13,8 @@ through connections connector actions.
 
 ## Spaces
 
-- Compose only through connections mounted in this Space. An account that exists
-  for the tenant but is not listed here should be mounted in Space setup, not
-  reconnected blindly.
+- Compose only through this Space's own connections — a mailbox belongs to the
+  Space it was connected in. An account of another Space cannot be used here.
 
 ## Finding the tools
 

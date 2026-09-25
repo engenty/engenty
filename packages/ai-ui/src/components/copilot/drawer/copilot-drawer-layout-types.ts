@@ -13,7 +13,7 @@ import type { CopilotDockMode, CopilotPanelMode } from "./copilot-drawer-types";
 import type { CopilotFloatingSnapTarget } from "./copilot-drawer-utils";
 
 export interface UseCopilotDrawerLayoutOptions {
-  activeCopilotContext?: CopilotRouteContext;
+  copilotContext?: CopilotRouteContext;
   copilotLayout: CopilotLayoutPersistenceApi | null;
   effectiveMode: CopilotDockMode;
   floatingBoundsMargin: number;

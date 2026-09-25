@@ -1,8 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  buildVoxtralRealtimeUrl,
-  createVoxtralSttLeg,
-} from "../api/cascade/voxtral-stt.js";
+import { createVoxtralSttLeg } from "../api/cascade/voxtral-stt.js";
 
 type Listener = (event: {
   data?: string;
@@ -52,19 +49,6 @@ class FakeWebSocket {
     this.emit("open");
   }
 }
-
-describe("buildVoxtralRealtimeUrl", () => {
-  it("adds the model query param", () => {
-    expect(
-      buildVoxtralRealtimeUrl(
-        "wss://api.mistral.ai/v1/audio/transcriptions/realtime",
-        "voxtral-mini-transcribe-realtime-2602"
-      )
-    ).toBe(
-      "wss://api.mistral.ai/v1/audio/transcriptions/realtime?model=voxtral-mini-transcribe-realtime-2602"
-    );
-  });
-});
 
 describe("createVoxtralSttLeg", () => {
   afterEach(() => {

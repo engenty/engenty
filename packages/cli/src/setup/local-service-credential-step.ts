@@ -8,8 +8,10 @@
 // same hash and row shape the API writes); this step runs it with the env
 // files as they are NOW and writes the new secret back into .env.local.
 import { spawnSync } from "node:child_process";
+import fs from "node:fs";
 import path from "node:path";
 import { mergeWorkspaceDotEnvLayers } from "@engenty/environment/env";
+import { envFilePath } from "../env-setup/env-files.js";
 import { runEnvSet } from "../env-setup/env-set.js";
 
 export const AI_SERVICE_SECRET_KEY = "ENGENTY_AI_SERVICE_SECRET";
@@ -30,8 +32,22 @@ export interface LocalServiceCredentialStepDeps {
     ok: boolean;
     output: string;
   };
+  /** Blocks between attempts; tests pass a no-op. */
+  wait?: (ms: number) => void;
   /** Persists the new secret into the root .env.local. */
   writeSecret: (value: string) => void;
+}
+
+/**
+ * Right after `supabase db reset` the stack's API is still restarting, and
+ * the first check fails although nothing is wrong — the reset then left the
+ * stale secret in place. A few spaced attempts ride that out.
+ */
+export const ENSURE_LOCAL_ATTEMPTS = 5;
+export const ENSURE_LOCAL_RETRY_MS = 2000;
+
+function blockingWait(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 
 /** The keys the child must read from the files, not this process's env. */
@@ -143,8 +159,18 @@ export function runLocalServiceCredentialStep(input: {
 }): "kept" | "minted" | "skipped" {
   const log = input.log ?? console.log;
   const env = ensureLocalCredentialChildEnv(input.workspaceRoot);
-  const result = input.deps.run(env);
-  const parsed = parseEnsureLocalOutput(result.output);
+  const wait = input.deps.wait ?? blockingWait;
+  let result = input.deps.run(env);
+  let parsed = parseEnsureLocalOutput(result.output);
+  for (
+    let attempt = 1;
+    attempt < ENSURE_LOCAL_ATTEMPTS && !(result.ok && parsed);
+    attempt += 1
+  ) {
+    wait(ENSURE_LOCAL_RETRY_MS);
+    result = input.deps.run(env);
+    parsed = parseEnsureLocalOutput(result.output);
+  }
   if (!(result.ok && parsed)) {
     log(
       `Could not check the AI service credential (the scheduler needs it to fire routines). Run \`pnpm engenty service-token ensure-local\` once core's env is complete.${
@@ -165,4 +191,26 @@ export function runLocalServiceCredentialStep(input: {
     }. ${AI_SERVICE_SECRET_KEY} is written to .env.local; restart apps/ai to pick it up.`
   );
   return "minted";
+}
+
+/**
+ * Run after every local migrate/reset (`engenty setup`, `engenty db reset`):
+ * the credential row lives in the database that just changed. Without a root
+ * .env.local there is no secret to keep in sync and core cannot boot — the
+ * next `engenty setup` mints one once it has written the file.
+ */
+export function ensureLocalServiceCredential(input: {
+  deps?: LocalServiceCredentialStepDeps;
+  log?: (line: string) => void;
+  workspaceRoot: string;
+}): "kept" | "minted" | "no-env-file" | "skipped" {
+  if (!fs.existsSync(envFilePath(input.workspaceRoot, "root"))) {
+    return "no-env-file";
+  }
+  return runLocalServiceCredentialStep({
+    deps:
+      input.deps ?? defaultLocalServiceCredentialStepDeps(input.workspaceRoot),
+    log: input.log,
+    workspaceRoot: input.workspaceRoot,
+  });
 }

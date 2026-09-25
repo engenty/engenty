@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import type { Task } from "../../src/schema/types.js";
 import {
   buildTaskRunObserverRouteContext,
-  buildWorkOnTaskRunPrompt,
   taskRunObserverHostKey,
   taskRunObserverStableSessionKey,
 } from "./task-run-observer-binding.js";
@@ -54,12 +53,5 @@ describe("buildTaskRunObserverRouteContext", () => {
     });
     expect(ctx.scope).not.toHaveProperty("copilotLaunchId");
     expect(ctx.scope).not.toHaveProperty("copilotStartMode");
-  });
-});
-
-describe("buildWorkOnTaskRunPrompt", () => {
-  it("mentions task identifier and title", () => {
-    expect(buildWorkOnTaskRunPrompt(sampleTask)).toContain("ENG-1");
-    expect(buildWorkOnTaskRunPrompt(sampleTask)).toContain("Sample task");
   });
 });

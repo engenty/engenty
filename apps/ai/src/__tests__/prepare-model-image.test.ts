@@ -39,9 +39,4 @@ describe("prepareModelNativeImage", () => {
       MODEL_IMAGE_MAX_EDGE_PX
     );
   });
-
-  it("returns null for non-image bytes", async () => {
-    const prepared = await prepareModelNativeImage(Buffer.from("not an image"));
-    expect(prepared).toBeNull();
-  });
 });

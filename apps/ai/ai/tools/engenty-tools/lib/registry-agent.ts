@@ -7,6 +7,9 @@ import { getEngentyToolsRunContext } from "./run-context.js";
 export interface RegistryAgentRecord {
   id: string;
   kind?: "chat_surface" | "delegated" | "interface" | "specialist";
+  name?: string;
+  /** Provenance: a hired row (`database`) or shipped code. */
+  source?: "builtin" | "database" | "module";
 }
 
 /**

@@ -15,8 +15,6 @@ export type ConnectorActionGroup = "read" | "write" | "destructive";
 
 export type ConnectionActionPolicy = "allow" | "ask" | "deny";
 
-export type ConnectionSharing = "personal" | "org";
-
 export type ConnectionAutonomousMode = "off" | "read_only" | "full";
 
 export interface ConnectorActionContractDefaults {
@@ -376,12 +374,20 @@ export interface ConnectorDefinition {
   toolPrefix: string;
 }
 
-/** Connection row as exposed to module code and the UI — tokens never leave the DAL. */
+/**
+ * Connection row as exposed to module code and the UI — tokens never leave the
+ * DAL. A connection belongs to ONE Space: every agent and member of that Space
+ * uses it, nobody outside it does (PLAN-space-owned-connections.md).
+ */
 export interface ConnectionSummary {
-  /** Available in every space of the tenant (and on global agent runs). */
-  all_spaces: boolean;
   auth_kind: ConnectorAuthKind;
+  /**
+   * How far the Space's engentys may go with this account unattended — the
+   * ceiling for agent/service runs. Live people are not clamped by it.
+   */
   autonomous_mode: ConnectionAutonomousMode;
+  /** Who signed in. Audit only — grants no access and no approval right. */
+  connected_by: string | null;
   connector_id: string;
   created_at: string;
   display_name: string | null;
@@ -389,13 +395,8 @@ export interface ConnectionSummary {
   external_account: string | null;
   granted_scopes: string[];
   id: string;
-  non_owner_max_group: ConnectorActionGroup | null;
-  owner_user_id: string | null;
-  /**
-   * Legacy column. Access no longer reads this; use space mounts, `all_spaces`,
-   * and `connection_agent_grants`.
-   */
-  sharing: ConnectionSharing;
+  /** The Space that owns this account. */
+  space_id: string;
   status: "active" | "error" | "revoked";
   tenant_id: string;
 }

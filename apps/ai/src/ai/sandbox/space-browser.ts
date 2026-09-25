@@ -1,7 +1,9 @@
-// The user's browser: one headless-Chromium service container PER USER
-// (`engenty-browser-<tenant>-<user>`), driven over CDP by apps/ai in that
-// user's name wherever they work — a space is where a run happens to use
-// it, not what the browser belongs to. A SERVICE, not an exec sandbox — nothing
+// The Space's browser: one headless-Chromium service container PER SPACE
+// (`engenty-browser-<tenant>-<space>`), driven over CDP by apps/ai for every
+// agent working in that Space (PLAN-space-owned-connections.md). Each agent
+// gets its own window (tab) in it — `user-browser-registry.ts` — while
+// logins and cookies are the Space's, shared. The copilot's is the person's
+// personal Space's browser. A SERVICE, not an exec sandbox — nothing
 // executes commands in it, so it is created with the docker CLI carrying
 // Mastra's sandbox labels (the catalog, Reset and the sweeps find it like any
 // other container) and nothing of Mastra's exec machinery. It exists only when the user asked
@@ -9,9 +11,9 @@
 // agents browse through host-side tools, never through raw CDP from a sandbox.
 //
 // Continuity lives in the PROFILE BIND, not the container: cookies and
-// logged-in sessions sit under `tenants/<tenant>/ai/browser/profile/<user>/`,
+// logged-in sessions sit in the Space drive's `browser/profile/`,
 // so they survive stops, Resets and image upgrades — and belong to exactly
-// one person, in every space. Reachability is two networks: the browser's own sealed egress
+// one Space. Reachability is two networks: the browser's own sealed egress
 // network (all traffic through the logged browser proxy) and the view
 // network it is attached to after start, where only engenty-ai lives.
 
@@ -22,7 +24,7 @@ import { promisify } from "node:util";
 
 import { createLogger } from "@engenty/telemetry";
 
-import { resolveLocalMountBasePath } from "../workspace/local-workspace-paths.js";
+import { resolveSpaceDrivePath } from "../workspace/local-workspace-paths.js";
 import {
   type EngentyDockerSandboxRow,
   listEngentyDockerSandboxes,
@@ -36,19 +38,18 @@ const logger = createLogger({ name: "apps/ai/space-browser" });
 const DEFAULT_BROWSER_IMAGE = "engenty-browser:latest";
 const DEFAULT_IDLE_STOP_MS = 15 * 60 * 1000;
 const DEFAULT_MAX_PER_TENANT = 4;
-const DEFAULT_MAX_PER_USER = 2;
 const USER_BROWSER_ID_PREFIX = "engenty-browser-";
 export const SPACE_BROWSER_CDP_PORT = 9222;
-/** Where the browser saves files; bound to the person's downloads staging. */
+/** Where the browser saves files; bound to the Space's downloads staging. */
 export const USER_BROWSER_DOWNLOADS_CONTAINER_PATH = "/downloads";
-/** Where a space machine sees every person's browser downloads. */
+/** Where the Space's machine sees its browser's downloads. */
 export const USER_BROWSER_DOWNLOADS_MOUNT_PATH = "/sandbox/browser-downloads";
 
 export type UserBrowserState = "absent" | "running" | "stopped";
 
 export interface UserBrowserIdentity {
+  spaceId: string;
   tenantId: string;
-  userId: string;
 }
 
 export interface UserBrowserStatus {
@@ -59,10 +60,10 @@ export interface UserBrowserStatus {
 
 export class UserBrowserLimitError extends Error {
   readonly code = "user_browser_limit";
-  readonly dimension: "tenant" | "user";
+  readonly dimension: "tenant";
   readonly limit: number;
 
-  constructor(dimension: "tenant" | "user", limit: number) {
+  constructor(dimension: "tenant", limit: number) {
     super(`user_browser_limit: ${dimension} ceiling of ${limit} reached`);
     this.name = "UserBrowserLimitError";
     this.dimension = dimension;
@@ -105,13 +106,6 @@ export function resolveUserBrowserMaxPerTenant(): number {
   );
 }
 
-export function resolveUserBrowserMaxPerUser(): number {
-  return readPositiveIntEnv(
-    "ENGENTY_BROWSER_MAX_PER_USER",
-    DEFAULT_MAX_PER_USER
-  );
-}
-
 export function isUserBrowserSandboxId(sandboxId: string): boolean {
   return sandboxId.startsWith(USER_BROWSER_ID_PREFIX);
 }
@@ -119,7 +113,7 @@ export function isUserBrowserSandboxId(sandboxId: string): boolean {
 export function buildUserBrowserSandboxId(
   identity: UserBrowserIdentity
 ): string {
-  return `${USER_BROWSER_ID_PREFIX}${identity.tenantId}-${identity.userId}`;
+  return `${USER_BROWSER_ID_PREFIX}${identity.tenantId}-${identity.spaceId}`;
 }
 
 /**
@@ -185,33 +179,30 @@ async function readPublishedCdpPort(sandboxId: string): Promise<number | null> {
   }
 }
 
-/** The user's Chromium profile on the host — cookies, logins, history. */
+/** The Space's Chromium profile on the host — cookies, logins, history. */
 export function resolveUserBrowserProfilePath(
   identity: UserBrowserIdentity
 ): string {
-  return resolveLocalMountBasePath(
+  return resolveSpaceDrivePath(
     identity.tenantId,
-    `ai/browser/profile/${identity.userId}/`
+    identity.spaceId,
+    "browser/profile"
   );
 }
 
 /**
- * The tenant's browser downloads root on the host. One subdirectory per
- * person: the browser binds its own subdirectory at `/downloads`, every
- * space machine binds the root at `/sandbox/browser-downloads`, so a file
- * the browser saved is the same byte a machine run reads under
- * `/sandbox/browser-downloads/<user>/` — whichever space the run is in.
+ * The Space's browser downloads on the host. The browser binds it at
+ * `/downloads`, the Space's machine at `/sandbox/browser-downloads`, so a
+ * file the browser saved is the same byte a machine run reads — and no other
+ * Space's machine sees it.
  */
-export function resolveUserBrowserDownloadsRootPath(tenantId: string): string {
-  return resolveLocalMountBasePath(tenantId, "ai/browser/downloads/");
-}
-
-function resolveUserBrowserDownloadsPath(
+export function resolveUserBrowserDownloadsPath(
   identity: UserBrowserIdentity
 ): string {
-  return path.join(
-    resolveUserBrowserDownloadsRootPath(identity.tenantId),
-    identity.userId
+  return resolveSpaceDrivePath(
+    identity.tenantId,
+    identity.spaceId,
+    "browser/downloads"
   );
 }
 
@@ -299,7 +290,8 @@ export async function readUserBrowserStatus(
 }
 
 /**
- * The browser ceilings: running browsers per tenant and per user, host-wide.
+ * The browser ceiling: running browsers per tenant, host-wide (one per Space
+ * by construction).
  * Separate from the sandbox admission slots on purpose — those are taken per
  * run and returned at run end, while a browser has no run: it runs until
  * idle-stop. A stopped browser holds nothing; waking it counts again.
@@ -307,23 +299,14 @@ export async function readUserBrowserStatus(
 async function assertBrowserRoom(identity: UserBrowserIdentity): Promise<void> {
   const rows = await listEngentyDockerSandboxes({ runningOnly: true });
   let tenantHeld = 0;
-  let userHeld = 0;
   for (const row of rows) {
     const parsed = parseEngentySandboxId(row.sandbox_id);
     if (
-      parsed?.lifecycle !== "browser" ||
-      parsed.tenant_id !== identity.tenantId
+      parsed?.lifecycle === "browser" &&
+      parsed.tenant_id === identity.tenantId
     ) {
-      continue;
+      tenantHeld += 1;
     }
-    tenantHeld += 1;
-    if (parsed.user_id === identity.userId) {
-      userHeld += 1;
-    }
-  }
-  const perUser = resolveUserBrowserMaxPerUser();
-  if (userHeld >= perUser) {
-    throw new UserBrowserLimitError("user", perUser);
   }
   const perTenant = resolveUserBrowserMaxPerTenant();
   if (tenantHeld >= perTenant) {
@@ -358,7 +341,7 @@ async function connectViewNetwork(
 }
 
 /**
- * Start (or wake) the user's browser. Declared, never
+ * Start (or wake) the Space's browser. Declared, never
  * implicit: only the browser route calls this — a chat turn must not conjure
  * a service. Idempotent by container identity: Docker reuses the labelled
  * container and `start()` wakes a stopped one, profile intact.
@@ -449,9 +432,9 @@ export async function startUserBrowser(
     await connectViewNetwork(sandboxId, networkPlan.viewNetwork);
   }
   markUserBrowserUsed(sandboxId);
-  logger.info("user browser started", {
+  logger.info("space browser started", {
     sandboxId,
-    userId: identity.userId,
+    spaceId: identity.spaceId,
   });
   return {
     cdpUrl: resolveUserBrowserCdpUrl(identity),
@@ -464,7 +447,7 @@ async function stopContainer(containerId: string): Promise<void> {
   await execFileAsync("docker", ["stop", "--time", "10", containerId]);
 }
 
-/** `docker stop` the user's browser; the profile — and the container — stay. */
+/** `docker stop` the Space's browser; the profile — and the container — stay. */
 export async function stopUserBrowser(
   identity: UserBrowserIdentity
 ): Promise<UserBrowserStatus> {
@@ -503,9 +486,9 @@ export async function signOutUserBrowser(
   for (const entry of entries) {
     rmSync(path.join(profilePath, entry), { force: true, recursive: true });
   }
-  logger.info("user browser signed out", {
+  logger.info("space browser signed out", {
     sandboxId: status.sandboxId,
-    userId: identity.userId,
+    spaceId: identity.spaceId,
   });
   return status;
 }

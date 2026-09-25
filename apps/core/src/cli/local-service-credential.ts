@@ -9,7 +9,7 @@
 // `engenty setup` keeps it in step: same row shape, same sha256, platform-
 // scoped (tenant_id NULL) so it serves every tenant the dev user creates.
 // Production keeps the human, tenant-clamped mint.
-import { AI_SERVICE_PLAN_CAPABILITIES } from "@engenty/plugin-sdk";
+import { AI_SERVICE_CAPABILITIES, capabilityCovers } from "@engenty/plugin-sdk";
 import { uuidv7 } from "uuidv7";
 import {
   nowEpochSeconds,
@@ -20,13 +20,15 @@ import type { ServiceCredentialStore } from "../security/auth-stores/types.js";
 
 export const LOCAL_AI_SERVICE_CREDENTIAL_NAME = "ai-service (local)";
 
-/** The locked-down AI service set: module invocation plus the Plan facets. */
-export const LOCAL_AI_SERVICE_CAPABILITIES: readonly string[] = [
-  "module.read",
-  "module.write",
-  "module.execute",
-  ...AI_SERVICE_PLAN_CAPABILITIES,
-];
+/** The locked-down AI service set — see {@link AI_SERVICE_CAPABILITIES}. */
+export const LOCAL_AI_SERVICE_CAPABILITIES = AI_SERVICE_CAPABILITIES;
+
+type MintReason =
+  | "missing"
+  | "unknown"
+  | "disabled"
+  | "wrong_secret"
+  | "stale_capabilities";
 
 const SECRET_PREFIX = "engsvc";
 
@@ -48,15 +50,17 @@ export type EnsureLocalServiceCredentialResult =
   | { credentialId: string; status: "kept" }
   | {
       credentialId: string;
-      reason: "missing" | "unknown" | "disabled" | "wrong_secret";
+      reason: MintReason;
       /** `<credentialId>.<rawSecret>` — the one time the raw value exists. */
       secret: string;
       status: "minted";
     };
 
 /**
- * Keep the configured secret when its row is live and the hash matches;
- * mint a fresh platform credential otherwise. Never touches the old row: a
+ * Keep the configured secret when its row is live, the hash matches and it
+ * still carries the full AI service set; mint a fresh platform credential
+ * otherwise. A row minted before the set grew would 403 every headless call
+ * the new capabilities exist for, so it is replaced, not kept. Never touches the old row: a
  * stale id may belong to another stack this .env.local once pointed at.
  */
 export async function ensureLocalServiceCredential(input: {
@@ -66,17 +70,23 @@ export async function ensureLocalServiceCredential(input: {
   stores: Pick<ServiceCredentialStore, "get" | "insert">;
 }): Promise<EnsureLocalServiceCredentialResult> {
   const parsed = parseServiceSecret(input.configured);
-  let reason: "missing" | "unknown" | "disabled" | "wrong_secret" = "missing";
+  let reason: MintReason = "missing";
   if (parsed) {
     const row = await input.stores.get(parsed.credentialId);
     if (!row) {
       reason = "unknown";
     } else if (row.disabledAt !== undefined) {
       reason = "disabled";
-    } else if (row.secretHash === toHash(parsed.secret)) {
-      return { credentialId: parsed.credentialId, status: "kept" };
-    } else {
+    } else if (row.secretHash !== toHash(parsed.secret)) {
       reason = "wrong_secret";
+    } else if (
+      LOCAL_AI_SERVICE_CAPABILITIES.some(
+        (cap) => !capabilityCovers(row.capabilities, cap)
+      )
+    ) {
+      reason = "stale_capabilities";
+    } else {
+      return { credentialId: parsed.credentialId, status: "kept" };
     }
   }
   const id = uuidv7();

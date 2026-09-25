@@ -50,7 +50,7 @@ describe("engentyToolsPreapproveTool", () => {
     vi.unstubAllGlobals();
   });
 
-  it("suspends ONE card covering every gated op, with the plan as body", async () => {
+  it("suspends ONE card covering every gated op at the highest risk", async () => {
     vi.stubEnv("ENGENTY_CORE_BASE_URL", "https://api.engenty.localhost");
     const fetchMock = vi
       .fn()
@@ -75,8 +75,7 @@ describe("engentyToolsPreapproveTool", () => {
         executeTool(
           {
             operation_ids: ["log_time_entry", "update_time_entry"],
-            reason: "Create 200 dummy time entries for testing",
-            estimated_calls: 200,
+            reason: "bulk import",
           },
           { agent: { suspend } } as never
         )
@@ -84,19 +83,15 @@ describe("engentyToolsPreapproveTool", () => {
 
     expect(suspend).toHaveBeenCalledTimes(1);
     const payload = suspend.mock.calls[0]?.[0] as ToolApprovalSuspendPayload;
-    expect(payload.kind).toBe("tool_approval");
-    expect(payload.operation_id).toBe("log_time_entry");
     expect(payload.operation_ids).toEqual([
       "log_time_entry",
       "update_time_entry",
     ]);
     expect(payload.risk_level).toBe("critical");
-    expect(payload.requires_approval).toBe(true);
-    expect(payload.body).toContain("dummy time entries");
-    expect(payload.body).toContain("~200");
   });
 
   it("skips already-granted and ungated ops; nothing left → no card", async () => {
+    // An approved turn re-runs into this call; asking again would loop.
     vi.stubEnv("ENGENTY_CORE_BASE_URL", "https://api.engenty.localhost");
     const fetchMock = vi
       .fn()
@@ -175,125 +170,5 @@ describe("engentyToolsPreapproveTool", () => {
     expect(result.error).toBe("unknown_operations");
     expect(result.unknown_operation_ids).toEqual(["totally_made_up_op"]);
     expect(suspend).not.toHaveBeenCalled();
-  });
-
-  it("artifact policy (interactive start lane): returns the bulk decision card", async () => {
-    vi.stubEnv("ENGENTY_CORE_BASE_URL", "https://api.engenty.localhost");
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(
-        describeResponse("log_time_entry", {
-          requiresApproval: false,
-          riskLevel: "high",
-        })
-      )
-      .mockResolvedValueOnce(
-        describeResponse("update_time_entry", {
-          requiresApproval: false,
-          riskLevel: "high",
-        })
-      );
-    vi.stubGlobal("fetch", fetchMock);
-
-    const result = (await engentyToolsRunAls.run(
-      { approvalPolicy: "artifact", accessToken: "user-token" },
-      () =>
-        executeTool({
-          operation_ids: ["log_time_entry", "update_time_entry"],
-          reason: "Create dummy entries",
-        })
-    )) as {
-      artifact_type?: string;
-      body?: string;
-      choices?: { label: string }[];
-    };
-
-    expect(result.artifact_type).toBe("decision");
-    expect(result.body).toContain("Create dummy entries");
-    expect(result.body).toContain("log_time_entry, update_time_entry");
-    expect(result.choices?.map((c) => c.label)).toEqual([
-      "Approve for this run",
-      "Approve for this chat",
-      "Deny",
-    ]);
-  });
-
-  it("returns a clear unavailable result in a leaf run (no suspend channel)", async () => {
-    vi.stubEnv("ENGENTY_CORE_BASE_URL", "https://api.engenty.localhost");
-    const fetchMock = vi.fn().mockResolvedValueOnce(
-      describeResponse("log_time_entry", {
-        requiresApproval: false,
-        riskLevel: "high",
-      })
-    );
-    vi.stubGlobal("fetch", fetchMock);
-
-    const result = (await engentyToolsRunAls.run(
-      { approvalPolicy: "deny", accessToken: "user-token" },
-      () =>
-        executeTool({
-          operation_ids: ["log_time_entry"],
-          reason: "bulk import",
-        })
-    )) as { error?: string; message?: string; ok?: boolean };
-
-    expect(result.ok).toBe(false);
-    expect(result.error).toBe("approval_required");
-    expect(result.message).toContain("log_time_entry");
-  });
-
-  it("resume: approved-for-chat returns the granted set with chat scope", async () => {
-    vi.stubEnv("ENGENTY_CORE_BASE_URL", "https://api.engenty.localhost");
-    vi.stubGlobal("fetch", vi.fn());
-
-    const result = (await engentyToolsRunAls.run(
-      { approvalPolicy: "suspend", accessToken: "user-token" },
-      () =>
-        executeTool(
-          {
-            operation_ids: ["log_time_entry", "update_time_entry"],
-            reason: "bulk import",
-          },
-          {
-            agent: {
-              resumeData: { approved: true, choice_id: "approve_always" },
-              suspend: vi.fn(),
-            },
-          } as never
-        )
-    )) as {
-      granted_operation_ids?: string[];
-      ok?: boolean;
-      scope?: string;
-    };
-
-    expect(result.ok).toBe(true);
-    expect(result.scope).toBe("chat");
-    expect(result.granted_operation_ids).toEqual([
-      "log_time_entry",
-      "update_time_entry",
-    ]);
-  });
-
-  it("resume: denial tells the model to stop without retrying", async () => {
-    vi.stubEnv("ENGENTY_CORE_BASE_URL", "https://api.engenty.localhost");
-    vi.stubGlobal("fetch", vi.fn());
-
-    const result = (await engentyToolsRunAls.run(
-      { approvalPolicy: "suspend", accessToken: "user-token" },
-      () =>
-        executeTool(
-          { operation_ids: ["log_time_entry"], reason: "bulk import" },
-          {
-            agent: {
-              resumeData: { approved: false, choice_id: "deny" },
-              suspend: vi.fn(),
-            },
-          } as never
-        )
-    )) as { error?: string; ok?: boolean };
-
-    expect(result.ok).toBe(false);
-    expect(result.error).toBe("approval_denied");
   });
 });

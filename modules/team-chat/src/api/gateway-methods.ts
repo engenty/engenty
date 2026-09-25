@@ -116,17 +116,17 @@ async function dispatchUserNotifications(params: {
     ? `#${state.conversation.name}`
     : "a direct message";
   const preview = notificationPreview(message.text);
+  // The line that names what happened; the message itself is the body.
   const summaryFor = (reason: NotificationReason): string => {
-    const tail = preview ? `: ${preview}` : "";
     switch (reason) {
       case "mention":
-        return `Mentioned in ${label}${tail}`;
+        return `Mentioned in ${label}`;
       case "dm":
-        return `New direct message${tail}`;
+        return "New direct message";
       case "thread":
-        return `New reply in ${label}${tail}`;
+        return `New reply in ${label}`;
       default:
-        return `New message in ${label}${tail}`;
+        return `New message in ${label}`;
     }
   };
   await Promise.all(
@@ -136,6 +136,7 @@ async function dispatchUserNotifications(params: {
           ? { id: params.authorUserId, kind: "user" }
           : { id: params.authorAgentKey, kind: "agent" },
         audience: { kind: "user", userId: target.user_id },
+        ...(preview ? { body: preview } : {}),
         dedupeKey: `team-chat:${message.conversation_id}:${message.ts}:${target.user_id}`,
         kind: "team_chat.message",
         metadata: { reason: target.reason },
@@ -143,11 +144,8 @@ async function dispatchUserNotifications(params: {
           author_agent_key: params.authorAgentKey,
           author_user_id: params.authorUserId,
           conversation_id: message.conversation_id,
-          conversation_label: label,
           conversation_type: state.conversation.type,
           message_ts: message.ts,
-          route: `/mdl/team-chat/${message.conversation_id}?ts=${message.ts}`,
-          text_preview: preview,
           thread_ts: message.thread_ts,
         },
         // A mention is pressing; everything else is FYI that the class gate
@@ -156,7 +154,21 @@ async function dispatchUserNotifications(params: {
         source: "team-chat",
         subject: { id: message.conversation_id, type: "conversation" },
         summary: summaryFor(target.reason),
+        target: `/mdl/team-chat/${message.conversation_id}?ts=${message.ts}`,
         tenantId: params.tenantId,
+        // "{actor} mentioned you in #general", "{actor} replied in …": the
+        // sender is the actor; the summary stays for a sender without a name.
+        title: {
+          key:
+            target.reason === "mention"
+              ? "team_chat_mention"
+              : target.reason === "dm"
+                ? "team_chat_dm"
+                : target.reason === "thread"
+                  ? "team_chat_reply"
+                  : "team_chat_message",
+          params: { name: label },
+        },
       })
     )
   );

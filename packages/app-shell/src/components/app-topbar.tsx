@@ -1,36 +1,11 @@
-import {
-  Button,
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  CommandSeparator,
-  cn,
-  Dialog,
-  DialogContent,
-  Engenty,
-  ShellBreadcrumbTrail,
-} from "@engenty/ui-core";
+import { Button, cn, Engenty, ShellBreadcrumbTrail } from "@engenty/ui-core";
 import { type PageBreadcrumb, usePageHeader } from "@engenty/ui-plugin-sdk";
-import {
-  Code2,
-  EyeOff,
-  Globe,
-  LogOut,
-  Menu,
-  Moon,
-  PanelLeft,
-  PanelLeftClose,
-  Pin,
-  Settings,
-  Sun,
-} from "lucide-react";
-import { type ReactElement, useCallback, useMemo } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Menu, PanelLeft, PanelLeftClose } from "lucide-react";
+import { type ReactElement, useMemo } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { findActiveNavLabel } from "../lib/navigation";
 import type { NavigationSection, ShellSidebarConfig } from "../types/shell";
+import { type AppMenuContent, AppMenuDialog } from "./app-menu-dialog";
 import { enrichFirstBreadcrumbWithNavIcon } from "./enrich-breadcrumb-nav-icon";
 
 function isPrimitiveBreadcrumbLabel(
@@ -68,6 +43,8 @@ export interface AppMenuActions {
 }
 
 interface AppTopbarProps {
+  /** Spaces as tabs, About, and the per-space list. */
+  appMenu?: AppMenuContent;
   /** Quick-action callbacks for the ⌘K menu. */
   appMenuActions?: AppMenuActions;
   appMenuOpen: boolean;
@@ -100,6 +77,7 @@ interface AppTopbarProps {
 }
 
 export function AppTopbar({
+  appMenu,
   appMenuActions,
   appMenuOpen,
   sections,
@@ -118,7 +96,6 @@ export function AppTopbar({
   onSecondaryNavHoverLeave,
 }: AppTopbarProps) {
   const location = useLocation();
-  const navigate = useNavigate();
 
   const currentTitle =
     findActiveNavLabel(location.pathname, location.search, sections) ??
@@ -210,47 +187,6 @@ export function AppTopbar({
     moduleRootNavItem?.to == null &&
     visibleBreadcrumbs.length === 0 &&
     actions == null;
-
-  const handleAppMenuSelect = useCallback(
-    (to: string, external?: boolean) => {
-      onAppMenuOpenChange(false);
-      if (external || to.startsWith("http://") || to.startsWith("https://")) {
-        window.open(to, "_blank", "noopener,noreferrer");
-      } else {
-        navigate(to);
-      }
-    },
-    [navigate, onAppMenuOpenChange]
-  );
-
-  // Split sections into main, admin (without settings children), and settings sub-pages
-  const { mainSections, adminSection, settingsChildren } = useMemo(() => {
-    const adminIdx = sections.findIndex((s) =>
-      s.items.some((i) => i.to === "/settings")
-    );
-    const admin = adminIdx >= 0 ? sections[adminIdx] : null;
-    // Extract settings children and strip them from admin items
-    let children: Array<{ to: string; label: string; external?: boolean }> = [];
-    let strippedAdmin = admin;
-    if (admin) {
-      const settingsItem = admin.items.find((i) => i.to === "/settings");
-      children = settingsItem?.children ?? [];
-      strippedAdmin = {
-        ...admin,
-        items: admin.items.map((i) =>
-          i.to === "/settings" ? { ...i, children: undefined } : i
-        ),
-      };
-    }
-    return {
-      mainSections:
-        adminIdx >= 0
-          ? sections.slice(0, adminIdx).concat(sections.slice(adminIdx + 1))
-          : sections,
-      adminSection: strippedAdmin,
-      settingsChildren: children,
-    };
-  }, [sections]);
 
   return (
     <nav
@@ -436,183 +372,15 @@ export function AppTopbar({
         {actions}
       </div>
 
-      {/* App menu Command dialog */}
-      <Dialog onOpenChange={onAppMenuOpenChange} open={appMenuOpen}>
-        <DialogContent
-          className="overflow-hidden p-0 sm:max-w-[420px]"
-          showCloseButton={false}
-        >
-          <Command className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-input-wrapper]]:px-3 [&_[cmdk-input-wrapper]]:py-2">
-            <CommandInput placeholder="Search apps…" />
-            <CommandList className="max-h-[min(60vh,400px)]">
-              <CommandEmpty>No results found.</CommandEmpty>
-              {/* Navigation — top-level items only (no module sub-pages) */}
-              {mainSections.map((section, idx) => {
-                const groupKey = section.label ?? `section-${idx}`;
-                return (
-                  <CommandGroup
-                    heading={section.label ?? undefined}
-                    key={groupKey}
-                  >
-                    {section.items.map((item) => {
-                      const Icon = item.icon;
-                      return (
-                        <CommandItem
-                          key={item.to}
-                          onSelect={() =>
-                            handleAppMenuSelect(item.to, item.external)
-                          }
-                        >
-                          <Icon className="mr-2 size-4 shrink-0" />
-                          <span>{item.label}</span>
-                        </CommandItem>
-                      );
-                    })}
-                  </CommandGroup>
-                );
-              })}
-              {/* Admin — top-level only (settings children stripped) */}
-              {adminSection ? (
-                <>
-                  <CommandSeparator />
-                  <CommandGroup heading={adminSection.label ?? "Admin"}>
-                    {adminSection.items.map((item) => {
-                      const Icon = item.icon;
-                      return (
-                        <CommandItem
-                          key={item.to}
-                          onSelect={() =>
-                            handleAppMenuSelect(item.to, item.external)
-                          }
-                        >
-                          <Icon className="mr-2 size-4 shrink-0" />
-                          <span>{item.label}</span>
-                        </CommandItem>
-                      );
-                    })}
-                  </CommandGroup>
-                </>
-              ) : null}
-              {/* Settings sub-pages */}
-              {settingsChildren.length > 0 ? (
-                <>
-                  <CommandSeparator />
-                  <CommandGroup heading="Settings">
-                    {settingsChildren.map((child) => (
-                      <CommandItem
-                        key={child.to}
-                        onSelect={() =>
-                          handleAppMenuSelect(child.to, child.external)
-                        }
-                      >
-                        <Settings className="mr-2 size-4 shrink-0 opacity-40" />
-                        <span>{child.label}</span>
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </>
-              ) : null}
-              {/* Dock toggle */}
-              {onToggleSidebarHidden ? (
-                <>
-                  <CommandSeparator />
-                  <CommandGroup heading="Dock">
-                    <CommandItem
-                      onSelect={() => {
-                        onToggleSidebarHidden();
-                        onAppMenuOpenChange(false);
-                      }}
-                    >
-                      {isSidebarHidden ? (
-                        <>
-                          <Pin className="mr-2 size-4 shrink-0" />
-                          <span>Open Dock</span>
-                        </>
-                      ) : (
-                        <>
-                          <EyeOff className="mr-2 size-4 shrink-0" />
-                          <span>Autohide Dock</span>
-                        </>
-                      )}
-                    </CommandItem>
-                  </CommandGroup>
-                </>
-              ) : null}
-              {/* Quick Actions */}
-              {appMenuActions ? (
-                <>
-                  <CommandSeparator />
-                  <CommandGroup heading="Actions">
-                    <CommandItem
-                      onSelect={() => {
-                        handleAppMenuSelect("/settings/profile");
-                      }}
-                    >
-                      <Settings className="mr-2 size-4 shrink-0" />
-                      <span>Profile settings</span>
-                    </CommandItem>
-                    <CommandItem
-                      onSelect={() => {
-                        appMenuActions.onToggleTheme();
-                        onAppMenuOpenChange(false);
-                      }}
-                    >
-                      {appMenuActions.currentTheme === "dark" ? (
-                        <>
-                          <Sun className="mr-2 size-4 shrink-0" />
-                          <span>Switch to Light theme</span>
-                        </>
-                      ) : (
-                        <>
-                          <Moon className="mr-2 size-4 shrink-0" />
-                          <span>Switch to Dark theme</span>
-                        </>
-                      )}
-                    </CommandItem>
-                    <CommandItem
-                      onSelect={() => {
-                        appMenuActions.onToggleLanguage();
-                        onAppMenuOpenChange(false);
-                      }}
-                    >
-                      <Globe className="mr-2 size-4 shrink-0" />
-                      <span>
-                        {appMenuActions.currentLang === "de"
-                          ? "Switch to English"
-                          : "Switch to Deutsch"}
-                      </span>
-                    </CommandItem>
-                    {appMenuActions.developerModeAvailable ? (
-                      <CommandItem
-                        onSelect={() => {
-                          appMenuActions.onToggleDeveloperMode();
-                          onAppMenuOpenChange(false);
-                        }}
-                      >
-                        <Code2 className="mr-2 size-4 shrink-0" />
-                        <span>
-                          {appMenuActions.developerModeOn
-                            ? "Disable Developer mode"
-                            : "Enable Developer mode"}
-                        </span>
-                      </CommandItem>
-                    ) : null}
-                    <CommandItem
-                      onSelect={() => {
-                        appMenuActions.onSignOut();
-                        onAppMenuOpenChange(false);
-                      }}
-                    >
-                      <LogOut className="mr-2 size-4 shrink-0" />
-                      <span>Sign out</span>
-                    </CommandItem>
-                  </CommandGroup>
-                </>
-              ) : null}
-            </CommandList>
-          </Command>
-        </DialogContent>
-      </Dialog>
+      <AppMenuDialog
+        actions={appMenuActions}
+        content={appMenu}
+        isSidebarHidden={isSidebarHidden}
+        onOpenChange={onAppMenuOpenChange}
+        onToggleSidebarHidden={onToggleSidebarHidden}
+        open={appMenuOpen}
+        sections={sections}
+      />
     </nav>
   );
 }

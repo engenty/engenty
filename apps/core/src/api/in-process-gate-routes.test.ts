@@ -60,10 +60,26 @@ function makeApp() {
     },
   });
 
-  const callInner = async (auth: PluginAuthContext | undefined) => {
+  // Not gated: only the capability check can refuse it.
+  server.registerOperation({
+    operationId: "demo_inner_plain_write",
+    moduleId: "demo",
+    requiredCapabilities: ["module.demo.write"],
+    riskLevel: "low",
+    requiresApproval: false,
+    handler: async (input) => {
+      innerCalls.push(input);
+      return { ok: true };
+    },
+  });
+
+  const callInner = async (
+    auth: PluginAuthContext | undefined,
+    operationId = "demo_inner_write"
+  ) => {
     try {
       await server.callGatewayMethod(
-        "demo_inner_write",
+        operationId,
         { via: "nested" },
         {
           ...(auth ? { auth } : {}),
@@ -100,6 +116,16 @@ function makeApp() {
           ...(ctx.auth ? { auth: ctx.auth } : {}),
         }
       ),
+  });
+
+  server.registerOperation({
+    operationId: "demo_outer_plain_read",
+    moduleId: "demo",
+    requiredCapabilities: ["module.demo.read"],
+    riskLevel: "low",
+    requiresApproval: false,
+    handler: async (_input, ctx) =>
+      callInner(ctx.auth, "demo_inner_plain_write"),
   });
 
   server.registerOperation({
@@ -198,13 +224,9 @@ describe("in-process gate through the module operation transport", () => {
     const { app, innerCalls } = makeApp();
     const token = await agentToken(["module.demo.read"]);
 
-    const res = await invoke(app, "demo_outer_read", token);
+    const res = await invoke(app, "demo_outer_plain_read", token);
     expect(res.status).toBe(200);
-    const body = (await res.json()) as {
-      data: { nested: string; reason: string };
-    };
-    expect(body.data.nested).toBe("denied");
-    expect(body.data.reason).toMatch(/missing capability: module.demo.write/);
+    expect(await res.json()).toMatchObject({ data: { nested: "denied" } });
     expect(innerCalls).toHaveLength(0);
   });
 

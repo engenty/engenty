@@ -120,6 +120,26 @@ describe("dispatchTaskIfReady", () => {
     expect(send).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ["already checked out by a run", { checkout_run_id: "run-1" }],
+    [
+      "waiting in request status for a person to plan it",
+      { status: "request" },
+    ],
+    [
+      "assigned to an agent with no specialist key",
+      {
+        primary_assignee_agent_type_key: null,
+      },
+    ],
+  ] as const)("does NOT enqueue a task %s", async (_label, overrides) => {
+    const task = makeTask(overrides as Partial<Task>);
+    const { repo } = makeRepo([task]);
+    const { queue, send } = makeQueue();
+    await dispatchTaskIfReady({ queue, repo, tenantId: "tenant" }, task);
+    expect(send).not.toHaveBeenCalled();
+  });
+
   it("does NOT enqueue a non-agent task", async () => {
     const task = makeTask({ primary_assignee_kind: "user" });
     const { repo } = makeRepo([task]);

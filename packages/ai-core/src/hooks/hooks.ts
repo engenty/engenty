@@ -3,9 +3,9 @@
 // names, no intermediate representation (D1). Custom hooks are plain
 // functions calling these; the ambient frame makes composition free.
 import type {
+  AgentConfig,
   AgentGuardrailsConfig,
   AgentLimitsConfig,
-  AgentModelPurpose,
   AgentWorkspaceConfig,
 } from "../dynamic-contracts.js";
 import { isRendering, requireRenderFrame } from "./frame.js";
@@ -14,7 +14,7 @@ import { isRendering, requireRenderFrame } from "./frame.js";
  * Pin the agent to an explicit model id. Writes `modelOverride`, so the pin
  * flows through the same tenant-grant filter as a row-authored pin
  * (`resolveAgentModelId`) — a render can request a model, only governance
- * decides. At most one model declaration (`useModel` or `usePurpose`) per
+ * decides. At most one model declaration (`useModel` or `useEffort`) per
  * render.
  */
 export function useModel(modelId: string): void {
@@ -25,15 +25,15 @@ export function useModel(modelId: string): void {
 }
 
 /**
- * Inherit the tenant's model tier for a purpose (`chat`, `routing`,
- * `research`, `planning_coding`, `safeguard`). Mutually exclusive with
- * `useModel` in one render.
+ * Run on the tenant's graded model for an effort tier (`low`, `medium`,
+ * `high`) whenever nobody pinned one for the turn. Writes `effort`, same as a
+ * data config. Mutually exclusive with `useModel` in one render.
  */
-export function usePurpose(purpose: AgentModelPurpose): void {
-  const frame = requireRenderFrame("usePurpose");
-  assertSingleModelDeclaration(frame.modelDeclared, "usePurpose");
+export function useEffort(effort: NonNullable<AgentConfig["effort"]>): void {
+  const frame = requireRenderFrame("useEffort");
+  assertSingleModelDeclaration(frame.modelDeclared, "useEffort");
   frame.modelDeclared = true;
-  frame.draft.purpose = purpose;
+  frame.draft.effort = effort;
 }
 
 /**
@@ -191,7 +191,7 @@ function assertSingleModelDeclaration(declared: boolean, hook: string): void {
   if (declared) {
     throw new Error(
       `[agent-hooks] ${hook}() conflicts with an earlier model declaration ` +
-        "in this render. Declare the model at most once (useModel OR usePurpose)."
+        "in this render. Declare the model at most once (useModel OR useEffort)."
     );
   }
 }

@@ -2,6 +2,7 @@ import type {
   AgentStarter,
   AgentWorkspaceConfig,
   ChatCommandDefinition,
+  OutcomeProviderDefinition,
   RoutineDefinition,
   WorkflowDefinition,
 } from "@engenty/ai-core";
@@ -73,7 +74,7 @@ export interface EngentySpaceMount {
   /** Agent mounts only: the agent whose room this agent's reports also reach. */
   reportsTo?: string | null;
   resourceKey: string;
-  resourceType: "agent" | "connection" | "module" | "plugin" | "skill";
+  resourceType: "agent" | "module" | "plugin" | "skill";
   spaceId: string;
 }
 
@@ -85,30 +86,31 @@ export interface EngentySpaceSurface {
   agentReportsTo?: Record<string, string>;
   agents: string[];
   /**
-   * The acting person's consent for THEIR browser (PLAN-user-browser.md
-   * D3): may an agent drive it while they are away. The grant is the
-   * person's, tenant-wide — it rides the surface because that is the one
-   * call a headless run already makes, and core names the acting person
-   * (a routine's author) from the routine row, never from a header. Null
-   * when they never set one, or when the caller acts for nobody (a task
-   * job). Never a widening: no grant means a headless run stops with
+   * The Space's consent for ITS browser (PLAN-user-browser.md D3;
+   * PLAN-space-owned-connections.md): may an agent drive it while nobody
+   * watches, and start it without asking. It rides the surface because that
+   * is the one call a headless run already makes. Null when the Space never
+   * set one. Never a widening: no grant means a headless run stops with
    * `needs_user`.
    */
   browserGrant?: { autostart?: boolean; unattended: boolean } | null;
   capabilities: string[];
+  /** The Space computer's own egress hosts, beyond the proxy's shared list. */
+  computerEgressHosts?: string[];
   /**
    * Network reach of this space's shared computer. Absent or null inherits the
    * host default — a core that predates the column simply omits it.
    */
   computerNetworkTier?: "none" | "egress" | null;
-  /** ACCOUNT ids (connection rows) mounted here — see CN.3 in the plan. */
+  /**
+   * ACCOUNT ids (connection rows) this space owns, any status — every engenty
+   * here uses them (PLAN-space-owned-connections.md).
+   */
   connections: string[];
   /**
-   * Connector ids those accounts belong to, derived by core.
-   *
-   * Optional so a running apps/ai keeps working against a core that predates
-   * CN.3; absent means the connector gate finds nothing mounted, which refuses
-   * rather than widens.
+   * Connector ids enabled here: plugin mounts plus the connectors of the
+   * space's active accounts, derived by core. Absent means the connector gate
+   * finds nothing enabled, which refuses rather than widens.
    */
   connectors?: string[];
   modules: Array<{
@@ -157,8 +159,6 @@ export interface EngentySpaceSetupAddResult {
    * is a placement that stands with a binding that did not finish.
    */
   bound?: Array<{ connection_id: string; error?: string; module_id: string }>;
-  /** Accounts whose owner still has to allow engentys to use them. */
-  ceiling_blocked: Array<{ connection_id: string; reason: string }>;
   /**
    * Apps whose own first-use setup ran with this call (their manifest's
    * `mountOperation` — the space's knowledge base row, for one). `ready:
@@ -268,19 +268,6 @@ export interface EngentyCoreModuleCapabilitySeed {
      */
     moduleId?: string | null;
     name: string;
-    /**
-     * Which tenant model tier the agent inherits when a run resolves a
-     * RuntimeModelConfig (e.g. the coordinator declares "coordinator" so
-     * tenant ai.config.coordinator_model_id applies). `model` stays the
-     * compiled fallback for runs with no resolved config.
-     */
-    purpose?:
-      | "chat"
-      | "routing"
-      | "coordinator"
-      | "research"
-      | "planning_coding"
-      | "safeguard";
     skillIds?: string[];
     source?: "builtin" | "module" | "database";
     /** Empty-state composer chips declared in the module's agent.json. */
@@ -298,6 +285,7 @@ export interface EngentyCoreModuleCapabilitySeed {
   // Serializable COMMAND.md chat slash commands declared by the module.
   chatCommands?: ChatCommandDefinition[];
   moduleId: string;
+  outcomeProviders?: OutcomeProviderDefinition[];
   routines?: RoutineDefinition[];
   skills?: Record<string, string>;
   // Module workflow / trigger declarations (shape: @engenty/ai-core
@@ -624,21 +612,20 @@ export class EngentyCoreClient {
     );
   }
 
-  /**
-   * The caller's own browser consent (PLAN-user-browser.md D3) — for a run
-   * outside any space, which has no surface to carry it. Owner-only on
-   * core's side: a service principal gets 403.
-   */
-  getMyBrowserGrant() {
+  /** A Space's browser consent (members read; owners set — core decides). */
+  getSpaceBrowserGrant(spaceId: string) {
     return this.request<{ autostart: boolean; unattended: boolean }>(
-      "/api/me/browser-grant"
+      `/api/spaces/${encodeURIComponent(spaceId)}/browser-grant`
     );
   }
 
   /** Set one or both consents; an omitted flag keeps its value. */
-  putMyBrowserGrant(patch: { autostart?: boolean; unattended?: boolean }) {
+  putSpaceBrowserGrant(
+    spaceId: string,
+    patch: { autostart?: boolean; unattended?: boolean }
+  ) {
     return this.request<{ autostart: boolean; unattended: boolean }>(
-      "/api/me/browser-grant",
+      `/api/spaces/${encodeURIComponent(spaceId)}/browser-grant`,
       { body: JSON.stringify(patch), method: "PUT" }
     );
   }
@@ -666,7 +653,7 @@ export class EngentyCoreClient {
       /** Agent mounts only: who this agent reports to. Null clears. */
       reports_to?: string | null;
       resource_key: string;
-      resource_type: "agent" | "connection" | "module" | "skill";
+      resource_type: "agent" | "module" | "plugin" | "skill";
     }
   ) {
     return this.request<unknown>(
@@ -680,20 +667,19 @@ export class EngentyCoreClient {
   }
 
   /**
-   * ADD to a space's setup — apps and accounts in one call
-   * (PLAN-connections-ux.md B2). Additive: what is already mounted stays, and
-   * re-adding a mount with a different `agent_access` is how the level changes.
+   * ADD to a space's setup (PLAN-connections-ux.md B2). Additive: what is
+   * already mounted stays, and re-adding a mount with a different
+   * `agent_access` is how the level changes.
    *
    * The answer carries what the caller still has to do: `needs_connect` names
-   * apps that are here with no account to work with, and `ceiling_blocked`
-   * names accounts whose own owner still has to open them up.
+   * apps that are here with no account to work with.
    */
   postSpaceSetupAdd(
     spaceId: string,
     mounts: Array<{
       agent_access?: "none" | "read" | "write";
       resource_key: string;
-      resource_type: "agent" | "connection" | "module" | "skill";
+      resource_type: "agent" | "module" | "plugin" | "skill";
     }>
   ) {
     return this.request<EngentySpaceSetupAddResult>(
@@ -712,7 +698,7 @@ export class EngentyCoreClient {
    */
   deleteSpaceMount(
     spaceId: string,
-    resourceType: "agent" | "connection" | "module" | "skill",
+    resourceType: "agent" | "module" | "plugin" | "skill",
     resourceKey: string
   ) {
     return this.request<{ removed: boolean }>(
@@ -758,7 +744,7 @@ export class EngentyCoreClient {
   invokeTool<TInput, TResult>(
     toolId: string,
     input: TInput,
-    options?: { origin?: "app" }
+    options?: { origin?: "app"; spaceId?: string }
   ) {
     return this.request<TResult>(
       `/api/tools/${encodeURIComponent(toolId)}/invoke`,
@@ -768,6 +754,11 @@ export class EngentyCoreClient {
           "Content-Type": "application/json",
           ...(options?.origin
             ? { "x-engenty-call-origin": options.origin }
+            : {}),
+          // One call in another Space than the client's: a connector call of
+          // a run whose connections live elsewhere (`callSpaceIdFor`).
+          ...(options?.spaceId
+            ? { "x-engenty-space-id": options.spaceId }
             : {}),
         },
         body: JSON.stringify({ input }),

@@ -90,3 +90,12 @@ export interface ModelCard {
   id: string;
   [key: string]: JsonValue | undefined;
 }
+
+/**
+ * Anything that answers System One questions: TypeSafe's own client, or an
+ * LLM answering the same questions through structured output. Callers ask
+ * through this so the classifier binding, not the caller, picks the engine.
+ */
+export interface ClassifierClient {
+  systemOne(request: SystemOneRequest): Promise<SystemOneResponse>;
+}

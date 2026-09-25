@@ -6,14 +6,12 @@
 // in-memory and cleared on thread switch/abort, so they cannot survive the
 // approve → re-run hop (a fresh run).
 //
-// Two scopes, both persisted (so they survive across the resume runs of ONE request
-// — a single create can resume several times when the agent interleaves a domain
-// decision between the approval and the actual execute):
-//   - PERSISTENT ("Approve always") — lives for the whole thread.
-//   - ONCE ("Approve once") — lives only until the next FRESH user turn, when the
-//     route clears it. Without persisting it, "once" was lost on the very next
-//     resume and the same op re-prompted repeatedly within one request.
-export const TOOL_APPROVAL_GRANTS_METADATA_KEY = "engenty_tool_approval_grants";
+// ONCE grants ("Approve once", and the current request of "Approve for this
+// agent") live only until the next FRESH user turn, when the route clears them.
+// They are persisted so they survive the resume runs of ONE request — a single
+// create can resume several times when the agent interleaves a domain decision
+// between the approval and the actual execute. Standing approvals live on the
+// agent (`agent-approval-grants.ts`), not on the thread.
 export const TOOL_APPROVAL_GRANTS_ONCE_METADATA_KEY =
   "engenty_tool_approval_grants_once";
 
@@ -28,33 +26,11 @@ function readKey(
   return raw.filter((v): v is string => typeof v === "string" && v.length > 0);
 }
 
-/**
- * All granted operation ids in effect for the next run — the union of persistent
- * ("always") and once grants. This is what the route hands the executor, so the
- * execute-boundary gate sees both.
- */
+/** The once grants in effect for the next run of this thread. */
 export function readToolApprovalGrants(
   metadata: Record<string, unknown> | null | undefined
 ): string[] {
-  const persistent = readKey(metadata, TOOL_APPROVAL_GRANTS_METADATA_KEY);
-  const once = readKey(metadata, TOOL_APPROVAL_GRANTS_ONCE_METADATA_KEY);
-  return Array.from(new Set([...persistent, ...once]));
-}
-
-/** Add `operationId` to the PERSISTENT ("always") grant list (idempotent). */
-export function withToolApprovalGrant(
-  metadata: Record<string, unknown> | null | undefined,
-  operationId: string
-): Record<string, unknown> {
-  const base = metadata ?? {};
-  const existing = readKey(base, TOOL_APPROVAL_GRANTS_METADATA_KEY);
-  if (existing.includes(operationId)) {
-    return { ...base };
-  }
-  return {
-    ...base,
-    [TOOL_APPROVAL_GRANTS_METADATA_KEY]: [...existing, operationId],
-  };
+  return readKey(metadata, TOOL_APPROVAL_GRANTS_ONCE_METADATA_KEY);
 }
 
 /**
@@ -77,7 +53,7 @@ export function withToolApprovalGrantOnce(
   };
 }
 
-/** Drop all ONCE grants (called when a fresh user turn starts). Persistent grants stay. */
+/** Drop all ONCE grants (called when a fresh user turn starts). */
 export function clearOnceToolApprovalGrants(
   metadata: Record<string, unknown> | null | undefined
 ): Record<string, unknown> {

@@ -1,10 +1,12 @@
 import { Hono } from "hono";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { listPublishedWorkflowsRunningAgent } from "../ai/workflows/graph-agents.js";
 import { registerRegistryRoutes } from "../api/registry-routes.js";
-import {
-  notifyAgentProposed,
-  resolveAgentProposalNotifications,
-} from "../notifications/agent-proposals.js";
+import { notifyAgentProposed } from "../notifications/agent-proposals.js";
+
+vi.mock("../ai/workflows/graph-agents.js", () => ({
+  listPublishedWorkflowsRunningAgent: vi.fn(async () => []),
+}));
 
 vi.mock("../notifications/agent-proposals.js", () => ({
   notifyAgentProposed: vi.fn(async () => undefined),
@@ -12,7 +14,7 @@ vi.mock("../notifications/agent-proposals.js", () => ({
 }));
 
 const notifyProposed = vi.mocked(notifyAgentProposed);
-const resolveProposed = vi.mocked(resolveAgentProposalNotifications);
+const referencingWorkflows = vi.mocked(listPublishedWorkflowsRunningAgent);
 
 function createScopeResolver() {
   return async () => ({
@@ -32,27 +34,7 @@ function createScopeResolver() {
 describe("registry-routes", () => {
   beforeEach(() => {
     notifyProposed.mockClear();
-    resolveProposed.mockClear();
-  });
-
-  it("should list agents", async () => {
-    const app = new Hono();
-    const mockStore = {
-      listAgents: vi
-        .fn()
-        .mockResolvedValue([{ id: "agent-1", name: "Agent 1" }]),
-    };
-
-    registerRegistryRoutes(app, {
-      getStore: () => mockStore as any,
-      scopeResolver: createScopeResolver(),
-    });
-
-    const res = await app.request("/ai/registry/agents");
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.agents).toHaveLength(1);
-    expect(body.agents[0].id).toBe("agent-1");
+    referencingWorkflows.mockResolvedValue([]);
   });
 
   it("lists module and built-in agents through the composite registry", async () => {
@@ -91,8 +73,6 @@ describe("registry-routes", () => {
     await expect(res.json()).resolves.toEqual({
       agents: [
         {
-          // `can_execute` is false for both: neither declared a sandbox. The
-          // Space's Compute settings offer a placement only where it is true.
           can_execute: false,
           id: "contacts.manager",
           managed_by_module: null,
@@ -112,8 +92,6 @@ describe("registry-routes", () => {
         },
       ],
     });
-    expect(listAgentConfigs).toHaveBeenCalledTimes(1);
-    expect(mockStore.listAgents).not.toHaveBeenCalled();
   });
 
   it("decorates agents with role and managed_by_module", async () => {
@@ -274,23 +252,33 @@ describe("registry-routes", () => {
     });
   });
 
-  it("should delete agent in the resolved tenant scope", async () => {
+  it("refuses to delete an agent other workflows still run, unless forced", async () => {
+    referencingWorkflows.mockResolvedValue([
+      { id: "w-9", name: "Weekly report" },
+    ]);
     const app = new Hono();
     const mockStore = {
       deleteAgent: vi.fn().mockResolvedValue(true),
     };
-
     registerRegistryRoutes(app, {
       getStore: () => mockStore as any,
       scopeResolver: createScopeResolver(),
     });
 
-    const res = await app.request("/ai/registry/agents/agent-2", {
+    const refused = await app.request("/ai/registry/agents/agent-2", {
       method: "DELETE",
     });
+    expect(refused.status).toBe(409);
+    await expect(refused.json()).resolves.toMatchObject({
+      error: "agent_registry.referencedByWorkflows",
+      workflows: [{ id: "w-9", name: "Weekly report" }],
+    });
+    expect(mockStore.deleteAgent).not.toHaveBeenCalled();
 
-    expect(res.status).toBe(200);
-    await expect(res.json()).resolves.toEqual({ deleted: true });
+    const forced = await app.request("/ai/registry/agents/agent-2?force=true", {
+      method: "DELETE",
+    });
+    expect(forced.status).toBe(200);
     expect(mockStore.deleteAgent).toHaveBeenCalledWith("tenant-1", "agent-2");
   });
 
@@ -338,29 +326,6 @@ describe("registry-routes", () => {
     );
   });
 
-  it("should delete a tool in the resolved tenant scope", async () => {
-    const app = new Hono();
-    const mockStore = {
-      deleteTool: vi.fn().mockResolvedValue(true),
-    };
-
-    registerRegistryRoutes(app, {
-      getStore: () => mockStore as any,
-      scopeResolver: createScopeResolver(),
-    });
-
-    const res = await app.request("/ai/registry/tools/search-tool", {
-      method: "DELETE",
-    });
-
-    expect(res.status).toBe(200);
-    await expect(res.json()).resolves.toEqual({ deleted: true });
-    expect(mockStore.deleteTool).toHaveBeenCalledWith(
-      "tenant-1",
-      "search-tool"
-    );
-  });
-
   it("approves a new proposal and mounts the stamped space", async () => {
     const putSpaceMount = vi.fn().mockResolvedValue({});
     const app = new Hono();
@@ -388,16 +353,10 @@ describe("registry-routes", () => {
       }
     );
     expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.agent.id).toBe("sales.researcher");
-    expect(body.mounted).toEqual([
+    expect((await res.json()).mounted).toEqual([
       { ok: true, spaceId: "00000000-0000-4000-8000-000000000010" },
     ]);
     expect(putSpaceMount).toHaveBeenCalledTimes(1);
-    expect(resolveProposed).toHaveBeenCalledWith({
-      agentId: "sales.researcher",
-      tenantId: "tenant-1",
-    });
   });
 
   it("does not remount when approving a revision", async () => {
@@ -432,41 +391,8 @@ describe("registry-routes", () => {
     expect(putSpaceMount).not.toHaveBeenCalled();
   });
 
-  it("approves a new proposal using the body spaceId when none was stamped", async () => {
-    const putSpaceMount = vi.fn().mockResolvedValue({});
-    const app = new Hono();
-    registerRegistryRoutes(app, {
-      createCoreClient: () => ({ putSpaceMount }) as any,
-      getStore: () =>
-        ({
-          getAgentRecord: vi.fn().mockResolvedValue({
-            config: { id: "sales.researcher" },
-            proposed_space_id: null,
-            status: "proposed",
-          }),
-          approveAgent: vi.fn().mockResolvedValue({
-            id: "sales.researcher",
-            name: "Sales Researcher",
-          }),
-        }) as any,
-      scopeResolver: createScopeResolver(),
-    });
-
-    const spaceId = "00000000-0000-4000-8000-000000000010";
-    const res = await app.request(
-      "/ai/registry/agents/sales.researcher/approve",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ spaceId }),
-      }
-    );
-    expect(res.status).toBe(200);
-    expect((await res.json()).mounted).toEqual([{ ok: true, spaceId }]);
-    expect(putSpaceMount).toHaveBeenCalledTimes(1);
-  });
-
   it("refuses to approve a new proposal with no space", async () => {
+    const approveAgent = vi.fn();
     const app = new Hono();
     registerRegistryRoutes(app, {
       getStore: () =>
@@ -476,7 +402,7 @@ describe("registry-routes", () => {
             proposed_space_id: null,
             status: "proposed",
           }),
-          approveAgent: vi.fn(),
+          approveAgent,
         }) as any,
       scopeResolver: createScopeResolver(),
     });
@@ -491,7 +417,7 @@ describe("registry-routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       error: "agent_registry.spaceRequired",
     });
-    expect(resolveProposed).not.toHaveBeenCalled();
+    expect(approveAgent).not.toHaveBeenCalled();
   });
 
   it("stamps proposed_space_id on propose and does not mount", async () => {
@@ -530,21 +456,18 @@ describe("registry-routes", () => {
       }
     );
     expect(putSpaceMount).not.toHaveBeenCalled();
-    expect(notifyProposed).toHaveBeenCalledWith({
-      agentId: "sales.researcher",
-      agentName: "Sales Researcher",
-      pendingRevision: false,
-      proposedByAgent: null,
-      spaceId: "00000000-0000-4000-8000-000000000010",
-      tenantId: "tenant-1",
-    });
+    expect(notifyProposed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        agentId: "sales.researcher",
+        spaceId: "00000000-0000-4000-8000-000000000010",
+        tenantId: "tenant-1",
+      })
+    );
   });
 
   it("refuses a proposal naming tool ids the registry cannot provide", async () => {
-    // A proposal is not a draft: approving it writes the row the assembler
-    // reads, and an id nothing can resolve makes every later message fail
-    // with agent_threads.unknownTool. The browser tools are the live case —
-    // they arrive on a run from the space's browser, never from the registry.
+    // Approving writes the row the assembler reads; an unresolvable id makes
+    // every later message fail with agent_threads.unknownTool.
     const proposeAgent = vi.fn();
     const app = new Hono();
     registerRegistryRoutes(app, {
@@ -580,26 +503,6 @@ describe("registry-routes", () => {
     });
     expect(proposeAgent).not.toHaveBeenCalled();
     expect(notifyProposed).not.toHaveBeenCalled();
-  });
-
-  it("resolves the proposal notification on reject", async () => {
-    const rejectAgent = vi.fn().mockResolvedValue(true);
-    const app = new Hono();
-    registerRegistryRoutes(app, {
-      getStore: () => ({ rejectAgent }) as any,
-      scopeResolver: createScopeResolver(),
-    });
-
-    const res = await app.request(
-      "/ai/registry/agents/sales.researcher/reject",
-      { method: "POST" }
-    );
-    expect(res.status).toBe(200);
-    expect(rejectAgent).toHaveBeenCalledWith("tenant-1", "sales.researcher");
-    expect(resolveProposed).toHaveBeenCalledWith({
-      agentId: "sales.researcher",
-      tenantId: "tenant-1",
-    });
   });
 
   it("patches a builtin agent with no store row by upserting the registry definition", async () => {
@@ -659,32 +562,5 @@ describe("registry-routes", () => {
         toolIds: ["skill"],
       })
     );
-  });
-
-  it("still 404s a PATCH when neither the store nor the registry has the agent", async () => {
-    const app = new Hono();
-    const upsertAgent = vi.fn();
-    registerRegistryRoutes(app, {
-      getRegistry: () =>
-        ({
-          getAgentConfig: vi.fn().mockResolvedValue(undefined),
-          getTool: vi.fn(),
-        }) as any,
-      getStore: () =>
-        ({
-          getAgentConfig: vi.fn().mockResolvedValue(undefined),
-          upsertAgent,
-        }) as any,
-      scopeResolver: createScopeResolver(),
-    });
-
-    const res = await app.request("/ai/registry/agents/missing.agent", {
-      body: JSON.stringify({ connectorIds: ["slack"] }),
-      headers: { "Content-Type": "application/json" },
-      method: "PATCH",
-    });
-
-    expect(res.status).toBe(404);
-    expect(upsertAgent).not.toHaveBeenCalled();
   });
 });

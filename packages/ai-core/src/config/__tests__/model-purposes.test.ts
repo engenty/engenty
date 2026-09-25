@@ -1,131 +1,79 @@
 import { describe, expect, it } from "vitest";
-import {
-  AI_MODEL_PURPOSES,
-  DEFAULT_AI_CHAT_MODEL_ID,
-  DEFAULT_AI_CLASSIFIER_MODEL_ID,
-  DEFAULT_AI_PLANNING_CODING_MODEL_ID,
-  DEFAULT_AI_SAFEGUARD_MODEL_ID,
-  resolvePurposeModel,
-} from "../model-purposes.js";
+import { AI_MODEL_PURPOSES, resolvePurposeModel } from "../model-purposes.js";
+import { bindingsFromList } from "../model-roles.js";
 
-const noEnv = () => undefined;
+function bound(modelId: string, role = "model.medium") {
+  return bindingsFromList([{ gateway: "vercel", modelId, role }]);
+}
 
 describe("resolvePurposeModel provenance", () => {
-  it("prefers session > agent > tenant > platform > default", () => {
+  it("prefers session > agent > tenant > platform binding", () => {
     const layered = {
+      agentOverride: "a/model",
+      bindings: bound("b/model"),
       purpose: "chat" as const,
       sessionOverride: "s/model",
-      agentOverride: "a/model",
       tenantDefault: "t/model",
-      readEnv: (k: string) => (k === "AI_CHAT_MODEL" ? "e/model" : undefined),
     };
     expect(resolvePurposeModel(layered)).toEqual({
       gateway: "vercel",
       purpose: "chat",
-      value: "s/model",
       source: "session",
+      value: "s/model",
     });
     expect(resolvePurposeModel({ ...layered, sessionOverride: null })).toEqual({
       gateway: "vercel",
       purpose: "chat",
-      value: "a/model",
       source: "agent",
+      value: "a/model",
     });
     expect(
       resolvePurposeModel({
         ...layered,
-        sessionOverride: null,
         agentOverride: null,
+        sessionOverride: null,
       })
     ).toEqual({
       gateway: "vercel",
       purpose: "chat",
-      value: "t/model",
       source: "tenant",
+      value: "t/model",
     });
     expect(
-      resolvePurposeModel({
-        purpose: "chat",
-        readEnv: (k) => (k === "AI_CHAT_MODEL" ? "e/model" : undefined),
-      })
+      resolvePurposeModel({ bindings: bound("b/model"), purpose: "chat" })
     ).toEqual({
       gateway: "vercel",
       purpose: "chat",
-      value: "e/model",
       source: "platform",
+      value: "b/model",
     });
   });
 
-  it("falls back to the package default per purpose", () => {
-    expect(resolvePurposeModel({ purpose: "chat", readEnv: noEnv }).value).toBe(
-      DEFAULT_AI_CHAT_MODEL_ID
+  it("resolves each purpose through its own role", () => {
+    const bindings = bindingsFromList([
+      { gateway: "vercel", modelId: "chat/m", role: "model.medium" },
+      { gateway: "vercel", modelId: "typesafe-ai/jev", role: "classifier" },
+      { gateway: "vercel", modelId: "fast/m", role: "fast_text" },
+    ]);
+    expect(resolvePurposeModel({ bindings, purpose: "chat" }).value).toBe(
+      "chat/m"
     );
-    expect(
-      resolvePurposeModel({ purpose: "safeguard", readEnv: noEnv }).value
-    ).toBe(DEFAULT_AI_SAFEGUARD_MODEL_ID);
-    expect(
-      resolvePurposeModel({ purpose: "planning_coding", readEnv: noEnv }).value
-    ).toBe(DEFAULT_AI_PLANNING_CODING_MODEL_ID);
-    expect(
-      resolvePurposeModel({ purpose: "classifier", readEnv: noEnv }).value
-    ).toBe(DEFAULT_AI_CLASSIFIER_MODEL_ID);
+    expect(resolvePurposeModel({ bindings, purpose: "classifier" }).value).toBe(
+      "typesafe-ai/jev"
+    );
+    expect(resolvePurposeModel({ bindings, purpose: "fast_text" }).value).toBe(
+      "fast/m"
+    );
   });
 
-  it("classifier prefers AI_INBOX_DIGEST_MODEL over AI_CLASSIFIER_MODEL", () => {
-    expect(
-      resolvePurposeModel({
-        purpose: "classifier",
-        readEnv: (k) => {
-          if (k === "AI_INBOX_DIGEST_MODEL") {
-            return "inbox/digest";
-          }
-          if (k === "AI_CLASSIFIER_MODEL") {
-            return "shared/classifier";
-          }
-          return;
-        },
-      })
-    ).toEqual({
-      gateway: "vercel",
-      purpose: "classifier",
-      value: "inbox/digest",
-      source: "platform",
-    });
-  });
-
-  it("routing falls back through coordinator and chat env keys", () => {
-    expect(
-      resolvePurposeModel({
-        purpose: "routing",
-        readEnv: (k) => (k === "AI_CHAT_MODEL" ? "chat/env" : undefined),
-      })
-    ).toEqual({
-      gateway: "vercel",
-      purpose: "routing",
-      value: "chat/env",
-      source: "platform",
-    });
-  });
-
-  it("planning_coding never falls back to the chat env key", () => {
-    expect(
-      resolvePurposeModel({
-        purpose: "planning_coding",
-        readEnv: (k) => (k === "AI_CHAT_MODEL" ? "chat/env" : undefined),
-      }).value
-    ).toBe(DEFAULT_AI_PLANNING_CODING_MODEL_ID);
+  it("throws for an unbound role instead of inventing a model", () => {
+    expect(() =>
+      resolvePurposeModel({ bindings: bound("x"), purpose: "fast_text" })
+    ).toThrow('Model role "fast_text" is not bound');
   });
 
   it("exposes the tunable purposes in a stable order", () => {
-    expect([...AI_MODEL_PURPOSES]).toEqual([
-      "chat",
-      "routing",
-      "classifier",
-      "research",
-      "planning_coding",
-      "safeguard",
-      "memory",
-    ]);
+    expect([...AI_MODEL_PURPOSES]).toEqual(["chat", "classifier", "fast_text"]);
   });
 });
 
@@ -133,111 +81,74 @@ describe("resolvePurposeModel governance allow-list", () => {
   it("keeps a tenant pin that is on the allow-list", () => {
     expect(
       resolvePurposeModel({
+        allowedModels: ["openai/gpt-5", "openai/gpt-5-mini"],
+        bindings: bound("openai/gpt-5-mini"),
         purpose: "chat",
         tenantDefault: "openai/gpt-5",
-        allowedModels: ["openai/gpt-5", "openai/gpt-5-mini"],
-        readEnv: noEnv,
+      }).source
+    ).toBe("tenant");
+  });
+
+  it("demotes a tenant pin outside the allow-list to the binding", () => {
+    expect(
+      resolvePurposeModel({
+        allowedModels: ["openai/gpt-5-mini"],
+        bindings: bound("openai/gpt-5-mini"),
+        purpose: "chat",
+        tenantDefault: "anthropic/claude-opus-4-8",
       })
     ).toEqual({
       gateway: "vercel",
       purpose: "chat",
-      value: "openai/gpt-5",
-      source: "tenant",
-    });
-  });
-
-  it("demotes a tenant pin outside the allow-list to platform/default", () => {
-    // The tenant pinned a now-disallowed model; resolution must fall through to
-    // the operator-controlled layers instead of returning the illegal pin.
-    const resolved = resolvePurposeModel({
-      purpose: "chat",
-      tenantDefault: "anthropic/claude-opus-4-8",
-      allowedModels: ["openai/gpt-5-mini"],
-      readEnv: (k) => (k === "AI_CHAT_MODEL" ? "openai/gpt-5-mini" : undefined),
-    });
-    expect(resolved).toEqual({
-      gateway: "vercel",
-      purpose: "chat",
-      value: "openai/gpt-5-mini",
       source: "platform",
+      value: "openai/gpt-5-mini",
     });
   });
 
-  it("filters the platform layer too, falling through to an allowed default", () => {
-    // The platform layer used to be exempt from the list, on the theory that the
-    // operator's own choice is authoritative. But the resolved id is handed
-    // straight to `checkUsageLimits`, which does NOT exempt it — so an env value
-    // outside the list produced a 429 on every turn. Resolution must land on
-    // something the preflight will accept.
+  it("substitutes a granted model when the binding is disallowed too", () => {
+    // Returning an id the preflight rejects would brick the tenant with no way
+    // out from the picker — land on the first granted model instead.
     expect(
       resolvePurposeModel({
-        purpose: "chat",
-        allowedModels: [DEFAULT_AI_CHAT_MODEL_ID],
-        readEnv: (k) => (k === "AI_CHAT_MODEL" ? "openai/gpt-5" : undefined),
-      })
-    ).toEqual({
-      gateway: "vercel",
-      purpose: "chat",
-      value: DEFAULT_AI_CHAT_MODEL_ID,
-      source: "default",
-    });
-  });
-
-  it("substitutes a granted model when every layer is disallowed", () => {
-    // No layer yields a legal id — including the package default. Rather than
-    // return an id the preflight will reject (bricking the tenant with no way
-    // out from the picker), fall back to the first granted model.
-    expect(
-      resolvePurposeModel({
-        purpose: "chat",
         allowedModels: ["anthropic/claude-sonnet-5"],
-        readEnv: (k) => (k === "AI_CHAT_MODEL" ? "openai/gpt-5" : undefined),
+        bindings: bound("openai/gpt-5"),
+        purpose: "chat",
       })
     ).toEqual({
       gateway: "vercel",
       purpose: "chat",
-      value: "anthropic/claude-sonnet-5",
       source: "governance",
+      value: "anthropic/claude-sonnet-5",
     });
   });
 
   it("honours a provider grant without any model listed", () => {
     expect(
       resolvePurposeModel({
-        purpose: "chat",
         allowedProviders: ["openai"],
-        readEnv: (k) => (k === "AI_CHAT_MODEL" ? "openai/gpt-5" : undefined),
-      })
-    ).toEqual({
-      gateway: "vercel",
-      purpose: "chat",
-      value: "openai/gpt-5",
-      source: "platform",
-    });
+        bindings: bound("openai/gpt-5"),
+        purpose: "chat",
+      }).source
+    ).toBe("platform");
   });
 
   it("ignores case and stray whitespace in the allow-list", () => {
     expect(
       resolvePurposeModel({
-        purpose: "chat",
         allowedModels: [" OpenAI/GPT-5 "],
-        readEnv: (k) => (k === "AI_CHAT_MODEL" ? "openai/gpt-5" : undefined),
-      })
-    ).toEqual({
-      gateway: "vercel",
-      purpose: "chat",
-      value: "openai/gpt-5",
-      source: "platform",
-    });
+        bindings: bound("openai/gpt-5"),
+        purpose: "chat",
+      }).value
+    ).toBe("openai/gpt-5");
   });
 
   it("treats an empty allow-list as no restriction", () => {
     expect(
       resolvePurposeModel({
+        allowedModels: [],
+        bindings: bound("x"),
         purpose: "chat",
         tenantDefault: "openai/gpt-5",
-        allowedModels: [],
-        readEnv: noEnv,
       }).value
     ).toBe("openai/gpt-5");
   });

@@ -3,7 +3,11 @@
 import { cn } from "@engenty/ui-core";
 import { useCallback } from "react";
 import { useAppBarChromeContext } from "../context/app-bar-chrome-context";
-import { useCopilotShellOrNull } from "../context/copilot-shell-context";
+import {
+  useCopilotActionsOrNull,
+  useCopilotHostOrNull,
+  useCopilotLayoutOrNull,
+} from "../context/copilot-shell-context";
 import { useMediaQuery } from "../hooks/use-media-query";
 import { isHorizontalAppBarPosition } from "../types/shell-app-bar-position";
 
@@ -17,27 +21,29 @@ import { isHorizontalAppBarPosition } from "../types/shell-app-bar-position";
  * that ends at the avatar on one page and not the next reads as a bug.
  */
 export function CopilotRailDockAnchor({ label }: { label?: string }) {
-  const ctx = useCopilotShellOrNull();
+  const host = useCopilotHostOrNull();
+  const actions = useCopilotActionsOrNull();
+  const layout = useCopilotLayoutOrNull();
   const { extended, position } = useAppBarChromeContext();
   const isDesktop = useMediaQuery("(min-width: 768px)");
   const horizontal = isHorizontalAppBarPosition(position);
 
   const setRef = useCallback(
     (el: HTMLDivElement | null) => {
-      if (!ctx) {
+      if (!host) {
         return;
       }
-      ctx.copilotDockRef.current = el;
+      host.copilotDockRef.current = el;
       if (el) {
-        ctx.notifyDockMounted?.();
+        actions?.notifyDockMounted?.();
       } else {
-        ctx.notifyDockUnmounted?.();
+        actions?.notifyDockUnmounted?.();
       }
     },
-    [ctx]
+    [actions, host]
   );
 
-  if (!(ctx && isDesktop)) {
+  if (!(host && isDesktop)) {
     return null;
   }
 
@@ -56,9 +62,9 @@ export function CopilotRailDockAnchor({ label }: { label?: string }) {
         />
         {label ? (
           <button
-            aria-pressed={ctx.open}
+            aria-pressed={layout?.open ?? false}
             className="min-w-0 flex-1 truncate rounded-md px-2 py-1.5 text-left text-sidebar-foreground text-sm transition-colors hover:bg-sidebar-accent"
-            onClick={() => ctx.setOpen(!ctx.open)}
+            onClick={() => actions?.setOpen(!(layout?.open ?? false))}
             type="button"
           >
             {label}

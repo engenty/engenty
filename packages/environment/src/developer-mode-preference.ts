@@ -1,5 +1,3 @@
-import { isEngentyDevelopmentEnvironment } from "./engenty-environment.js";
-
 export const ENGENTY_DEVELOPER_MODE_STORAGE_KEY = "engenty.developer_mode";
 
 const CHANGE_EVENT = "engenty-developer-mode-change";
@@ -11,7 +9,11 @@ function canUseStorage(): boolean {
   );
 }
 
-/** Persisted UI toggle: only meaningful when {@link isEngentyDevelopmentEnvironment} is true. */
+/**
+ * Persisted UI toggle (per browser). Not tied to `ENV` — deployed workspaces
+ * have developer mode too. Callers add the superadmin gate: the toggle is only
+ * offered to superadmins, and flipping the key by hand must unlock nothing.
+ */
 export function getDeveloperModePreference(): boolean {
   if (!canUseStorage()) {
     return false;
@@ -63,12 +65,4 @@ export function subscribeDeveloperModePreference(
     globalThis.removeEventListener(CHANGE_EVENT, handler);
     globalThis.removeEventListener("storage", onStorage);
   };
-}
-
-/**
- * Use for conditional developer-only UI: workspace is `ENV=development` and the
- * operator enabled Developer mode in the user menu.
- */
-export function isEngentyDeveloperModeUiEnabled(): boolean {
-  return isEngentyDevelopmentEnvironment() && getDeveloperModePreference();
 }

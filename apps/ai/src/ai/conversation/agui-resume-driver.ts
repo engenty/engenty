@@ -103,6 +103,25 @@ function isCallerFramedEvent(type: unknown): boolean {
 }
 
 /**
+ * TOOL_CALL_START/ARGS/END of the call this resume answers. The resumed stream
+ * announces the parked call again under a fresh message id; the client already
+ * shows it on the message that parked, so passing it on draws the answered card
+ * a second time. Its TOOL_CALL_RESULT still goes out — the client matches
+ * results by call id across messages.
+ */
+function isResumedCallReannounce(
+  event: Record<string, unknown>,
+  toolCallId: string
+): boolean {
+  return (
+    event.toolCallId === toolCallId &&
+    (event.type === EventType.TOOL_CALL_START ||
+      event.type === EventType.TOOL_CALL_ARGS ||
+      event.type === EventType.TOOL_CALL_END)
+  );
+}
+
+/**
  * Continue a suspended run from Mastra's snapshot and stream it as AG-UI.
  *
  * Every event reaches the accumulator — it needs RUN_FINISHED for usage and for
@@ -191,7 +210,10 @@ export async function resumeViaMastraAgent(params: {
           ? (event as { message: string }).message
           : "agent stream error";
     }
-    if (isCallerFramedEvent(event.type)) {
+    if (
+      isCallerFramedEvent(event.type) ||
+      isResumedCallReannounce(event, params.toolCallId)
+    ) {
       return;
     }
     for (const expanded of text.expand(event as never as AGUIEvent)) {

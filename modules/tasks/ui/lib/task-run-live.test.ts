@@ -2,8 +2,6 @@ import { describe, expect, it } from "vitest";
 import type { Task, TaskRun } from "../../src/schema/types.js";
 import {
   canContinueTaskFromUserComment,
-  isTaskRunLiveActive,
-  shouldPollTaskDetailLive,
   shouldStartContinuationRun,
 } from "./task-run-live.js";
 
@@ -44,60 +42,6 @@ const baseTask: Task = {
   title: "Sample",
   updated_at: "2026-05-01T00:00:00.000Z",
 };
-
-describe("isTaskRunLiveActive", () => {
-  it("treats finished runs as inactive even when checkout still points at them", () => {
-    expect(
-      isTaskRunLiveActive({
-        ...baseRun,
-        run_finished_at: "2026-05-01T01:00:00.000Z",
-      })
-    ).toBe(false);
-  });
-
-  it("treats runs without finished_at as active", () => {
-    expect(isTaskRunLiveActive({ ...baseRun, run_finished_at: null })).toBe(
-      true
-    );
-  });
-});
-
-describe("shouldPollTaskDetailLive", () => {
-  it("polls while checkout run is still open in cache", () => {
-    expect(
-      shouldPollTaskDetailLive({
-        observerStreaming: false,
-        runs: [{ ...baseRun, run_finished_at: null }],
-        task: baseTask,
-      })
-    ).toBe(true);
-  });
-
-  it("stops polling when checkout run is finished", () => {
-    expect(
-      shouldPollTaskDetailLive({
-        observerStreaming: false,
-        runs: [
-          {
-            ...baseRun,
-            run_finished_at: "2026-05-01T01:00:00.000Z",
-          },
-        ],
-        task: baseTask,
-      })
-    ).toBe(false);
-  });
-
-  it("polls while observer is streaming", () => {
-    expect(
-      shouldPollTaskDetailLive({
-        observerStreaming: true,
-        runs: [],
-        task: null,
-      })
-    ).toBe(true);
-  });
-});
 
 describe("canContinueTaskFromUserComment", () => {
   it("allows continuation when agent holds checkout", () => {

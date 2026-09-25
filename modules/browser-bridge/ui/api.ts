@@ -30,12 +30,15 @@ export function getBridgeSession(): Promise<BridgeSessionStatus> {
 export function linkInstallation(input: {
   allowedOrigins: string[];
   deviceLabel: string;
+  /** The Space the bridge connection belongs to — the person's own. */
+  spaceId: string;
 }): Promise<LinkResult> {
   return requestApiJson("/api/browser-bridge/link", {
     method: "POST",
     body: {
       allowed_origins: input.allowedOrigins,
       device_label: input.deviceLabel,
+      space_id: input.spaceId,
     },
   });
 }

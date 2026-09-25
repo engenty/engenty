@@ -142,8 +142,11 @@ export async function resolveDanglingToolStepsInWedgedTurn(input: {
             result: {
               error: "interrupted",
               interrupted: true,
+              // Not "ask again": the person usually moved on by writing
+              // something new, and an invitation to retry had the model
+              // re-open the same chooser turn after turn.
               message:
-                "This step was interrupted and could not be completed. Ask again to retry.",
+                "Not answered — this step was closed before the person replied (they moved on, or it expired). Do not ask it again unless the person brings it up.",
             },
             state: "result",
           },

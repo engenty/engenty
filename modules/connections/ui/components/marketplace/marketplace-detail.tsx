@@ -9,14 +9,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   Button,
-  Switch,
 } from "@engenty/ui-core";
 import { Plug } from "lucide-react";
 import { useState } from "react";
 import { MarketplaceConnect } from "./marketplace-connect.js";
 import {
   accountLabel,
-  accountUses,
   isRecommendedPlugin,
   isTenantImportedPlugin,
   type MarketplaceAccount,
@@ -24,51 +22,39 @@ import {
 } from "./marketplace-model.js";
 import { PluginMark } from "./marketplace-row.js";
 
+/**
+ * One plugin inside a Space: the Space's accounts for it (every agent and
+ * member of the Space uses them), Connect to add one, and enable / remove the
+ * plugin on the Space.
+ */
 export function MarketplaceDetail({
-  agentId,
-  connectionMountIds,
-  grantedIds,
   onAdd,
   onAuthenticated,
   onDisable,
-  onGrant,
-  onSetAllSpaces,
   onUninstall,
   onUseRest,
   plugin,
   pluginMounted,
-  preferredOnAgent,
   saving,
   spaceId,
 }: {
-  agentId?: string | null;
-  connectionMountIds: ReadonlySet<string>;
-  grantedIds: ReadonlySet<string>;
   onAdd: () => void | Promise<void>;
   onAuthenticated: (connectionId?: string) => void;
   onDisable: () => void;
-  onGrant: (connectionId: string, granted: boolean) => void;
-  onSetAllSpaces: (connectionId: string, allSpaces: boolean) => void;
   onUninstall: () => void;
   onUseRest?: () => void;
+  /** `connections` = this Space's accounts only. */
   plugin: MarketplacePlugin;
   pluginMounted: boolean;
-  /** Agent preferred-plugin list includes this connector (zero-account Add). */
-  preferredOnAgent?: boolean;
   saving: boolean;
-  spaceId?: string | null;
+  /** The Space accounts connect into. */
+  spaceId: string;
 }) {
   const { t } = useTranslation("connections");
   const [confirmUninstall, setConfirmUninstall] = useState(false);
   const imported = isTenantImportedPlugin(plugin);
   const accounts = plugin.connections;
-  const added =
-    pluginMounted ||
-    Boolean(preferredOnAgent) ||
-    accounts.some(
-      (account) =>
-        connectionMountIds.has(account.id) || grantedIds.has(account.id)
-    );
+  const added = pluginMounted || accounts.length > 0;
 
   return (
     <div className="flex flex-col gap-6">
@@ -89,7 +75,7 @@ export function MarketplaceDetail({
 
       <section className="flex flex-col gap-2">
         <h3 className="text-muted-foreground text-sm">
-          {t("marketplace.accounts")}
+          {t("marketplace.spaceAccounts")}
         </h3>
         <div className="overflow-hidden rounded-xl bg-muted/70">
           {accounts.length === 0 ? (
@@ -144,17 +130,10 @@ export function MarketplaceDetail({
           ) : (
             <ul>
               {accounts.map((account) => (
-                <AccountCard
+                <AccountRow
                   account={account}
-                  agentId={agentId}
-                  connectionMountIds={connectionMountIds}
-                  grantedIds={grantedIds}
                   key={account.id}
-                  onGrant={onGrant}
-                  onSetAllSpaces={onSetAllSpaces}
                   pluginName={plugin.name}
-                  saving={saving}
-                  spaceId={spaceId}
                 />
               ))}
             </ul>
@@ -220,7 +199,7 @@ export function MarketplaceDetail({
             value={added ? t("marketplace.added") : t("marketplace.notAdded")}
           />
         </dl>
-        {spaceId && pluginMounted ? (
+        {pluginMounted ? (
           <Button
             disabled={saving}
             onClick={onDisable}
@@ -277,68 +256,30 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function AccountCard({
+function AccountRow({
   account,
-  agentId,
-  connectionMountIds,
-  grantedIds,
-  onGrant,
-  onSetAllSpaces,
   pluginName,
-  saving,
-  spaceId,
 }: {
   account: MarketplaceAccount;
-  agentId?: string | null;
-  connectionMountIds: ReadonlySet<string>;
-  grantedIds: ReadonlySet<string>;
-  onGrant: (connectionId: string, granted: boolean) => void;
-  onSetAllSpaces: (connectionId: string, allSpaces: boolean) => void;
   pluginName: string;
-  saving: boolean;
-  spaceId?: string | null;
 }) {
   const { t } = useTranslation("connections");
-  const uses = accountUses({
-    account,
-    grantedToAgent: Boolean(agentId) && grantedIds.has(account.id),
-    mountedOnSpace: connectionMountIds.has(account.id),
-  });
-  const where = [
-    uses.includes("thisSpace") ? t("marketplace.usedThisSpace") : null,
-    uses.includes("allSpaces") ? t("marketplace.usedAllSpaces") : null,
-    uses.includes("thisAgent") ? t("marketplace.usedThisAgent") : null,
-  ].filter(Boolean);
+  const failing = account.status === "error" || account.status === "revoked";
   return (
     <li className="flex items-center justify-between gap-3 border-border-soft border-b px-3 py-3 last:border-b-0">
       <span className="min-w-0 truncate font-medium text-sm">
         {accountLabel(account, pluginName)}
       </span>
-      <span className="flex shrink-0 items-center gap-3">
-        <span className="text-muted-foreground text-sm">
-          {where.length > 0 ? where.join(" · ") : pluginName}
-        </span>
-        {agentId ? (
-          <Button
-            disabled={saving}
-            onClick={() => onGrant(account.id, !grantedIds.has(account.id))}
-            size="sm"
-            type="button"
-            variant="outline"
-          >
-            {grantedIds.has(account.id)
-              ? t("marketplace.revokeAgent")
-              : t("marketplace.useOnAgent")}
-          </Button>
-        ) : null}
-        {spaceId || agentId ? (
-          <Switch
-            aria-label={t("sharing.allSpaces")}
-            checked={Boolean(account.all_spaces)}
-            disabled={saving}
-            onCheckedChange={(checked) => onSetAllSpaces(account.id, checked)}
-          />
-        ) : null}
+      <span
+        className={
+          failing
+            ? "shrink-0 text-destructive text-sm"
+            : "shrink-0 text-muted-foreground text-sm"
+        }
+      >
+        {failing
+          ? t(`status.${account.status}`)
+          : t("marketplace.usedThisSpace")}
       </span>
     </li>
   );

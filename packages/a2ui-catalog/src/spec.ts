@@ -8,6 +8,19 @@
  */
 
 export {
+  aggregateInboxDashboard,
+  composeInboxDashboard,
+  DASHBOARD_BLOCKS,
+  DASHBOARD_LAYOUTS,
+  DASHBOARD_THREAD_LIMIT,
+  type DashboardBlockId,
+  type DashboardLayout,
+  type DashboardMailItem,
+  type DashboardMetric,
+  type InboxDashboardData,
+  type InboxDashboardThread,
+} from "./compose.js";
+export {
   type FormSurface,
   type FormSurfaceOptions,
   formSurfaceFromSchema,
@@ -47,6 +60,12 @@ export const ENGENTY_A2UI_COMPONENT_NAMES = [
   "Image",
   "Table",
   "Document",
+  "Grid",
+  "Metric",
+  "BarChart",
+  "LineChart",
+  "AreaChart",
+  "DonutChart",
 ] as const;
 
 export type EngentyA2uiComponentName =
@@ -96,6 +115,12 @@ export const ENGENTY_A2UI_PROMPT_GUIDE = [
   "- Image { url, alt?, width?, height? } — width/height in px when known.",
   "- Table { columns: [{ key, label, align?: 'start'|'end' }], rows: [{ ... }] | {path} } — read-only grid; a column key may reach into a row ('content_json/amount').",
   "- Document { artifactRef } — renders the artifact with that id.",
+  "- Grid { children: string[], columns?: 2|3|4 } — dashboard tile row.",
+  "- Metric { label, value, caption?, tone?: 'default'|'success'|'warning', sparkline?: [{ label, value }] | {path} } — KPI tile with optional sparkline.",
+  "- BarChart { title?, height?, points?: [{ label, value }] | {path}, series?: [{ name, points }] | {path}, action? } — click a bar to send the action with context.label.",
+  "- LineChart { title?, height?, points?, series?, action? } — click a point to send the action with context.label and context.series.",
+  "- AreaChart { title?, height?, points?, series?, action? } — Ember-filled time series.",
+  "- DonutChart { title?, height?, slices: [{ label, value }] | {path}, center?, action? } — click a slice to send the action with context.label.",
   'Bindable string props (title, subtitle, meta, label, value, text, url, artifactRef) accept either a literal string or {"path": "/json/pointer"} into the data model.',
   'Repeating a row: instead of a static children array, a container (List, Column, Card, Form) takes "children": {"componentId": "<row id>", "path": "/items"} — the row component is rendered once per array item and ITS bindings are relative to that item ({"path": "title"}, {"path": "content_json/amount"}). That is how N positions are shown, and how they are EDITED: inputs inside the row write back into the array. The row component is declared once in the flat list like any other.',
   'Inputs bind with "value": {"path": "/field"} and write what the user enters into the data model at that path; seed defaults through the data model.',

@@ -157,3 +157,38 @@ describe("useChatLaneComposer while a wizard step is docked", () => {
     expect(submitUtterance).toHaveBeenCalledWith("redirect");
   });
 });
+
+describe("useChatLaneComposer dock interrupt", () => {
+  it("docks nothing for a pending interrupt the dock has no card for", () => {
+    // Any dock element opens the composer flap — a frontend-tool suspend used
+    // to slide it open around nothing while the run worked.
+    const agentHost = host({
+      openInterruptFromStream: {
+        interrupt_id: "i1",
+        kind: "frontend_tool",
+        tool_call_id: "tc-1",
+        tool_name: "shell_set_language",
+      },
+      pendingInterruptToolCallIds: new Set(["tc-1"]),
+    } as never);
+    const { result } = render(agentHost, "streaming");
+
+    expect(result.current.dockInterrupt).toBeNull();
+  });
+
+  it("docks a pending decision", () => {
+    const agentHost = host({
+      openInterruptFromStream: {
+        artifact_id: "a1",
+        choices: [{ id: "red", label: "Rot" }],
+        interrupt_id: "a1",
+        title: "Farbe",
+        tool_call_id: "tc-2",
+      },
+      pendingInterruptToolCallIds: new Set(["tc-2"]),
+    } as never);
+    const { result } = render(agentHost, "streaming");
+
+    expect(result.current.dockInterrupt?.tool_call_id).toBe("tc-2");
+  });
+});

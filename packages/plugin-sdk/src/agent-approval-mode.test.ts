@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  effectiveApprovalMode,
   parseAgentApprovalMode,
+  resolveAgentApprovalMode,
   shouldAskHuman,
 } from "./agent-approval-mode.js";
 
@@ -15,19 +15,61 @@ describe("parseAgentApprovalMode", () => {
   });
 });
 
-describe("effectiveApprovalMode", () => {
+describe("resolveAgentApprovalMode", () => {
+  const none = { agentMode: null, spaceMode: null, tenantMode: null };
+
   it("defaults to manual when nothing is set", () => {
-    expect(effectiveApprovalMode([])).toBe("manual");
-    expect(effectiveApprovalMode([null, undefined])).toBe("manual");
+    expect(resolveAgentApprovalMode(none)).toBe("manual");
   });
 
-  it("takes the most restrictive set layer", () => {
-    expect(effectiveApprovalMode(["manual", "pass-all"])).toBe("manual");
-    expect(effectiveApprovalMode(["auto", "pass-all"])).toBe("auto");
-    expect(effectiveApprovalMode(["pass-all", "auto", "manual"])).toBe(
-      "manual"
+  it("inherits space over tenant", () => {
+    expect(
+      resolveAgentApprovalMode({
+        ...none,
+        spaceMode: "auto",
+        tenantMode: "manual",
+      })
+    ).toBe("auto");
+    expect(resolveAgentApprovalMode({ ...none, tenantMode: "pass-all" })).toBe(
+      "pass-all"
     );
-    expect(effectiveApprovalMode(["pass-all"])).toBe("pass-all");
+  });
+
+  it("lets the agent's own mode decide, looser or stricter", () => {
+    expect(
+      resolveAgentApprovalMode({
+        ...none,
+        agentMode: "auto",
+        spaceMode: "manual",
+      })
+    ).toBe("auto");
+    expect(
+      resolveAgentApprovalMode({
+        ...none,
+        agentMode: "manual",
+        spaceMode: "pass-all",
+      })
+    ).toBe("manual");
+  });
+
+  it("gives the copilot auto until someone sets its mode", () => {
+    expect(
+      resolveAgentApprovalMode({
+        ...none,
+        agentKey: "engenty.copilot",
+        tenantMode: "manual",
+      })
+    ).toBe("auto");
+    expect(
+      resolveAgentApprovalMode({
+        ...none,
+        agentKey: "engenty.copilot",
+        agentMode: "manual",
+      })
+    ).toBe("manual");
+    expect(
+      resolveAgentApprovalMode({ ...none, agentKey: "engrd.chief-of-staff" })
+    ).toBe("manual");
   });
 });
 

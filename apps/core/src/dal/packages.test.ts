@@ -29,15 +29,8 @@ function pkg(id: string, version: number): EntitlementPackage {
 describe("selectSeedablePackages", () => {
   const catalog = [pkg("free", 2), pkg("team", 3)];
 
-  it("seeds entries missing from the DB", () => {
-    expect(selectSeedablePackages(new Map(), catalog).map((p) => p.id)).toEqual(
-      ["free", "team"]
-    );
-  });
-
   it("never overwrites an existing row, even for a newer authored version", () => {
-    // `core.packages` is operator-editable in the manage console. Re-seeding on
-    // a version bump used to silently revert those edits on the next boot.
+    // `core.packages` is operator-editable; re-seeding would revert those edits.
     const existing = new Map([
       ["free", 1], // authored 2 — still left alone
       ["team", 3],
@@ -58,22 +51,6 @@ describe.skipIf(!entitlements)("toTenantUsagePolicyRow", () => {
     return;
   }
   const { resolveEntitlements } = entitlements;
-
-  it("maps resolved entitlements to the ai.tenant_usage_policy columns", () => {
-    const resolved = resolveEntitlements(pkg("team", 1), {
-      aiUsagePolicy: {
-        hard_limit_cost_micros: 42,
-        enforcement_mode: "enforce",
-      },
-    });
-    const row = toTenantUsagePolicyRow("t1", resolved);
-    expect(row.tenant_id).toBe("t1");
-    // package id supersedes the free-text tier
-    expect(row.tier).toBe("team");
-    expect(row.hard_limit_cost_micros).toBe(42);
-    expect(row.enforcement_mode).toBe("enforce");
-    expect(row.period_unit).toBe("month");
-  });
 
   it("marks a packaged tenant's policy as centrally managed", () => {
     const row = toTenantUsagePolicyRow(

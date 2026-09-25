@@ -15,9 +15,11 @@
 // Friday" said to the engenty that owns the job must not fail silently
 // because only a manager held the verb. Whether a person confirms first is
 // the Space's approval mode (routine-approval.ts), not a prompt rule.
+import type { DynamicAiModuleCapabilityLoader } from "@engenty/ai-core";
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 import {
+  createRoutineOutcomeStoreFromEnv,
   createRoutineStoreFromEnv,
   createRoutineTriggerStoreFromEnv,
   createThreadStoreFromEnv,
@@ -29,11 +31,22 @@ import {
   type TaskCompletionPolicyDeps,
   taskCompletionPolicyDepsFromEnv,
 } from "../../src/ai/jobs/task-completion-policy.js";
+import { createDefaultModuleCapabilityLoader } from "../../src/ai/module-capability-loader.js";
 import { fireRoutine } from "../../src/ai/routines/fire-routine.js";
+import {
+  assertOutcomeBinding,
+  type OutcomeBody,
+  outcomeSchema,
+  outcomesByRoutine,
+  replaceRoutineOutcomes,
+} from "../../src/ai/routines/outcomes/bindings.js";
+import { BUILTIN_OUTCOME_PROVIDERS } from "../../src/ai/routines/outcomes/definitions.js";
+import { isExternalOutcomeProvider } from "../../src/ai/routines/outcomes/ids.js";
 import {
   assertRoutineEligibleAgent,
   assertValidSchedule,
   findDuplicateRoutine,
+  RoutineValidationError,
 } from "../../src/ai/routines/routine-validation.js";
 import {
   type AiSessionScope,
@@ -52,6 +65,10 @@ import {
   validateGraphAction,
 } from "../../src/ai/workflows/validate-graph.js";
 import { createCoreAiScopeResolver } from "../../src/api/http.js";
+import type {
+  RoutineOutcomeRow,
+  RoutineOutcomeStore,
+} from "../../src/dal/routines/routine-outcome-store.js";
 import type {
   RoutineRow,
   RoutineStore,
@@ -104,6 +121,9 @@ export interface RoutineToolDeps {
   /** The approval-mode layers; null = mode unresolvable, treated as manual. */
   approvalPolicy?: () => TaskCompletionPolicyDeps | null;
   inbox?: typeof emitInboxNotification;
+  /** Plugin destination providers; built-ins are always known. */
+  moduleLoader?: DynamicAiModuleCapabilityLoader;
+  outcomes?: () => RoutineOutcomeStore | null;
   resolveAgent?: typeof resolveRegistryAgent;
   /** The run's bearer, re-resolved into a scope; null = no capabilities. */
   resolveScope?: (accessToken: string) => Promise<RunScope | null>;
@@ -147,8 +167,44 @@ function requireTriggerStore(deps: RoutineToolDeps): RoutineTriggerStore {
   return store;
 }
 
-/** The shape an agent reads back: the routine plus its wake sources. */
-function toToolShape(routine: RoutineRow, triggers: RoutineTriggerRow[]) {
+/** True when `next` holds an external destination `current` does not. */
+function addsExternalDestination(
+  next: readonly {
+    config?: Record<string, unknown>;
+    mode: string;
+    provider_id: string;
+  }[],
+  current: readonly {
+    config: Record<string, unknown>;
+    mode: string;
+    provider_id: string;
+  }[]
+): boolean {
+  const key = (row: {
+    config?: Record<string, unknown>;
+    mode: string;
+    provider_id: string;
+  }) => `${row.provider_id}|${row.mode}|${JSON.stringify(row.config ?? {})}`;
+  const known = new Set(current.map(key));
+  return next.some(
+    (row) => isExternalOutcomeProvider(row.provider_id) && !known.has(key(row))
+  );
+}
+
+function requireOutcomeStore(deps: RoutineToolDeps): RoutineOutcomeStore {
+  const store = (deps.outcomes ?? createRoutineOutcomeStoreFromEnv)();
+  if (!store) {
+    throw new Error("routine storage is not configured.");
+  }
+  return store;
+}
+
+/** The shape an agent reads back: the routine, its wake sources, its destinations. */
+function toToolShape(
+  routine: RoutineRow,
+  triggers: RoutineTriggerRow[],
+  outcomes: RoutineOutcomeRow[]
+) {
   return {
     agent_id: routine.agent_id,
     approval_grants: routine.approval_grants,
@@ -157,6 +213,13 @@ function toToolShape(routine: RoutineRow, triggers: RoutineTriggerRow[]) {
     last_result: routine.last_result,
     name: routine.name,
     outcome: routine.outcome,
+    outcomes: outcomes.map((row) => ({
+      config: row.config,
+      enabled: row.enabled,
+      mode: row.mode,
+      outcome_id: row.id,
+      provider_id: row.provider_id,
+    })),
     report: routine.report,
     routine_id: routine.id,
     source: routine.source,
@@ -180,6 +243,15 @@ const routineOutputSchema = z.object({
   last_result: z.string().nullable(),
   name: z.string(),
   outcome: z.string().nullable(),
+  outcomes: z.array(
+    z.object({
+      config: z.record(z.string(), z.unknown()),
+      enabled: z.boolean(),
+      mode: z.enum(["always", "agent"]),
+      outcome_id: z.string(),
+      provider_id: z.string(),
+    })
+  ),
   report: z.enum(["quiet", "desk_card", "ask"]),
   routine_id: z.string(),
   source: z.string(),
@@ -232,10 +304,45 @@ const triggerKindSchema = z
 const reportSchema = z
   .enum(["quiet", "desk_card", "ask"])
   .describe(
-    "How loudly a run's result lands in the owner's chat: quiet posts " +
-      "nothing, desk_card posts the result. `ask` reports like desk_card " +
-      "— pausing mid-run is the agent's own act (routine_ask), never " +
-      "forced by this knob. Failures always report, whatever this says."
+    "The fallback when the routine has no `outcomes`: how loudly a run's " +
+      "result lands in the owner's chat. quiet posts nothing, desk_card " +
+      "posts the result as a low-priority desk post — not on the bell. " +
+      "`ask` reports like desk_card — pausing mid-run is the agent's own " +
+      "act (routine_ask), never forced by this knob. Failures always " +
+      "report, whatever this says."
+  );
+
+/** `config` keys a provider takes, required ones marked. */
+function configShape(schema: Record<string, unknown>): string {
+  const properties = Object.keys(
+    (schema.properties as Record<string, unknown> | undefined) ?? {}
+  );
+  if (properties.length === 0) {
+    return "no config";
+  }
+  const required = new Set((schema.required as string[] | undefined) ?? []);
+  return `config { ${properties
+    .map((key) => (required.has(key) ? key : `${key}?`))
+    .join(", ")} }`;
+}
+
+/** The built-in providers, for the tool text; plugins may register more. */
+const BUILTIN_DESTINATIONS_TEXT = BUILTIN_OUTCOME_PROVIDERS.map(
+  (provider) =>
+    `\`${provider.id}\` — ${provider.description} (${configShape(provider.configSchema)})`
+).join("; ");
+
+const outcomesSchema = z
+  .array(outcomeSchema)
+  .max(16)
+  .describe(
+    "Destinations: where a settled run delivers. Each is { provider_id, " +
+      "mode, config }. mode `always` delivers every run; `agent` only when " +
+      "the run calls outcomes_deliver. Setting any replaces the `report` " +
+      "desk post. Built-in providers: " +
+      BUILTIN_DESTINATIONS_TEXT +
+      ". Modules may register more — an unknown provider_id is refused " +
+      "with the registered list."
   );
 
 function capabilityOptions(scope: RunScope | null) {
@@ -296,6 +403,42 @@ export function createRoutineTools(deps: RoutineToolDeps = {}) {
   const resolveAgent = deps.resolveAgent ?? resolveRegistryAgent;
   const inbox = deps.inbox ?? emitInboxNotification;
   const resolveScope = deps.resolveScope ?? defaultResolveScope;
+
+  /** Every binding checked against the registered providers, or why not. */
+  async function checkOutcomes(
+    bodies: OutcomeBody[] | undefined
+  ): Promise<string | null> {
+    if (!bodies?.length) {
+      return null;
+    }
+    const moduleLoader =
+      deps.moduleLoader ?? createDefaultModuleCapabilityLoader();
+    try {
+      for (const body of bodies) {
+        await assertOutcomeBinding(body, moduleLoader);
+      }
+    } catch (err) {
+      if (err instanceof RoutineValidationError) {
+        return `Destination refused: ${err.message}`;
+      }
+      throw err;
+    }
+    return null;
+  }
+
+  async function writeOutcomes(input: {
+    bodies: OutcomeBody[];
+    routineId: string;
+    tenantId: string;
+  }): Promise<RoutineOutcomeRow[]> {
+    return await replaceRoutineOutcomes({
+      bodies: input.bodies,
+      moduleLoader: deps.moduleLoader ?? createDefaultModuleCapabilityLoader(),
+      outcomes: requireOutcomeStore(deps),
+      routineId: input.routineId,
+      tenantId: input.tenantId,
+    });
+  }
 
   async function runScope(): Promise<RunScope | null> {
     const token = getEngentyToolsRunContext().accessToken?.trim();
@@ -454,8 +597,14 @@ export function createRoutineTools(deps: RoutineToolDeps = {}) {
       source: "routines",
       spaceId: input.spaceId,
       subject: { id: input.routine.id, type: "routine" },
-      summary: `${actor ?? "An agent"} created the routine "${input.routine.name}" for ${input.ownerId}`,
+      // Said whole when there is no acting agent to name. Opens the owner's
+      // manage panel (workflow_id + agent_id), where its routines are listed.
+      summary: `New routine "${input.routine.name}"`,
       tenantId: input.tenantId,
+      title: {
+        key: "routine_created",
+        params: { name: input.routine.name },
+      },
       ...(ctx.userId ? { userId: ctx.userId } : {}),
     }).catch(() => null);
   }
@@ -532,6 +681,7 @@ export function createRoutineTools(deps: RoutineToolDeps = {}) {
         .describe(
           "What a fire must have achieved to count as done — the promise a run is judged by."
         ),
+      outcomes: outcomesSchema.optional(),
       provider_id: z
         .enum(["module-events", "webhook"])
         .optional()
@@ -595,6 +745,10 @@ export function createRoutineTools(deps: RoutineToolDeps = {}) {
         ok: false,
         note: err instanceof Error ? err.message : String(err),
       };
+    }
+    const outcomesNote = await checkOutcomes(input.outcomes);
+    if (outcomesNote) {
+      return { ok: false, note: outcomesNote };
     }
     let workflow: WorkflowRow | null = null;
     let workflowPublished = false;
@@ -761,12 +915,29 @@ export function createRoutineTools(deps: RoutineToolDeps = {}) {
     );
     if (duplicate) {
       await store.delete({ id: created.id, tenantId: prepared.tenantId });
+      const duplicateOutcomes = await requireOutcomeStore(deps).list({
+        routineId: duplicate.id,
+        tenantId: prepared.tenantId,
+      });
       return {
         note: `'${duplicate.name}' already wakes at the same time to run the same worker in this Space. Edit that routine instead. Do NOT retry with a shifted schedule or a different name to get around this.`,
-        routine: toToolShape(duplicate, grouped.get(duplicate.id) ?? []),
+        routine: toToolShape(
+          duplicate,
+          grouped.get(duplicate.id) ?? [],
+          duplicateOutcomes
+        ),
         status: "duplicate" as const,
       };
     }
+    // Written once the routine is known to stay — the same replace path the
+    // HTTP create uses.
+    const createdOutcomes = body.outcomes?.length
+      ? await writeOutcomes({
+          bodies: body.outcomes,
+          routineId: created.id,
+          tenantId: prepared.tenantId,
+        })
+      : [];
 
     await announceCreated({
       ownerId: prepared.ownerId,
@@ -783,7 +954,7 @@ export function createRoutineTools(deps: RoutineToolDeps = {}) {
       // scheduler-sync pass; saying so stops an agent reporting failure when
       // the first fire has simply not come round yet.
       note: `Routine created. Its schedule is picked up by the next scheduler sync (within ~2 minutes).${publishNote}`,
-      routine: toToolShape(created, createdTriggers),
+      routine: toToolShape(created, createdTriggers, createdOutcomes),
       status: "created" as const,
     };
   }
@@ -820,9 +991,17 @@ export function createRoutineTools(deps: RoutineToolDeps = {}) {
         ...(agentId ? { agentId } : {}),
       });
       const grouped = await loadTriggers(deps, tenantId);
+      const destinations = await outcomesByRoutine(
+        requireOutcomeStore(deps),
+        tenantId
+      );
       return {
         routines: rows.map((row) =>
-          toToolShape(row, grouped.get(row.id) ?? [])
+          toToolShape(
+            row,
+            grouped.get(row.id) ?? [],
+            destinations.get(row.id) ?? []
+          )
         ),
       };
     },
@@ -838,8 +1017,14 @@ export function createRoutineTools(deps: RoutineToolDeps = {}) {
       "more than one step, an approval, or a wait — workflow_propose first, " +
       "then target its id here. A `schedule` needs `cron` + IANA `timezone`; " +
       "`event` needs `provider_id` + `resource`; `manual` / `agent` for a job " +
-      "that must not run by itself. Say what done looks like in `outcome` and " +
-      "how loud in `report`. Depending on this Space's approval mode the call " +
+      "that must not run by itself. Say what done looks like in `outcome`. " +
+      'Where the result goes is `outcomes`: "notify me" = a ' +
+      "`notification.high` destination (bell + Space dashboard), a quiet " +
+      "update = `notification.update`, email = `email` with `config.to`. " +
+      "`report` is only the fallback for a routine without destinations — " +
+      "a low-priority desk post, not on the bell. A show_widget inside a " +
+      "scheduled run does not travel into a notification; the notification " +
+      "carries the run's summary. Depending on this Space's approval mode the call " +
       "pauses on a card for a person to approve — report their answer, never " +
       "assume it; set `ask_first` to get that card anyway. `approval_grants` " +
       "always ask. Call routines_list first. Each fire starts a run; no task " +
@@ -919,6 +1104,7 @@ export function createRoutineTools(deps: RoutineToolDeps = {}) {
             agentId: prepared.prepared.ownerId,
             approvalGrants: input.approval_grants ?? [],
             cron: input.cron ?? null,
+            destinations: input.outcomes ?? [],
             kind: input.kind,
             name: input.name,
             outcome: input.outcome ?? null,
@@ -957,9 +1143,13 @@ export function createRoutineTools(deps: RoutineToolDeps = {}) {
     description:
       "Change an existing routine — its schedule, what each run does " +
       "(`prompt` for a prompt routine, `workflow_id` to rebind), its " +
-      "outcome, how it reports, whether it is enabled. Use routines_list " +
+      "outcome, its destinations (`outcomes` replaces the list — add " +
+      "`notification.high` when the person wants to be notified), the " +
+      "`report` fallback, whether it is enabled. Use routines_list " +
       "first to get the id. Every field lives directly on the routine; there " +
-      "is no nested body. New `approval_grants` pause on a card for a person.",
+      "is no nested body. New `approval_grants` pause on a card for a person; " +
+      "a new external destination (email, webhook, plugin) does so only where " +
+      "this Space's approval mode asks.",
     inputSchema: z.object({
       prompt: z
         .string()
@@ -991,6 +1181,13 @@ export function createRoutineTools(deps: RoutineToolDeps = {}) {
       enabled: z.boolean().optional(),
       name: z.string().optional(),
       outcome: z.string().optional(),
+      outcomes: outcomesSchema
+        .optional()
+        .describe(
+          `${outcomesSchema.description} Present replaces the routine's ` +
+            "destinations; [] removes them all, so the `report` fallback " +
+            "applies again. Omit to leave them."
+        ),
       quiet_hours: z.string().optional(),
       report: reportSchema.optional(),
       routine_id: z.string(),
@@ -1057,33 +1254,70 @@ export function createRoutineTools(deps: RoutineToolDeps = {}) {
         }
       }
 
+      const outcomesNote = await checkOutcomes(input.outcomes);
+      if (outcomesNote) {
+        return refused(outcomesNote);
+      }
+
       // New grants let a fire write with nobody watching: a person confirms
-      // them, whatever the Space's mode says about the rest.
-      const grants = input.approval_grants;
-      if (!resume && grants && grants.length > 0) {
-        const ctx = getEngentyToolsRunContext();
-        const canSuspend = Boolean(
-          ctx.canSuspendForInteraction && executionContext?.agent?.suspend
-        );
-        if (!canSuspend) {
-          return refused(
-            routineApprovalRefusalNote({
-              coordinatorIds: coordinatorIdsForRun(),
-              hasGrants: true,
-              routineName: existing.name,
+      // them, whatever the Space's mode says about the rest. A new external
+      // destination (email, webhook, plugin providers) is low risk — usually
+      // the user asked for it — so it asks only where the Space's mode does,
+      // as creating the routine would.
+      const grants = input.approval_grants ?? [];
+      const hasGrants = grants.length > 0;
+      const current =
+        input.outcomes && !resume
+          ? await requireOutcomeStore(deps).list({
+              routineId: existing.id,
+              tenantId,
             })
-          );
-        }
+          : [];
+      const external =
+        !(resume || hasGrants) &&
+        addsExternalDestination(input.outcomes ?? [], current);
+      const approval =
+        hasGrants || external
+          ? decideRoutineApproval({
+              askFirst: false,
+              canSuspend: Boolean(
+                getEngentyToolsRunContext().canSuspendForInteraction &&
+                  executionContext?.agent?.suspend
+              ),
+              hasGrants,
+              mode: hasGrants
+                ? "manual"
+                : await approvalMode({
+                    agentTypeKey: existing.agent_id,
+                    spaceId: existing.space_id,
+                    tenantId,
+                  }),
+            })
+          : "create";
+      if (!resume && approval === "refuse") {
+        return refused(
+          routineApprovalRefusalNote({
+            change: true,
+            coordinatorIds: coordinatorIdsForRun(),
+            external,
+            hasGrants,
+            routineName: existing.name,
+          })
+        );
+      }
+      if (!resume && approval === "card") {
         const triggers = await requireTriggerStore(deps).list({
           routineId: existing.id,
           tenantId,
         });
         const schedule = triggers.find((t) => t.kind === "schedule");
+        const destinations = input.outcomes ?? current;
         await suspendRoutineDecision({
           artifact: routineDecisionArtifact({
             agentId: existing.agent_id,
             approvalGrants: grants,
             cron: input.cron ?? schedule?.cron ?? null,
+            destinations,
             kind: schedule ? "schedule" : "manual",
             name: input.name ?? existing.name,
             outcome: input.outcome ?? existing.outcome,
@@ -1190,7 +1424,9 @@ export function createRoutineTools(deps: RoutineToolDeps = {}) {
         id: existing.id,
         tenantId,
         ...(input.agent_id === undefined ? {} : { agentId: input.agent_id }),
-        ...(grants === undefined ? {} : { approvalGrants: grants }),
+        ...(input.approval_grants === undefined
+          ? {}
+          : { approvalGrants: input.approval_grants }),
         ...(rebindWorkflowId === undefined
           ? {}
           : { workflowId: rebindWorkflowId }),
@@ -1229,10 +1465,20 @@ export function createRoutineTools(deps: RoutineToolDeps = {}) {
         routineId: existing.id,
         tenantId,
       });
+      const finalOutcomes = input.outcomes
+        ? await writeOutcomes({
+            bodies: input.outcomes,
+            routineId: existing.id,
+            tenantId,
+          })
+        : await requireOutcomeStore(deps).list({
+            routineId: existing.id,
+            tenantId,
+          });
 
       return {
         note: null,
-        routine: toToolShape(updated, finalTriggers),
+        routine: toToolShape(updated, finalTriggers, finalOutcomes),
         status: "updated" as const,
       };
     },

@@ -13,9 +13,7 @@ import type {
   ApprovalRequestRecord,
   ConnectionAutonomousMode,
   ConnectionPolicyOverride,
-  ConnectionSharing,
   ConnectionSummary,
-  ConnectorActionGroup,
   ConnectorAuthKind,
 } from "./types.js";
 
@@ -57,7 +55,7 @@ function toApprovalRequestRecord(
 }
 
 const CONNECTION_COLUMNS =
-  "id, tenant_id, connector_id, owner_user_id, sharing, all_spaces, autonomous_mode, non_owner_max_group, display_name, external_account, granted_scopes, status, error_message, created_at, auth_kind";
+  "id, tenant_id, space_id, connector_id, connected_by, autonomous_mode, display_name, external_account, granted_scopes, status, error_message, created_at, auth_kind";
 
 interface ConnectionTokenRow {
   access_token_enc: string | null;
@@ -72,12 +70,8 @@ export interface PendingOAuthFlow {
   nonce: string;
   redirect_to: string | null;
   requested_scopes: string[];
-  sharing: ConnectionSharing;
-  /**
-   * The space the connect was started from, mounted on success (CN.4 Flow A).
-   * Null for a connect started from tenant settings, which belongs to no space.
-   */
-  space_id?: string | null;
+  /** The Space the connected account will belong to. */
+  space_id: string;
   tenant_id: string;
   user_id: string;
 }
@@ -114,12 +108,12 @@ export function createConnectionsRepo(supabase: SupabaseClient) {
           task_id: input.taskId ?? null,
         },
         // Same waiting period core's own gate gives a request: long enough
-        // for the connection owner to find it in tomorrow's inbox.
+        // for the space's owners to find it in tomorrow's inbox.
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
         moduleId: APPROVALS_MODULE_ID,
         operationId: input.operationId,
         reason:
-          "connection_approval_pending: a human must approve this action; the request was sent to the connection owner",
+          "connection_approval_pending: a human must approve this action; the request was sent to the owners of the connection's space",
         tenantId: input.tenantId,
       });
       return toApprovalRequestRecord(row);
@@ -245,8 +239,14 @@ export function createConnectionsRepo(supabase: SupabaseClient) {
       return rows.map(toApprovalRequestRecord);
     },
 
+    /**
+     * Connections in the tenant, or in one Space when `spaceId` is given. On
+     * a user-scoped client RLS already limits rows to Spaces the caller can
+     * enter.
+     */
     async listConnections(params: {
       connectorId?: string;
+      spaceId?: string;
       tenantId: string;
     }): Promise<ConnectionSummary[]> {
       let query = db()
@@ -256,6 +256,9 @@ export function createConnectionsRepo(supabase: SupabaseClient) {
         .order("created_at", { ascending: true });
       if (params.connectorId) {
         query = query.eq("connector_id", params.connectorId);
+      }
+      if (params.spaceId) {
+        query = query.eq("space_id", params.spaceId);
       }
       return throwOnError(await query) as ConnectionSummary[];
     },
@@ -274,100 +277,18 @@ export function createConnectionsRepo(supabase: SupabaseClient) {
       ) as ConnectionPolicyOverride[];
     },
 
-    /**
-     * Active connections for a connector. RLS already limits the user-scoped
-     * client; reach (space mount ∪ all-spaces ∪ agent grant) is applied by
-     * the executor / profile policy. Do not re-filter by owner here — a
-     * space-mounted colleague account would never become a candidate.
-     */
+    /** Active connections for a connector that the given Space owns. */
     async listCandidateConnections(params: {
-      agentGrantedConnectionIds?: ReadonlySet<string>;
       connectorId: string;
-      principalId: string;
-      spaceOwnerUserId?: string | null;
+      spaceId: string;
       tenantId: string;
     }): Promise<ConnectionSummary[]> {
       const all = await this.listConnections({
         connectorId: params.connectorId,
+        spaceId: params.spaceId,
         tenantId: params.tenantId,
       });
       return all.filter((c) => c.status === "active");
-    },
-
-    /**
-     * Connections the acting agent has been granted (PLAN-spaces.md CN.5).
-     *
-     * The set an agent-driven call may treat as if it owned. Empty for every
-     * agent nobody granted anything, which is the default and the safe one.
-     */
-    async listAgentGrantedConnectionIds(params: {
-      agentId: string;
-    }): Promise<Set<string>> {
-      const rows = throwOnError(
-        await db()
-          .from("connection_agent_grants")
-          .select("connection_id")
-          .eq("agent_id", params.agentId)
-      ) as Array<{ connection_id: string }>;
-      return new Set(rows.map((row) => row.connection_id));
-    },
-
-    /** Agents granted this connection, for the owner's "Used by" list. */
-    async listConnectionAgentGrants(params: {
-      connectionId: string;
-    }): Promise<Array<{ agent_id: string; created_at: string }>> {
-      return throwOnError(
-        await db()
-          .from("connection_agent_grants")
-          .select("agent_id, created_at")
-          .eq("connection_id", params.connectionId)
-      ) as Array<{ agent_id: string; created_at: string }>;
-    },
-
-    /** Every grant in the tenant, joined by the caller for list surfaces. */
-    async listAgentGrants(): Promise<
-      Array<{ agent_id: string; connection_id: string; created_at: string }>
-    > {
-      return throwOnError(
-        await db()
-          .from("connection_agent_grants")
-          .select("agent_id, connection_id, created_at")
-      ) as Array<{
-        agent_id: string;
-        connection_id: string;
-        created_at: string;
-      }>;
-    },
-
-    /** Grant, or re-grant (idempotent — one row per agent per connection). */
-    async grantConnectionToAgent(params: {
-      agentId: string;
-      connectionId: string;
-      grantedBy: string;
-    }): Promise<void> {
-      throwOnError(
-        await db().from("connection_agent_grants").upsert(
-          {
-            agent_id: params.agentId,
-            connection_id: params.connectionId,
-            granted_by: params.grantedBy,
-          },
-          { onConflict: "connection_id,agent_id" }
-        )
-      );
-    },
-
-    async revokeConnectionFromAgent(params: {
-      agentId: string;
-      connectionId: string;
-    }): Promise<void> {
-      throwOnError(
-        await db()
-          .from("connection_agent_grants")
-          .delete()
-          .eq("connection_id", params.connectionId)
-          .eq("agent_id", params.agentId)
-      );
     },
 
     async setPolicyOverride(params: {
@@ -398,29 +319,17 @@ export function createConnectionsRepo(supabase: SupabaseClient) {
     },
 
     async updateConnectionSettings(params: {
-      allSpaces?: boolean;
       autonomousMode?: ConnectionAutonomousMode;
       connectionId: string;
       displayName?: string | null;
-      nonOwnerMaxGroup?: ConnectorActionGroup | null;
-      sharing?: ConnectionSharing;
       tenantId: string;
     }): Promise<void> {
       const patch: Record<string, unknown> = {};
-      if (params.allSpaces !== undefined) {
-        patch.all_spaces = params.allSpaces;
-      }
       if (params.autonomousMode !== undefined) {
         patch.autonomous_mode = params.autonomousMode;
       }
       if (params.displayName !== undefined) {
         patch.display_name = params.displayName;
-      }
-      if (params.nonOwnerMaxGroup !== undefined) {
-        patch.non_owner_max_group = params.nonOwnerMaxGroup;
-      }
-      if (params.sharing !== undefined) {
-        patch.sharing = params.sharing;
       }
       if (Object.keys(patch).length === 0) {
         return;
@@ -457,31 +366,31 @@ export function createConnectionsRepo(supabase: SupabaseClient) {
       accessToken: string;
       /** Defaults to `oauth2`. `api_key` stores encrypted credentials JSON. */
       authKind?: ConnectorAuthKind;
+      /** Who signed in — audit only. */
+      connectedBy: string;
       connectorId: string;
       expiresAt: Date | null;
       externalAccount: string | null;
       grantedScopes: string[];
-      ownerUserId: string;
       refreshToken: string | null;
-      sharing: ConnectionSharing;
+      /** The Space the account belongs to. */
+      spaceId: string;
       tenantId: string;
     }): Promise<ConnectionSummary> {
-      // One connection per (tenant, connector, owner-scope, external_account) —
-      // reconnecting the same account replaces tokens (connection id stays
-      // stable so downstream cursors survive); a different account inserts a
-      // new row. A null-account row (degraded connect where resolveAccount
-      // failed) is the replace target for the next connect in the same scope,
-      // so degraded connects never strand duplicates.
-      let query = db()
-        .from("connections")
-        .select(CONNECTION_COLUMNS)
-        .eq("tenant_id", input.tenantId)
-        .eq("connector_id", input.connectorId)
-        .eq("sharing", input.sharing);
-      if (input.sharing === "personal") {
-        query = query.eq("owner_user_id", input.ownerUserId);
-      }
-      const scoped = throwOnError(await query) as ConnectionSummary[];
+      // One connection per (tenant, space, connector, external_account) —
+      // reconnecting the same account in the same Space replaces tokens
+      // (connection id stays stable so downstream cursors survive); a different
+      // account inserts a new row. A null-account row (degraded connect where
+      // resolveAccount failed) is the replace target for the next connect in
+      // the same Space, so degraded connects never strand duplicates.
+      const scoped = throwOnError(
+        await db()
+          .from("connections")
+          .select(CONNECTION_COLUMNS)
+          .eq("tenant_id", input.tenantId)
+          .eq("space_id", input.spaceId)
+          .eq("connector_id", input.connectorId)
+      ) as ConnectionSummary[];
       const account = input.externalAccount?.toLowerCase() ?? null;
       const existing = [
         scoped.find(
@@ -521,11 +430,10 @@ export function createConnectionsRepo(supabase: SupabaseClient) {
         await db()
           .from("connections")
           .insert({
-            all_spaces: false,
             auth_kind: input.authKind ?? "oauth2",
+            connected_by: input.connectedBy,
             connector_id: input.connectorId,
-            owner_user_id: input.ownerUserId,
-            sharing: input.sharing,
+            space_id: input.spaceId,
             tenant_id: input.tenantId,
             ...tokenFields,
           })

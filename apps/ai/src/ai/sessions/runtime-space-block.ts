@@ -182,7 +182,7 @@ export function formatSpaceRuntimeBlock(input: {
   if (resolution.kind === "global") {
     const lines = [
       "- current_space: global",
-      "- This run has no Space by design (tenant-global).",
+      "- This run has no Space by design (tenant-global). Connections belong to a Space, so no connector is available here.",
     ];
     appendTenantInstalledModules(lines, input.tenantModuleIds, "global");
     return lines;
@@ -204,7 +204,7 @@ export function formatSpaceRuntimeBlock(input: {
       input.agentIdentities,
       spaceAgentRelationsFromSurface(surface)
     ),
-    `- space_mounted_connections: ${surface.connections.length}`,
+    `- space_connections: ${surface.connections.length} (accounts this Space owns; every engenty here uses them)`,
     formatNameList("space_mounted_skills", surface.skills),
   ];
   if (hasOther !== undefined) {

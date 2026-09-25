@@ -2,18 +2,21 @@
 
 import { Button, cn, Input, Textarea } from "@engenty/ui-core";
 import {
+  autoPlacement,
   autoUpdate,
   computePosition,
   flip,
+  type Middleware,
   offset,
-  type Placement,
   shift,
 } from "@floating-ui/dom";
 import {
   type ChangeEvent,
   type CSSProperties,
+  createContext,
   type FormEvent,
   type ReactNode,
+  useContext,
   useEffect,
   useLayoutEffect,
   useState,
@@ -46,11 +49,16 @@ function buttonVariantFor(
   return "default";
 }
 
-function floatingPlacement(placement: UiGuidePlacement): Placement {
-  if (placement === "auto") {
-    return "bottom";
-  }
-  return placement;
+/**
+ * "auto" takes the side with the most room. It used to mean "bottom": a
+ * full-height target (the sidebar) left no room below or above, flip had
+ * nowhere to go, and the card sat under the viewport — only the dimming
+ * showed. An explicit side still flips, to any side, when it does not fit.
+ */
+function placementMiddleware(placement: UiGuidePlacement): Middleware {
+  return placement === "auto"
+    ? autoPlacement({ padding: 12 })
+    : flip({ fallbackAxisSideDirection: "end", padding: 12 });
 }
 
 function resolveInputFields(session: UiGuideSession): UiGuideInputField[] {
@@ -88,6 +96,23 @@ function submitActionIdFor(session: UiGuideSession): string {
   return session.input?.submit_action_id ?? "ok";
 }
 
+/**
+ * What the host app supplies: app-shell has neither translations nor a
+ * Markdown renderer, and the model writes guide bodies in Markdown.
+ */
+export interface GuideCardText {
+  dismissLabel: string;
+  renderBody: (body: string) => ReactNode;
+}
+
+const PLAIN_BODY_CLASS =
+  "whitespace-pre-wrap text-muted-foreground text-sm leading-relaxed";
+
+export const GuideCardTextContext = createContext<GuideCardText>({
+  dismissLabel: "Dismiss",
+  renderBody: (body) => <p className={PLAIN_BODY_CLASS}>{body}</p>,
+});
+
 function GuideCardChrome({
   children,
   className,
@@ -105,6 +130,7 @@ function GuideCardChrome({
   session: UiGuideSession;
   style?: CSSProperties;
 }) {
+  const text = useContext(GuideCardTextContext);
   const fields = resolveInputFields(session);
   const [values, setValues] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
@@ -147,7 +173,7 @@ function GuideCardChrome({
       aria-describedby={session.body ? "ui-guide-body" : undefined}
       aria-labelledby="ui-guide-title"
       className={cn(
-        "ui-canvas-floating flex w-[min(22rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-lg border bg-popover text-popover-foreground shadow-lg",
+        "ui-canvas-floating flex w-[min(22rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-lg border bg-card text-card-foreground shadow-lg",
         className
       )}
       ref={cardRef}
@@ -159,12 +185,7 @@ function GuideCardChrome({
           {session.title}
         </h2>
         {session.body ? (
-          <p
-            className="whitespace-pre-wrap text-muted-foreground text-sm leading-relaxed"
-            id="ui-guide-body"
-          >
-            {session.body}
-          </p>
+          <div id="ui-guide-body">{text.renderBody(session.body)}</div>
         ) : null}
         {children}
       </div>
@@ -209,7 +230,7 @@ function GuideCardChrome({
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           {session.show_dismiss ? (
             <Button onClick={onDismiss} size="sm" type="button" variant="ghost">
-              Dismiss
+              {text.dismissLabel}
             </Button>
           ) : null}
           {session.actions.map((action) => (
@@ -274,8 +295,16 @@ export function AnchoredGuidePopout({
     };
     const run = () => {
       void computePosition(virtualRef, popoutEl, {
-        middleware: [offset(12), flip({ padding: 12 }), shift({ padding: 12 })],
-        placement: floatingPlacement(session.placement),
+        middleware: [
+          offset(12),
+          placementMiddleware(session.placement),
+          // Both axes: a card taller than the room beside its target still
+          // stays on screen.
+          shift({ crossAxis: true, padding: 12 }),
+        ],
+        ...(session.placement === "auto"
+          ? {}
+          : { placement: session.placement }),
       }).then(({ strategy, x, y }) => {
         Object.assign(popoutEl.style, {
           left: `${x}px`,

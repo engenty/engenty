@@ -1,6 +1,6 @@
 /**
- * Marketplace HTTP: connections catalog, space plugin mounts, agent grants,
- * and tenant-scoped integrations.sh import. Errors from the import routes
+ * Marketplace HTTP: connections catalog, space plugin mounts, an agent's
+ * preferred plugins, and tenant-scoped integrations.sh import. Errors from the import routes
  * are `{ error: string }` — surface that verbatim.
  */
 import { ApiClientResponseError, requestApiJson } from "@engenty/api-client";
@@ -10,12 +10,6 @@ import { getConnectionsCatalog } from "../../api.js";
 export interface SpaceMountRow {
   resourceKey: string;
   resourceType: string;
-}
-
-export interface AgentGrantRow {
-  agent_id: string;
-  connection_id: string;
-  connector_id?: string | null;
 }
 
 export interface RegistrySearchSurface {
@@ -60,64 +54,30 @@ export async function listSpaceMounts(
   );
 }
 
-export async function upsertSpaceMount(input: {
-  agentAccess?: "none" | "read" | "write";
-  resourceKey: string;
-  resourceType: "connection" | "plugin";
+/** Enable a plugin (connector) on a Space. */
+export async function enablePluginOnSpace(input: {
+  connectorId: string;
   spaceId: string;
 }): Promise<void> {
   await requestApiJson(
     `/api/spaces/${encodeURIComponent(input.spaceId)}/mounts`,
     {
-      body: {
-        resource_key: input.resourceKey,
-        resource_type: input.resourceType,
-        ...(input.agentAccess ? { agent_access: input.agentAccess } : {}),
-      },
+      body: { resource_key: input.connectorId, resource_type: "plugin" },
       method: "PUT",
     }
   );
 }
 
-export async function deleteSpaceMount(input: {
-  resourceKey: string;
-  resourceType: "connection" | "plugin";
+export async function disablePluginOnSpace(input: {
+  connectorId: string;
   spaceId: string;
 }): Promise<void> {
-  const type = encodeURIComponent(input.resourceType);
-  const key = encodeURIComponent(input.resourceKey);
+  const type = encodeURIComponent("plugin");
+  const key = encodeURIComponent(input.connectorId);
   await requestApiJson(
     `/api/spaces/${encodeURIComponent(input.spaceId)}/mounts/${type}/${key}`,
     { method: "DELETE" }
   );
-}
-
-export async function listAgentGrants(
-  agentId: string,
-  signal?: AbortSignal
-): Promise<AgentGrantRow[]> {
-  const result = await requestApiJson<{ grants: AgentGrantRow[] }>(
-    "/api/tools/connections_agent_grants_list/invoke",
-    { body: { input: { agent_id: agentId } }, method: "POST", signal }
-  );
-  return result.grants ?? [];
-}
-
-export async function setAgentGrant(input: {
-  agentId: string;
-  connectionId: string;
-  granted: boolean;
-}): Promise<void> {
-  await requestApiJson("/api/tools/connections_agent_grant_set/invoke", {
-    body: {
-      input: {
-        agent_id: input.agentId,
-        connection_id: input.connectionId,
-        granted: input.granted,
-      },
-    },
-    method: "POST",
-  });
 }
 
 export async function getAgentConnectorIds(

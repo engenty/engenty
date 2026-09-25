@@ -5,6 +5,7 @@ import type { EngentyWorkspaceFsMode } from "../workspace/workspace-fs-mode.js";
 import { shouldUseRemoteWorkspaceSync } from "../workspace/workspace-fs-mode.js";
 import { createDockerEngentySandboxPair } from "./providers/docker-sandbox-provider.js";
 import {
+  isSandboxEgressProxied,
   resolveSandboxDefaultTimeoutMs,
   resolveSandboxDockerImage,
   resolveSandboxProvider,
@@ -19,6 +20,7 @@ import type {
   AgentWorkspaceSandbox,
   SandboxExtraMount,
 } from "./sandbox-types.js";
+import { publishSpaceEgress } from "./space-egress.js";
 
 export interface CreateEngentySandboxProviderResult {
   // The single Mastra executor (DockerSandbox) the Workspace attaches; the
@@ -51,6 +53,8 @@ export async function createEngentySandboxProvider(params: {
   fileStorageAccess?: { coreBaseUrl: string; accessToken: string } | null;
   input: CreateEngentySandboxProviderInput;
   sandboxConfig?: SandboxFactoryConfig;
+  /** The space's own egress hosts, beyond the proxy's shared list. */
+  spaceComputerEgressHosts?: readonly string[];
   /** The space's reach setting; omitted inherits the host default. */
   spaceComputerNetwork?: SandboxNetworkTier;
   tenantId: string;
@@ -78,6 +82,26 @@ export async function createEngentySandboxProvider(params: {
   // place that knows better; `TZ` is how `date` and `new Date()` learn it.
   // Caller-supplied env still wins — a caller naming TZ meant it.
   const timezoneEnv = await sandboxTimezoneEnv(params.tenantId);
+  // The space computer's tier is the SPACE's call, never the declaring
+  // agent's — see `resolveSpaceComputerNetworkTier` for why.
+  const onSpaceComputer = params.sandboxConfig?.lifecycle === "space";
+  const network = onSpaceComputer
+    ? resolveSpaceComputerNetworkTier(params.spaceComputerNetwork)
+    : (params.sandboxConfig?.network ?? "none");
+  const spaceId = input.identity.spaceId;
+  // A space computer names its Space at the proxy, which then adds the
+  // Space's own hosts to the shared list.
+  const proxyAuth =
+    onSpaceComputer &&
+    spaceId &&
+    network === "egress" &&
+    isSandboxEgressProxied()
+      ? publishSpaceEgress({
+          hosts: params.spaceComputerEgressHosts ?? [],
+          spaceId,
+          tenantId: params.tenantId,
+        })
+      : undefined;
   const { dockerSandbox, provider } = createDockerEngentySandboxPair({
     client: params.client,
     env: { ...timezoneEnv, ...params.env },
@@ -85,12 +109,8 @@ export async function createEngentySandboxProvider(params: {
     image,
     input,
     mountPath,
-    // The space computer's tier is the SPACE's call, never the declaring
-    // agent's — see `resolveSpaceComputerNetworkTier` for why.
-    network:
-      params.sandboxConfig?.lifecycle === "space"
-        ? resolveSpaceComputerNetworkTier(params.spaceComputerNetwork)
-        : (params.sandboxConfig?.network ?? "none"),
+    network,
+    ...(proxyAuth ? { proxyAuth } : {}),
     tenantId: params.tenantId,
     useRemoteStorageSync,
   });

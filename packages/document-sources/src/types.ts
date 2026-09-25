@@ -148,6 +148,12 @@ export interface DocumentSourceProbeMetadata {
   last_modified?: string | null;
 }
 
+/** Call-time inputs the host resolves for a retrieval. */
+export interface DocumentSourceRetrieveContext {
+  /** AI Gateway model for the optional LLM passes (page title, patterns). */
+  llmModel?: string;
+}
+
 export interface DocumentSourceAdapter {
   createIndex(source: DocumentSource): Promise<DocumentSourceIndex>;
   descriptor: DocumentSourceAdapterDescriptor;
@@ -160,7 +166,8 @@ export interface DocumentSourceAdapter {
   ): Promise<DocumentSourceProbeMetadata | null>;
   retrieveItem(
     source: DocumentSource,
-    entry: DocumentSourceIndexEntry
+    entry: DocumentSourceIndexEntry,
+    context?: DocumentSourceRetrieveContext
   ): Promise<DocumentSourceRetrievedItem>;
   settingsSchema: ZodType<Record<string, unknown>>;
 }

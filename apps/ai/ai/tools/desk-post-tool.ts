@@ -41,7 +41,7 @@ export function createDeskPostTool(deps: DeskPostToolDeps = {}) {
         .boolean()
         .optional()
         .describe(
-          "Also put an update in the Space's inbox (default true). Off for a note that can wait until someone opens the desk."
+          "Also put a low-priority update in the Space's inbox (default true) — it does not count on the bell. Off for a note that can wait until someone opens the desk. A routine that must notify a person gets a `notification.high` destination instead."
         ),
     }),
     outputSchema: z.object({

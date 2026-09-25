@@ -173,6 +173,8 @@ pnpm build
 pnpm test
 pnpm typecheck
 pnpm check
+pnpm test:smoke              # Playwright, needs the full stack (or lets Playwright boot it)
+pnpm test:smoke:interaction  # interaction budgets only; required on React/Router upgrades
 ```
 
 ## Signing in for tests & automation

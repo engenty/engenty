@@ -363,16 +363,6 @@
       "handleInvalid": "Kleinbuchstaben, Ziffern, Bindestriche oder Unterstriche; bis zu 32 Zeichen."
     }
   },
-  "agentConnections": {
-    "description": "Plugins und Konten, die dieser Agent nutzen darf. Eine leere Plugin-Liste bedeutet jedes im Space aktivierte Plugin plus die persönlichen Konten dieses Agenten.",
-    "empty": "Noch keine Konten. Dieser Agent kann nur Verbindungen nutzen, die du ihm hier gibst.",
-    "grantAction": "Zugriff geben",
-    "personalBadge": "Auf diesem Agenten",
-    "allSpacesBadge": "Alle Spaces",
-    "revoke": "Zugriff entfernen",
-    "saveFailed": "Zugriff konnte nicht geändert werden. Bitte erneut versuchen.",
-    "title": "Plugins"
-  },
   "agentDesk": {
     "actions": {
       "addRoutine": "Routine hinzufügen",
@@ -414,8 +404,6 @@
     "connectors": "Verbindungen",
     "drawer": {
       "back": "Zurück",
-      "collapse": "Einstellungen wieder verkleinern",
-      "expand": "Einstellungen vergrößern",
       "close": "Schließen",
       "resize": "Panel-Breite ändern",
       "runs": "Läufe",
@@ -589,7 +577,14 @@
       "showAsWindow": "Als Fenster zeigen",
       "composerPlaceholder": "Nachricht an den Copilot…",
       "emptyStateTitle": "Wie kann ich helfen?",
-      "emptyStateSubtitle": "Stelle Fragen, entwirf Inhalte oder lass dir bei der Arbeit im Workspace helfen."
+      "emptyStateSubtitle": "Stelle Fragen, entwirf Inhalte oder lass dir bei der Arbeit im Workspace helfen.",
+      "description": "Dein Copilot überall in Engenty. Kurzes erledigt er direkt hier im Chat; was regelmäßig passieren soll, bekommt ein Engenty als Routine, und Arbeit mit Verantwortung wird zur Aufgabe.",
+      "developer": {
+        "heading": "Entwickler",
+        "copyJson": "Als JSON kopieren",
+        "copyMarkdown": "Als Markdown kopieren",
+        "copyId": "ID kopieren"
+      }
     },
     "subAgent": {
       "backToChat": "Zurück zum Chat",
@@ -665,7 +660,7 @@
     "loading": "Agent wird geladen…",
     "lockedSpaceHint": "Diese Einstellung wird immer auf dem Space montiert, von dem aus du sie geöffnet hast.",
     "modelField": "Modell",
-    "modelPlaceholder": "openai/gpt-5-mini",
+    "modelPlaceholder": "Leer — nutzt die Rollenbindung",
     "nameField": "Name",
     "namePlaceholder": "Recherche-Agent",
     "readOnlyManaged": "Dieser Agent wird vom Modul {{module}} verwaltet und kann hier nicht bearbeitet werden.",
@@ -865,12 +860,10 @@
     "cancel": "Abbrechen",
     "codeManaged": "Code-verwaltet",
     "modelOverride": "Modell-Override",
-    "purpose": "Modell-Stufe",
     "maxSteps": "Max. Schritte",
     "budget": "Budget ($ / Periode)",
     "inheritPlaceholder": "Erben",
-    "structural": "Erben (nach Struktur)",
-    "inheritModel": "Erbt · {{tier}}",
+    "inheritModel": "Modell erben",
     "inherit": "erbt",
     "none": "keins",
     "stepsLabel": "Schritte",
@@ -879,8 +872,8 @@
     "inheritEffort": "Aufwand erben",
     "expertToggle": "Expertenmodus: Modell-ID festpinnen",
     "approvalMode": "Freigabe-Modus",
-    "approvalInherit": "Mandanten-Standard",
-    "approvalHint": "Nur enger als der Mandanten-Modus, nie lockerer. „Alles durchlassen“ gewährt keine zusätzlichen Rechte."
+    "approvalInherit": "Standard",
+    "approvalHint": "Der eigene Modus des Agenten gilt vor Space- und Mandanten-Modus – strenger oder lockerer. Ohne eigenen Modus gilt der Space-, sonst der Mandanten-Modus. „Alles durchlassen“ gewährt keine zusätzlichen Rechte."
   },
   "artifactDetail": {
     "back": "Zurück zu Artefakten",
@@ -891,6 +884,7 @@
   "artifacts": {
     "paneLabel": "Artefakte",
     "empty": "In dieser Sitzung veröffentlichte Artefakte werden hier angezeigt.",
+    "liveSurface": "Dashboard",
     "closeTab": "Artefakt schließen",
     "pickerLabel": "Artefakt wählen",
     "pickerPlaceholder": "Kein Artefakt",
@@ -1277,38 +1271,22 @@
         "label": "Chat",
         "desc": "Antworten an Nutzer:innen — Copilot & Spezialisten-Agenten."
       },
-      "routing": {
-        "label": "Schnell (Routing)",
-        "desc": "Supervisor-Delegation, Thread-Titel, Tool-Suche — häufig & günstig."
-      },
       "classifier": {
         "label": "Klassifikation",
-        "desc": "Posteingangs-Kategorien und Anhangs-Triage — Einzelaufruf, geringe Latenz."
+        "desc": "Wählt eine von N Optionen mit Konfidenz — Aufwand-Routing, Posteingangs-Kategorien, Suchprüfung, Tool-Suche, Guardrails."
       },
-      "research": {
-        "label": "Research",
-        "desc": "Such- & Retrieval-Agenten, Workspace-Suche, Deep-Research-Fanouts — langer Kontext."
-      },
-      "planning_coding": {
-        "label": "Planung & Code",
-        "desc": "Stärkste Stufe: Pläne, Task-Zerlegung, Koordinator-Vorschläge, Sandbox-Code."
-      },
-      "safeguard": {
-        "label": "Safeguard",
-        "desc": "Guardrail-Prüfungen (Moderation, PII, Prompt-Injection)."
-      },
-      "memory": {
-        "label": "Gedächtnis",
-        "desc": "Beobachtendes Gedächtnis: verdichtet Konversationen zu dauerhaften Beobachtungen."
+      "fast_text": {
+        "label": "Schneller Text",
+        "desc": "Kurzer Text ohne Tools — Titel, Zusammenfassungen, Starter, Gedächtnis. Kleines, günstiges Modell mit großem Kontextfenster."
       }
     },
     "source": {
       "pinned": "Gepinnt · Mandant",
       "inheritPlatform": "Erbt · Plattform",
-      "inheritDefault": "Erbt · Standard"
+      "governance": "Ersetzt · Nutzungsrichtlinie"
     },
     "inheritAction": "Erben",
-    "inheritActionLong": "Erben (Plattform-Standard)",
+    "inheritActionLong": "Erben (Plattform-Bindung)",
     "inheritHint": "Erbt: {{model}}",
     "col": {
       "purpose": "Zweck",
@@ -1485,12 +1463,86 @@
       "flowLoading": "Lädt…",
       "shortcode": "Kurzbefehl",
       "shortcodeHint": "Optionaler Kurzbefehl, mit dem eine Person diese Routine auslöst.",
-      "agentTriggerHint": "Der zuständige Spezialist darf diese Routine über invoke_workflow starten, solange dieser Auslöser aktiv ist."
+      "agentTriggerHint": "Der zuständige Engenty darf diese Routine über invoke_workflow starten, solange dieser Auslöser aktiv ist.",
+      "destinationsHint": "Wohin das Ergebnis geht (Schreibtisch, Inbox, E-Mail, …) wird nach dem Speichern an der Routine gesetzt. Dieses Feld ist nur das Versprechen — was zutreffen muss."
     },
     "dialog": {
       "createTitle": "Routine hinzufügen",
       "editTitle": "Routine bearbeiten",
       "description": "Routine erstellen oder bearbeiten"
+    },
+    "outcomes": {
+      "title": "Zustellung",
+      "description": "Wohin ein fertiger Lauf sein Ergebnis zustellt. Ohne Zustellung bleibt es bei der Schreibtisch-Karte aus der Rückmeldung.",
+      "provider": "Zustellung",
+      "chooseProvider": "Zustellung wählen…",
+      "choose": "Wählen…",
+      "mode": "Wann",
+      "modes": {
+        "always": "Jeder Lauf",
+        "agent": "Wenn der Lauf es aufruft"
+      },
+      "modeHints": {
+        "always": "Am Ende jedes Laufs. Der Lauf kann es nicht auslassen.",
+        "agent": "Nur wenn dieser Lauf die Zustellung aufruft. Nichts Wichtiges heißt kein Ping."
+      },
+      "noConfig": "Diese Zustellung hat keine festen Einstellungen.",
+      "enabled": "Aktiv",
+      "active": "Aktiv",
+      "paused": "Pausiert",
+      "add": "Hinzufügen",
+      "save": "Speichern",
+      "cancel": "Abbrechen",
+      "addRow": "Zustellung hinzufügen",
+      "remove": "Diese Zustellung entfernen",
+      "empty": "Keine Zustellung — ein Lauf nutzt die Rückmeldung (Schreibtisch-Karte / still).",
+      "errors": {
+        "providerRequired": "Eine Zustellung wählen.",
+        "configRequired": "Die erforderlichen Einstellungen ausfüllen.",
+        "configInvalid": "Die Einstellungen der Zustellung prüfen."
+      },
+      "providers": {
+        "desk": {
+          "chat": "Schreibtisch-Chat"
+        },
+        "agent": {
+          "message": "Engenty-Nachricht"
+        },
+        "notification": {
+          "update": "Inbox-Update",
+          "high": "Update mit Priorität"
+        },
+        "email": "E-Mail",
+        "artifact": {
+          "pointer": "Artefakt-Hinweis"
+        },
+        "webhook": "Webhook"
+      },
+      "providerHints": {
+        "desk": {
+          "chat": "Schreibt das Ergebnis in den Schreibtisch-Chat mit diesem Engenty."
+        },
+        "agent": {
+          "message": "Reicht das Ergebnis an einen anderen Engenty in diesem Space weiter."
+        },
+        "notification": {
+          "update": "Schreibt ein Update in die Space-Inbox. Zählt nicht an der Glocke.",
+          "high": "Schreibt ein Update mit Priorität in die Space-Inbox und auf die Dashboard-Karte. Zählt an der Glocke."
+        },
+        "email": "Sendet sofort über die Gmail-Verbindung des Tenants.",
+        "artifact": {
+          "pointer": "Hält fest, welches Artefakt der Lauf schon erzeugt hat, damit andere Zustellungen und der Schreibtisch es nennen können."
+        },
+        "webhook": "HTTP-POST des Ergebnisses an eine URL, die du einstellst."
+      }
+    },
+    "detail": {
+      "prompt": "Prompt",
+      "workflow": "Workflow"
+    },
+    "card": {
+      "triggers": "Auslöser",
+      "noTrigger": "Kein Auslöser"
     }
   },
   "sections": {
@@ -1802,6 +1854,8 @@
     "title": "Skills für „{{query}}“",
     "via": "Von {{provider}}",
     "empty": "Keine öffentlichen Skills für „{{query}}“ gefunden.",
+    "titleComputer": "Skills auf dem Computer dieses Spaces",
+    "emptyComputer": "Keine Skills auf dem Computer dieses Spaces gefunden.",
     "install": "Installieren",
     "installing": "Wird installiert…",
     "installed": "Installiert",
@@ -1911,7 +1965,7 @@
   "voiceConfirm": {
     "title": "Aktion bestätigen",
     "approveOnce": "Einmal erlauben",
-    "approveAlways": "Immer erlauben (dieser Chat)",
+    "approveAlways": "Für diesen Agent erlauben",
     "deny": "Ablehnen"
   },
   "workPanel": {
@@ -2070,12 +2124,12 @@
   },
   "browser": {
     "panel": {
-      "title": "Dein Browser",
+      "title": "Browser",
       "start": "Starten",
       "stop": "Stoppen",
-      "hint": "Starte einen angemeldeten Browser. Engentys steuern ihn in deinem Namen, wo immer du arbeitest; du kannst jederzeit übernehmen.",
+      "hint": "Starte den angemeldeten Browser dieses Spaces. Jeder Engenty hier arbeitet in seinem eigenen Fenster; Anmeldungen sind geteilt. Du kannst jederzeit übernehmen.",
       "startFailed": "Browser konnte nicht gestartet werden.",
-      "toggle": "Deinen Browser zeigen",
+      "toggle": "Browser zeigen",
       "state": {
         "absent": "Nicht gestartet",
         "running": "Läuft",
@@ -2084,27 +2138,27 @@
       "close": "Schließen",
       "expandPane": "Browser-Panel vergrößern",
       "collapsePane": "Browser-Panel wieder verkleinern",
-      "asleepHint": "Dein Browser schläft — Anmeldungen bleiben erhalten. Starten weckt ihn.",
+      "asleepHint": "Der Browser des Spaces schläft — Anmeldungen bleiben erhalten. Starten weckt ihn.",
       "steps": {
-        "start": "Starte deinen Browser — hier, oder wenn ein Engenty dich im Chat darum bittet. Er gehört nur dir, in jedem Space: Anmeldungen, Cookies und Downloads sind deine.",
-        "watch": "Bitte einen Engenty um etwas im Web. Er steuert diesen Browser in deinem Namen, und du siehst hier live zu.",
+        "start": "Starte den Browser des Spaces — hier, oder wenn ein Engenty im Chat darum bittet. Er gehört zu diesem Space: Anmeldungen, Cookies und Downloads teilen sich seine Engentys.",
+        "watch": "Bitte einen Engenty um etwas im Web. Er arbeitet in seinem eigenen Fenster dieses Browsers, und du siehst hier live zu.",
         "takeOver": "Übernimm, wann immer nötig: anmelden, ein Captcha lösen, herumklicken. Der Engenty wartet.",
         "handBack": "Gib zurück, und der Engenty macht auf der Seite weiter, auf der du ihn gelassen hast.",
-        "unattended": "Routinen und andere unbeaufsichtigte Läufe dürfen ihn erst nutzen, wenn du in den Einstellungen deines Copilots „Engentys dürfen ihn nutzen, wenn ich weg bin“ einschaltest.",
-        "signOut": "Stoppen legt ihn schlafen (Anmeldungen bleiben, nach 15 Minuten ohne Nutzung auch automatisch). Abmelden in den Einstellungen deines Copilots vergisst jede Anmeldung."
+        "unattended": "Routinen und andere unbeaufsichtigte Läufe dürfen ihn erst nutzen, wenn ein Space-Owner in den Browser-Einstellungen „Engentys dürfen ihn unbeaufsichtigt nutzen“ einschaltet.",
+        "signOut": "Stoppen legt ihn schlafen (Anmeldungen bleiben, nach 15 Minuten ohne Nutzung auch automatisch). Abmelden vergisst jede Anmeldung für den ganzen Space."
       }
     },
     "settings": {
-      "title": "Dein Browser",
-      "hint": "Ein angemeldeter Browser, den Engentys in deinem Namen steuern – in jedem Space. Logins bleiben zwischen Läufen erhalten.",
+      "title": "Space-Browser",
+      "hint": "Ein angemeldeter Browser, den sich die Engentys dieses Spaces teilen – jeder in seinem eigenen Fenster. Logins bleiben zwischen Läufen erhalten.",
       "open": "Öffnen",
       "signOut": "Abmelden",
-      "signedOut": "Abgemeldet – alle Logins vergessen.",
+      "signedOut": "Abgemeldet – alle Logins im Browser dieses Spaces vergessen.",
       "failed": "Das hat nicht geklappt. Versuch es noch einmal.",
       "autostart": "Engentys dürfen ihn ohne Nachfrage starten",
-      "autostartHint": "Aus: Ein Engenty, der ins Web muss, fragt dich im Chat, bevor dein Browser startet.",
-      "unattended": "Engentys dürfen ihn nutzen, wenn ich weg bin",
-      "unattendedHint": "Routinen und Aufgaben dürfen deinen angemeldeten Browser ohne dich steuern. Aus: sie halten an und fragen."
+      "autostartHint": "Aus: Ein Engenty, der ins Web muss, fragt im Chat, bevor der Browser startet. Nur Space-Owner.",
+      "unattended": "Engentys dürfen ihn unbeaufsichtigt nutzen",
+      "unattendedHint": "Routinen und Aufgaben dürfen den angemeldeten Browser des Spaces ohne Aufsicht steuern. Aus: sie halten an und fragen. Nur Space-Owner."
     },
     "view": {
       "title": "Dein Browser",
@@ -2204,5 +2258,47 @@
     "reset": "Zurücksetzen",
     "loading": "Lädt…",
     "empty": "Noch kein Profil."
+  },
+  "uiGuideFollowUp": {
+    "withTitle": "{{action}} — Guide: {{title}}",
+    "plain": "{{action}} (Guide)"
+  },
+  "dateDivider": {
+    "today": "Heute {{time}}",
+    "yesterday": "Gestern {{time}}"
+  },
+  "toolClip": {
+    "working": "Arbeitet …",
+    "thought": "Nachgedacht",
+    "navigate": "{{page}} geöffnet",
+    "guide": "Gezeigt: {{title}}",
+    "guideGroup": "Tour: {{count}} Schritte gezeigt",
+    "agentHired": "{{name}} eingestellt",
+    "appsAdded": "App hinzugefügt: {{names}}",
+    "appsRemoved": "App entfernt: {{names}}",
+    "remembered": "Etwas gemerkt",
+    "page": {
+      "home": "Space-Startseite",
+      "agents": "Agenten",
+      "agent": "Seite des Agenten",
+      "copilot": "Copilot",
+      "data": "Daten",
+      "rooms": "Raum",
+      "settings": "Einstellungen",
+      "other": "Seite"
+    }
+  },
+  "messageActions": {
+    "copy": "Nachricht kopieren",
+    "copied": "Kopiert",
+    "copyLink": "Link kopieren",
+    "linkCopied": "Link kopiert",
+    "more": "Weitere Aktionen"
+  },
+  "skillProposals": {
+    "title": "Skills zur Prüfung",
+    "approve": "Freigeben",
+    "reject": "Ablehnen",
+    "actionFailed": "Entscheidung konnte nicht gespeichert werden."
   }
 }

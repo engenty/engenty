@@ -1,7 +1,7 @@
 // Retrieval service contracts (docs/wip/retrieval-service.md §4).
 //
-// A module registers a *source* — document builder, splitter, embedding config,
-// visibility, retriever hooks — and the service manufactures a classic
+// A module registers a *source* — document builder, splitter, visibility,
+// retriever hooks — and the service manufactures a classic
 // `SearchIndexProvider` from it (provider-factory.ts), so the existing registry,
 // synthesized tools, admin routes, and event bindings keep working unchanged.
 
@@ -33,12 +33,14 @@ export interface RetrievalEventBinding<TPayload = Record<string, unknown>> {
  * Tenant-scoped row visibility, enforced inside the fusion RPC (never in JS).
  *
  * - `tenant`: tenant + scope only.
- * - `owner`: rows with `owner_user_id` null are org-visible; otherwise owner-only
- *   (inbox / personal-connection model). Service callers (null user) see all.
+ * - `space`: records kept against a Space's connected account (mail). Visible
+ *   to that Space's members and agents: the document MUST carry `space_id`; a
+ *   person sees it when they are a member, a space-bound call when it names
+ *   that space. A call naming neither sees none of it.
  * - `user`: strictly owner-only, no org rows (chat transcripts). Service callers
  *   see all.
  */
-export type VisibilityKind = "owner" | "tenant" | "user";
+export type VisibilityKind = "space" | "tenant" | "user";
 
 export interface SplitterConfigNone {
   mode: "none";
@@ -69,15 +71,16 @@ export interface RetrievalDocument extends SearchDocument {
   filter_metadata?: Record<string, string | string[]>;
   /** Content time (email received_at, article updated_at) for time filters. */
   occurred_at?: string | null;
-  /** Owner for `owner`/`user` visibility; null = org-visible. */
+  /** Owner for `user` visibility. */
   owner_user_id?: string | null;
   /** Source row's updated_at at build time — drives staleness detection. */
   source_updated_at: string;
   /**
    * The space this document belongs to (PLAN-spaces.md Phase P4).
    *
-   * Null means NOT SPACE-SCOPED — a contact, an inbox message — and those stay
-   * visible under the existing `visibility` rules. A source whose records live
+   * Null means NOT SPACE-SCOPED — a contact, a KB article — and those stay
+   * visible under the existing `visibility` rules. Required for `space`
+   * visibility (without it the document is visible to nobody). A source whose records live
    * in a space MUST set it: search never passes through a `/s/<key>` route, so
    * no route guard protects it, and a private space's content would otherwise be
    * readable by anyone in the tenant who searches for it.
@@ -196,10 +199,6 @@ export interface RetrievalSourceRegistration<TResult = unknown> {
     doc_id: string;
     tenant_id: string;
   }): Promise<RetrievalDocument | null>;
-  embedding?: {
-    model?: string;
-    resolveModel?(tenant_id: string): Promise<string>;
-  };
   /**
    * Enumerate live source rows, newest-updated first — drives status
    * (current/stale/missing) and backfill target selection. Must exclude
@@ -284,6 +283,4 @@ export interface RetrievalService {
   ): Promise<SearchIndexStatus>;
 }
 
-export const DEFAULT_RETRIEVAL_EMBEDDING_MODEL =
-  "openai/text-embedding-3-small";
 export const RETRIEVAL_VECTOR_DIM = 1536;

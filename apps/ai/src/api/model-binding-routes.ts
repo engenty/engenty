@@ -1,13 +1,18 @@
 import {
   DEFAULT_MODEL_GATEWAY_ID,
+  formatModelRef,
+  isIndexCompatibleEmbeddingModel,
   listRegisteredModelRoles,
   mergeDeclaredRoles,
+  setPlatformBindings,
 } from "@engenty/ai-core";
+import { isJevModel } from "@engenty/typesafe-client";
 import type { HonoBindings, HonoVariables } from "@mastra/hono";
 import type { Hono } from "hono";
 import { z } from "zod";
 import { AI_BASE_PATH } from "../config/constants.js";
 import type { AiGatewayModelStore } from "../gateway-models.js";
+import { readStoreBindings } from "../platform-bindings-store.js";
 import { type AiScopeResolver, resolveScope } from "./http.js";
 
 const bindingPatchSchema = z.object({
@@ -101,14 +106,59 @@ export function registerModelBindingRoutes(
         400
       );
     }
-    return c.json(
-      await store.upsertModelBinding({
-        gateway: parsed.data.gateway ?? DEFAULT_MODEL_GATEWAY_ID,
-        model_id: parsed.data.model_id,
-        role,
-        scope: "platform",
-      })
-    );
+    // The classifier is Jev only: the classifier client has no other engine,
+    // so any other model would silently switch every classification off.
+    if (role === "classifier" && !isJevModel(parsed.data.model_id)) {
+      return c.json(
+        {
+          error: "modelBindings.classifierJevOnly",
+          model_id: parsed.data.model_id,
+        },
+        400
+      );
+    }
+    // Image and video generation only run through the Vercel AI Gateway;
+    // another gateway would fail every call.
+    if (
+      (role === "image" || role === "video" || role === "transcription") &&
+      (parsed.data.gateway ?? DEFAULT_MODEL_GATEWAY_ID) !==
+        DEFAULT_MODEL_GATEWAY_ID
+    ) {
+      return c.json(
+        {
+          error: "modelBindings.imageVercelOnly",
+          gateway: parsed.data.gateway,
+        },
+        400
+      );
+    }
+    // The search index stores 1536-dim vectors: any other width breaks it.
+    if (
+      role === "embedding" &&
+      !isIndexCompatibleEmbeddingModel(
+        formatModelRef({
+          gateway: parsed.data.gateway ?? DEFAULT_MODEL_GATEWAY_ID,
+          modelId: parsed.data.model_id,
+        })
+      )
+    ) {
+      return c.json(
+        {
+          error: "modelBindings.embeddingIncompatible",
+          model_id: parsed.data.model_id,
+        },
+        400
+      );
+    }
+    const saved = await store.upsertModelBinding({
+      gateway: parsed.data.gateway ?? DEFAULT_MODEL_GATEWAY_ID,
+      model_id: parsed.data.model_id,
+      role,
+      scope: "platform",
+    });
+    // This process picks the change up now; others on their next refresh.
+    setPlatformBindings(await readStoreBindings(store));
+    return c.json(saved);
   });
 
   /** The role catalogue alone, for clients that only need the shape. */

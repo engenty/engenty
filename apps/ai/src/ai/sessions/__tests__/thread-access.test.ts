@@ -202,6 +202,24 @@ describe("canAccessThread", () => {
     ).resolves.toBe(false);
   });
 
+  it("refuses a task thread whose task is gone", async () => {
+    invoke.mockResolvedValue(null);
+    await expect(
+      canAccessThread({ action: "read", scope, session: taskThread })
+    ).resolves.toBe(false);
+  });
+
+  it("keeps a colleague's chat private even when it names a task", async () => {
+    await expect(
+      canAccessThread({
+        action: "read",
+        scope,
+        session: { ...colleagueCopilot, route_context: { task_id: TASK_ID } },
+      })
+    ).resolves.toBe(false);
+    expect(invoke).not.toHaveBeenCalled();
+  });
+
   it("lets a Space member read a routine run without an agentScope", async () => {
     await expect(
       canAccessThread({

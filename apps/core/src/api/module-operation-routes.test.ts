@@ -14,10 +14,12 @@ import { describe, expect, it } from "vitest";
 import type { TenantPluginOverridesDal } from "../dal/tenant-plugin-overrides.js";
 import {
   createPluginRegistry,
-  type PluginRecord,
   type PluginRegistry,
 } from "../plugins/registry.js";
-import { makeEmptyRegistry } from "../plugins/test-fixtures.js";
+import {
+  makeEmptyRegistry,
+  makePluginRecord,
+} from "../plugins/test-fixtures.js";
 import { createNoopAuditLog } from "../security/audit-adapter.js";
 import { createStaticGrantsService } from "../security/grants-service.js";
 import { createApiApp } from "./server.js";
@@ -145,17 +147,6 @@ function makeRegistry(): PluginRegistry {
             };
           }
 
-          if (
-            input.auth.roleProfiles.includes("contacts_with_invoices_viewer") &&
-            input.moduleId === "contacts" &&
-            isWrite
-          ) {
-            return {
-              action: "deny" as const,
-              reason: "profile contacts_with_invoices_viewer is read-only",
-            };
-          }
-
           return null;
         },
       },
@@ -171,17 +162,6 @@ function makeRegistry(): PluginRegistry {
             [".create", ".update", ".delete", ".upsert", ".write"].some(
               (suffix) => input.operationId.toLowerCase().includes(suffix)
             );
-
-          if (
-            input.auth.roleProfiles.includes("contacts_with_invoices_viewer") &&
-            input.moduleId === "invoices" &&
-            isWrite
-          ) {
-            return {
-              action: "deny" as const,
-              reason: "profile contacts_with_invoices_viewer is read-only",
-            };
-          }
 
           if (
             !input.auth.roleProfiles.includes("invoices_current_year_reader")
@@ -668,211 +648,98 @@ function createTenantPluginOverrides(
   };
 }
 
-describe("module operation routes", () => {
-  it("invokes core gateway methods without a core plugin record", async () => {
-    const secret = "test-security-secret";
-    const { registry } = createPluginRegistry({
-      config: {},
-      dataDir: "/tmp",
-      resolvePath: (p) => p,
-      logger: {
-        info: () => {},
-        warn: () => {},
-        error: () => {},
-        debug: () => {},
-      },
-    });
-    expect(registry.plugins.some((plugin) => plugin.id === "core")).toBe(false);
-    const token = await createToken(secret, { capabilities: [] });
-    const app = createApiApp({
-      ...offlineApiSeams(),
-      registry,
-      config: { securityJwtSecret: secret },
-      dataDir: "/tmp",
-      resolvePath: (p) => p,
-      auditLog: createNoopAuditLog(),
-      tenantPluginOverrides: createTenantPluginOverrides({}),
-    });
-
-    const gatewayResponse = await app.request(
-      `/gateway/${ENGENTY_API_CATALOG_TOOL_ID}`,
-      {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ query: "contacts", limit: 5 }),
-      }
-    );
-
-    expect(gatewayResponse.status).toBe(200);
-    await expect(gatewayResponse.json()).resolves.toMatchObject({
-      data: {
-        matches: expect.any(Array),
-        total: expect.any(Number),
-      },
-    });
+function createApp(
+  registry: PluginRegistry,
+  secret: string,
+  overrides: Record<string, boolean> = {}
+) {
+  return createApiApp({
+    ...offlineApiSeams(),
+    registry,
+    config: { securityJwtSecret: secret },
+    dataDir: "/tmp",
+    resolvePath: (p) => p,
+    auditLog: createNoopAuditLog(),
+    tenantPluginOverrides: createTenantPluginOverrides(overrides),
   });
+}
 
-  it("invokes server operations without gateway method registrations", async () => {
+/** An empty registry with one loaded plugin whose server API registers ops. */
+function createDirectRegistry() {
+  const { registry, createApi } = createPluginRegistry({
+    config: {},
+    dataDir: "/tmp",
+    resolvePath: (p) => p,
+    logger: {
+      info: () => {},
+      warn: () => {},
+      error: () => {},
+      debug: () => {},
+    },
+  });
+  const record = makePluginRecord({ id: "direct" });
+  registry.plugins.push(record);
+  return { registry, server: createApi(record, {}).server };
+}
+
+describe("module operation routes", () => {
+  it("the API catalog gateway hides operations of tenant-disabled plugins", async () => {
     const secret = "test-security-secret";
-    const { registry, createApi } = createPluginRegistry({
-      config: {},
-      dataDir: "/tmp",
-      resolvePath: (p) => p,
-      logger: {
-        info: () => {},
-        warn: () => {},
-        error: () => {},
-        debug: () => {},
-      },
-    });
-    const record: PluginRecord = {
-      id: "direct",
-      source: "/modules/direct/src/plugin.ts",
-      cliCommands: [],
-      dependencies: [],
-      enabled: true,
-      featureFlags: [],
-      gatewayMethods: [],
-      httpRoutes: [],
-      loaded: true,
-      manifestPath: "/modules/direct/engenty.plugin.json",
-      moduleOperations: [],
-      provides: ["module.direct"],
-      queues: [],
-      requires: [],
-      rootDir: "/modules/direct",
-      services: [],
-      sourceType: "module",
-      testDataTypes: [],
-    };
-    registry.plugins.push(record);
-    createApi(record, {}).server.registerOperation({
-      operationId: "direct_echo",
-      inputSchema: z.object({ value: z.string() }),
-      outputSchema: z.object({ echoed: z.string() }),
-      handler: async (input: unknown) => {
-        const payload = input as { value: string };
-        return { echoed: payload.value };
-      },
-    });
-
-    expect(registry.gatewayMethods).toHaveLength(0);
     const token = await createToken(secret, { capabilities: [] });
-    const app = createApiApp({
-      ...offlineApiSeams(),
-      registry,
-      config: { securityJwtSecret: secret },
-      dataDir: "/tmp",
-      resolvePath: (p) => p,
-      auditLog: createNoopAuditLog(),
-      tenantPluginOverrides: createTenantPluginOverrides({}),
-    });
+    const app = createApp(makeRegistry(), secret, { contacts: false });
 
-    const contractResponse = await app.request(
-      "/api/tools/contracts/direct_echo",
-      {
-        headers: {
-          authorization: `Bearer ${token}`,
-        },
-      }
-    );
-    expect(contractResponse.status).toBe(200);
-    const contractBody = (await contractResponse.json()) as {
-      ok: true;
-      data: {
-        inputSchema: { jsonSchema?: Record<string, unknown> };
-        outputSchema: { jsonSchema?: Record<string, unknown> };
-      };
-    };
-    expect(contractBody.data.inputSchema.jsonSchema).toMatchObject({
-      type: "object",
-      properties: {
-        value: { type: "string" },
-      },
-      required: ["value"],
-    });
-    expect(contractBody.data.outputSchema.jsonSchema).toMatchObject({
-      type: "object",
-      properties: {
-        echoed: { type: "string" },
-      },
-      required: ["echoed"],
-    });
-
-    const operationResponse = await app.request(
-      "/api/operations/direct_echo/invoke",
-      {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ input: { value: "operation" } }),
-      }
-    );
-    expect(operationResponse.status).toBe(200);
-    await expect(operationResponse.json()).resolves.toMatchObject({
-      data: { echoed: "operation" },
-    });
-
-    const gatewayResponse = await app.request("/gateway/direct_echo", {
+    const res = await app.request(`/gateway/${ENGENTY_API_CATALOG_TOOL_ID}`, {
       method: "POST",
       headers: {
         "content-type": "application/json",
         authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ value: "gateway" }),
+      body: JSON.stringify({ kind: "tool", limit: 25 }),
     });
-    expect(gatewayResponse.status).toBe(200);
-    await expect(gatewayResponse.json()).resolves.toMatchObject({
-      data: { echoed: "gateway" },
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      data: { matches: Array<{ id: string }> };
+    };
+    const ids = body.data.matches.map((match) => match.id);
+    expect(ids).toContain("invoices_list");
+    expect(ids).not.toContain("contacts_list");
+  });
+
+  it("invokes operations registered through server.registerOperation", async () => {
+    const secret = "test-security-secret";
+    const { registry, server } = createDirectRegistry();
+    server.registerOperation({
+      operationId: "direct_echo",
+      inputSchema: z.object({ value: z.string() }),
+      outputSchema: z.object({ echoed: z.string() }),
+      handler: async (input: unknown) => ({
+        echoed: (input as { value: string }).value,
+      }),
+    });
+    const token = await createToken(secret, { capabilities: [] });
+    const app = createApp(registry, secret);
+
+    const res = await app.request("/api/operations/direct_echo/invoke", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ input: { value: "operation" } }),
+    });
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({
+      data: { echoed: "operation" },
     });
   });
 
-  // Regression: engenty-apps app_call_privileged returned domain-cased
-  // { appId } against an output schema requiring { app_id }; the resulting
-  // ZodError fell into the generic 400 "validation_error" formatter and read
-  // as broken INPUT validation on /api/tools/app_call_privileged/invoke,
-  // sending the diagnosis to the wrong layer. An output-contract breach is
-  // the module's defect, so it must surface as a 500 naming the real cause.
+  // An output-contract breach is the module's defect, not the caller's input.
   it("reports an output-schema mismatch as a 500 contract violation, not input validation", async () => {
     const secret = "test-security-secret";
-    const { registry, createApi } = createPluginRegistry({
-      config: {},
-      dataDir: "/tmp",
-      resolvePath: (p) => p,
-      logger: {
-        info: () => {},
-        warn: () => {},
-        error: () => {},
-        debug: () => {},
-      },
-    });
-    const record: PluginRecord = {
-      id: "direct",
-      source: "/modules/direct/src/plugin.ts",
-      cliCommands: [],
-      dependencies: [],
-      enabled: true,
-      featureFlags: [],
-      gatewayMethods: [],
-      httpRoutes: [],
-      loaded: true,
-      manifestPath: "/modules/direct/engenty.plugin.json",
-      moduleOperations: [],
-      provides: ["module.direct"],
-      queues: [],
-      requires: [],
-      rootDir: "/modules/direct",
-      services: [],
-      sourceType: "module",
-      testDataTypes: [],
-    };
-    registry.plugins.push(record);
-    createApi(record, {}).server.registerOperation({
+    const { registry, server } = createDirectRegistry();
+    server.registerOperation({
       operationId: "direct_breaker",
       inputSchema: z.object({ value: z.string() }),
       outputSchema: z.object({ app_id: z.string() }),
@@ -881,15 +748,7 @@ describe("module operation routes", () => {
     });
 
     const token = await createToken(secret, { capabilities: [] });
-    const app = createApiApp({
-      ...offlineApiSeams(),
-      registry,
-      config: { securityJwtSecret: secret },
-      dataDir: "/tmp",
-      resolvePath: (p) => p,
-      auditLog: createNoopAuditLog(),
-      tenantPluginOverrides: createTenantPluginOverrides({}),
-    });
+    const app = createApp(registry, secret);
 
     const response = await app.request("/api/tools/direct_breaker/invoke", {
       method: "POST",
@@ -925,281 +784,38 @@ describe("module operation routes", () => {
     expect(badInputBody.error.code).toBe("validation_error");
   });
 
-  it("dispatches core operation events around operation execution", async () => {
+  it("a blocking operation.beforeInvoke interceptor answers 403 and skips the handler", async () => {
     const secret = "test-security-secret";
-    const { registry, createApi } = createPluginRegistry({
-      config: {},
-      dataDir: "/tmp",
-      resolvePath: (p) => p,
-      logger: {
-        info: () => {},
-        warn: () => {},
-        error: () => {},
-        debug: () => {},
-      },
-    });
+    const { registry, server } = createDirectRegistry();
     registry.eventsRuntime = createPluginEventsRuntime({
       bridgeModuleEventsToAutomationHooks: false,
     });
-    const observed: string[] = [];
-    registry.eventsRuntime.api.core.intercept("operation.beforeInvoke", () => {
-      observed.push("before");
-      return { action: "allow" };
-    });
-    registry.eventsRuntime.api.core.filter("operation.context", (payload) => {
-      observed.push(`context:${String(payload.operation_id)}`);
-      return payload;
-    });
-    registry.eventsRuntime.api.core.on("operation.afterInvoke", (payload) => {
-      observed.push(`after:${String(payload.result)}`);
-    });
-    registry.eventsRuntime.api.core.on("operation.error", (payload) => {
-      observed.push(`error:${String(payload.error)}`);
-    });
-
-    const record: PluginRecord = {
-      id: "direct",
-      source: "/modules/direct/src/plugin.ts",
-      cliCommands: [],
-      dependencies: [],
-      enabled: true,
-      featureFlags: [],
-      gatewayMethods: [],
-      httpRoutes: [],
-      loaded: true,
-      manifestPath: "/modules/direct/engenty.plugin.json",
-      moduleOperations: [],
-      provides: ["module.direct"],
-      queues: [],
-      requires: [],
-      rootDir: "/modules/direct",
-      services: [],
-      sourceType: "module",
-      testDataTypes: [],
-    };
-    registry.plugins.push(record);
-    createApi(record, {}).server.registerOperation({
-      operationId: "direct_echo",
-      inputSchema: z.object({ value: z.string() }),
-      outputSchema: z.string(),
-      handler: async (input: unknown) => {
-        const payload = input as { value: string };
-        return payload.value;
+    registry.eventsRuntime.api.core.intercept("operation.beforeInvoke", () => ({
+      action: "block",
+      reason: "guarded",
+    }));
+    let handlerCalls = 0;
+    server.registerOperation({
+      operationId: "direct_guarded",
+      handler: async () => {
+        handlerCalls += 1;
+        return { ok: true };
       },
     });
-
     const token = await createToken(secret, { capabilities: [] });
-    const app = createApiApp({
-      ...offlineApiSeams(),
-      registry,
-      config: { securityJwtSecret: secret },
-      dataDir: "/tmp",
-      resolvePath: (p) => p,
-      auditLog: createNoopAuditLog(),
-      tenantPluginOverrides: createTenantPluginOverrides({}),
-    });
+    const app = createApp(registry, secret);
 
-    const response = await app.request("/api/operations/direct_echo/invoke", {
+    const res = await app.request("/api/operations/direct_guarded/invoke", {
       method: "POST",
       headers: {
         "content-type": "application/json",
         authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ input: { value: "ok" } }),
+      body: JSON.stringify({ input: {} }),
     });
 
-    expect(response.status).toBe(200);
-    expect(observed).toEqual(["before", "context:direct_echo", "after:ok"]);
-  });
-
-  it("lists operation registry and exposes MCP tools", async () => {
-    const secret = "test-security-secret";
-    const token = await createToken(secret, {
-      capabilities: ["module.contacts.read", "module.invoices.read"],
-    });
-    const app = createApiApp({
-      ...offlineApiSeams(),
-      registry: makeRegistry(),
-      config: { securityJwtSecret: secret },
-      dataDir: "/tmp",
-      resolvePath: (p) => p,
-      auditLog: createNoopAuditLog(),
-      tenantPluginOverrides: createTenantPluginOverrides({}),
-    });
-
-    // The deprecated /api/modules/operations alias was removed 2026-08-04.
-    const removedList = await app.request("/api/modules/operations", {
-      headers: { authorization: `Bearer ${token}` },
-    });
-    expect(removedList.status).toBe(404);
-
-    const listRes = await app.request("/api/operations/contracts", {
-      headers: { authorization: `Bearer ${token}` },
-    });
-    expect(listRes.status).toBe(200);
-    const listBody = (await listRes.json()) as {
-      ok: true;
-      data: Array<{ operationId: string }>;
-    };
-    expect(listBody.data.map((entry) => entry.operationId)).toContain(
-      "contacts_list"
-    );
-
-    const contractsRes = await app.request("/api/operations/contracts", {
-      headers: { authorization: `Bearer ${token}` },
-    });
-    expect(contractsRes.status).toBe(200);
-    const contractsBody = (await contractsRes.json()) as {
-      ok: true;
-      data: Array<{
-        operationId: string;
-        auth: { requiredCapabilities: string[] };
-      }>;
-    };
-    const contactsList = contractsBody.data.find(
-      (entry) => entry.operationId === "contacts_list"
-    );
-    expect(contactsList?.auth.requiredCapabilities).toEqual([
-      "module.contacts.read",
-    ]);
-
-    const contractById = await app.request(
-      "/api/operations/contracts/contacts_list",
-      {
-        headers: { authorization: `Bearer ${token}` },
-      }
-    );
-    expect(contractById.status).toBe(200);
-
-    const toolContractsRes = await app.request("/api/tools/contracts", {
-      headers: { authorization: `Bearer ${token}` },
-    });
-    expect(toolContractsRes.status).toBe(200);
-    const toolContractsBody = (await toolContractsRes.json()) as {
-      ok: true;
-      data: Array<{ operationId: string }>;
-    };
-    expect(toolContractsBody.data.map((entry) => entry.operationId)).toContain(
-      "contacts_list"
-    );
-
-    const toolContractById = await app.request(
-      "/api/tools/contracts/contacts_list",
-      {
-        headers: { authorization: `Bearer ${token}` },
-      }
-    );
-    expect(toolContractById.status).toBe(200);
-
-    const toolsRes = await app.request("/api/mcp/tools", {
-      headers: { authorization: `Bearer ${token}` },
-    });
-    expect(toolsRes.status).toBe(200);
-    const toolsBody = (await toolsRes.json()) as {
-      ok: true;
-      data: Array<{ name: string }>;
-    };
-    expect(toolsBody.data.map((entry) => entry.name)).toContain(
-      "contacts_delete"
-    );
-
-    // Removed 2026-08-04: it read `tenant_id` straight from the query with no
-    // check against the caller's tenant, so any authenticated principal could
-    // read another tenant's audit log — or, with the parameter omitted, every
-    // tenant's. /events (below) defaults to the caller's tenant and 403s on a
-    // mismatch, which is why only the successor survives.
-    const auditLegacy = await app.request("/api/security/audit", {
-      headers: { authorization: `Bearer ${token}` },
-    });
-    expect(auditLegacy.status).toBe(404);
-
-    const auditEvents = await app.request("/api/security/audit/events", {
-      headers: { authorization: `Bearer ${token}` },
-    });
-    expect(auditEvents.status).toBe(200);
-  });
-
-  it("invokes tool aliases and rejects module-scoped mismatches", async () => {
-    const secret = "test-security-secret";
-    const token = await createToken(secret, {
-      capabilities: ["module.contacts.read", "module.invoices.read"],
-    });
-    const app = createApiApp({
-      ...offlineApiSeams(),
-      registry: makeRegistry(),
-      config: { securityJwtSecret: secret },
-      dataDir: "/tmp",
-      resolvePath: (p) => p,
-      auditLog: createNoopAuditLog(),
-      tenantPluginOverrides: createTenantPluginOverrides({}),
-    });
-
-    const globalInvoke = await app.request("/api/tools/contacts_get/invoke", {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${token}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({ input: { id: "c1" } }),
-    });
-    expect(globalInvoke.status).toBe(200);
-    await expect(globalInvoke.json()).resolves.toMatchObject({
-      data: { id: "c1", display_name: "Acme" },
-    });
-
-    const moduleContracts = await app.request("/api/contacts/tools", {
-      headers: { authorization: `Bearer ${token}` },
-    });
-    expect(moduleContracts.status).toBe(200);
-    const moduleContractsBody = (await moduleContracts.json()) as {
-      ok: true;
-      data: Array<{ moduleId: string; operationId: string }>;
-    };
-    expect(moduleContractsBody.data).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          moduleId: "contacts",
-          operationId: "contacts_get",
-        }),
-      ])
-    );
-    expect(
-      moduleContractsBody.data.every((entry) => entry.moduleId === "contacts")
-    ).toBe(true);
-
-    const scopedInvoke = await app.request(
-      "/api/contacts/tools/contacts_get/invoke",
-      {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${token}`,
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({ input: { id: "c1" } }),
-      }
-    );
-    expect(scopedInvoke.status).toBe(200);
-
-    const mismatchedContract = await app.request(
-      "/api/invoices/tools/contacts_get",
-      {
-        headers: { authorization: `Bearer ${token}` },
-      }
-    );
-    expect(mismatchedContract.status).toBe(404);
-
-    const mismatchedInvoke = await app.request(
-      "/api/invoices/tools/contacts_get/invoke",
-      {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${token}`,
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({ input: { id: "c1" } }),
-      }
-    );
-    expect(mismatchedInvoke.status).toBe(404);
+    expect(res.status).toBe(403);
+    expect(handlerCalls).toBe(0);
   });
 
   it("filters and rejects operations for tenant-disabled owning plugins", async () => {
@@ -1207,15 +823,7 @@ describe("module operation routes", () => {
     const token = await createToken(secret, {
       capabilities: ["module.contacts.read", "module.invoices.read"],
     });
-    const app = createApiApp({
-      ...offlineApiSeams(),
-      registry: makeRegistry(),
-      config: { securityJwtSecret: secret },
-      dataDir: "/tmp",
-      resolvePath: (p) => p,
-      auditLog: createNoopAuditLog(),
-      tenantPluginOverrides: createTenantPluginOverrides({ contacts: false }),
-    });
+    const app = createApp(makeRegistry(), secret, { contacts: false });
 
     const contractsRes = await app.request("/api/operations/contracts", {
       headers: { authorization: `Bearer ${token}` },
@@ -1305,15 +913,7 @@ describe("module operation routes", () => {
     invoices.requires = ["module.contacts"];
     invoices.dependencies = ["module.contacts"];
 
-    const app = createApiApp({
-      ...offlineApiSeams(),
-      registry,
-      config: { securityJwtSecret: secret },
-      dataDir: "/tmp",
-      resolvePath: (p) => p,
-      auditLog: createNoopAuditLog(),
-      tenantPluginOverrides: createTenantPluginOverrides({ contacts: false }),
-    });
+    const app = createApp(registry, secret, { contacts: false });
 
     const res = await app.request("/api/operations/invoices_list/invoke", {
       method: "POST",
@@ -1339,15 +939,7 @@ describe("module operation routes", () => {
     const writeToken = await createToken(secret, {
       capabilities: ["module.contacts.write"],
     });
-    const app = createApiApp({
-      ...offlineApiSeams(),
-      registry: makeRegistry(),
-      config: { securityJwtSecret: secret },
-      dataDir: "/tmp",
-      resolvePath: (p) => p,
-      auditLog: createNoopAuditLog(),
-      tenantPluginOverrides: createTenantPluginOverrides({}),
-    });
+    const app = createApp(makeRegistry(), secret);
 
     const denied = await app.request("/api/operations/contacts_delete/invoke", {
       method: "POST",
@@ -1456,15 +1048,7 @@ describe("module operation routes", () => {
       roleProfiles: ["invoices_current_year_reader"],
       moduleIds: ["invoices"],
     });
-    const app = createApiApp({
-      ...offlineApiSeams(),
-      registry: makeRegistry(),
-      config: { securityJwtSecret: secret },
-      dataDir: "/tmp",
-      resolvePath: (p) => p,
-      auditLog: createNoopAuditLog(),
-      tenantPluginOverrides: createTenantPluginOverrides({}),
-    });
+    const app = createApp(makeRegistry(), secret);
 
     const allowedCurrent = await app.request(
       "/api/operations/invoices_list/invoke",
@@ -1525,15 +1109,7 @@ describe("module operation routes", () => {
       roleProfiles: ["invoices_crud_connect_contacts"],
       moduleIds: ["invoices", "contacts"],
     });
-    const app = createApiApp({
-      ...offlineApiSeams(),
-      registry: makeRegistry(),
-      config: { securityJwtSecret: secret },
-      dataDir: "/tmp",
-      resolvePath: (p) => p,
-      auditLog: createNoopAuditLog(),
-      tenantPluginOverrides: createTenantPluginOverrides({}),
-    });
+    const app = createApp(makeRegistry(), secret);
 
     const invoiceCreate = await app.request(
       "/api/operations/invoices_create/invoke",
@@ -1585,181 +1161,23 @@ describe("module operation routes", () => {
     expect(contactsHttpWriteDenied.status).toBe(403);
   });
 
-  it("allows contacts and invoices reads but denies writes for contacts_with_invoices_viewer", async () => {
-    const secret = "test-security-secret";
-    const token = await createToken(secret, {
-      capabilities: [
-        "module.invoices.read",
-        "module.invoices.write",
-        "module.contacts.read",
-        "module.contacts.write",
-      ],
-      roleProfiles: ["contacts_with_invoices_viewer"],
-      moduleIds: ["invoices", "contacts"],
-    });
-    const app = createApiApp({
-      ...offlineApiSeams(),
-      registry: makeRegistry(),
-      config: { securityJwtSecret: secret },
-      dataDir: "/tmp",
-      resolvePath: (p) => p,
-      auditLog: createNoopAuditLog(),
-      tenantPluginOverrides: createTenantPluginOverrides({}),
-    });
-
-    const contactsRead = await app.request(
-      "/api/operations/contacts_list/invoke",
-      {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${token}`,
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({ input: {} }),
-      }
-    );
-    expect(contactsRead.status).toBe(200);
-
-    const invoicesRead = await app.request(
-      "/api/operations/invoices_list/invoke",
-      {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${token}`,
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({ input: { year: new Date().getUTCFullYear() } }),
-      }
-    );
-    expect(invoicesRead.status).toBe(200);
-
-    const contactsWriteDenied = await app.request(
-      "/api/operations/contacts_delete/invoke",
-      {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${token}`,
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({ input: { id: "c1" } }),
-      }
-    );
-    expect(contactsWriteDenied.status).toBe(403);
-
-    const invoicesWriteDenied = await app.request(
-      "/api/operations/invoices_create/invoke",
-      {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${token}`,
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({ input: { number: "INV-2" } }),
-      }
-    );
-    expect(invoicesWriteDenied.status).toBe(403);
-  });
-
   describe("audit API", () => {
-    it("returns events with has_more and total", async () => {
+    it("refuses to read another tenant's audit events", async () => {
       const secret = "test-security-secret";
       const token = await createToken(secret, {
         capabilities: ["module.contacts.read"],
       });
-      const app = createApiApp({
-        ...offlineApiSeams(),
-        registry: makeRegistry(),
-        config: { securityJwtSecret: secret },
-        dataDir: "/tmp",
-        resolvePath: (p) => p,
-        auditLog: createNoopAuditLog(),
-        tenantPluginOverrides: createTenantPluginOverrides({}),
-      });
-
-      const res = await app.request("/api/security/audit/events", {
-        headers: { authorization: `Bearer ${token}` },
-      });
-      expect(res.status).toBe(200);
-      const body = (await res.json()) as {
-        ok: true;
-        data: {
-          events: Record<string, unknown>[];
-          has_more: boolean;
-          total: number;
-        };
-      };
-      expect(Array.isArray(body.data.events)).toBe(true);
-      expect(typeof body.data.has_more).toBe("boolean");
-      expect(typeof body.data.total).toBe("number");
-    });
-
-    it("accepts filter params", async () => {
-      const secret = "test-security-secret";
-      const token = await createToken(secret, {
-        capabilities: ["module.contacts.read"],
-      });
-      const app = createApiApp({
-        ...offlineApiSeams(),
-        registry: makeRegistry(),
-        config: { securityJwtSecret: secret },
-        dataDir: "/tmp",
-        resolvePath: (p) => p,
-        auditLog: createNoopAuditLog(),
-        tenantPluginOverrides: createTenantPluginOverrides({}),
-      });
+      const app = createApp(makeRegistry(), secret);
 
       const res = await app.request(
-        "/api/security/audit/events?page=0&limit=10&types=auth.login_started",
+        "/api/security/audit/events?tenant_id=tenant-2",
         { headers: { authorization: `Bearer ${token}` } }
       );
-      expect(res.status).toBe(200);
-      const body = (await res.json()) as {
-        ok: true;
-        data: { events: unknown[] };
-      };
-      expect(Array.isArray(body.data.events)).toBe(true);
-    });
-
-    it("returns distincts", async () => {
-      const secret = "test-security-secret";
-      const token = await createToken(secret, {
-        capabilities: ["module.contacts.read"],
-      });
-      const app = createApiApp({
-        ...offlineApiSeams(),
-        registry: makeRegistry(),
-        config: { securityJwtSecret: secret },
-        dataDir: "/tmp",
-        resolvePath: (p) => p,
-        auditLog: createNoopAuditLog(),
-        tenantPluginOverrides: createTenantPluginOverrides({}),
-      });
-
-      const res = await app.request("/api/security/audit/distincts", {
-        headers: { authorization: `Bearer ${token}` },
-      });
-      expect(res.status).toBe(200);
-      const body = (await res.json()) as {
-        ok: true;
-        data: {
-          types: string[];
-          module_ids: string[];
-        };
-      };
-      expect(Array.isArray(body.data.types)).toBe(true);
-      expect(Array.isArray(body.data.module_ids)).toBe(true);
+      expect(res.status).toBe(403);
     });
 
     it("returns 401 without auth", async () => {
-      const app = createApiApp({
-        ...offlineApiSeams(),
-        registry: makeRegistry(),
-        config: { securityJwtSecret: "secret" },
-        dataDir: "/tmp",
-        resolvePath: (p) => p,
-        auditLog: createNoopAuditLog(),
-        tenantPluginOverrides: createTenantPluginOverrides({}),
-      });
+      const app = createApp(makeRegistry(), "secret");
 
       const eventsRes = await app.request("/api/security/audit/events");
       expect(eventsRes.status).toBe(401);

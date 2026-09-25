@@ -2,7 +2,14 @@
  * Hub cover helpers: Unsplash search/import (vault-backed) and AI image generate/edit.
  */
 
-import { readAiGatewayApiKeyFromEnv } from "@engenty/ai-core";
+import {
+  generateImageBytes,
+  ImageModelGatewayError,
+  type ImageReference,
+  ModelRoleNotBoundError,
+  readAiGatewayApiKeyFromEnv,
+  resolvePlatformImageModelId,
+} from "@engenty/ai-core";
 import { guessFileStorageMimeFromFilename } from "@engenty/file-storage";
 import type {
   PluginAuthContext,
@@ -11,7 +18,6 @@ import type {
   StorageService,
 } from "@engenty/plugin-sdk";
 import { createLogger } from "@engenty/telemetry";
-import { generateImage } from "ai";
 import { z } from "zod";
 import type { KbRepoFactory } from "../dal/contracts.js";
 import {
@@ -67,9 +73,7 @@ async function uploadCoverBytes(
 }
 
 export function registerKbCoverMediaRoutes(
-  api: Pick<PluginServerApi, "getStorageService" | "registerHttpRoute"> & {
-    config?: Record<string, unknown>;
-  },
+  api: Pick<PluginServerApi, "getStorageService" | "registerHttpRoute">,
   getRepo: (auth?: PluginAuthContext) => RepoFactory
 ) {
   api.registerHttpRoute({
@@ -246,15 +250,22 @@ export function registerKbCoverMediaRoutes(
         return bad("Knowledge base not found", 404);
       }
 
-      const tenantId = ctx.auth.tenantId;
-      const modelId =
-        process.env.AI_GATEWAY_IMAGE_MODEL?.trim() ||
-        (typeof api.config?.aiImageModel === "string"
-          ? api.config.aiImageModel.trim()
-          : "") ||
-        "openai/gpt-image-1";
+      let modelId: string;
+      try {
+        modelId = resolvePlatformImageModelId();
+      } catch (err) {
+        if (
+          !(
+            err instanceof ImageModelGatewayError ||
+            err instanceof ModelRoleNotBoundError
+          )
+        ) {
+          throw err;
+        }
+        return notConfigured(err.message);
+      }
 
-      let referenceBytes: Uint8Array | null = null;
+      let reference: ImageReference | null = null;
       if (body.mode === "edit") {
         const refKey = body.reference_object_key?.trim();
         if (!refKey) {
@@ -270,36 +281,18 @@ export function registerKbCoverMediaRoutes(
         if (!downloaded || downloaded.byteLength === 0) {
           return bad("Reference image not found", 404);
         }
-        referenceBytes = downloaded;
+        reference = {
+          bytes: downloaded,
+          mediaType: guessFileStorageMimeFromFilename(refKey),
+        };
       }
 
-      const promptArg =
-        body.mode === "edit" && referenceBytes
-          ? {
-              images: [referenceBytes],
-              text: body.prompt,
-            }
-          : body.prompt;
-
       try {
-        const result = await generateImage({
-          model: modelId,
-          prompt: promptArg,
-          n: 1,
+        const bytes = await generateImageBytes({
+          modelId,
+          prompt: body.prompt,
+          reference,
         });
-        const img = result.image ?? result.images?.[0];
-        if (!img) {
-          return bad("No image generated", 502);
-        }
-        const bytes =
-          img.uint8Array && img.uint8Array.byteLength > 0
-            ? img.uint8Array
-            : img.base64
-              ? Uint8Array.from(atob(img.base64), (ch) => ch.charCodeAt(0))
-              : null;
-        if (!bytes || bytes.byteLength === 0) {
-          return bad("No image bytes in model response", 502);
-        }
         const { key } = await uploadCoverBytes(
           storage,
           kb,
@@ -322,7 +315,7 @@ export function registerKbCoverMediaRoutes(
             JSON.stringify({
               ok: false,
               error:
-                "This image model may not support the requested operation. Try generate-only or set AI_GATEWAY_IMAGE_MODEL to an image model that supports reference editing.",
+                'This image model may not support the requested operation. Try generate-only or bind the "Image generation" model role to an image model that supports reference editing.',
             }),
             { status: 501, headers: { "content-type": "application/json" } }
           );

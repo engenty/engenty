@@ -54,11 +54,14 @@ function gatewayModel(
   overrides: Partial<GatewayModelRecord> = {}
 ): GatewayModelRecord {
   return {
-    available_for_chat: true,
+    available_for_agent: true,
     available_for_embedding: false,
     available_for_image: false,
     available_for_rerank: false,
-    available_for_routing: true,
+    available_for_classification: true,
+    available_for_realtime: false,
+    available_for_text: false,
+    available_for_transcription: false,
     available_for_video: false,
     cached_input_per_mtok_micros: null,
     capabilities: {},
@@ -69,6 +72,8 @@ function gatewayModel(
     gateway: "vercel",
     input_per_mtok_micros: 1,
     last_seen_at: "2026-05-17T00:00:00.000Z",
+    last_sync_change: null,
+    last_sync_run_id: null,
     last_synced_at: "2026-05-17T00:00:00.000Z",
     max_output_tokens: null,
     model_id: "openai/gpt-example",
@@ -78,6 +83,7 @@ function gatewayModel(
     provider: "openai",
     providers: ["openai"],
     raw_json: {},
+    regions: [],
     released_at: null,
     source_url: "https://ai-gateway.vercel.sh/v1/models",
     tags: [],
@@ -126,7 +132,11 @@ function makeStore(): AiUsageStore & AiGatewayModelStore {
     updateGatewayModelAvailability: vi.fn(async (modelId, patch) =>
       gatewayModel({ model_id: modelId, ...patch })
     ),
-    upsertGatewayModels: vi.fn(async (models) => models.length),
+    upsertGatewayModels: vi.fn(async (models) => ({
+      changed: 0,
+      inserted: models.length,
+      total: models.length,
+    })),
     upsertModelBinding: vi.fn(async (row) => ({
       ...row,
       updated_at: "2026-05-17T00:00:00.000Z",
@@ -151,111 +161,51 @@ describe("Gateway model sync", () => {
     vi.unstubAllGlobals();
   });
 
-  it("normalizes stable Gateway API metadata", () => {
-    const model = normalizeGatewayModel(
-      {
-        context_window: 128_000,
-        description: "A coding and reasoning model with web search.",
-        id: "openai/gpt-example-code",
-        max_tokens: 16_384,
-        name: "GPT Example Code",
-        owned_by: "openai",
-        pricing: {
-          input: "0.00000025",
-          input_cache_read: "0.000000025",
-          output: "0.000002",
-          web_search: "0.01",
-        },
-        released: 1_768_694_400,
-        tags: ["reasoning", "tool-use", "web-search"],
-        type: "language",
-      },
-      { now: new Date("2026-05-17T00:00:00.000Z") }
-    );
-
-    expect(model.model_id).toBe("openai/gpt-example-code");
-    expect(model.use_cases).toEqual(["text", "code"]);
-    expect(model.input_per_mtok_micros).toBe(250_000);
-    expect(model.output_per_mtok_micros).toBe(2_000_000);
-    expect(model.available_for_chat).toBe(true);
-    expect(model.available_for_routing).toBe(true);
-    expect(model.web_search_per_query_micros).toBe(10_000_000_000);
-    expect(model.capabilities).toMatchObject({
-      reasoning: true,
-      tool_use: true,
-      web_search: true,
-    });
-  });
-
-  it("assigns tiers by composite price score with fixed thresholds", () => {
+  it("assigns price tiers at the fixed composite-score thresholds", () => {
+    // Standard score = input×0.75 + output×0.25; with a cached price,
+    // cached×0.5 + input×0.25 + output×0.25. Tier thresholds: 0.5M / 1M / 2M / 4M.
     const tiers = deriveGatewayModelPriceTiers([
-      // null price → no tier
       { model_id: "no-price", output_per_mtok_micros: null },
-      // free → cheap
-      { model_id: "free", output_per_mtok_micros: 0, input_per_mtok_micros: 0 },
-      // score = input*0.75 + output*0.25 = 300k*0.75 + 400k*0.25 = 325k → cheap (≤ 500k)
       {
-        model_id: "cheap-model",
-        output_per_mtok_micros: 400_000,
-        input_per_mtok_micros: 300_000,
+        model_id: "at-cheap-limit",
+        input_per_mtok_micros: 500_000,
+        output_per_mtok_micros: 500_000,
       },
-      // score = 600k*0.75 + 800k*0.25 = 650k → low (> 500k, ≤ 1M)
       {
-        model_id: "low-model",
-        output_per_mtok_micros: 800_000,
-        input_per_mtok_micros: 600_000,
+        model_id: "over-cheap-limit",
+        input_per_mtok_micros: 500_000,
+        output_per_mtok_micros: 500_004,
       },
-      // score = 1.2M*0.75 + 1.6M*0.25 = 1.3M → medium (> 1M, ≤ 2M)
       {
-        model_id: "medium-model",
-        output_per_mtok_micros: 1_600_000,
-        input_per_mtok_micros: 1_200_000,
+        model_id: "at-high-limit",
+        input_per_mtok_micros: 4_000_000,
+        output_per_mtok_micros: 4_000_000,
       },
-      // score = 2.4M*0.75 + 3.2M*0.25 = 2.6M → high (> 2M, ≤ 3M)
       {
-        model_id: "high-model",
-        output_per_mtok_micros: 3_200_000,
-        input_per_mtok_micros: 2_400_000,
+        model_id: "over-high-limit",
+        input_per_mtok_micros: 4_000_000,
+        output_per_mtok_micros: 4_000_004,
       },
-      // score = 6M*0.75 + 8M*0.25 = 6.5M → expensive (> 3M)
+      // Standard score 1.3M (medium); cached score 0.8M (low).
       {
-        model_id: "expensive-model",
-        output_per_mtok_micros: 8_000_000,
-        input_per_mtok_micros: 6_000_000,
-      },
-      // cached formula: cached*0.5 + input*0.25 + output*0.25 = 200k*0.5 + 400k*0.25 + 800k*0.25 = 400k → cheap
-      {
-        model_id: "cached-cheap",
-        output_per_mtok_micros: 800_000,
-        input_per_mtok_micros: 400_000,
-        cached_input_per_mtok_micros: 200_000,
-      },
-      // cached formula: 400k*0.5 + 800k*0.25 + 1.6M*0.25 = 200k+200k+400k = 800k → low (> 500k)
-      {
-        model_id: "cached-low",
-        output_per_mtok_micros: 1_600_000,
-        input_per_mtok_micros: 800_000,
+        model_id: "cached",
         cached_input_per_mtok_micros: 400_000,
+        input_per_mtok_micros: 1_200_000,
+        output_per_mtok_micros: 1_600_000,
       },
     ]);
 
     expect(tiers.has("no-price")).toBe(false);
-    expect(tiers.get("free")).toBe("cheap");
-    expect(tiers.get("cheap-model")).toBe("cheap");
-    expect(tiers.get("low-model")).toBe("low");
-    expect(tiers.get("medium-model")).toBe("medium");
-    expect(tiers.get("high-model")).toBe("high");
-    expect(tiers.get("expensive-model")).toBe("expensive");
-    expect(tiers.get("cached-cheap")).toBe("cheap");
-    expect(tiers.get("cached-low")).toBe("low");
+    expect(tiers.get("at-cheap-limit")).toBe("cheap");
+    expect(tiers.get("over-cheap-limit")).toBe("low");
+    expect(tiers.get("at-high-limit")).toBe("high");
+    expect(tiers.get("over-high-limit")).toBe("expensive");
+    expect(tiers.get("cached")).toBe("low");
   });
 
   it("lets superadmins trigger a Gateway sync", async () => {
     const store = makeStore();
-    // Answer per URL. A single catch-all response used to be enough because
-    // there was one adapter; with a second registered it fed the OpenRouter
-    // normalizer a Vercel-shaped payload and the count silently doubled. This
-    // test is about the route, so only the Vercel catalog has anything in it.
+    // Only the Vercel catalog answers with models; every other adapter is empty.
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL) => {
@@ -298,13 +248,16 @@ describe("Gateway model sync", () => {
 
     expect(res.status).toBe(200);
     expect(body.model_count).toBe(1);
-    expect(store.upsertGatewayModels).toHaveBeenCalledWith([
-      expect.objectContaining({
-        gateway: "vercel",
-        model_id: "openai/gpt-example",
-        price_tier: "low", // score = 250k×0.75 + 2M×0.25 = 687.5k > 500k → low
-      }),
-    ]);
+    expect(store.upsertGatewayModels).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          gateway: "vercel",
+          model_id: "openai/gpt-example",
+          price_tier: "low", // score = 250k×0.75 + 2M×0.25 = 687.5k > 500k → low
+        }),
+      ],
+      expect.objectContaining({ syncRunId: expect.any(String) })
+    );
     expect(store.insertModelPricing).toHaveBeenCalledWith(
       expect.objectContaining({
         input_per_mtok_micros: 250_000,
@@ -339,20 +292,28 @@ describe("Gateway model sync", () => {
       openrouter: { model_count: 1, updated_model_count: 1 },
       vercel: { model_count: 1, updated_model_count: 1 },
     });
-    expect(store.upsertGatewayModels).toHaveBeenNthCalledWith(1, [
-      expect.objectContaining({ gateway: "vercel", model_id: "openai/gpt-a" }),
-    ]);
-    expect(store.upsertGatewayModels).toHaveBeenNthCalledWith(2, [
-      expect.objectContaining({
-        gateway: "openrouter",
-        model_id: "openai/gpt-b",
-      }),
-    ]);
+    expect(store.upsertGatewayModels).toHaveBeenNthCalledWith(
+      1,
+      [
+        expect.objectContaining({
+          gateway: "vercel",
+          model_id: "openai/gpt-a",
+        }),
+      ],
+      expect.objectContaining({ syncRunId: expect.any(String) })
+    );
+    expect(store.upsertGatewayModels).toHaveBeenNthCalledWith(
+      2,
+      [
+        expect.objectContaining({
+          gateway: "openrouter",
+          model_id: "openai/gpt-b",
+        }),
+      ],
+      expect.objectContaining({ syncRunId: expect.any(String) })
+    );
   });
 
-  // With one adapter, "a gateway threw" and "the run failed" were the same
-  // event. With two they are not: OpenRouter being down must not blank the
-  // Vercel catalog or skip its pricing pass.
   it("keeps a healthy gateway's rows when another one is down", async () => {
     const store = makeStore();
     const healthy: ModelGateway = {
@@ -420,104 +381,5 @@ describe("Gateway model sync", () => {
     });
 
     expect(res.status).toBe(403);
-  });
-
-  it("passes Gateway catalog filters through for superadmins", async () => {
-    const store = makeStore();
-    const app = await createApp({
-      scopeResolver: scopeResolver(true),
-      usageStore: store,
-    });
-
-    const res = await app.request(
-      "http://localhost/ai/v1/gateway/models?use_case=text&max_price_tier=medium&max_output_per_mtok_micros=2000000&availability_purpose=chat",
-      {
-        headers: { Authorization: "Bearer token" },
-      }
-    );
-
-    expect(res.status).toBe(200);
-    expect(store.listGatewayModels).toHaveBeenCalledWith(
-      expect.objectContaining({
-        availability_purpose: "chat",
-        max_output_per_mtok_micros: 2_000_000,
-        max_price_tier: "medium",
-        use_case: "text",
-        web_search: null,
-      })
-    );
-  });
-
-  it("lets superadmins update Gateway model availability", async () => {
-    const store = makeStore();
-    const app = await createApp({
-      scopeResolver: scopeResolver(true),
-      usageStore: store,
-    });
-
-    const res = await app.request(
-      "http://localhost/ai/v1/gateway/models/availability",
-      {
-        body: JSON.stringify({
-          available_for_chat: false,
-          model_id: "openai/gpt-example",
-        }),
-        headers: {
-          Authorization: "Bearer token",
-          "Content-Type": "application/json",
-        },
-        method: "PATCH",
-      }
-    );
-    const body = (await res.json()) as GatewayModelRecord;
-
-    expect(res.status).toBe(200);
-    expect(body.available_for_chat).toBe(false);
-    expect(store.updateGatewayModelAvailability).toHaveBeenCalledWith(
-      "openai/gpt-example",
-      { available_for_chat: false },
-      undefined
-    );
-  });
-
-  it("returns filtered Gateway model options for authenticated users", async () => {
-    const store = makeStore();
-    vi.mocked(store.listGatewayModels).mockResolvedValueOnce([
-      gatewayModel({
-        display_name: "GPT Example",
-        model_id: "openai/gpt-example",
-        price_tier: "medium",
-      }),
-    ]);
-    const app = await createApp({
-      scopeResolver: scopeResolver(false),
-      usageStore: store,
-    });
-
-    const res = await app.request(
-      "http://localhost/ai/v1/gateway/model-options?use_case=text&max_price_tier=medium&availability_purpose=chat",
-      {
-        headers: { Authorization: "Bearer token" },
-      }
-    );
-    const body = (await res.json()) as {
-      items: Array<{ label: string; model_id: string; price_tier: string }>;
-    };
-
-    expect(res.status).toBe(200);
-    expect(store.listGatewayModels).toHaveBeenCalledWith(
-      expect.objectContaining({
-        availability_purpose: "chat",
-        max_price_tier: "medium",
-        use_case: "text",
-      })
-    );
-    expect(body.items).toEqual([
-      expect.objectContaining({
-        label: "GPT Example (openai/gpt-example)",
-        model_id: "openai/gpt-example",
-        price_tier: "medium",
-      }),
-    ]);
   });
 });

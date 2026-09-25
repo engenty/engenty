@@ -13,11 +13,6 @@ interface AttachmentFetchResult {
   mime_type: string | null;
 }
 
-function actingUserId(auth: PluginAuthContext): string {
-  const withUser = auth as PluginAuthContext & { userId?: string };
-  return withUser.userId ?? withUser.principalId ?? "";
-}
-
 export async function fetchInboxAttachment(params: {
   attachmentId: string;
   auth: PluginAuthContext;
@@ -63,8 +58,8 @@ export async function fetchInboxAttachment(params: {
     },
     isAutonomous: true,
     principal: {
-      principalId: actingUserId(params.auth),
-      principalType: "user",
+      principalId: params.auth.principalId,
+      principalType: params.auth.principalType ?? "user",
     },
     tenantId: params.auth.tenantId,
   })) as { data_base64?: string; size?: number | null };

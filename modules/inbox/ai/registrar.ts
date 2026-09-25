@@ -8,11 +8,17 @@ import { defineModuleAi } from "@engenty/ai-core";
 import type { PluginServerGatewayCaller } from "@engenty/plugin-sdk";
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
+import {
+  composeInboxDashboardSurface,
+  dashboardUiResult,
+  LIST_LIMIT,
+} from "./inbox-dashboard.js";
 
 interface InboxAiOptions {
   invokeInboxOperation: PluginServerGatewayCaller["invokeOperation"];
 }
 
+const INBOX_SHOW_DASHBOARD_TOOL_ID = "inbox_show_dashboard";
 const INBOX_LIST_THREADS_TOOL_ID = "inbox_list_threads";
 const INBOX_GET_THREAD_TOOL_ID = "inbox_get_thread";
 const INBOX_SET_STATUS_TOOL_ID = "inbox_set_status";
@@ -28,6 +34,36 @@ function defineInboxAi(options: InboxAiOptions) {
     dir: import.meta.url,
     moduleId: "inbox",
     tools: {
+      [INBOX_SHOW_DASHBOARD_TOOL_ID]: createTool({
+        id: INBOX_SHOW_DASHBOARD_TOOL_ID,
+        description:
+          "Compose a native inbox dashboard in the chat (KPI tiles, category donut, volume chart, top senders, important-mail list). Jev picks the layout; numbers come from synced threads. Use when the person asks to see important mail, an inbox overview, or a mail dashboard — do not author the UI yourself.",
+        inputSchema: z.object({
+          connection_id: z.string().optional(),
+          prompt: z
+            .string()
+            .max(500)
+            .optional()
+            .describe("The person's request, for layout choice."),
+        }),
+        execute: async (input) => {
+          const listed = (await invoke("inbox_threads_list", {
+            ...(input.connection_id
+              ? { connection_id: input.connection_id }
+              : {}),
+            limit: LIST_LIMIT,
+          })) as { threads?: unknown[] } | null;
+          const threads = Array.isArray(listed?.threads) ? listed.threads : [];
+          const surface = await composeInboxDashboardSurface({
+            ...(input.connection_id
+              ? { connection_id: input.connection_id }
+              : {}),
+            prompt: input.prompt?.trim() || "Show me important emails",
+            threads: threads as never,
+          });
+          return dashboardUiResult(surface);
+        },
+      }),
       [INBOX_LIST_THREADS_TOOL_ID]: createTool({
         id: INBOX_LIST_THREADS_TOOL_ID,
         description:
@@ -82,7 +118,7 @@ function defineInboxAi(options: InboxAiOptions) {
       [INBOX_UPDATE_SYNC_SETTINGS_TOOL_ID]: createTool({
         id: INBOX_UPDATE_SYNC_SETTINGS_TOOL_ID,
         description:
-          "Update sync settings for a mail connection (toggle sync_enabled, set backfill_days). Personal accounts are owner-only — the operation enforces that; surface errors instead of pre-checking.",
+          "Update sync settings for a mail connection (toggle sync_enabled, set backfill_days). Only mailboxes of the caller's Space(s) — the operation enforces that; surface errors instead of pre-checking.",
         inputSchema: z.object({
           backfill_days: z.number().int().min(1).max(3650).optional(),
           connection_id: z.string().min(1),

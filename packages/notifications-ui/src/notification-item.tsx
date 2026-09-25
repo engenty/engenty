@@ -10,25 +10,28 @@ import { AnimatedCheckIcon } from "@engenty/ui-icons";
 import {
   AlertTriangle,
   AppWindow,
+  Bell,
   Bot,
   CheckCheck,
+  Flag,
   GitPullRequestArrow,
   MessageCircleQuestion,
   MessagesSquare,
   PencilLine,
   ShieldCheck,
   Workflow,
+  X,
 } from "lucide-react";
 import type { ComponentType } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import type { NotificationDto } from "./api.js";
-import { isError, isUnseen } from "./classification.js";
+import { isDismissible, isError, isUnseen } from "./classification.js";
 import { notificationHref, notificationOrigin } from "./notification-href.js";
-import { spaceInboxPath } from "./notification-paths.js";
+import { spaceInboxPath, spaceKeyFromPathname } from "./notification-paths.js";
 import { useMarkNotificationMutation } from "./queries.js";
 import { NotificationBody, useNotificationRenderer } from "./renderers.js";
 
-function compactTime(iso: string, locale: string): string {
+export function compactTime(iso: string, locale: string): string {
   const then = new Date(iso);
   const thenMs = then.getTime();
   if (!Number.isFinite(thenMs)) {
@@ -76,103 +79,31 @@ function relativeTime(iso: string, locale: string): string {
   return rtf.format(deltaSeconds, "second");
 }
 
-function humanizeOperationId(operationId: string): string {
-  return operationId.replace(OPERATION_ID_SEPARATORS, " ").trim();
-}
-
-const OPERATION_ID_SEPARATORS = /[_.]+/g;
+type Translate = (key: string, options: Record<string, unknown>) => string;
 
 /**
- * The line a person reads. Server summaries are English; an approval ask
- * with its origin on the record is composed here in the viewer's language.
+ * The title a person reads, in their language. The server stores a key and
+ * the names it uses (`title_key`, `title_params`); without one (a producer
+ * missing a name) the server's English `summary` is the title.
  */
-function localizedSummary(
+export function localizedSummary(
   notification: NotificationDto,
-  t: (key: string, options: Record<string, unknown>) => string
+  t: Translate
 ): string {
-  if (
-    notification.kind === "approval_requested" ||
-    notification.kind === "connection_approval_requested"
-  ) {
-    const origin = notificationOrigin(notification);
-    const operationId = notification.metadata?.operation_id;
-    if (origin.actorLabel && typeof operationId === "string") {
-      const operation = humanizeOperationId(operationId);
-      return origin.spaceName
-        ? t("notifications.approval.summary", {
-            actor: origin.actorLabel,
-            defaultValue: "{{actor}} wants to run {{operation}} in {{space}}",
-            operation,
-            space: origin.spaceName,
-          })
-        : t("notifications.approval.summaryGlobal", {
-            actor: origin.actorLabel,
-            defaultValue: "{{actor}} wants to run {{operation}}",
-            operation,
-          });
-    }
+  if (notification.title_key) {
+    return t(`notifications.titles.${notification.title_key}`, {
+      ...(notification.title_params ?? {}),
+      defaultValue: notification.summary,
+    });
   }
   return notification.summary;
 }
 
-function compactInboxSummary(
-  notification: NotificationDto,
-  t: (key: string, options: Record<string, unknown>) => string
-): string {
-  if (
-    notification.kind === "approval_requested" ||
-    notification.kind === "connection_approval_requested"
-  ) {
-    const operationId = notification.metadata?.operation_id;
-    if (typeof operationId === "string") {
-      return t("notifications.approval.summaryCompact", {
-        defaultValue: "{{operation}}",
-        operation: humanizeOperationId(operationId),
-      });
-    }
-  }
-  if (notification.class === "alert") {
-    const err = alertDetail(notification);
-    if (alertSubjectName(notification) || err) {
-      return err ?? "";
-    }
-  }
-  return localizedSummary(notification, t);
-}
-
-const ROUTINE_FAILED_NAME = /^Routine "([^"]+)" failed/;
-const FAILED_REASON = /failed:\s*(.+)$/i;
-
-/** Routine name from the English summary, when the producer left no actor. */
-function alertSubjectName(notification: NotificationDto): string | null {
-  if (notification.class !== "alert") {
-    return null;
-  }
-  const name = notification.summary.match(ROUTINE_FAILED_NAME)?.[1]?.trim();
-  return name ? name : null;
-}
-
-function alertDetail(notification: NotificationDto): string | null {
-  const raw = notification.payload?.error;
-  if (typeof raw === "string") {
-    const trimmed = raw.replace(/\s+/g, " ").trim();
-    if (trimmed) {
-      return trimmed;
-    }
-  }
-  const fromSummary = notification.summary.match(FAILED_REASON)?.[1];
-  const trimmed = fromSummary?.replace(/\s+/g, " ").trim();
-  return trimmed ? trimmed : null;
-}
-
-/** The agent's result text captured on the payload, if any. */
-function resultText(notification: NotificationDto): string | null {
-  const raw = notification.payload?.result_text;
-  if (typeof raw !== "string") {
-    return null;
-  }
-  const trimmed = raw.replace(/\s+/g, " ").trim();
-  return trimmed.length > 0 ? trimmed : null;
+/** The one plain line under the title, as the server stored it. */
+export function notificationBodyText(
+  notification: NotificationDto
+): string | null {
+  return notification.body?.trim() ? notification.body : null;
 }
 
 function iconForKind(
@@ -191,7 +122,6 @@ function iconForKind(
     case "action_question":
       return MessageCircleQuestion;
     case "approval_requested":
-    case "connection_approval_requested":
     case "tool_approval":
     case "action_gate":
     case "agent_run_suspended":
@@ -205,6 +135,11 @@ function iconForKind(
       return MessagesSquare;
     case "records_written":
       return PencilLine;
+    case "routine_outcome":
+      return notification.priority === "high" ||
+        notification.priority === "urgent"
+        ? Bell
+        : Flag;
     case "workflow_proposed":
       return Workflow;
     case "app_release_proposed":
@@ -218,7 +153,7 @@ function iconForKind(
  * The one word that says what this row wants from you, ahead of the subject
  * so the lane scans as a to-do list rather than a log.
  */
-function actionVerb(
+export function actionVerb(
   notification: NotificationDto,
   t: (key: string, options: { defaultValue: string }) => string
 ): string | null {
@@ -228,14 +163,16 @@ function actionVerb(
   switch (notification.kind) {
     case "approval_requested":
     case "app_release_proposed":
-    case "connection_approval_requested":
     case "tool_approval":
     case "action_gate":
       return t("notifications.action.approve", { defaultValue: "Approve" });
     case "task_needs_input":
     case "task_question":
     case "action_question":
+    case "agent_question":
       return t("notifications.action.answer", { defaultValue: "Answer" });
+    case "room_paused":
+      return t("notifications.action.continue", { defaultValue: "Continue" });
     case "agent_proposed":
     case "workflow_proposed":
     case "skill_proposed":
@@ -249,6 +186,32 @@ function actionVerb(
   }
 }
 
+/** ✕ — closes an alert or an attention FYI for everyone (the dismiss route). */
+export function NotificationDismissButton({
+  notification,
+}: {
+  notification: NotificationDto;
+}) {
+  const { t } = useTranslation("common");
+  const markMutation = useMarkNotificationMutation();
+  const label = t("notifications.dismiss", { defaultValue: "Dismiss" });
+  return (
+    <Button
+      aria-label={label}
+      className="size-5 shrink-0 text-muted-foreground"
+      disabled={markMutation.isPending}
+      onClick={() =>
+        markMutation.mutate({ action: "dismiss", id: notification.id })
+      }
+      size="icon-sm"
+      title={label}
+      variant="ghost"
+    >
+      <X aria-hidden className="size-3" />
+    </Button>
+  );
+}
+
 export function NotificationItem({
   notification,
   locale,
@@ -259,93 +222,47 @@ export function NotificationItem({
   variant?: "page" | "inbox";
 }) {
   const { t } = useTranslation("common");
-  const { spaceKey } = useParams<{ spaceKey?: string }>();
+  // The bell sits in the app rail, outside `/s/:spaceKey`: read the space
+  // the viewer stands in from the path when the route has no param.
+  const { spaceKey: paramSpaceKey } = useParams<{ spaceKey?: string }>();
+  const { pathname } = useLocation();
+  const spaceKey = paramSpaceKey ?? spaceKeyFromPathname(pathname);
   const markMutation = useMarkNotificationMutation();
   const unseen = isUnseen(notification);
-  const href = notificationHref(notification, spaceKey);
+  const href = notificationHref(notification);
   const failure = isError(notification);
-  // A decision with a body that decides it has no "seen": answering is the
-  // only way it leaves, so the check would only hide an open gate.
   const renderer = useNotificationRenderer(notification.kind);
-  const decidesInPlace = notification.class === "decision" && renderer !== null;
+  const inbox = variant === "inbox";
+  // The bell is a pointer: a decision is made where it lives (the task, the
+  // chat, the run), so the row carries one button that goes there. The full
+  // page still shows a module's own body for its kind.
+  const decidesInPlace =
+    !inbox && notification.class === "decision" && renderer !== null;
   const origin = notificationOrigin(notification);
   // The space is worth a word only when it is not the one the page already
-  // stands in; on the tenant page it links to that space's own inbox.
+  // stands in.
   const showSpace = origin.spaceKey !== null && origin.spaceKey !== spaceKey;
   const Icon = iconForKind(notification);
-  const detail = resultText(notification);
   const verb = actionVerb(notification, t);
-  const inbox = variant === "inbox";
-  const titleText = inbox
-    ? compactInboxSummary(notification, t)
-    : localizedSummary(notification, t);
-  const contextLabel = inbox
-    ? (origin.actorLabel ??
-      (showSpace ? (origin.spaceName ?? origin.spaceKey) : null) ??
-      alertSubjectName(notification))
-    : null;
-  const alertErr = inbox && failure ? alertDetail(notification) : null;
-  const inboxDetails = inbox
-    ? [
-        showSpace && origin.actorLabel
-          ? (origin.spaceName ?? origin.spaceKey)
-          : null,
-        alertErr ? null : detail,
-      ]
-        .filter(Boolean)
-        .join(" · ")
-    : null;
-  const summaryNode = (
-    <span
-      className={cn(
-        "text-sm leading-snug",
-        unseen ? "font-medium text-foreground" : "text-muted-foreground"
-      )}
-    >
-      {verb ? (
-        <span
-          className={cn(
-            "font-semibold",
-            failure
-              ? "text-destructive"
-              : inbox
-                ? "text-foreground"
-                : "text-primary"
-          )}
-        >
-          {verb}{" "}
-        </span>
-      ) : null}
-      {titleText}
-      {notification.coalesced_count > 1 ? (
-        <span className="ml-1 text-muted-foreground text-xs tabular-nums">
-          ×{notification.coalesced_count}
-        </span>
-      ) : null}
-    </span>
-  );
-  const markLabel = failure
+  const title = localizedSummary(notification, t);
+  const body = notificationBodyText(notification);
+  const sourceParts = [
+    showSpace ? (origin.spaceName ?? origin.spaceKey) : null,
+    origin.actorLabel,
+  ].filter((part): part is string => Boolean(part));
+  // An alert or an attention FYI is cleared, not glanced at: seen would leave
+  // it open (and on the bell) forever.
+  const dismissible = isDismissible(notification);
+  const markLabel = dismissible
     ? t("notifications.dismiss", { defaultValue: "Dismiss" })
     : t("notifications.markSeen", { defaultValue: "Mark as seen" });
-  const originMeta = (
-    <>
-      {origin.actorLabel ? origin.actorLabel : null}
-      {showSpace && origin.spaceKey ? (
-        <>
-          {origin.actorLabel ? " · " : null}
-          <Link
-            className="hover:underline"
-            to={spaceInboxPath(origin.spaceKey)}
-          >
-            {origin.spaceName ?? origin.spaceKey}
-          </Link>
-        </>
-      ) : null}
-    </>
-  );
-  const hasOriginMeta = Boolean(origin.actorLabel || showSpace);
-  // Inbox rows do not grow a hover check — that extra column is what made
-  // the unread dot jump. Mark-all lives on the lane title bar instead.
+  // Following the link to an FYI is reading it; a decision stays until it
+  // is answered at its source.
+  const onOpen = () => {
+    if (unseen && notification.class !== "decision") {
+      markMutation.mutate({ action: "seen", id: notification.id });
+    }
+  };
   const showMark = !(inbox || decidesInPlace);
   const markButton = showMark ? (
     <Tooltip>
@@ -356,9 +273,7 @@ export function NotificationItem({
           disabled={markMutation.isPending}
           onClick={() =>
             markMutation.mutate({
-              // Errors are announcements to clear; mark-seen would leave
-              // them in the open inbox forever. HITL / updates stay seen.
-              action: failure ? "dismiss" : "seen",
+              action: dismissible ? "dismiss" : "seen",
               id: notification.id,
             })
           }
@@ -374,16 +289,53 @@ export function NotificationItem({
   const timeCue = (
     <span className="flex shrink-0 items-center gap-1.5">
       <span className="text-muted-foreground text-xs tabular-nums">
-        {compactTime(notification.created_at, locale)}
+        {inbox
+          ? compactTime(notification.created_at, locale)
+          : relativeTime(notification.created_at, locale)}
       </span>
-      {inbox && unseen ? (
+      {unseen ? (
         <span
           aria-hidden
           className="size-1.5 shrink-0 rounded-full bg-primary"
         />
       ) : null}
+      {inbox && dismissible ? (
+        <NotificationDismissButton notification={notification} />
+      ) : null}
     </span>
   );
+  const titleNode = (
+    <span
+      className={cn(
+        "line-clamp-2 text-sm leading-snug",
+        unseen || notification.class === "decision"
+          ? "font-semibold text-foreground"
+          : "text-muted-foreground",
+        failure && "text-destructive"
+      )}
+    >
+      {title}
+      {notification.coalesced_count > 1 ? (
+        <span className="ml-1 font-normal text-muted-foreground text-xs tabular-nums">
+          ×{notification.coalesced_count}
+        </span>
+      ) : null}
+    </span>
+  );
+  // One button that says what the row wants and goes where it is done.
+  const cta =
+    href && verb ? (
+      <Button
+        asChild
+        className="h-7 shrink-0 rounded-full px-3 text-xs"
+        size="sm"
+        variant={notification.class === "decision" ? "secondary" : "ghost"}
+      >
+        <Link onClick={onOpen} to={href}>
+          {verb}
+        </Link>
+      </Button>
+    ) : null;
 
   return (
     <li
@@ -391,7 +343,7 @@ export function NotificationItem({
         "group/notification flex items-start",
         inbox
           ? "ui-row-hover gap-3 px-4 py-3 [&_a]:no-underline"
-          : "ui-card-raised gap-2.5 px-3 py-2",
+          : "ui-card-raised gap-2.5 px-3 py-2.5",
         !(inbox || unseen) && "opacity-70",
         !inbox && failure && "ring-1 ring-destructive/25"
       )}
@@ -403,75 +355,48 @@ export function NotificationItem({
         )}
       />
       <div className="min-w-0 flex-1">
-        {inbox ? (
-          <>
-            {contextLabel ? (
-              <div className="flex min-w-0 items-center justify-between gap-3">
-                <p className="truncate text-muted-foreground text-xs">
-                  {contextLabel}
-                </p>
-                {timeCue}
-              </div>
-            ) : null}
-            <div
-              className={cn(
-                "flex min-w-0 items-start justify-between gap-3",
-                contextLabel && "mt-0.5"
-              )}
-            >
-              {href ? (
-                <Link className="min-w-0 no-underline" to={href}>
-                  {summaryNode}
-                </Link>
-              ) : (
-                <div className="min-w-0">{summaryNode}</div>
-              )}
-              {contextLabel ? null : timeCue}
-            </div>
-            {inboxDetails ? (
-              <p className="mt-0.5 line-clamp-2 text-muted-foreground text-xs leading-snug">
-                {showSpace && origin.actorLabel && origin.spaceKey ? (
+        <div className="flex min-w-0 items-center justify-between gap-3">
+          <p className="min-w-0 truncate text-muted-foreground text-xs">
+            {sourceParts.length > 0 ? (
+              showSpace && origin.spaceKey ? (
+                <>
                   <Link
-                    className="no-underline"
+                    className="hover:underline"
                     to={spaceInboxPath(origin.spaceKey)}
                   >
-                    {origin.spaceName ?? origin.spaceKey}
+                    {sourceParts[0]}
                   </Link>
-                ) : null}
-                {showSpace && origin.actorLabel && detail ? " · " : null}
-                {alertErr ? null : detail}
-              </p>
-            ) : null}
-            <NotificationBody notification={notification} />
-          </>
-        ) : (
-          <>
-            <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
-              {href ? (
-                <Link className="min-w-0 truncate no-underline" to={href}>
-                  {summaryNode}
-                </Link>
+                  {sourceParts.length > 1 ? ` · ${sourceParts[1]}` : null}
+                </>
               ) : (
-                summaryNode
-              )}
-              <span className="shrink-0 text-muted-foreground text-xs tabular-nums">
-                {hasOriginMeta ? (
-                  <>
-                    {originMeta}
-                    {" · "}
-                  </>
-                ) : null}
-                {relativeTime(notification.created_at, locale)}
-              </span>
-            </div>
-            {detail ? (
-              <p className="mt-0.5 line-clamp-2 text-muted-foreground text-xs leading-snug">
-                {detail}
+                sourceParts.join(" · ")
+              )
+            ) : null}
+          </p>
+          {timeCue}
+        </div>
+        <div className="mt-0.5 flex min-w-0 items-end justify-between gap-3">
+          <div className="min-w-0">
+            {href ? (
+              <Link
+                className="block min-w-0 no-underline"
+                onClick={onOpen}
+                to={href}
+              >
+                {titleNode}
+              </Link>
+            ) : (
+              titleNode
+            )}
+            {body ? (
+              <p className="mt-0.5 truncate text-muted-foreground text-xs leading-snug">
+                {body}
               </p>
             ) : null}
-            <NotificationBody notification={notification} />
-          </>
-        )}
+          </div>
+          {cta}
+        </div>
+        {inbox ? null : <NotificationBody notification={notification} />}
       </div>
       {inbox ? null : markButton}
     </li>

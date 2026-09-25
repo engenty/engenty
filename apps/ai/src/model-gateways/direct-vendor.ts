@@ -13,11 +13,14 @@ import type { GatewayModelAvailabilityFlags } from "../gateway-models.js";
 import type { ModelGatewayRecord } from "./model-gateway.js";
 
 export const CHAT_ONLY_AVAILABILITY: GatewayModelAvailabilityFlags = {
-  available_for_chat: true,
+  available_for_agent: true,
   available_for_embedding: false,
   available_for_image: false,
+  available_for_realtime: false,
   available_for_rerank: false,
-  available_for_routing: true,
+  available_for_classification: false,
+  available_for_text: true,
+  available_for_transcription: false,
   available_for_video: false,
 };
 
@@ -62,6 +65,7 @@ export function chatOnlyRecord(input: {
     provider: input.provider,
     providers: [input.provider],
     raw_json: input.raw,
+    regions: [],
     released_at: input.releasedAt,
     source_url: input.sourceUrl,
     tags: input.tags,

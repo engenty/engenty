@@ -1,6 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
+  resolvePlatformEmbeddingModelId,
+  syncPlatformBindingsFromDb,
+} from "@engenty/ai-core";
+import {
   enabledModuleSlugSetFromDir,
   isMandatoryPlugin,
   readEngentyPluginsManifest,
@@ -135,6 +139,8 @@ function getPluginImportCache() {
   const jiti = createJiti(import.meta.url, { interopDefault: true });
   return jiti.cache as PluginImportCache;
 }
+
+let platformBindingsSyncStarted = false;
 
 export function clearPluginImportCache(params: {
   entryPath?: string;
@@ -273,6 +279,17 @@ function createPluginApi(params: {
     server: params.pluginApi.server,
   });
 
+  // Module code resolves models from the process's platform-bindings
+  // snapshot; start keeping it fresh the first time a service client exists.
+  // Service lane: `ai.model_binding` is platform-level (no tenant_id).
+  if (!platformBindingsSyncStarted) {
+    const serviceDb = params.pluginApi.server.getServiceDb?.();
+    if (serviceDb) {
+      platformBindingsSyncStarted = true;
+      void syncPlatformBindingsFromDb(serviceDb);
+    }
+  }
+
   // One notifications host per process, built the first time any plugin api
   // is created — before that plugin's factory runs — so a module can emit
   // regardless of load order. Tenant-locked lane when configured, the service
@@ -382,6 +399,10 @@ function createPluginApi(params: {
           // source in no-lane dev bootstraps).
           const getTenantDb = params.pluginApi.server.getTenantDb;
           service = createRetrievalService({
+            // One platform model for every source: the `embedding` role
+            // binding from the process snapshot.
+            resolveEmbeddingModel: async () =>
+              resolvePlatformEmbeddingModelId(),
             supabase: getTenantDb
               ? ({
                   getDb: getTenantDb,

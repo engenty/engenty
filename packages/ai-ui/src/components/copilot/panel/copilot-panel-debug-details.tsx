@@ -1,9 +1,9 @@
 "use client";
 
-import { isEngentyDeveloperModeUiEnabled } from "@engenty/environment";
 import { Button } from "@engenty/ui-core";
 import { Copy } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
+import { useDeveloperModeEnabled } from "../../ag-ui-inspector/ag-ui-inspector-hooks.js";
 
 export function CopilotDebugDetails({
   payload,
@@ -12,6 +12,7 @@ export function CopilotDebugDetails({
   payload: unknown;
   title: string;
 }) {
+  const developerMode = useDeveloperModeEnabled();
   const [copied, setCopied] = useState(false);
   const jsonText = useMemo(() => JSON.stringify(payload, null, 2), [payload]);
 
@@ -31,7 +32,7 @@ export function CopilotDebugDetails({
   if (payload === undefined) {
     return null;
   }
-  if (!isEngentyDeveloperModeUiEnabled()) {
+  if (!developerMode) {
     return null;
   }
 

@@ -13,6 +13,10 @@ version history, a **binding scope**, and (optionally) blob storage.
 
 ### Lifecycle / binding scopes
 
+> **Shipped differently.** `goal` was not built; the scopes are `thread`, `task`,
+> `project`, `space`, `agent`. Current behaviour:
+> [artifacts.md](../content/dev/artifacts.md#scope).
+
 | Scope | Meaning | Lifetime |
 |---|---|---|
 | `thread` | attached to the chat session that produced it | short-lived, follows the thread |

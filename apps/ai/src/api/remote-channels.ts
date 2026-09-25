@@ -39,6 +39,7 @@ import {
   createEngentySessionMastraMemory,
   createEngentySessionMemoryStorage,
 } from "../ai/memory/index.js";
+import { resolveAgentModel } from "../ai/registry/assemble-dynamic-agent.js";
 import type { AiRegistry } from "../ai/registry/index.js";
 import {
   getServiceAccessToken,
@@ -948,7 +949,8 @@ function buildRemoteChannelsAgent(
           },
         }
       : {}),
-    model: remoteAgentConfig.model,
+    // Per call: an unpinned config resolves the chat binding, loaded after boot.
+    model: () => resolveAgentModel(remoteAgentConfig, undefined),
     name: "Remote",
     tools: {
       ...createEngentyCatalogTools(),

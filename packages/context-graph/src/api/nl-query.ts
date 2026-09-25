@@ -1,4 +1,4 @@
-// Natural-language → graph query. Two LLM calls bracket a deterministic
+// Natural-language → graph query. Two fast-text calls bracket a deterministic
 // traversal: (1) translate the question into a structured query plan against
 // the registered ontology, (2) execute the plan with a breadth-first multi-hop
 // traversal over the DAL, (3) phrase a short answer from the resolved results.
@@ -44,12 +44,18 @@ const planSchema = z.object({
 
 type Plan = z.infer<typeof planSchema>;
 
-function stripFences(text: string): string {
-  return text
-    .replace(/^```json\s*/i, "")
-    .replace(/^```\s*/i, "")
-    .replace(/\s*```$/, "")
-    .trim();
+/**
+ * The plan is a small JSON object written as plain text (no structured-output
+ * mode, so a small model can serve it). Take the outermost `{…}` — that skips
+ * code fences and any stray words around it — and validate it.
+ */
+export function parsePlanText(text: string): Plan {
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start === -1 || end <= start) {
+    throw new Error("nl-query: the plan contains no JSON object");
+  }
+  return planSchema.parse(JSON.parse(text.slice(start, end + 1)));
 }
 
 /** Score how well a stored entity name matches a free-text query fragment. */
@@ -111,7 +117,8 @@ async function planQuery(
   ontology: OntologyForPrompt
 ): Promise<Plan> {
   const prompt = [
-    "You translate a natural-language question about an organisation/knowledge graph into a JSON query plan. Return ONLY valid JSON, no markdown.",
+    "You translate a natural-language question about an organisation/knowledge graph into a JSON query plan.",
+    "Answer with exactly one JSON object on one line — no code fence, no explanation, nothing before or after it. Use double quotes and null (not None/undefined).",
     "",
     "The graph has typed entities and directed edges. An edge goes subject --type--> object.",
     "Direction meaning relative to an anchor entity:",
@@ -131,7 +138,7 @@ async function planQuery(
     '- "which organisation has the most contacts" → mode "rank" with the relevant edgeType, set entityType to the type being ranked.',
     'For "rank", count edges of edgeType: direction "in" ranks by how many edges point TO each entity, "out" by how many point FROM it. anchors stays empty.',
     "",
-    "Output shape:",
+    "Output shape (every key present):",
     '{"understood": true, "mode": "traverse"|"path"|"lookup"|"rank", "anchors": [{"name": "...", "type": "<entityTypeId or omit>"}], "edgeType": "<edgeTypeId or null>", "direction": "out"|"in"|"any", "depth": <1-6>, "entityType": "<entityTypeId or null>", "limit": <1-25>}',
     "",
     "Rules:",
@@ -149,11 +156,11 @@ async function planQuery(
   ].join("\n");
 
   const result = await generateText({
-    model: resolveChatModelId({ purpose: "routing" }),
+    model: resolveChatModelId({ purpose: "fast_text" }),
     prompt,
+    temperature: 0,
   });
-  const parsed = planSchema.parse(JSON.parse(stripFences(result.text)));
-  return parsed;
+  return parsePlanText(result.text);
 }
 
 interface TraversalResult {
@@ -371,7 +378,7 @@ async function phraseRanked(input: {
   ].join("\n");
 
   const result = await generateText({
-    model: resolveChatModelId({ purpose: "chat" }),
+    model: resolveChatModelId({ purpose: "fast_text" }),
     prompt,
   });
   return result.text.trim();
@@ -396,7 +403,7 @@ async function phraseAnswer(input: {
   ].join("\n");
 
   const result = await generateText({
-    model: resolveChatModelId({ purpose: "chat" }),
+    model: resolveChatModelId({ purpose: "fast_text" }),
     prompt,
   });
   return result.text.trim();

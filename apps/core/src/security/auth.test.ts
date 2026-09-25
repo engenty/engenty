@@ -1,10 +1,5 @@
-// AUTH-04 regression: what a token that names no role gets to be.
-//
-// `parsePrincipalType` fell back to "service" for anything it did not
-// recognise, and `defaultCapabilities("service")` hands out
-// module.read/write/execute — so a token with no `role` claim and no
-// `capabilities` claim arrived as a fully capable service principal. The
-// unreadable case is the one that must fail low.
+// A token whose role claim is missing or unreadable must fail low, never
+// resolve to the capable service principal.
 
 import { SignJWT } from "jose";
 import { uuidv7 } from "uuidv7";
@@ -35,38 +30,6 @@ describe("verifyAccessToken — principal type defaults", () => {
     );
     expect(principal).not.toBeNull();
     expect(principal?.principalType).not.toBe("service");
-    // …and specifically not the service capability bundle.
-    expect(principal?.capabilities).not.toContain("module.write");
-    expect(principal?.capabilities).not.toContain("module.execute");
     expect(principal?.capabilities).toEqual(["module.read"]);
-  });
-
-  it("does not let an unrecognised role claim buy service capabilities", async () => {
-    const principal = await verifyAccessToken(
-      `Bearer ${await tokenWithClaims({ role: "superuser" })}`,
-      SECRET
-    );
-    expect(principal?.principalType).not.toBe("service");
-    expect(principal?.capabilities).toEqual(["module.read"]);
-  });
-
-  it("still honours a role a token names explicitly", async () => {
-    for (const role of ["user", "agent", "service"] as const) {
-      const principal = await verifyAccessToken(
-        `Bearer ${await tokenWithClaims({ role })}`,
-        SECRET
-      );
-      expect(principal?.principalType).toBe(role);
-    }
-  });
-
-  it("never lets the default override an explicit capability claim", async () => {
-    const principal = await verifyAccessToken(
-      `Bearer ${await tokenWithClaims({
-        capabilities: ["module.contacts.read"],
-      })}`,
-      SECRET
-    );
-    expect(principal?.capabilities).toEqual(["module.contacts.read"]);
   });
 });

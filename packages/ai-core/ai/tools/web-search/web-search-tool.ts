@@ -5,7 +5,7 @@
 import { openai } from "@ai-sdk/openai";
 import { generateText, type Tool, type ToolSet } from "ai";
 import { z } from "zod";
-import { DEFAULT_AI_CHAT_MODEL_ID } from "../../../src/config/chat-model-id.js";
+import { resolveChatModelId } from "../../../src/config/chat-model-id.js";
 
 export const webSearchTool = openai.tools.webSearch() as Tool;
 
@@ -88,7 +88,7 @@ export async function runWebSearch(
   }
 
   const result = await generateText({
-    model: options.model ?? DEFAULT_AI_CHAT_MODEL_ID,
+    model: options.model ?? resolveChatModelId({ purpose: "chat" }),
     prompt: `Search the public web for: ${parsed.query}
 
 Return a concise evidence summary and preserve source URLs.`,

@@ -1,5 +1,6 @@
 import type { MemoryStorage } from "@mastra/core/storage";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { bindTestModelsPerTest } from "../../../__tests__/helpers/test-model-bindings.js";
 import type { ThreadStore } from "../../../dal/threads/index.js";
 import {
   createEngentySessionMemoryOptions,
@@ -55,6 +56,8 @@ class TestMemoryStorage extends EngentySessionMemoryStorage {
     return this.#runtimeStore;
   }
 }
+
+bindTestModelsPerTest();
 
 describe("observational memory", () => {
   it("derives shared OM ownership from generic agent scope", () => {

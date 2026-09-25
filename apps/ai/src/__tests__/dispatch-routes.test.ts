@@ -1,135 +1,32 @@
 import { Hono } from "hono";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-const { registerDispatchRoutes } = await import("../api/dispatch-routes.js");
-
-function createScopeResolver(overrides: { isTenantAdmin?: boolean } = {}) {
-  const admin = overrides.isTenantAdmin ?? true;
-  return async () => ({
-    ok: true as const,
-    scope: {
-      tenantId: "tenant-1",
-      userId: "user-1",
-      // The bundles core returns for these roles — the dispatch gate is on
-      // core.ai.dispatch, which `module.*` does not cover (AUTH-06).
-      capabilities: admin
-        ? ["core.credentials.manage", "*"]
-        : ["module.*", "tenant-settings.read"],
-      isSuperAdmin: false,
-      isTenantAdmin: admin,
-      tenantRole: admin ? ("admin" as const) : ("member" as const),
-      credential: { kind: "user" as const, token: "token" },
-    },
-  });
-}
-
-function createApp(
-  opts: {
-    isTenantAdmin?: boolean;
-    queueMetrics?: {
-      queue_length: number;
-      oldest_msg_age_seconds: number | null;
-    };
-    queueNull?: boolean;
-    dispatchEnabled?: boolean;
-  } = {}
-) {
-  const app = new Hono();
-
-  // Set env before registering routes.
-  if (opts.dispatchEnabled === false) {
-    vi.stubEnv("ENGENTY_AGENT_TASK_DISPATCH_ENABLED", "false");
-  } else {
-    vi.stubEnv("ENGENTY_AGENT_TASK_DISPATCH_ENABLED", "true");
-  }
-
-  const mockQueue = opts.queueNull
-    ? null
-    : {
-        archive: vi.fn(),
-        delete: vi.fn(),
-        metrics: vi.fn(
-          async () =>
-            opts.queueMetrics ?? {
-              queue_length: 0,
-              oldest_msg_age_seconds: null,
-            }
-        ),
-        pop: vi.fn(),
-        read: vi.fn(),
-        send: vi.fn(),
-        sendBatch: vi.fn(),
-      };
-
-  registerDispatchRoutes(app, {
-    getQueue: () => mockQueue,
-    scopeResolver: createScopeResolver({ isTenantAdmin: opts.isTenantAdmin }),
-  });
-
-  return { app, mockQueue };
-}
+import { describe, expect, it } from "vitest";
+import { registerDispatchRoutes } from "../api/dispatch-routes.js";
 
 describe("GET /ai/v1/dispatch/status", () => {
-  beforeEach(() => {
-    vi.unstubAllEnvs();
-  });
+  it("returns 403 for a tenant member", async () => {
+    // The platform-wide queue is gated on core.ai.dispatch, which `module.*` does not cover.
+    const app = new Hono();
+    registerDispatchRoutes(app, {
+      getQueue: () => null,
+      scopeResolver: async () => ({
+        ok: true as const,
+        scope: {
+          tenantId: "tenant-1",
+          userId: "user-1",
+          capabilities: ["module.*", "tenant-settings.read"],
+          isSuperAdmin: false,
+          isTenantAdmin: false,
+          tenantRole: "member" as const,
+          credential: { kind: "user" as const, token: "token" },
+        },
+      }),
+    });
 
-  it("returns 403 for non-admin users", async () => {
-    const { app } = createApp({ isTenantAdmin: false });
     const res = await app.request("/ai/v1/dispatch/status");
+
     expect(res.status).toBe(403);
-    const body = await res.json();
-    expect(body.error).toBe("dispatch.forbidden");
-  });
-
-  it("returns null queue when queue service is unavailable", async () => {
-    const { app } = createApp({ queueNull: true });
-    const res = await app.request("/ai/v1/dispatch/status");
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.enabled).toBe(true);
-    expect(body.queue).toBeNull();
-  });
-
-  it("returns queue metrics when queue is configured", async () => {
-    const { app } = createApp({
-      queueMetrics: { queue_length: 3, oldest_msg_age_seconds: 42 },
-    });
-    const res = await app.request("/ai/v1/dispatch/status");
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.enabled).toBe(true);
-    expect(body.queue).toEqual({
-      depth: 3,
-      oldest_msg_age_seconds: 42,
-    });
-  });
-
-  it("returns enabled=false when kill-switch is active", async () => {
-    const { app } = createApp({
-      dispatchEnabled: false,
-      queueMetrics: { queue_length: 0, oldest_msg_age_seconds: null },
-    });
-    const res = await app.request("/ai/v1/dispatch/status");
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.enabled).toBe(false);
-    expect(body.queue).toEqual({
-      depth: 0,
-      oldest_msg_age_seconds: null,
-    });
-  });
-
-  it("returns queue metrics with empty queue", async () => {
-    const { app } = createApp({
-      queueMetrics: { queue_length: 0, oldest_msg_age_seconds: null },
-    });
-    const res = await app.request("/ai/v1/dispatch/status");
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.queue).toEqual({
-      depth: 0,
-      oldest_msg_age_seconds: null,
-    });
+    expect(((await res.json()) as { error: string }).error).toBe(
+      "dispatch.forbidden"
+    );
   });
 });

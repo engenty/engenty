@@ -45,7 +45,7 @@ export function MemoryBreakDivider({
   return (
     <>
       <div
-        className={cn("flex w-full items-center gap-3 py-1", className)}
+        className={cn("flex w-full items-center gap-3", className)}
         data-testid="memory-break"
       >
         <span aria-hidden className="h-px flex-1 bg-border" />

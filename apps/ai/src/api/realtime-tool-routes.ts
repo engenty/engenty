@@ -21,13 +21,16 @@ import { resolveCoreAgentId } from "../ai/agent-identity.js";
 import { applyApprovedFieldUpdates } from "../ai/jobs/apply-field-updates.js";
 import { persistSecretsGoalGrant } from "../ai/secrets-goal-grant.js";
 import {
+  loadAgentApprovalGrants,
+  persistAgentApprovalGrants,
+} from "../ai/sessions/agent-approval-grants.js";
+import {
   resolveRunSpaceForThread,
   toolsSpaceFromResolution,
 } from "../ai/sessions/run-space.js";
 import { auditToolApprovalDecision } from "../ai/sessions/tool-approval-audit.js";
 import {
   readToolApprovalGrants,
-  TOOL_APPROVAL_GRANTS_METADATA_KEY,
   TOOL_APPROVAL_GRANTS_ONCE_METADATA_KEY,
 } from "../ai/sessions/tool-approval-grants.js";
 import { scopeAccessToken } from "../ai/sessions/types.js";
@@ -102,7 +105,7 @@ export function registerRealtimeToolRoutes(
       return c.json({ error: "realtime_tools.invalidBody" }, 400);
     }
 
-    // Read any chat-scoped approval grants for this thread so a previously
+    // Read this thread's approval grants (and its agent's) so a previously
     // approved gated op (or one just approved on the resolve path) runs without
     // re-prompting. Mirrors the text copilot's execute-boundary gate. A
     // threadless voice session instead carries the dialog decision as a
@@ -191,7 +194,7 @@ export function registerRealtimeToolRoutes(
 
   // Persist a voice user's approval decision for a gated backend op, so the
   // follow-up `execute` call passes the gate. "once" survives the immediate
-  // re-invoke; "always" persists a thread grant for the whole chat.
+  // re-invoke; "always" also persists a grant on the thread's agent.
   app.post(`${AI_BASE_PATH}/v1/realtime/tools/approve`, async (c) => {
     const scope = await resolveScope(c, opts.scopeResolver);
     if (!scope.ok) {
@@ -225,16 +228,25 @@ export function registerRealtimeToolRoutes(
     try {
       // Union the grant into the list in the database. Reading the thread to
       // build the new array first would drop any grant added in between.
+      // "For this agent" also carries the immediate re-invoke as a once grant.
       await store.mergeThreadMetadataForUser({
-        appendSets: {
-          [decision === TOOL_APPROVAL_CHOICE_APPROVE_ALWAYS
-            ? TOOL_APPROVAL_GRANTS_METADATA_KEY
-            : TOOL_APPROVAL_GRANTS_ONCE_METADATA_KEY]: [operationId],
-        },
+        appendSets: { [TOOL_APPROVAL_GRANTS_ONCE_METADATA_KEY]: [operationId] },
         tenantId: scope.scope.tenantId,
         threadId: body.data.thread_id,
         userId: scope.scope.userId,
       });
+      if (decision === TOOL_APPROVAL_CHOICE_APPROVE_ALWAYS) {
+        const session = await store.getThread({
+          tenantId: scope.scope.tenantId,
+          threadId: body.data.thread_id,
+        });
+        await persistAgentApprovalGrants({
+          agentId: session?.agent_id,
+          grantedBy: scope.scope.userId,
+          operationIds: [operationId],
+          tenantId: scope.scope.tenantId,
+        });
+      }
       return c.json({ granted: true, ok: true });
     } catch (err) {
       return handleRouteError(
@@ -323,7 +335,13 @@ async function loadThreadApprovalGrants(params: {
       tenantId: params.tenantId,
       threadId: params.threadId,
     });
-    return readToolApprovalGrants(session?.metadata);
+    return [
+      ...readToolApprovalGrants(session?.metadata),
+      ...(await loadAgentApprovalGrants({
+        agentId: session?.agent_id,
+        tenantId: params.tenantId,
+      })),
+    ];
   } catch (err) {
     console.error("realtime approval grants load failed", err);
     return [];

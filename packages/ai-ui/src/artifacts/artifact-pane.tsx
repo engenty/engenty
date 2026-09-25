@@ -10,6 +10,7 @@ import {
   X,
 } from "lucide-react";
 import { type CSSProperties, useEffect, useRef, useState } from "react";
+import { A2uiSurfacePaneBody } from "../a2ui/a2ui-surface-pane-body.js";
 import { ObjectPaneBody } from "../objects/object-pane-body.js";
 import {
   ArtifactMoveMenu,
@@ -20,7 +21,11 @@ import {
   resolveArtifactEditor,
   resolveArtifactRenderer,
 } from "./artifact-renderers.js";
-import type { ObjectPaneTab, WorkFilePaneTab } from "./artifact-store.js";
+import type {
+  A2uiSurfacePaneTab,
+  ObjectPaneTab,
+  WorkFilePaneTab,
+} from "./artifact-store.js";
 import type { ArtifactSummary } from "./artifacts-api.js";
 import { parseFileArtifactHandle } from "./file-artifact-handle.js";
 import { downloadWorkFile, WorkFilePreview } from "./work-file-preview.js";
@@ -89,6 +94,8 @@ export interface ArtifactPaneProps {
   /** Task offered as a one-click store target (set on task detail routes). */
   storeTaskTarget?: { id: string; title?: string } | null;
   style?: CSSProperties;
+  /** Live A2UI dashboard tab — one spec, replaced in place. */
+  surfaceTabs?: A2uiSurfacePaneTab[];
 }
 
 /**
@@ -113,6 +120,7 @@ export function ArtifactPane({
   onStore,
   fileTabs = [],
   objectTabs = [],
+  surfaceTabs = [],
   paneExpanded,
   storePending,
   storeSpaceTarget,
@@ -126,8 +134,10 @@ export function ArtifactPane({
   const activeObjectTab =
     objectTabs.find((tab) => tab.key === activeId) ?? null;
   const activeFileTab = fileTabs.find((tab) => tab.key === activeId) ?? null;
+  const activeSurfaceTab =
+    surfaceTabs.find((tab) => tab.key === activeId) ?? null;
   const active =
-    activeObjectTab || activeFileTab
+    activeObjectTab || activeFileTab || activeSurfaceTab
       ? null
       : (artifacts.find((a) => a.id === activeId) ?? null);
   const Renderer = active ? resolveArtifactRenderer(active.type) : null;
@@ -244,6 +254,12 @@ export function ArtifactPane({
       id: tab.key,
       label: tab.filename,
       type: "file",
+    })),
+    ...surfaceTabs.map((tab) => ({
+      closable: true,
+      id: tab.key,
+      label: tab.title,
+      type: "surface",
     })),
   ];
   const openArtifactIds = new Set(artifacts.map((a) => a.id));
@@ -393,6 +409,8 @@ export function ArtifactPane({
             }}
           />
         </div>
+      ) : activeSurfaceTab ? (
+        <A2uiSurfacePaneBody tab={activeSurfaceTab} />
       ) : active && isEditingActive && Editor ? (
         <Editor
           artifact={active}

@@ -4,11 +4,15 @@ import {
 } from "@engenty/connections-sdk";
 import { actorUserIdFromAuth, type PluginServerApi } from "@engenty/plugin-sdk";
 import { z } from "zod";
+import { mayEnterSpace, type ResolveSpaceAccess } from "../lib/space-access.js";
 import type { ConnectionsOAuthRouteOptions } from "./oauth-routes.js";
 
 const connectBody = z.object({
   credentials: z.record(z.string(), z.string()),
-  sharing: z.enum(["personal", "org"]).default("personal"),
+  /** The Space the account will belong to. Checked in the handler, so a
+   * missing one answers `connections.spaceRequired` rather than a schema
+   * error. */
+  space_id: z.string().uuid().optional(),
 });
 
 interface Hono {
@@ -25,6 +29,8 @@ export function registerConnectionsCredentialsRoutes(
   server: PluginServerApi,
   /** Tenant-locked repo factory (Phase A) — the handler carries `ctx.auth`. */
   getRepo: (auth: { tenantId: string }) => ConnectionsRepo,
+  /** Whether the caller may connect an account into a Space. */
+  resolveSpaceAccess: ResolveSpaceAccess,
   options: ConnectionsOAuthRouteOptions = {}
 ): void {
   server.registerHttpRoute({
@@ -37,8 +43,8 @@ export function registerConnectionsCredentialsRoutes(
       if (!ctx.auth) {
         return hono.json({ error: "Unauthorized" }, 401);
       }
-      const ownerUserId = actorUserIdFromAuth(ctx.auth);
-      if (!ownerUserId) {
+      const connectedBy = actorUserIdFromAuth(ctx.auth);
+      if (!connectedBy) {
         return hono.json({ error: "Unauthorized" }, 401);
       }
       const connectorId = (ctx.params as { connectorId?: string })?.connectorId;
@@ -55,6 +61,19 @@ export function registerConnectionsCredentialsRoutes(
         );
       }
       const body = ctx.body as z.infer<typeof connectBody>;
+      const spaceId = body.space_id;
+      if (!spaceId) {
+        return hono.json({ error: "connections.spaceRequired" }, 400);
+      }
+      if (
+        !(await mayEnterSpace(
+          resolveSpaceAccess,
+          { ...ctx.auth, principalId: connectedBy },
+          spaceId
+        ))
+      ) {
+        return hono.json({ error: "space_not_found" }, 404);
+      }
       const missing = connector.auth.apiKey.fields
         .filter((field) => field.required !== false)
         .filter((field) => !body.credentials[field.key]?.trim())
@@ -87,23 +106,27 @@ export function registerConnectionsCredentialsRoutes(
       const connection = await getRepo(ctx.auth).upsertConnectionWithTokens({
         accessToken: JSON.stringify(credentials),
         authKind: "api_key",
+        connectedBy,
         connectorId: connector.id,
         expiresAt: null,
         externalAccount: account.label,
         grantedScopes: [],
-        ownerUserId,
         refreshToken: null,
-        sharing: "personal",
+        spaceId,
         tenantId: ctx.auth.tenantId,
       });
       ctx.recordAuditEvent?.({
-        detail: { connection_id: connection.id, connector: connector.id },
+        detail: {
+          connection_id: connection.id,
+          connector: connector.id,
+          space_id: spaceId,
+        },
         type: "connection.connected",
       });
       try {
         await options.onConnected?.({
           connectorId: connector.id,
-          sharing: "personal",
+          spaceId,
           tenantId: ctx.auth.tenantId,
         });
       } catch {

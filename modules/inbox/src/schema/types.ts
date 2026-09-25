@@ -15,10 +15,11 @@ export interface InboxThread {
   id: string;
   last_message_at: string | null;
   message_count: number;
-  owner_user_id: string | null;
   participants: string[];
   provider_thread_id: string | null;
   scope_id: string;
+  /** The Space owning the mailbox (stamped from the connection). */
+  space_id: string;
   subject: string | null;
   tenant_id: string;
   updated_at: string;
@@ -39,12 +40,13 @@ export interface InboxMessage {
   from_name: string | null;
   has_attachments: boolean;
   id: string;
-  owner_user_id: string | null;
   provider_message_id: string;
   provider_thread_id: string | null;
   received_at: string | null;
   scope_id: string;
   snippet: string | null;
+  /** The Space owning the mailbox (stamped from the connection). */
+  space_id: string;
   status: InboxMessageStatus;
   status_set_by: string | null;
   subject: string | null;
@@ -63,8 +65,9 @@ export interface InboxSyncState {
   last_error: string | null;
   last_error_at: string | null;
   last_synced_at: string | null;
-  owner_user_id: string | null;
   scope_id: string;
+  /** The Space owning the mailbox (stamped from the connection). */
+  space_id: string;
   sync_enabled: boolean;
   tenant_id: string;
   updated_at: string;
@@ -154,14 +157,13 @@ export interface InboxThreadDigestResult {
 
 /** One connected mail account (a connection) as shown in the inbox UI. */
 export interface InboxAccount {
-  all_spaces?: boolean;
   autonomous_mode: "full" | "off" | "read_only";
   connection_id: string;
   connector_id: string;
   display_name: string | null;
   external_account: string | null;
-  owner_user_id: string | null;
-  sharing: "org" | "personal";
+  /** The Space that owns this mailbox; its members see its mail. */
+  space_id: string;
   stream_supported: boolean;
   sync_state: InboxSyncState | null;
 }

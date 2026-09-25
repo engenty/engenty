@@ -17,6 +17,7 @@ import {
 } from "@/lib/appearance-constants";
 
 export interface AppearanceSettings {
+  chatStyle: string;
   colorBackground: string;
   colorPrimary: string;
   colorSecondary: string;
@@ -31,6 +32,7 @@ export interface AppearanceSettings {
 }
 
 export const DEFAULT_APPEARANCE: AppearanceSettings = {
+  chatStyle: "canvas",
   language: DEFAULT_LANGUAGE,
   themeMode: DEFAULT_THEME_MODE,
   font: DEFAULT_FONT,
@@ -70,6 +72,7 @@ export async function getAppearanceSettings(
     parseString(byName.get(key), fallback);
 
   return {
+    chatStyle: get(APPEARANCE_KEYS.chatStyle, "canvas"),
     language: get(APPEARANCE_KEYS.language, DEFAULT_LANGUAGE),
     themeMode: get(APPEARANCE_KEYS.themeMode, DEFAULT_THEME_MODE),
     font: normalizeFontId(get(APPEARANCE_KEYS.font, DEFAULT_FONT)),
@@ -101,6 +104,7 @@ export async function saveAppearanceSettings(
     ["colorSecondary", APPEARANCE_KEYS.colorSecondary],
     ["colorBackground", APPEARANCE_KEYS.colorBackground],
     ["contrast", APPEARANCE_KEYS.contrast],
+    ["chatStyle", APPEARANCE_KEYS.chatStyle],
   ];
 
   const settings: Array<SettingValueInput & { name: string }> = [];

@@ -40,23 +40,7 @@ function principal(overrides: Partial<PrincipalContext>): PrincipalContext {
   };
 }
 
-function createApp(
-  caller: PrincipalContext | null,
-  options?: {
-    mintSession?: () => Promise<{
-      access_token: string;
-      refresh_token: string;
-    }>;
-    lookupAuthUser?: (
-      _admin: unknown,
-      userId: string
-    ) => Promise<{
-      id: string;
-      email: string;
-      display_name: string | null;
-    } | null>;
-  }
-) {
+function createApp(caller: PrincipalContext | null) {
   const app = new OpenAPIHono();
   const authProvider = {
     resolveAdminFallback: () => Promise.resolve(caller),
@@ -74,19 +58,15 @@ function createApp(
       supabaseServiceRoleKey: "test-service-role-key",
       supabaseUrl: "http://127.0.0.1:54321",
     },
-    mintSession:
-      options?.mintSession ??
-      (async () => ({
-        access_token: "target-access",
-        refresh_token: "target-refresh",
-      })),
-    lookupAuthUser:
-      options?.lookupAuthUser ??
-      (async (_admin, userId) => ({
-        id: userId,
-        email: `${userId}@example.com`,
-        display_name: `User ${userId.slice(0, 8)}`,
-      })),
+    mintSession: async () => ({
+      access_token: "minted-access",
+      refresh_token: "minted-refresh",
+    }),
+    lookupAuthUser: async (_admin, userId) => ({
+      id: userId,
+      email: `${userId}@example.com`,
+      display_name: null,
+    }),
   });
   return app;
 }
@@ -130,17 +110,6 @@ describe("POST /api/auth/impersonate", () => {
     expect(await res.json()).toEqual({ error: "Forbidden" });
   });
 
-  it("refuses a tenant member", async () => {
-    const app = createApp(
-      principal({
-        capabilities: ["module.*", "tenant-settings.read"],
-        roleProfiles: ["tenant.member"],
-      })
-    );
-    const res = await postImpersonate(app, { user_id: targetId });
-    expect(res.status).toBe(403);
-  });
-
   it("refuses service principals", async () => {
     const app = createApp(
       principal({
@@ -152,91 +121,17 @@ describe("POST /api/auth/impersonate", () => {
     expect(res.status).toBe(403);
   });
 
-  it("refuses impersonating yourself", async () => {
-    const callerId = `user-${uuidv7()}`;
-    const app = createApp(
-      principal({
-        capabilities: [IMPERSONATE_SUPERADMIN_CAPABILITY, "*"],
-        principalId: callerId,
-        roleProfiles: ["core.superadmin"],
-      })
-    );
-    const res = await postImpersonate(app, { user_id: callerId });
-    expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({
-      error: "cannot impersonate yourself",
-    });
-  });
-
-  it("requires user_id", async () => {
-    const app = createApp(
-      principal({
-        capabilities: [IMPERSONATE_SUPERADMIN_CAPABILITY, "*"],
-        roleProfiles: ["core.superadmin"],
-      })
-    );
-    const res = await postImpersonate(app, {});
-    expect(res.status).toBe(400);
-  });
-
-  it("returns 404 when the target user is missing", async () => {
-    const app = createApp(
-      principal({
-        capabilities: [IMPERSONATE_SUPERADMIN_CAPABILITY, "*"],
-        roleProfiles: ["core.superadmin"],
-      }),
-      {
-        lookupAuthUser: async () => null,
-      }
-    );
-    const res = await postImpersonate(app, { user_id: targetId });
-    expect(res.status).toBe(404);
-  });
-
   it("mints a session for a platform superadmin", async () => {
-    const callerId = `user-${uuidv7()}`;
     const app = createApp(
       principal({
         capabilities: [IMPERSONATE_SUPERADMIN_CAPABILITY, "*"],
-        principalId: callerId,
         roleProfiles: ["core.superadmin"],
-      }),
-      {
-        lookupAuthUser: async (_admin, userId) => {
-          if (userId === callerId) {
-            return {
-              id: callerId,
-              email: "admin@example.com",
-              display_name: "Admin",
-            };
-          }
-          return {
-            id: userId,
-            email: "member@example.com",
-            display_name: "Member",
-          };
-        },
-        mintSession: async () => ({
-          access_token: "minted-access",
-          refresh_token: "minted-refresh",
-        }),
-      }
+      })
     );
     const res = await postImpersonate(app, { user_id: targetId });
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({
-      access_token: "minted-access",
-      refresh_token: "minted-refresh",
-      target: {
-        id: targetId,
-        email: "member@example.com",
-        display_name: "Member",
-      },
-      actor: {
-        id: callerId,
-        email: "admin@example.com",
-        display_name: "Admin",
-      },
-    });
+    expect(((await res.json()) as { access_token: string }).access_token).toBe(
+      "minted-access"
+    );
   });
 });

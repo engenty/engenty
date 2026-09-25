@@ -21,11 +21,10 @@ const CORE_DECISION = {
  * Scope mapping, deliberately matched to what the card's labels promise:
  *   - "approve once"  → `allow_once`, an unbound single-use grant core deletes
  *     as it spends it.
- *   - "approve always (this chat)" → `allow_policy` BOUND TO THE THREAD. Core
- *     spends subject-bound grants against the run's task/trigger/goal, and a
- *     conversation run's goal id IS the thread id — so the grant covers the
- *     rest of this chat and nothing outside it. (`allow_session` would bind to
- *     the approving request's auth session, which is not the chat.)
+ *   - "approve for this agent" → `allow_policy` BOUND TO THE AGENT (its core
+ *     agent id). Core matches the acting agent as a grant subject, so the
+ *     grant covers this agent's later runs. Core still pins it to the
+ *     request's actor — the approving user.
  *
  * Runs on the approving USER's bearer token: core scopes the decision to their
  * tenant and records them as the decider. Non-fatal by design — on failure the
@@ -43,8 +42,8 @@ export async function persistCoreApprovalDecision(params: {
    * still owed.
    */
   decision: "once" | "always" | "deny";
-  /** Thread id — the conversation run's goal, and the grant's subject. */
-  subjectId?: string;
+  /** Core agent id of the agent that asked — the standing grant's subject. */
+  subjectId?: string | null;
 }): Promise<void> {
   const coreBaseUrl = params.coreBaseUrl ?? getEngentyCoreBaseUrlFromEnv();
   if (!(coreBaseUrl && params.accessToken)) {
@@ -57,9 +56,14 @@ export async function persistCoreApprovalDecision(params: {
     );
     const res = await fetch(url, {
       body: JSON.stringify({
-        decision: CORE_DECISION[params.decision],
         // A once-grant needs no subject (it is actor+module+operation pinned
-        // and dies on first use); a standing one must not outlive the chat.
+        // and dies on first use); a standing one is bound to the agent. With
+        // no agent to bind to, "always" is recorded as once rather than as a
+        // grant covering every agent the user talks to.
+        decision:
+          params.decision === "always" && !params.subjectId
+            ? CORE_DECISION.once
+            : CORE_DECISION[params.decision],
         ...(params.decision === "always" && params.subjectId
           ? { subject_id: params.subjectId }
           : {}),

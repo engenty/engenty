@@ -119,10 +119,16 @@ export class FetchHttpAdapter implements WebIngestAdapter {
         skipDefaultExcludeSelectors: he?.skipDefaultExcludeSelectors,
       };
       if (he?.suggestPatternsWithLlm) {
+        const model = he.llmModel ?? options?.llmModel;
+        if (!model) {
+          throw new Error(
+            "htmlExtract.suggestPatternsWithLlm requires an llmModel"
+          );
+        }
         const suggested = await suggestHtmlExtractPatternsFromHtml({
           html: text,
           pageUrl: finalUrl,
-          model: he.llmModel,
+          model,
         });
         const userIncludes = he.includeSelectors?.filter(Boolean) ?? [];
         applyOpts = {
@@ -158,7 +164,7 @@ export class FetchHttpAdapter implements WebIngestAdapter {
 
     const resolvedTitle = await resolveSuggestedPageTitle({
       html: rawHtml,
-      llmModel: options?.htmlExtract?.llmModel,
+      llmModel: options?.htmlExtract?.llmModel ?? options?.llmModel,
       markdown,
       pageUrl: finalUrl,
       skipTitleLlm: options?.htmlExtract?.suggestPatternsWithLlm === true,

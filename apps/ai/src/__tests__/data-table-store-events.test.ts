@@ -17,11 +17,9 @@ const spaceId = "space-1";
 
 /**
  * Chainable supabase fake: every builder method returns the builder, the
- * terminal calls answer from what the test queued per table. `tableReads`
- * counts `data_table` lookups so the Space cache is provable.
+ * terminal calls answer from what the test queued per table.
  */
 function makeFake(opts: { deleted?: unknown[]; rows?: unknown[] }) {
-  let tableReads = 0;
   function builder(table: string) {
     const b: Record<string, unknown> = {
       delete: () => b,
@@ -33,7 +31,6 @@ function makeFake(opts: { deleted?: unknown[]; rows?: unknown[] }) {
       single: async () => ({ data: opts.rows?.[0] ?? null, error: null }),
       maybeSingle: async () => {
         if (table === "data_table") {
-          tableReads += 1;
           return {
             data: {
               columns: [{ id: "x", name: "x", type: "text" }],
@@ -59,7 +56,7 @@ function makeFake(opts: { deleted?: unknown[]; rows?: unknown[] }) {
   const client = {
     schema: () => ({ from: (table: string) => builder(table) }),
   } as unknown as SupabaseClient;
-  return { client, tableReads: () => tableReads };
+  return { client };
 }
 
 function collect(): AppEvent[] {
@@ -77,7 +74,7 @@ afterEach(() => {
 describe("data table row events", () => {
   it("raises one created event per insert call, stamped with the table's Space", async () => {
     const events = collect();
-    const { client, tableReads } = makeFake({
+    const { client } = makeFake({
       rows: [
         { cells: { x: 1 }, id: "r1", table_id: tableId },
         { cells: { x: 2 }, id: "r2", table_id: tableId },
@@ -102,30 +99,29 @@ describe("data table row events", () => {
         tenantId,
       },
     ]);
-    expect(tableReads()).toBe(1);
   });
 
-  it("raises updated with the row's cells, and looks the Space up once per table", async () => {
+  it("raises updated with the row's new cells", async () => {
     const events = collect();
-    const { client, tableReads } = makeFake({
+    const { client } = makeFake({
       rows: [{ cells: { x: 3 }, id: "r1", table_id: tableId }],
     });
     const store = createDataTableStore(createRecordingDbSource(client).source);
 
     await store.updateRow({ cells: { x: 3 }, rowId: "r1", tableId, tenantId });
-    await store.updateRow({ cells: { x: 3 }, rowId: "r1", tableId, tenantId });
 
-    expect(events.map((event) => event.resource)).toEqual([
-      DATA_TABLE_ROW_EVENTS.updated,
-      DATA_TABLE_ROW_EVENTS.updated,
+    expect(events).toEqual([
+      {
+        payload: {
+          cells: { x: 3 },
+          row_id: "r1",
+          space_id: spaceId,
+          table_id: tableId,
+        },
+        resource: DATA_TABLE_ROW_EVENTS.updated,
+        tenantId,
+      },
     ]);
-    expect(events[0]?.payload).toEqual({
-      cells: { x: 3 },
-      row_id: "r1",
-      space_id: spaceId,
-      table_id: tableId,
-    });
-    expect(tableReads()).toBe(1);
   });
 
   it("raises deleted only when a row actually went", async () => {

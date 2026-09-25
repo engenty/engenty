@@ -46,6 +46,7 @@ describe("hubspot connector", () => {
       connection: {
         auth_kind: "api_key" as const,
         autonomous_mode: "off" as const,
+        connected_by: null,
         connector_id: "hubspot",
         created_at: new Date(0).toISOString(),
         display_name: null,
@@ -53,9 +54,7 @@ describe("hubspot connector", () => {
         external_account: "HubSpot",
         granted_scopes: [],
         id: "c1",
-        non_owner_max_group: null,
-        owner_user_id: "u1",
-        sharing: "personal" as const,
+        space_id: "space-1",
         status: "active" as const,
         tenant_id: "t1",
       },

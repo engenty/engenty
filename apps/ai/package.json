@@ -70,9 +70,9 @@
     "hono": "^4.13.8",
     "jose": "^6.2.12",
     "pg": "8.23.0",
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0",
-    "react-router-dom": "^7.18.4",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-router-dom": "7.18.4",
     "sharp": "^0.35.4",
     "web-push": "^3.6.7",
     "zod": "4.6.5"

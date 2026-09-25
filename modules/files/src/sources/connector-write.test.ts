@@ -19,6 +19,9 @@ import {
   encodeConnectorNodeId,
 } from "./connector-ref.js";
 
+/** The file space may use every connection in these tests. */
+const allowConnection = async () => undefined;
+
 const ctx: FileSourceContext = {
   owner: { id: "space-1", type: "space" },
   principalId: "user-1",
@@ -69,6 +72,7 @@ function build(options?: { storageCapable?: boolean; writable?: boolean }) {
     isStorageCapable: vi.fn(async () => options?.storageCapable ?? true),
   };
   const source = createConnectorFileSource({
+    assertConnectionUsable: allowConnection,
     client:
       options?.writable === false
         ? {
@@ -104,6 +108,7 @@ describe("capability is negotiated, not attempted", () => {
   it("answers read-only when the client cannot even be asked", async () => {
     // No `isStorageCapable` ⇒ not writable, which is the safe direction.
     const source = createConnectorFileSource({
+      assertConnectionUsable: allowConnection,
       client: {
         filesList: vi.fn(async () => ({ entries: [entry], next_cursor: null })),
         filesRead: vi.fn(async () => ({
@@ -168,6 +173,7 @@ describe("file writes reach the connector's storage capability", () => {
       isStorageCapable: vi.fn(async () => true),
     };
     const source = createConnectorFileSource({
+      assertConnectionUsable: allowConnection,
       client,
       getMount: vi.fn(async (_c, id) => (id === MOUNT_ID ? rootMount : null)),
     });
@@ -233,6 +239,7 @@ describe("what it refuses, and why", () => {
 describe("connector listing mime", () => {
   it("guesses JSON from the filename when the connector sends no mime", async () => {
     const source = createConnectorFileSource({
+      assertConnectionUsable: allowConnection,
       client: {
         filesList: vi.fn(async () => ({
           entries: [

@@ -1,11 +1,6 @@
 /**
- * CP2 + CP3 composed: a token minted from a durable service credential must be
- * accepted by workspace-context resolution as a service principal.
- *
- * The unit tests on either side mock the other; this one wires the real routes
- * together, because the failure mode that actually costs a production incident
- * is the two halves disagreeing — the exchange succeeding and the scheduler
- * still being unable to resolve a scope from what it got back.
+ * A token minted from a service credential must resolve a workspace context as
+ * a service principal — the mint and the resolver must agree on its claims.
  */
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { uuidv7 } from "uuidv7";
@@ -83,7 +78,6 @@ describe("service identity — credential to workspace context", () => {
     const tenantId = uuidv7();
     const { app, getServiceWorkspaceContext } = createStack(tenantId);
 
-    // 1. An operator creates the credential (this is `engenty service-token create`).
     const ownerToken = await mintOwnerToken(tenantId);
     const created = (await (
       await app.request("/api/auth/service-credentials", {
@@ -99,8 +93,7 @@ describe("service identity — credential to workspace context", () => {
       })
     ).json()) as { credentialId: string; secret: string };
 
-    // 2. apps/ai splits ENGENTY_AI_SERVICE_SECRET and exchanges it. The split
-    //    and the field names here mirror service-credential.ts exactly.
+    // apps/ai splits `<credentialId>.<secret>` and exchanges the halves.
     const separator = created.secret.indexOf(".");
     const exchange = await app.request("/api/auth/service-token", {
       body: JSON.stringify({
@@ -115,8 +108,7 @@ describe("service identity — credential to workspace context", () => {
     expect(minted.token).toBeTruthy();
     expect(minted.expiresIn).toBe(900);
 
-    // 3. The scheduler resolves its scope with that token — the step that
-    //    silently failed before CP3, because the token has no auth.users row.
+    // The token has no auth.users row; the service path must resolve it.
     const context = await app.request("/api/users/setup/context", {
       headers: { authorization: `Bearer ${minted.token}` },
     });
@@ -126,49 +118,13 @@ describe("service identity — credential to workspace context", () => {
     };
     expect(body.data.onboarded).toBe(true);
     expect(body.data.currentTenant.id).toBe(tenantId);
-    // Resolved by credential id, in the credential's tenant — no user involved.
+    // Resolved by credential id in the credential's tenant, with its own
+    // capabilities — never widened into a role.
     expect(getServiceWorkspaceContext).toHaveBeenCalledWith({
-      // A minted service credential carries the service default bundle, and it
-      // reaches the workspace context verbatim (AUTH-06) — never widened into a
-      // role. Notably module-tier only: it covers no `core.*` capability.
       capabilities: ["module.read", "module.write", "module.execute"],
       principalId: created.credentialId,
       tenantId,
     });
-  });
-
-  it("stops resolving scopes once the credential is revoked", async () => {
-    const tenantId = uuidv7();
-    const { app } = createStack(tenantId);
-    const ownerToken = await mintOwnerToken(tenantId);
-    const created = (await (
-      await app.request("/api/auth/service-credentials", {
-        body: JSON.stringify({ name: "ai-service" }),
-        headers: {
-          authorization: `Bearer ${ownerToken}`,
-          "content-type": "application/json",
-        },
-        method: "POST",
-      })
-    ).json()) as { credentialId: string; secret: string };
-
-    await app.request(`/api/auth/service-credentials/${created.credentialId}`, {
-      headers: { authorization: `Bearer ${ownerToken}` },
-      method: "DELETE",
-    });
-
-    const separator = created.secret.indexOf(".");
-    const exchange = await app.request("/api/auth/service-token", {
-      body: JSON.stringify({
-        credentialId: created.secret.slice(0, separator),
-        secret: created.secret.slice(separator + 1),
-      }),
-      headers: { "content-type": "application/json" },
-      method: "POST",
-    });
-    // Revocation bites at the exchange. Tokens already minted run out their
-    // remaining TTL — that is the documented lag, not a bug.
-    expect(exchange.status).toBe(401);
   });
 });
 

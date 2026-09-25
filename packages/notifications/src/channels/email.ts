@@ -7,6 +7,7 @@
 // an invoker that rides a service token for that tenant.
 import { createLogger } from "@engenty/telemetry";
 import type { NotificationChannel, NotificationRecord } from "../contracts.js";
+import { notificationSource } from "../presentation.js";
 
 const logger = createLogger({ name: "notifications-email" });
 
@@ -28,23 +29,17 @@ export interface EmailChannelDeps {
 
 /** Subject + plain-text body for one record. */
 export function composeNotificationEmail(
-  record: Pick<NotificationRecord, "payload" | "summary">,
+  record: Pick<NotificationRecord, "body" | "metadata" | "summary" | "target">,
   uiBaseUrl: string | undefined
 ): { body_text: string; subject: string } {
-  const payload = record.payload ?? {};
-  const label =
-    typeof payload.conversation_label === "string"
-      ? payload.conversation_label
-      : null;
-  const preview =
-    typeof payload.text_preview === "string" && payload.text_preview
-      ? payload.text_preview
-      : record.summary;
-  const route = typeof payload.route === "string" ? payload.route : null;
+  const label = notificationSource(record);
+  const preview = record.body;
+  const route = record.target;
   const link =
     route && uiBaseUrl ? `${uiBaseUrl.replace(/\/$/, "")}${route}` : null;
   const lines = [
-    preview,
+    record.summary,
+    ...(preview ? ["", preview] : []),
     "",
     ...(link ? [`Open in Engenty: ${link}`, ""] : []),
     "You're receiving this because it was still unread in Engenty.",

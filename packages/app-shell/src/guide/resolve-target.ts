@@ -77,12 +77,22 @@ export function formatUiGuideFollowUpMessage(args: {
   guide_id: string;
   input_value?: string;
   input_values?: Record<string, string>;
+  /** The button's text, so the chat can show what the person clicked. */
+  label?: string;
+  /** The guide's title: which step the click answered. */
+  title?: string;
 }): string {
   const parts = [
     "[ui_guide]",
     `guide_id=${args.guide_id}`,
     `action=${args.action_id}`,
   ];
+  if (args.label) {
+    parts.push(`label=${JSON.stringify(args.label)}`);
+  }
+  if (args.title) {
+    parts.push(`title=${JSON.stringify(args.title)}`);
+  }
   if (args.input_value != null && args.input_value.length > 0) {
     parts.push(`input=${JSON.stringify(args.input_value)}`);
   }
@@ -94,4 +104,50 @@ export function formatUiGuideFollowUpMessage(args: {
     }
   }
   return parts.join(" ");
+}
+
+/** What a person did in a guide, read back from its follow-up message. */
+export interface UiGuideFollowUp {
+  action_id: string;
+  /** `input` for the single field, the field id for `input.<id>`. */
+  inputs: { key: string; value: string }[];
+  label: string | null;
+  title: string | null;
+}
+
+const FOLLOW_UP_RE = /^\[ui_guide\] guide_id=\S+ action=(\S+)(.*)$/s;
+const FOLLOW_UP_FIELD_RE =
+  /\s(label|title|input(?:\.[\w-]+)?)=("(?:[^"\\]|\\.)*")/g;
+
+/** The inverse of {@link formatUiGuideFollowUpMessage}; null for any other text. */
+export function readUiGuideFollowUp(text: string): UiGuideFollowUp | null {
+  const match = FOLLOW_UP_RE.exec(text.trim());
+  if (!match) {
+    return null;
+  }
+  const result: UiGuideFollowUp = {
+    action_id: match[1] ?? "",
+    inputs: [],
+    label: null,
+    title: null,
+  };
+  for (const [, key, quoted] of (match[2] ?? "").matchAll(FOLLOW_UP_FIELD_RE)) {
+    let value: string;
+    try {
+      value = JSON.parse(quoted ?? '""') as string;
+    } catch {
+      continue;
+    }
+    if (key === "label") {
+      result.label = value;
+    } else if (key === "title") {
+      result.title = value;
+    } else if (key) {
+      result.inputs.push({
+        key: key === "input" ? "input" : key.slice("input.".length),
+        value,
+      });
+    }
+  }
+  return result;
 }

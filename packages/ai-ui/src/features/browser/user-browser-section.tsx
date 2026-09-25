@@ -1,13 +1,14 @@
 "use client";
 
-// The person's OWN browser on the copilot's settings pane (PLAN-user-
-// browser.md §2.6): one logged-in Chromium per person, driven by Engentys
-// in their name wherever they work. Start / Open (the desk's browser pane)
-// / Stop / Sign out, and the two standing consents — autostart and
-// unattended. Every action is keyed on the caller server-side; nobody sees
-// anyone else's row here.
+// The Space's browser on an agent's settings pane (PLAN-user-browser.md
+// §2.6; PLAN-space-owned-connections.md): one logged-in Chromium per Space,
+// shared by its agents, each in its own window. Start / Open (the desk's
+// browser pane) / Stop / Sign out, and the Space's two standing consents —
+// autostart and unattended — which only its owners may change (the server
+// enforces that).
 import { useTranslation } from "@engenty/i18n/ui";
 import { Button, CardSection, Switch } from "@engenty/ui-core";
+import type { BrowserTarget } from "./browser-target.js";
 import {
   useUserBrowserGrantMutation,
   useUserBrowserGrantQuery,
@@ -16,12 +17,16 @@ import {
 } from "./user-browser-api.js";
 import { setUserBrowserPaneOpen } from "./user-browser-pane-store.js";
 
-export function UserBrowserSection() {
+export function UserBrowserSection({
+  target,
+}: {
+  target: Pick<BrowserTarget, "spaceId">;
+}) {
   const { t } = useTranslation("ai-ui");
-  const statusQuery = useUserBrowserStatusQuery(30_000);
-  const grantQuery = useUserBrowserGrantQuery();
-  const { signOut, start, stop } = useUserBrowserMutations();
-  const grant = useUserBrowserGrantMutation();
+  const statusQuery = useUserBrowserStatusQuery(target, 30_000);
+  const grantQuery = useUserBrowserGrantQuery(target);
+  const { signOut, start, stop } = useUserBrowserMutations(target);
+  const grant = useUserBrowserGrantMutation(target);
   const state = statusQuery.data?.state ?? "absent";
   const busy =
     start.isPending || stop.isPending || signOut.isPending || grant.isPending;

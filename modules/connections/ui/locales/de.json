@@ -1,10 +1,4 @@
 {
-  "agentAccess": {
-    "title": "Genutzt von",
-    "description": "Agenten, die mit diesem Konto im Hintergrund arbeiten dürfen. Zugriff gibst du beim jeweiligen Agenten.",
-    "revoke": "Zugriff entfernen",
-    "revokeFailed": "Zugriff konnte nicht entfernt werden. Bitte erneut versuchen."
-  },
   "menu": {
     "connections": "Verbindungen"
   },
@@ -24,7 +18,8 @@
     "addAccount": "Konto hinzufügen",
     "connecting": "Verbinde…",
     "empty": "Keine Konnektoren verfügbar",
-    "emptyDescription": "Installieren Sie ein Konnektor-Modul (Google, Microsoft, Slack, …), um externe Dienste zu verbinden."
+    "emptyDescription": "Installieren Sie ein Konnektor-Modul (Google, Microsoft, Slack, …), um externe Dienste zu verbinden.",
+    "spaceHint": "Konten von {{name}}. Alle Agenten und Mitglieder dieses Space nutzen sie."
   },
   "toasts": {
     "connected": "Verbindung hergestellt.",
@@ -57,14 +52,6 @@
     "error": "Fehler",
     "revoked": "Widerrufen"
   },
-  "sharing": {
-    "label": "Wo dieses Konto genutzt wird",
-    "personal": "Dieses Konto",
-    "org": "Alle Spaces",
-    "orgBadge": "Alle Spaces",
-    "allSpaces": "In jedem Space verfügbar",
-    "allSpacesHelp": "Wenn aktiv, darf jeder Space in diesem Tenant dieses Konto nutzen. Sonst bindest du es in einem Space ein oder gewährst es einem Agenten."
-  },
   "policy": {
     "allow": "Immer erlauben",
     "ask": "Zuerst fragen",
@@ -81,7 +68,7 @@
     "customBadge": "Angepasst",
     "reset": "Auf Vererbung zurücksetzen",
     "noActions": "Dieser Konnektor stellt noch keine Tools bereit.",
-    "readOnlyNotice": "Sie können diese geteilte Verbindung verwenden, aber nur ihr Besitzer oder ein Admin kann Berechtigungen ändern."
+    "readOnlyNotice": "Alle Mitglieder dieses Space nutzen dieses Konto. Nur die Besitzer des Space oder ein Admin können Berechtigungen und Einstellungen ändern."
   },
   "settings": {
     "title": "Verbindungseinstellungen",
@@ -94,14 +81,6 @@
       "off": "Aus",
       "read_only": "Nur lesen",
       "full": "Vollzugriff"
-    },
-    "nonOwnerMaxGroup": "Limit für andere Mitglieder",
-    "nonOwnerMaxGroupHelp": "Begrenzen Sie, was andere Mitglieder der Organisation mit dieser Verbindung tun dürfen.",
-    "nonOwnerCap": {
-      "none": "Keine Begrenzung",
-      "read": "Nur-Lese-Tools",
-      "write": "Bis Schreib-Tools",
-      "destructive": "Alle Tools"
     },
     "disconnect": "Trennen",
     "disconnectTitle": "{{name}} trennen?",
@@ -123,12 +102,13 @@
     "title": "Verbindungen",
     "newConnection": "Neue Verbindung",
     "listTitle": "Alle Verbindungen",
-    "listDescription": "Alle sichtbaren Verbindungen: Konten, die Sie besitzen, und Konten für jeden Space.",
+    "listDescription": "Alle sichtbaren Verbindungen mit dem Space, dem sie gehören. Alle Agenten und Mitglieder dieses Space nutzen sie.",
     "listEmpty": "Noch keine Verbindungen",
     "listEmptyDescription": "Verbinden Sie einen Dienst unter Einstellungen → Verbindungen, um ihn hier zu sehen.",
     "listColumns": {
       "connector": "Dienst",
       "account": "Konto",
+      "space": "Space",
       "status": "Status"
     },
     "approvalsTitle": "Ausstehende Freigaben",
@@ -151,10 +131,8 @@
   },
   "marketplace": {
     "title": "Verbindungen",
-    "titleAgent": "Verbindungen für {{name}}",
-    "hintSpace": "Ein Plugin einmal für diesen Mandanten installieren, dann hier aktivieren. Zum Nutzen ein Konto authentifizieren.",
-    "hintNamedSpace": "Plugins in {{name}}. Hinzufügen macht es für jede Spezialistin in diesem Space verfügbar.",
-    "hintAgent": "Hier hinzufügen bindet das Konto an diesen Agenten, nicht an den Space.",
+    "hintSpace": "Plugins und Konten Ihres persönlichen Space. Der Copilot nutzt diese.",
+    "hintNamedSpace": "Plugins und Konten von {{name}}. Alle Agenten und Mitglieder dieses Space nutzen sie.",
     "search": "Verbindungen suchen",
     "searchCatalog": "integrations.sh durchsuchen",
     "filterMarketplace": "Marketplace",
@@ -171,7 +149,6 @@
     "needsAuth": "Authentifizierung nötig",
     "authenticate": "Authentifizieren",
     "addAccount": "Weiteres Konto hinzufügen",
-    "accounts": "Konten",
     "defaultAccount": "default",
     "sectionApps": "Apps {{count}}",
     "sectionIntegrations": "Integrationen {{count}}",
@@ -199,10 +176,6 @@
     "uninstallDescription": "Entfernt diese Mandanten-Installation. Eingebaute Plugins können nicht deinstalliert werden. Bestehende Konten dazu funktionieren nicht mehr.",
     "removeFromSpace": "Aus diesem Space entfernen",
     "usedThisSpace": "Dieser Space",
-    "usedAllSpaces": "Alle Spaces",
-    "usedThisAgent": "Dieser Agent",
-    "useOnAgent": "Auf diesem Agenten nutzen",
-    "revokeAgent": "Von diesem Agenten nehmen",
     "registry": "Integrationskatalog",
     "catalogEmpty": "Nichts im Integrationskatalog passt dazu.",
     "needsAuthToAdd": "Dieser Server braucht eine Anmeldung, bevor er hinzugefügt werden kann.",
@@ -226,7 +199,9 @@
     "open": "Verbindungen hinzufügen",
     "subsetLabel": "Plugins dieses Agenten",
     "subsetHint": "Leer bedeutet jedes im Space aktivierte Plugin plus die persönlichen Konten dieses Agenten. Eine nicht-leere Liste ist die Teilmenge, die er wirklich nutzt.",
-    "subsetAll": "Alle im Space aktivierten Plugins"
+    "subsetAll": "Alle im Space aktivierten Plugins",
+    "spaceAccounts": "Konten in diesem Space",
+    "noSpace": "Kein Space zum Verbinden. Öffnen Sie einen Space und verbinden Sie dort."
   },
   "credentials": {
     "description": "Zugangsdaten für diesen Dienst eingeben. Sie werden verschlüsselt gespeichert und nie wieder angezeigt.",

@@ -5,7 +5,7 @@
 //
 // Best-effort: returns null on missing gateway key, empty input, or any LLM
 // failure, so callers keep their generic summary.
-import { DEFAULT_AI_CLASSIFIER_MODEL_ID } from "@engenty/ai-core";
+import { resolveChatModelId } from "@engenty/ai-core";
 import { createLogger } from "@engenty/telemetry";
 import { generateText } from "ai";
 
@@ -98,7 +98,8 @@ async function generateHeadline(params: {
   if (trimmed.length === 0 || !process.env.AI_GATEWAY_API_KEY?.trim()) {
     return null;
   }
-  const model = params.modelId?.trim() || DEFAULT_AI_CLASSIFIER_MODEL_ID;
+  const model =
+    params.modelId?.trim() || resolveChatModelId({ purpose: "fast_text" });
   try {
     const { text } = await generateText({
       maxOutputTokens: 40,

@@ -23,12 +23,13 @@ export type EmitInboxEvent = (
   payload: { message_id: string; scope_id: string; tenant_id: string }
 ) => void | Promise<void>;
 
-/** The connection facts the upsert path needs (a `ConnectionSummary` subset). */
+/**
+ * The connection facts the write paths need (a `ConnectionSummary` subset):
+ * every stored row is stamped with the Space that owns the mailbox.
+ */
 export interface InboxSyncConnection {
-  all_spaces?: boolean;
   id: string;
-  owner_user_id: string | null;
-  sharing: "org" | "personal";
+  space_id: string;
 }
 
 export interface InboxUpsertResult {
@@ -41,12 +42,12 @@ export interface InboxRepo {
     listMessageDigests(threadId: string): Promise<InboxMessageDigest[]>;
     upsertMessageDigest(
       digest: Omit<InboxMessageDigest, "created_at" | "updated_at"> & {
-        owner_user_id: string | null;
+        space_id: string;
       }
     ): Promise<InboxMessageDigest>;
     upsertThreadDigest(
       digest: Omit<InboxThreadDigest, "created_at" | "updated_at"> & {
-        owner_user_id: string | null;
+        space_id: string;
       }
     ): Promise<InboxThreadDigest>;
   };
@@ -83,10 +84,9 @@ export interface InboxRepo {
       }
     ): Promise<void>;
     upsertSettings(
-      connectionId: string,
+      connection: InboxSyncConnection,
       patch: {
         backfill_days?: number;
-        owner_user_id?: string | null;
         sync_enabled?: boolean;
       }
     ): Promise<InboxSyncState>;

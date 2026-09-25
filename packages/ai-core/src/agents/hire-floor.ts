@@ -69,6 +69,11 @@ export const LIVE_HIRE_TOOL_IDS = [
   // portrait, or propose a name and mandate that fit — in conversation,
   // with a human approve before anything sticks.
   "agent_look",
+  // What an installer left on the Space's computer — skills, remote MCP
+  // servers — offered to the Space. Both only offer: a person adds the
+  // skill on the card and approves the connector import.
+  "computer_skills_find",
+  "connector_import_request",
 ] as const;
 
 /** Presentation tools attached after a live hire passes the go-live gate. */

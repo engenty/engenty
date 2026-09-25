@@ -103,6 +103,9 @@ export class CoreCatalogDynamicAiModuleCapabilityLoader
           ? { chatCommands: seed.chatCommands }
           : {}),
         ...(seed?.routines?.length ? { routines: seed.routines } : {}),
+        ...(seed?.outcomeProviders?.length
+          ? { outcomeProviders: seed.outcomeProviders }
+          : {}),
         ...(moduleTools.length > 0
           ? {
               tools: Object.fromEntries(
@@ -245,10 +248,6 @@ function normalizeModuleAgentConfig(
     // agent reported a null owner. `null` stays a disclaimer, so absent and
     // null are not the same thing.
     ...(config.moduleId === undefined ? {} : { moduleId: config.moduleId }),
-    // Model-tier inheritance: without this a declared "routing" purpose
-    // was dropped here and tenant coordinator_model_id never applied to
-    // module agents.
-    ...(config.purpose ? { purpose: config.purpose } : {}),
     // Files + sandbox. Dropped here until 2026-08-29 — every module
     // specialist's `{preset:"staff"}` (and explicit no-execution pins)
     // was a dead letter, and chat runs of module agents

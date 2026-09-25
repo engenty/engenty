@@ -26,13 +26,13 @@ export const kbDisplaySchema = z.object({
 
 /**
  * Module settings. The scalar fields are tenant-wide index infrastructure: one
- * vector index serves every library in every space, so the embedding model and
- * the retrieval-quality knobs cannot differ per library. The `*_by_id` maps are
- * per-library values that ride along in the same blob for transport only; each
- * has its own write path on the KB record.
+ * vector index serves every library in every space, so the retrieval-quality
+ * knobs cannot differ per library (the embedding model is the platform
+ * `embedding` role, not a KB setting). The `*_by_id` maps are per-library
+ * values that ride along in the same blob for transport only; each has its own
+ * write path on the KB record.
  */
 export interface KbSettings {
-  embedding_model: string;
   /** Per-KB id: chunking (scoped KV `kb.chunking` with `context.kb_id`). */
   kb_chunking_by_id: Record<string, KbChunking>;
   /** Per-KB id: icon/cover (scoped KV `kb.display` with `context.kb_id`). */
@@ -57,7 +57,6 @@ export type KbSettingsInput = KbSettings;
 /* ── Settings ── */
 
 export const kbSettingsSchema = z.object({
-  embedding_model: z.string().default("openai/text-embedding-3-small"),
   search_vector_min_similarity: z.number().min(0).max(1).default(0.45),
   search_verifier_min_query_terms: z.number().int().min(1).max(20).default(3),
   search_verifier_max_candidates: z.number().int().min(1).max(20).default(6),

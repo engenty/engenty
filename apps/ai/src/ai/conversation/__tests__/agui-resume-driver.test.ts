@@ -136,6 +136,36 @@ describe("I2: the snapshot resume driver", () => {
     expect(typesOf(emitted)).not.toContain(EventType.STATE_SNAPSHOT);
   });
 
+  it("does not announce the resumed call again, only its result", async () => {
+    // The parked card already sits on the message that parked; a second
+    // TOOL_CALL_START under the continuation's message draws it twice.
+    resumeStream.mockResolvedValue(
+      streamOf([
+        {
+          payload: {
+            args: { title: "Pick one" },
+            toolCallId: "call-1",
+            toolName: "requestDecision",
+          },
+          type: "tool-call",
+        },
+        {
+          payload: {
+            result: "The user selected: Option A",
+            toolCallId: "call-1",
+            toolName: "requestDecision",
+          },
+          type: "tool-result",
+        },
+      ])
+    );
+
+    const { emitted } = await drive();
+    const forCall = emitted.filter((e) => e.toolCallId === "call-1");
+
+    expect(typesOf(forCall)).toEqual([EventType.TOOL_CALL_RESULT]);
+  });
+
   it("surfaces a SECOND park instead of reporting success", async () => {
     // The normal shape here: this lane runs under `approvalPolicy: "suspend"`, so
     // any gated tool the continuation reaches for parks the run again. Left

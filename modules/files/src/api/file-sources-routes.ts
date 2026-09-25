@@ -3,16 +3,16 @@
  * one for the mount picker, create mounts, and proxy downloads for providers
  * that return bytes instead of URLs. Policy is enforced by the connections
  * module client (every browse/read is a gated `files_*` action).
+ *
+ * A drive belongs to one Space (PLAN-space-owned-connections.md): it is usable
+ * by that Space's members and agents, and mounts only into that Space's Files.
+ * The SDK does not narrow calls that name a connection directly, so every
+ * route here checks the connection against the caller's Spaces first.
  */
 
 import type {
   ConnectionPolicyPrincipal,
   ConnectionsModuleClient,
-} from "@engenty/connections-sdk";
-import {
-  connectionVisibleToUser,
-  mountConnectionInSpace,
-  resolveSpaceRecordAccounts,
 } from "@engenty/connections-sdk";
 import type { FileSourceContext } from "@engenty/file-storage";
 import type { PluginAuthContext, PluginServerApi } from "@engenty/plugin-sdk";
@@ -31,6 +31,7 @@ import {
   readFileSourceBodySchema,
 } from "../schema/file-manager-zod.js";
 import { decodeConnectorNodeId } from "../sources/connector-ref.js";
+import { resolveCallerSpaceIds } from "./caller-spaces.js";
 import { connectorDownloadHeaders } from "./connector-download-headers.js";
 
 const READ_OP = {
@@ -53,7 +54,10 @@ const CONNECTOR_SOURCE_KINDS: Record<string, string> = {
 };
 
 function principalOf(auth: PluginAuthContext): ConnectionPolicyPrincipal {
-  return { principalId: auth.principalId, principalType: "user" };
+  return {
+    principalId: auth.principalId,
+    principalType: auth.principalType ?? "user",
+  };
 }
 
 interface Hono {
@@ -75,9 +79,40 @@ export function registerFileSourcesRoutes(
   >[number];
 
   /**
-   * Show one placed drive's folders in a space's Files (PLAN-connections-ux.md
-   * B3b). Without it, placing a Drive leaves a mount row nobody can see: the
-   * account is available to the space and its folders appear nowhere.
+   * The file-capable connections this caller may use: those of the caller's
+   * Spaces, narrowed to one Space when `spaceId` names it.
+   */
+  async function usableSources(
+    auth: PluginAuthContext,
+    spaceId?: string | null
+  ): Promise<FileSource[]> {
+    const [sources, spaces] = await Promise.all([
+      client.listFileSources({ tenantId: auth.tenantId }),
+      resolveCallerSpaceIds(getDb({ tenantId: auth.tenantId }), auth),
+    ]);
+    return sources.filter(
+      (source) =>
+        spaces.has(source.space_id) && (!spaceId || source.space_id === spaceId)
+    );
+  }
+
+  /** One usable connection, or null when the caller's Spaces own no such drive. */
+  async function usableSource(
+    auth: PluginAuthContext,
+    connectionId: string,
+    spaceId?: string | null
+  ): Promise<FileSource | null> {
+    return (
+      (await usableSources(auth, spaceId)).find(
+        (source) => source.id === connectionId
+      ) ?? null
+    );
+  }
+
+  /**
+   * Show one of a space's drives in its Files (PLAN-connections-ux.md B3b).
+   * Without it, connecting a Drive leaves an account whose folders appear
+   * nowhere.
    *
    * Mounts the PROVIDER ROOT (`source_folder_id: null`), not a picked folder.
    * Choosing a subfolder is a decision only the person can make, and the picker
@@ -95,7 +130,8 @@ export function registerFileSourcesRoutes(
   ): Promise<z.infer<typeof fileAccountBindResultSchema>> {
     // Not a failure: most accounts are not drives, and the module declares
     // its need by CAPABILITY rather than by connector.
-    if (!connection) {
+    // Only the owning Space's Files show a drive.
+    if (!connection || connection.space_id !== spaceId) {
       return { bound: false, created: false, folder_id: null };
     }
     const source = CONNECTOR_SOURCE_KINDS[connection.connector_id];
@@ -125,7 +161,7 @@ export function registerFileSourcesRoutes(
   }
 
   /**
-   * An account placed in a space where Files already is — the manifest names
+   * An account connected in a space where Files already is — the manifest names
    * this operation in `connections[].bindOperation`, and core calls it from
    * `POST /api/spaces/:id/setup/add` for that pair. When Files itself is being
    * mounted, `files_space_mount` mounts every drive the space has instead.
@@ -137,7 +173,7 @@ export function registerFileSourcesRoutes(
       connectionInputKey: "connection_id",
       kind: "account_mounted",
     },
-    summary: "Show a placed drive's folders in this space's Files",
+    summary: "Show one of this space's drives in its Files",
     requiredCapabilities: ["module.files.write"],
     riskLevel: "low",
     idempotent: true,
@@ -162,7 +198,7 @@ export function registerFileSourcesRoutes(
    * The module's `mountOperation` (engenty.plugin.json): core calls it with
    * `{ space_id }` from every path that mounts Files into a space — the create
    * wizard, the setup dialog, the `space_setup` tool. Every drive the space
-   * has already placed gets its root mounted here, the same way
+   * already owns gets its root mounted here, the same way
    * `files_account_bind` mounts one.
    *
    * A space's Files needs no row to exist (the root is `parent_id is null`
@@ -177,7 +213,7 @@ export function registerFileSourcesRoutes(
     },
     summary: "Set up this space's Files (runs on mount)",
     description:
-      "Runs automatically when Files is mounted into a space (space_setup action='add'): shows every drive the space has placed in its Files. Idempotent. Not a tool to reach for — mount the module and this runs.",
+      "Runs automatically when Files is mounted into a space (space_setup action='add'): shows every drive the space owns in its Files. Idempotent. Not a tool to reach for — mount the module and this runs.",
     requiredCapabilities: ["module.files.write"],
     riskLevel: "low",
     idempotent: true,
@@ -189,14 +225,10 @@ export function registerFileSourcesRoutes(
         throw new Error("files_space_mount requires authentication");
       }
       const parsed = fileSpaceMountInputSchema.parse(input ?? {});
-      const placed = await resolveSpaceRecordAccounts(
-        getDb({ tenantId: auth.tenantId }),
-        { spaceId: parsed.space_id, tenantId: auth.tenantId }
-      );
       const sources = await client.listFileSources({ tenantId: auth.tenantId });
       const bound: z.infer<typeof fileSpaceMountResultSchema>["bound"] = [];
       for (const source of sources) {
-        if (!placed?.has(source.id)) {
+        if (source.space_id !== parsed.space_id) {
           continue;
         }
         bound.push({
@@ -208,24 +240,21 @@ export function registerFileSourcesRoutes(
     },
   });
 
-  // ── List file-capable connections visible to the caller ──
+  // ── List file-capable connections of the caller's Spaces ──
   server.registerHttpRoute({
     method: "get",
     path: "/api/files/sources",
     operation: READ_OP,
-    summary: "List connections that can be mounted as file sources",
+    summary:
+      "List connections that can be mounted as file sources (optionally one Space's, via ?spaceId=)",
     tags: ["files"],
     handler: async (ctx) => {
       const hono = ctx.hono as Hono;
       if (!ctx.auth) {
         return hono.json({ error: "Unauthorized" }, 401);
       }
-      const all = await client.listFileSources({
-        tenantId: ctx.auth.tenantId,
-      });
-      const visible = all.filter((c) =>
-        connectionVisibleToUser(c, ctx.auth?.principalId)
-      );
+      const spaceId = new URL(ctx.request.url).searchParams.get("spaceId");
+      const visible = await usableSources(ctx.auth, spaceId);
       return {
         sources: visible.map((c) => ({
           connectionId: c.id,
@@ -233,8 +262,7 @@ export function registerFileSourcesRoutes(
           connectorId: c.connector_id,
           connectorName: c.connector_name,
           label: c.display_name ?? c.external_account ?? c.connector_name,
-          allSpaces: c.all_spaces,
-          sharing: c.sharing,
+          spaceId: c.space_id,
         })),
       };
     },
@@ -256,6 +284,9 @@ export function registerFileSourcesRoutes(
         ?.connectionId;
       if (!connectionId) {
         return hono.json({ error: "missing connectionId" }, 400);
+      }
+      if (!(await usableSource(ctx.auth, connectionId))) {
+        return hono.json({ error: "connection not available" }, 404);
       }
       const url = new URL(ctx.request.url);
       const folderRef = url.searchParams.get("folderRef");
@@ -301,16 +332,7 @@ export function registerFileSourcesRoutes(
       }
       const body = ctx.body as z.infer<typeof readFileSourceBodySchema>;
 
-      const sources = await client.listFileSources({
-        tenantId: ctx.auth.tenantId,
-      });
-      const connection = sources.find((c) => c.id === connectionId);
-      if (
-        !(
-          connection &&
-          connectionVisibleToUser(connection, ctx.auth.principalId)
-        )
-      ) {
+      if (!(await usableSource(ctx.auth, connectionId))) {
         return hono.json({ error: "connection not available" }, 404);
       }
 
@@ -379,17 +401,16 @@ export function registerFileSourcesRoutes(
         tenantId: ctx.auth.tenantId,
       };
 
-      const sources = await client.listFileSources({
-        tenantId: ctx.auth.tenantId,
-      });
-      const connection = sources.find((c) => c.id === body.connectionId);
-      if (
-        !(
-          connection &&
-          connectionVisibleToUser(connection, ctx.auth.principalId)
-        )
-      ) {
-        return hono.json({ error: "connection not available" }, 404);
+      // A drive mounts only into its own Space's Files.
+      const connection =
+        params.ownerType === "space"
+          ? await usableSource(ctx.auth, body.connectionId, params.ownerId)
+          : null;
+      if (!connection) {
+        return hono.json(
+          { error: "connection not available in this space" },
+          404
+        );
       }
       const sourceKind = CONNECTOR_SOURCE_KINDS[connection.connector_id];
       if (!sourceKind) {
@@ -417,16 +438,6 @@ export function registerFileSourcesRoutes(
         source: sourceKind,
         sourceFolderId: body.folderRef,
       });
-      // A folder in this space's files is also a grant of the account to the
-      // space (CN.4): connecting from Files should not leave the connection
-      // usable only from tenant settings.
-      if (params.ownerType === "space") {
-        await mountConnectionInSpace(getDb({ tenantId: ctx.auth.tenantId }), {
-          connectionId: body.connectionId,
-          spaceId: params.ownerId,
-          tenantId: ctx.auth.tenantId,
-        });
-      }
       ctx.recordAuditEvent?.({
         detail: {
           connection_id: body.connectionId,
@@ -460,6 +471,14 @@ export function registerFileSourcesRoutes(
       const decoded = decodeConnectorNodeId(params.id);
       if (!decoded) {
         return hono.json({ error: "not a connector file" }, 404);
+      }
+      // The id is client-supplied: only this Space's own drives are read.
+      const connection =
+        params.ownerType === "space"
+          ? await usableSource(ctx.auth, decoded.connectionId, params.ownerId)
+          : null;
+      if (!connection) {
+        return hono.json({ error: "connection not available" }, 404);
       }
       const result = await client.filesRead({
         connectionId: decoded.connectionId,

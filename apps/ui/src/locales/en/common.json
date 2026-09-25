@@ -320,6 +320,10 @@
     "fontDescription": "Primary UI font family.",
     "fontSize": "Font size",
     "fontSizeDescription": "Base font size scaling.",
+    "chatUi": "Chat UI",
+    "chatUiDescription": "How agent messages appear in chats.",
+    "chatStyleCanvas": "Agent on the canvas",
+    "chatStyleBubbles": "Agent in bubbles",
     "runtimeTitle": "Runtime",
     "runtimeDescription": "Environment wiring for the current app runtime.",
     "apiBaseUrl": "API base URL",
@@ -383,6 +387,8 @@
         "test": "Test search"
       },
       "overview": {
+        "embeddingModel": "Embedding model",
+        "embeddingModelHint": "One model for every index, set platform-wide in the model role bindings. After it changes, affected rows show as stale until the index is rebuilt.",
         "description": "Health and effective configuration of every registered search index, across the core and AI runtimes.",
         "reloadProviders": "Reload providers",
         "providersFailed": "Failed to load the provider list.",
@@ -415,11 +421,10 @@
         "vectorThreshold": "Vector floor",
         "fastPath": "Fast-path terms",
         "trigram": "Title trigram",
-        "embeddingModel": "Embedding model",
         "unavailable": "No retrieval config reported (hand-rolled provider)."
       },
       "params": {
-        "description": "Knowledge base is the one source with persisted, per-tenant search parameters. Changes to chunking or the embedding model apply to newly indexed content; rebuild to re-embed existing rows.",
+        "description": "Knowledge base is the one source with persisted, per-tenant search parameters. Chunking changes apply to newly indexed content; rebuild to re-chunk existing rows.",
         "kbTitle": "Knowledge base parameters",
         "loading": "Loading settings…",
         "loadFailed": "Failed to load knowledge base settings.",
@@ -431,8 +436,6 @@
         "verifierMinTerms": "Verifier min query terms",
         "verifierMinTermsHint": "The LLM verifier runs only for queries with at least this many terms.",
         "verifierMaxCandidates": "Verifier max candidates",
-        "embeddingModel": "Embedding model",
-        "embeddingModelHint": "Applies to newly indexed articles; rebuild to re-embed existing rows.",
         "save": "Save",
         "saved": "Saved.",
         "saveFailed": "Failed to save settings.",
@@ -462,6 +465,7 @@
       "title": "AI",
       "overviewDescription": "Default models and usage for this workspace.",
       "modelsOverview": "Chat model: {{model}}",
+      "modelsOverviewUnbound": "Chat model: no role binding",
       "usageOverview": "{{when}} · {{cost}}",
       "usageOverviewWithLimit": "{{when}} · {{cost}} of {{limit}}"
     },
@@ -649,9 +653,10 @@
       "body": "This action requires your approval before it runs. Operation: {{operation}}",
       "bodyBulk": "These actions require your approval before they run. Operations: {{operations}}",
       "approveOnce": "Approve once",
-      "approveAlways": "Approve always (this chat)",
+      "approveAlways": "Approve for this agent",
       "approveRun": "Approve for this run",
-      "approveChat": "Approve for this chat",
+      "workspaceCommand": "Run this command?",
+      "workspaceDelete": "Delete this?",
       "deny": "Deny",
       "approved": "Approved",
       "denied": "Denied"
@@ -732,10 +737,7 @@
       "completed": "Completed",
       "failed": "Failed"
     },
-    "context": {
-      "menu": "Context",
-      "recent": "Recent"
-    }
+    "guideDismiss": "Close"
   },
   "sidebar": {
     "brand": "engenty",
@@ -743,7 +745,14 @@
     "search": "Search",
     "search_placeholder": "Search",
     "appMenu": {
-      "about": "About"
+      "about": "About",
+      "actions": "Actions",
+      "all": "All",
+      "empty": "No results found.",
+      "loading": "Loading…",
+      "search": "Search apps…",
+      "settings": "Settings",
+      "spaceEmpty": "Nothing in this space yet."
     }
   },
   "about": {
@@ -913,7 +922,9 @@
         "chiefOfStaffHint": "Sets the space up, routes work, hires teammates",
         "title": "New agent"
       },
-      "section": "Agents"
+      "section": "Agents",
+      "attention_one": "{{count}} important",
+      "attention_other": "{{count}} important"
     },
     "members": {
       "description": "Who can open this space. Everyone here sees its work, its data and its chats.",
@@ -1023,9 +1034,8 @@
       "optionalTitle": "Optional access",
       "optionalHint": "Skip this step unless the space needs a specific skill or connected account now.",
       "capabilitiesTitle": "Capabilities",
-      "capabilitiesHint": "Connections can be added here. Skills for the apps you chose are included automatically. Agents, MCPs, and OpenAI plugins can join later.",
+      "capabilitiesHint": "Add extra skills here. Skills for the apps you chose are included automatically. Connect accounts once the space exists; agents, MCPs, and OpenAI plugins can join later.",
       "skillSearchPrompt": "Search extra skills this space needs beyond the apps you chose.",
-      "connectionSearchPrompt": "No related connections for the modules you chose. Search to see every connected account.",
       "focus": {
         "modules": "{{count}} optional modules selected — focused.",
         "modulesBroad": "{{count}} optional modules selected. Consider starting smaller and adding more later.",
@@ -1062,8 +1072,6 @@
       "skillsHint": "Skills these engentys may load. Skills stay in the tenant library; mounting only makes them available.",
       "addPackage": "Add package",
       "removePackage": "Remove package",
-      "connectionsTitle": "Connections",
-      "connectionsHint": "Connected accounts this space may reach. Enable a plugin here, then authenticate; or flag an account for every space.",
       "pluginsTitle": "Plugins",
       "pluginsHint": "Connector definitions enabled in this space, including ones that still need an account.",
       "appearanceLabel": "Colour and icon",
@@ -1117,17 +1125,6 @@
       "catalogSearching": "Looking for related matches…",
       "moduleAddTitle": "Add {{name}}",
       "moduleDescriptionFallback": "This module has no description yet.",
-      "accountAccessLabel": "Engenty access",
-      "accountAccess": {
-        "none": "People only",
-        "read": "Look up only",
-        "write": "May read and act"
-      },
-      "accountAccessHint": {
-        "none": "The account is available in this space for people. Engentys get nothing from it.",
-        "read": "Engentys in this space may read from this account, never write.",
-        "write": "Engentys in this space may read and act with this account. Its own approval rules still apply."
-      },
       "moduleAccessLabel": "Engenty access",
       "moduleAccessSummary": "Engentys: {{access}}",
       "moduleAccess": {
@@ -1147,7 +1144,6 @@
       "moduleRemoveHint": "Removing the module hides it in this space. Its records are not deleted.",
       "recommended": "Recommended",
       "recommendedSection": "Recommended for this space",
-      "connectLater": "Connect after creating",
       "agentSearch": "Search engentys…",
       "agentInSpaceSection": "In this space",
       "agentAvailableSection": "More engentys",
@@ -1168,7 +1164,6 @@
       "agentRemoveHint": "Removing the engenty hides it in this space. The agent itself and its data are not deleted.",
       "skillSearch": "Search skills…",
       "skillSearchPrompt": "Search extra skills this space needs beyond the apps you chose.",
-      "connectionSearch": "Search connected accounts…",
       "resourceInSpaceSection": "In this space",
       "resourceAvailableSection": "Available",
       "resourceInSpace": "In space",
@@ -1179,7 +1174,6 @@
       "resourceDescriptionFallback": "No description is available yet.",
       "resourceNoMatches": "No matching items.",
       "skillAccessHint": "This skill becomes available to engentys working in the space. It remains in the tenant skill library.",
-      "connectionAccessHint": "This connected account becomes reachable from the space. Its own action and approval policies still apply.",
       "resourceRemove": "Remove from space",
       "resourceRemoveHint": "Removing this access does not delete the skill, account or its data.",
       "moduleNotReady": "{{module}} is in this space but not ready yet: {{detail}}",
@@ -1333,7 +1327,11 @@
         "agents": "Agents",
         "pinned": "Favourites",
         "active": "Active",
-        "quiet": "Inactive"
+        "quiet": "Inactive",
+        "attention": "Important"
+      },
+      "attention": {
+        "all": "All ({{count}})"
       }
     },
     "notFound": "That space is not available.",
@@ -1356,6 +1354,10 @@
       "networkTitle": "Internet access",
       "networkHint": "Lets this Space's computer install packages and call outside APIs. Off, it still runs code and uses Engenty's own tools.",
       "networkHintReset": "Takes effect after a Reset.",
+      "egressHostsTitle": "Allowed hosts",
+      "egressHostsHint": "Extra hosts this Space's computer may reach, one per line — e.g. the API of a CLI you install. Package registries are always allowed. *.example.com allows every subdomain. Applies on the next run.",
+      "egressHostsInvalid": "Not a host: {{hosts}}",
+      "egressHostsTooMany": "At most {{max}} hosts.",
       "networkInherit": "Host default",
       "inheritResolved": "{{label}} — {{value}}",
       "network": {
@@ -1693,7 +1695,8 @@
       "answer": "Answer",
       "approve": "Approve",
       "fix": "Fix",
-      "review": "Review"
+      "review": "Review",
+      "continue": "Continue"
     },
     "approval": {
       "allowAlways": "Always allow for this agent",
@@ -1704,10 +1707,7 @@
       "decided": "Decided: {{decision}}",
       "deny": "Deny",
       "failed": "Could not record the decision.",
-      "risk": "{{level}} risk",
-      "summary": "{{actor}} wants to run {{operation}} in {{space}}",
-      "summaryCompact": "{{operation}}",
-      "summaryGlobal": "{{actor}} wants to run {{operation}}"
+      "risk": "{{level}} risk"
     },
     "bell": "Notifications",
     "clearAll": "Clear all",
@@ -1720,7 +1720,8 @@
       "all": "All",
       "errors": "Errors",
       "hitl": "Needs your input",
-      "updates": "Updates"
+      "updates": "Updates",
+      "attention": "Important"
     },
     "inboxTitle": {
       "errors_one": "{{count}} error",
@@ -1728,13 +1729,16 @@
       "hitl_one": "{{count}} open approval",
       "hitl_other": "{{count}} open approvals",
       "updates_one": "{{count}} update",
-      "updates_other": "{{count}} updates"
+      "updates_other": "{{count}} updates",
+      "attention_one": "{{count}} important",
+      "attention_other": "{{count}} important"
     },
     "lane": {
       "approvals": "Approvals",
       "errors": "Errors",
       "needsYou": "Needs your input",
-      "updates": "Updates"
+      "updates": "Updates",
+      "attention": "Important"
     },
     "loadFailed": "Failed to load notifications.",
     "loading": "Loading…",
@@ -1747,12 +1751,58 @@
       "thisSpace": "This space"
     },
     "searchPlaceholder": "Search notifications…",
-    "spaceCard": "{{count}} things need your attention in this space",
     "subtitle": "Approvals, failures and completed agent work that need your attention.",
     "title": "Notifications",
     "viewAll": "View all",
     "views": {
       "save": "Save current filter"
+    },
+    "actorFilter": {
+      "clear": "Show everyone"
+    },
+    "open": "Open",
+    "titles": {
+      "action_failed": "Workflow \"{{name}}\" failed",
+      "action_gate": "Workflow \"{{name}}\" is waiting for your decision",
+      "action_question": "Workflow \"{{name}}\" has a question",
+      "agent_desk_post": "{{actor}} posted an update",
+      "agent_handoff": "{{from}} handed work to {{to}}",
+      "agent_hired": "{{name}} joined the team",
+      "agent_look_proposed": "{{actor}} proposed a new look",
+      "agent_proposed": "New agent \"{{name}}\" to review",
+      "agent_question": "{{actor}} has a question",
+      "agent_reply": "{{from}} replied to {{to}}",
+      "agent_revision_proposed": "Changes to \"{{name}}\" to review",
+      "agent_run_suspended": "{{actor}} proposed changes to review",
+      "app_release_proposed": "\"{{name}}\" v{{version}} is ready to publish",
+      "approval_requested": "{{actor}} wants to run {{operation}}",
+      "records_written": "{{actor}} ran {{operation}}",
+      "room_paused": "\"{{name}}\" paused after {{count}} turns",
+      "routine_created": "{{actor}} created the routine \"{{name}}\"",
+      "routine_failed": "Routine \"{{name}}\" failed",
+      "routine_outcome": "Update from \"{{name}}\"",
+      "routine_review": "Routine \"{{name}}\" finished — review the result",
+      "skill_proposed": "New skill \"{{name}}\" to review",
+      "connector_import_requested": "Import \"{{name}}\" as a connector?",
+      "stream_escalation": "{{actor}} needs your attention",
+      "stream_update": "Update from {{actor}}",
+      "task_completed": "\"{{task}}\" is done",
+      "task_failed": "\"{{task}}\" failed",
+      "task_needs_input": "\"{{task}}\" needs your input",
+      "task_question": "\"{{task}}\" has a question",
+      "task_review_requested": "\"{{task}}\" is ready for review",
+      "team_chat_dm": "{{actor}} sent you a message",
+      "team_chat_mention": "{{actor}} mentioned you in {{name}}",
+      "team_chat_message": "{{actor}} wrote in {{name}}",
+      "team_chat_reply": "{{actor}} replied in {{name}}",
+      "tool_approval": "{{actor}} wants to use {{operation}}",
+      "workflow_proposed": "Workflow \"{{name}}\" to review",
+      "workflow_revised": "Workflow \"{{name}}\" v{{version}} to review"
+    },
+    "group": {
+      "more": "+{{count}} more",
+      "moreFrom": "+{{count}} more from {{name}}",
+      "less": "Show less"
     }
   }
 }

@@ -1,4 +1,3 @@
-import { DEFAULT_AI_CHAT_MODEL_ID } from "@engenty/ai-core/browser";
 import { describe, expect, it } from "vitest";
 import {
   agentIdFromHireName,
@@ -89,12 +88,12 @@ describe("space agent hire", () => {
       description: "Turns notes into an on-brand deck.",
       engenty: "round",
       id: "deck-designer",
-      model: DEFAULT_AI_CHAT_MODEL_ID,
       name: "Deck Designer",
       skillIds: [],
       spaceIds: ["space-1"],
       toolIds: ["engenty_tools_search", "engenty_tool_execute"],
     });
+    expect(input).not.toHaveProperty("model");
     expect(input.instructions).toContain("Turns notes into an on-brand deck.");
   });
 

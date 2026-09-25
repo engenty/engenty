@@ -1,3 +1,4 @@
+import { resolveChatModelId } from "@engenty/ai-core";
 import { fetchText } from "@engenty/document-sources";
 import { createLogger } from "@engenty/telemetry";
 import type { HtmlExtractPatternSuggestion } from "@engenty/web-ingest";
@@ -36,9 +37,14 @@ async function suggestFromSamples(
   sampleUrls: readonly string[]
 ): Promise<Record<string, unknown>> {
   const suggestions: HtmlExtractPatternSuggestion[] = [];
+  const model = resolveChatModelId({ purpose: "fast_text" });
   for (const url of sampleUrls) {
     const html = await fetchText(url);
-    const s = await suggestHtmlExtractPatternsFromHtml({ html, pageUrl: url });
+    const s = await suggestHtmlExtractPatternsFromHtml({
+      html,
+      model,
+      pageUrl: url,
+    });
     suggestions.push(s);
   }
   const merged = mergeHtmlExtractPatternSuggestions(suggestions);

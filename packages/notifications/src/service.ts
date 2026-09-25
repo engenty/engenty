@@ -28,6 +28,14 @@ import {
   type NotificationsStore,
 } from "./dal/store.js";
 import { type OriginLookups, resolveOrigin } from "./origin.js";
+import {
+  clip,
+  type NotificationTitle,
+  notificationBody,
+  notificationTarget,
+  renderNotificationTitle,
+  TITLE_MAX,
+} from "./presentation.js";
 
 export interface EmitNotificationInput {
   actor?: NotificationActor | null;
@@ -39,6 +47,11 @@ export interface EmitNotificationInput {
   assigneeUserId?: string | null;
   /** Explicit target. Absent → the ladder below decides. */
   audience?: NotificationAudience | null;
+  /**
+   * One plain line under the title — a question, an error class, the first
+   * line of a report. Cut to one line of 140; never the whole agent output.
+   */
+  body?: string | null;
   coalesceKey?: string | null;
   /**
    * With a coalesce key: only merge into a row touched within this window
@@ -79,8 +92,22 @@ export interface EmitNotificationInput {
    * row; only subscribers get a channel.
    */
   subscribers?: readonly string[] | null;
-  summary: string;
+  /**
+   * English fallback line. Optional with a `title`: the rendered title is the
+   * summary then; a producer passes one only for a title that may miss a name.
+   */
+  summary?: string | null;
+  /**
+   * In-app route of the subject. Absent → built from the record's ids and
+   * its own space (`notificationTarget`).
+   */
+  target?: string | null;
   tenantId: string;
+  /**
+   * What the row says, as a key + names (`NOTIFICATION_TITLES`). `{actor}`
+   * and `{space}` default to the origin labels.
+   */
+  title?: NotificationTitle | null;
 }
 
 export interface ResolveNotificationsInput {
@@ -114,6 +141,64 @@ export interface NotificationsServiceOptions {
 }
 
 const SUMMARY_MAX = 500;
+
+/**
+ * Title, summary, body and target for a record, after origin enrichment:
+ * the names come from the labels, the target from the record's own space.
+ */
+export function presentNotification(input: EmitNotificationInput): {
+  body: string | null;
+  summary: string;
+  target: string | null;
+  title_key: string | null;
+  title_params: Record<string, string | number> | null;
+} {
+  const meta = input.metadata ?? {};
+  const label = (key: string) =>
+    typeof meta[key] === "string" && (meta[key] as string).trim()
+      ? (meta[key] as string)
+      : undefined;
+  const params: Record<string, string | number> = {};
+  const actor = label("actor_label");
+  const space = label("space_name");
+  if (actor) {
+    params.actor = actor;
+  }
+  if (space) {
+    params.space = space;
+  }
+  Object.assign(params, input.title?.params ?? {});
+  const rendered = input.title
+    ? renderNotificationTitle(input.title.key, params)
+    : null;
+  const fallback = input.summary?.trim() || "";
+  const summary = (rendered ?? fallback).slice(0, SUMMARY_MAX);
+  if (!summary) {
+    throw new Error(
+      `notifications: kind "${input.kind}" emitted without a title or summary`
+    );
+  }
+  const target =
+    typeof input.target === "string" && input.target.startsWith("/")
+      ? input.target
+      : notificationTarget({
+          actor_id: input.actor?.id ?? null,
+          actor_kind: input.actor?.kind ?? null,
+          kind: input.kind,
+          metadata: meta,
+          subject_id: input.subject?.id ?? null,
+          subject_type: input.subject?.type ?? null,
+        });
+  return {
+    body: notificationBody(input.body),
+    summary: rendered ? summary : clip(summary, TITLE_MAX),
+    target,
+    // A title that missed a name is not stored: the UI would say it with a
+    // hole. The summary (the producer's fallback) is what the row shows.
+    title_key: rendered && input.title ? input.title.key : null,
+    title_params: rendered ? params : null,
+  };
+}
 
 /**
  * "HH:MM-HH:MM" quiet hours → the instant a delivery may go out. Inside the
@@ -397,7 +482,8 @@ export function createNotificationsService(
     audience: NotificationAudience,
     keys: { coalesceKey: string | null; dedupeKey: string | null }
   ): Promise<NotificationRecord> {
-    const summary = input.summary.trim().slice(0, SUMMARY_MAX);
+    const presented = presentNotification(input);
+    const { summary } = presented;
     // A stream must exist: an emit into a typo would otherwise create an
     // inbox nobody is watching.
     const stream =
@@ -421,6 +507,12 @@ export function createNotificationsService(
       if (existing) {
         const merged = await store.touchCoalesced({
           id: existing.id,
+          patch: {
+            body: presented.body,
+            target: presented.target ?? existing.target,
+            title_key: presented.title_key,
+            title_params: presented.title_params,
+          },
           summary,
           tenantId: input.tenantId,
         });
@@ -445,10 +537,14 @@ export function createNotificationsService(
         const merged = await store.touchCoalesced({
           id: open.id,
           patch: {
+            body: presented.body,
             dedupe_key: keys.dedupeKey,
             metadata: input.metadata ?? null,
             payload: input.payload ?? null,
             subject_id: input.subject?.id ?? null,
+            target: presented.target,
+            title_key: presented.title_key,
+            title_params: presented.title_params,
           },
           summary,
           tenantId: input.tenantId,
@@ -469,6 +565,7 @@ export function createNotificationsService(
               ? audience.spaceId
               : null,
       audience_kind: audience.kind,
+      body: presented.body,
       class: cls,
       coalesce_key: keys.coalesceKey,
       dedupe_key: keys.dedupeKey,
@@ -485,7 +582,10 @@ export function createNotificationsService(
       subject_id: input.subject?.id ?? null,
       subject_type: input.subject?.type ?? null,
       summary,
+      target: presented.target,
       tenant_id: input.tenantId,
+      title_key: presented.title_key,
+      title_params: presented.title_params,
     });
 
     const now = new Date();
@@ -586,10 +686,11 @@ export function createNotificationsService(
   }
 
   return {
-    async count(
+    /** Open attention rows (`isAttention`), tenant-wide and in the space. */
+    async countAttention(
       input: AudienceScope & { spaceId: string | null; tenantId: string }
     ) {
-      return store.countOpen(input);
+      return store.countAttention(input);
     },
 
     /**

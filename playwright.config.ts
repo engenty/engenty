@@ -6,6 +6,13 @@ import { defineConfig, devices } from "@playwright/test";
 // Playwright boot it. Every spec logs in itself via /auth/agent-login (needs
 // ENGENTY_DEV_PASS in .env.local, non-prod only) — see gotoLoggedIn(); a
 // shared storageState breaks under refresh-token rotation.
+//
+// Interaction budgets live in e2e/smoke/interaction.smoke.spec.ts. Required
+// on react / react-dom / react-router-dom upgrades because `BrowserRouter
+// useTransitions={false}` is the escape hatch for useSyncExternalStore
+// starving startTransition (React 5s expiration). Production-build timings
+// use `pnpm test:smoke:prod` once ENGENTY_E2E_BASE_URL points at a prod
+// gateway serving apps/ui/dist — see scripts/e2e-prod-preview.mjs.
 export default defineConfig({
   expect: { timeout: 10_000 },
   forbidOnly: !!process.env.CI,

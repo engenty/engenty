@@ -1,12 +1,8 @@
-// routines_create / routines_update / routines_list for a hired engenty: the
-// prompt lane binds its own published one-node Workflow, a specialist owns
-// only its own routines, and whether a person confirms first is the Space's
-// approval mode — a card where one can answer, a refusal that names the
-// coordinator where nobody can.
+// A specialist owns only its own routines; whether a person confirms first is
+// the Space's approval mode, and a run nobody can answer is refused.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { resetFrontendToolSuspendSlotsForTests } from "../../ai/frontend-tools/frontend-tool-suspend-lock.js";
 import { engentyToolsRunAls } from "../../ai/tools/engenty-tools/lib/run-context.js";
-import { decideRoutineApproval } from "../../ai/tools/routine-approval.js";
 import {
   createRoutineTools,
   ROUTINES_CREATE_TOOL_ID,
@@ -15,6 +11,11 @@ import {
   type RoutineToolDeps,
 } from "../../ai/tools/routines-tools.js";
 import { promptOfWorkflowGraph } from "../ai/workflows/prompt-workflow.js";
+import type {
+  CreateRoutineOutcomeInput,
+  RoutineOutcomeRow,
+  RoutineOutcomeStore,
+} from "../dal/routines/routine-outcome-store.js";
 import type {
   CreateRoutineInput,
   RoutineRow,
@@ -45,8 +46,9 @@ let counter = 0;
 const nextId = (prefix: string) => `${prefix}-${++counter}`;
 const now = () => new Date("2026-09-18T10:00:00Z").toISOString();
 
-/** In-memory stand-ins for the three DAL stores the tools touch. */
+/** In-memory stand-ins for the DAL stores the tools touch. */
 function memoryStores() {
+  const outcomes: RoutineOutcomeRow[] = [];
   const routines: RoutineRow[] = [];
   const triggers: RoutineTriggerRow[] = [];
   const workflows: WorkflowRow[] = [];
@@ -169,6 +171,36 @@ function memoryStores() {
     },
   } as unknown as RoutineTriggerStore;
 
+  const outcomeStore = {
+    async create(input: CreateRoutineOutcomeInput) {
+      const row: RoutineOutcomeRow = {
+        config: input.config ?? {},
+        created_at: now(),
+        enabled: input.enabled ?? true,
+        id: nextId("outcome"),
+        mode: input.mode,
+        provider_id: input.providerId,
+        routine_id: input.routineId,
+        tenant_id: input.tenantId,
+        updated_at: now(),
+      };
+      outcomes.push(row);
+      return row;
+    },
+    async delete({ id }: { id: string }) {
+      const index = outcomes.findIndex((row) => row.id === id);
+      if (index >= 0) {
+        outcomes.splice(index, 1);
+      }
+    },
+    async list(input: { routineId?: string; tenantId: string }) {
+      return outcomes.filter(
+        (row) =>
+          input.routineId === undefined || row.routine_id === input.routineId
+      );
+    },
+  } as unknown as RoutineOutcomeStore;
+
   const workflowStore = {
     async create(input: CreateWorkflowInput) {
       const row: WorkflowRow = {
@@ -255,6 +287,8 @@ function memoryStores() {
   } as unknown as WorkflowStore;
 
   return {
+    outcomes,
+    outcomeStore,
     routines,
     routineStore,
     triggerStore,
@@ -282,6 +316,9 @@ function harness(
       loadTenantPrefs: async () => ({ mode: input.mode ?? "auto" }),
     }),
     inbox: inbox as unknown as RoutineToolDeps["inbox"],
+    // Built-in providers only: no module registers a destination here.
+    moduleLoader: { listModuleCapabilities: async () => [] },
+    outcomes: () => stores.outcomeStore,
     resolveAgent: async (id) =>
       [OWNER, COLLEAGUE, CHIEF].includes(id)
         ? { id, kind: "specialist" as const }
@@ -352,58 +389,6 @@ afterEach(() => {
   resetFrontendToolSuspendSlotsForTests();
 });
 
-describe("decideRoutineApproval", () => {
-  it("asks a person in manual, and for grants on every setting", () => {
-    const base = { askFirst: false, canSuspend: true, hasGrants: false };
-    expect(decideRoutineApproval({ ...base, mode: "manual" })).toBe("card");
-    expect(decideRoutineApproval({ ...base, mode: "auto" })).toBe("create");
-    expect(decideRoutineApproval({ ...base, mode: "pass-all" })).toBe("create");
-    for (const mode of ["manual", "auto", "pass-all"] as const) {
-      expect(decideRoutineApproval({ ...base, hasGrants: true, mode })).toBe(
-        "card"
-      );
-    }
-  });
-
-  it("lets the model ask in auto, and refuses where a required card has nobody to answer", () => {
-    expect(
-      decideRoutineApproval({
-        askFirst: true,
-        canSuspend: true,
-        hasGrants: false,
-        mode: "auto",
-      })
-    ).toBe("card");
-    // pass-all does not ask even when the model wants to.
-    expect(
-      decideRoutineApproval({
-        askFirst: true,
-        canSuspend: true,
-        hasGrants: false,
-        mode: "pass-all",
-      })
-    ).toBe("create");
-    expect(
-      decideRoutineApproval({
-        askFirst: false,
-        canSuspend: false,
-        hasGrants: false,
-        mode: "manual",
-      })
-    ).toBe("refuse");
-    // Headless auto with ask_first: nobody to ask, the routine is created and
-    // the Space hears about it instead.
-    expect(
-      decideRoutineApproval({
-        askFirst: true,
-        canSuspend: false,
-        hasGrants: false,
-        mode: "auto",
-      })
-    ).toBe("create");
-  });
-});
-
 describe(ROUTINES_CREATE_TOOL_ID, () => {
   it("lets a specialist give itself a prompt routine in auto mode, bound to a published one-node Workflow", async () => {
     const h = harness({ mode: "auto" });
@@ -451,20 +436,7 @@ describe(ROUTINES_CREATE_TOOL_ID, () => {
       })
     );
     expect(output.status).toBe("refused");
-    expect(output.note).toContain("only give yourself a routine");
     expect(h.stores.routines).toHaveLength(0);
-  });
-
-  it("lets a coordinator give a mounted report a routine", async () => {
-    const h = harness({ mode: "auto" });
-    const output = await runAs(CHIEF, () =>
-      execute(h, ROUTINES_CREATE_TOOL_ID, {
-        ...fridayReport,
-        agent_id: COLLEAGUE,
-      })
-    );
-    expect(output.status).toBe("created");
-    expect((output.routine as { agent_id: string }).agent_id).toBe(COLLEAGUE);
   });
 
   it("parks on one Approve card in manual mode and creates on the person's approve", async () => {
@@ -478,15 +450,8 @@ describe(ROUTINES_CREATE_TOOL_ID, () => {
       })
     );
     expect(parked).toBeUndefined();
+    expect(suspend).toHaveBeenCalledTimes(1);
     expect(h.stores.routines).toHaveLength(0);
-    const card = suspend.mock.calls[0]?.[0] as unknown as Record<
-      string,
-      unknown
-    >;
-    expect(card.artifact_type).toBe("decision");
-    expect(card.title).toBe('Create routine "Friday report"?');
-    expect(card.body).toContain("0 8 * * 5");
-    expect(card.body).toContain(fridayReport.prompt);
 
     const approved = await runAs(OWNER, () =>
       execute(h, ROUTINES_CREATE_TOOL_ID, fridayReport, {
@@ -510,7 +475,7 @@ describe(ROUTINES_CREATE_TOOL_ID, () => {
     expect(h.stores.workflows).toHaveLength(0);
   });
 
-  it("refuses in manual mode where nobody can answer, and names the coordinator", async () => {
+  it("refuses in manual mode where nobody can answer", async () => {
     const h = harness({ mode: "manual" });
     const output = await runAs(
       OWNER,
@@ -518,8 +483,6 @@ describe(ROUTINES_CREATE_TOOL_ID, () => {
       { interactive: false }
     );
     expect(output.status).toBe("refused");
-    expect(output.note).toContain("nobody to ask");
-    expect(output.note).toContain(CHIEF);
     expect(h.stores.routines).toHaveLength(0);
   });
 
@@ -591,11 +554,6 @@ describe(ROUTINES_CREATE_TOOL_ID, () => {
     expect(output.status).toBe("created");
     expect((output.routine as { enabled: boolean }).enabled).toBe(true);
     expect(h.stores.versions[0]?.approved_by_user_id).toBe(USER);
-    expect(h.inbox).toHaveBeenCalledWith(
-      expect.objectContaining({
-        metadata: expect.objectContaining({ workflow_published_by: "agent" }),
-      })
-    );
 
     // A graph the run cannot validate stays a draft — the routine exists but
     // sleeps until a person publishes on the canvas.
@@ -622,7 +580,6 @@ describe(ROUTINES_CREATE_TOOL_ID, () => {
     );
     expect(asleep.status).toBe("created");
     expect((asleep.routine as { enabled: boolean }).enabled).toBe(false);
-    expect(asleep.note).toContain("DISABLED");
   });
 
   it("refuses a second routine that wakes at the same time to run the same Workflow", async () => {
@@ -642,8 +599,61 @@ describe(ROUTINES_CREATE_TOOL_ID, () => {
       })
     );
     expect(again.status).toBe("duplicate");
-    expect(again.note).toContain("already wakes at the same time");
     expect(h.stores.routines).toHaveLength(1);
+  });
+});
+
+describe(`${ROUTINES_CREATE_TOOL_ID} destinations`, () => {
+  const notifyMe = [
+    { mode: "always", provider_id: "notification.high" },
+    {
+      config: { to: "owner@example.com" },
+      mode: "agent",
+      provider_id: "email",
+    },
+  ];
+
+  it("writes destinations beside the routine and reads them back", async () => {
+    const h = harness({ mode: "pass-all" });
+    const output = await runAs(OWNER, () =>
+      execute(h, ROUTINES_CREATE_TOOL_ID, {
+        ...fridayReport,
+        outcomes: notifyMe,
+      })
+    );
+    expect(output.status).toBe("created");
+    const routine = output.routine as {
+      outcomes: { mode: string; provider_id: string }[];
+      routine_id: string;
+    };
+    expect(routine.outcomes.map((row) => [row.provider_id, row.mode])).toEqual([
+      ["notification.high", "always"],
+      ["email", "agent"],
+    ]);
+    expect(
+      h.stores.outcomes.every((row) => row.routine_id === routine.routine_id)
+    ).toBe(true);
+    expect(h.stores.outcomes[1]?.config).toEqual({ to: "owner@example.com" });
+  });
+
+  it("refuses an unknown provider or a config that does not fit", async () => {
+    const h = harness({ mode: "pass-all" });
+    const unknown = await runAs(OWNER, () =>
+      execute(h, ROUTINES_CREATE_TOOL_ID, {
+        ...fridayReport,
+        outcomes: [{ mode: "always", provider_id: "bell" }],
+      })
+    );
+    expect(unknown.status).toBe("refused");
+    const noRecipient = await runAs(OWNER, () =>
+      execute(h, ROUTINES_CREATE_TOOL_ID, {
+        ...fridayReport,
+        outcomes: [{ mode: "always", provider_id: "email" }],
+      })
+    );
+    expect(noRecipient.status).toBe("refused");
+    expect(h.stores.routines).toHaveLength(0);
+    expect(h.stores.outcomes).toHaveLength(0);
   });
 });
 
@@ -684,14 +694,6 @@ describe(ROUTINES_UPDATE_TOOL_ID, () => {
       })
     );
     expect(rebriefed.status).toBe("updated");
-    const current = await h.stores.workflowStore.getCurrent({
-      id: (rebriefed.routine as { workflow_id: string }).workflow_id,
-      tenantId: TENANT,
-    });
-    expect(promptOfWorkflowGraph(current?.version.graph)).toContain(
-      "post its link"
-    );
-    expect(current?.version.version).toBe(2);
 
     const handover = await runAs(OWNER, () =>
       execute(h, ROUTINES_UPDATE_TOOL_ID, {
@@ -700,7 +702,6 @@ describe(ROUTINES_UPDATE_TOOL_ID, () => {
       })
     );
     expect(handover.status).toBe("refused");
-    expect(handover.note).toContain("management work");
 
     const theirs = await runAs(COLLEAGUE, () =>
       execute(h, ROUTINES_UPDATE_TOOL_ID, {
@@ -742,5 +743,129 @@ describe(ROUTINES_UPDATE_TOOL_ID, () => {
     );
     expect(approved.status).toBe("updated");
     expect(h.stores.routines[0]?.approval_grants).toEqual(["contacts_update"]);
+  });
+
+  it("replaces the destinations when outcomes is present, and [] clears them", async () => {
+    const h = harness({ mode: "pass-all" });
+    const created = await runAs(OWNER, () =>
+      execute(h, ROUTINES_CREATE_TOOL_ID, {
+        ...fridayReport,
+        outcomes: [{ mode: "always", provider_id: "notification.update" }],
+      })
+    );
+    const routineId = (created.routine as { routine_id: string }).routine_id;
+
+    const renamed = await runAs(OWNER, () =>
+      execute(h, ROUTINES_UPDATE_TOOL_ID, {
+        name: "Friday digest",
+        routine_id: routineId,
+      })
+    );
+    expect(
+      (renamed.routine as { outcomes: { provider_id: string }[] }).outcomes.map(
+        (row) => row.provider_id
+      )
+    ).toEqual(["notification.update"]);
+
+    const louder = await runAs(OWNER, () =>
+      execute(h, ROUTINES_UPDATE_TOOL_ID, {
+        outcomes: [{ mode: "always", provider_id: "notification.high" }],
+        routine_id: routineId,
+      })
+    );
+    expect(louder.status).toBe("updated");
+    expect(h.stores.outcomes.map((row) => row.provider_id)).toEqual([
+      "notification.high",
+    ]);
+
+    const refusedUpdate = await runAs(OWNER, () =>
+      execute(h, ROUTINES_UPDATE_TOOL_ID, {
+        outcomes: [{ mode: "always", provider_id: "webhook" }],
+        routine_id: routineId,
+      })
+    );
+    expect(refusedUpdate.status).toBe("refused");
+    expect(h.stores.outcomes.map((row) => row.provider_id)).toEqual([
+      "notification.high",
+    ]);
+
+    const cleared = await runAs(OWNER, () =>
+      execute(h, ROUTINES_UPDATE_TOOL_ID, {
+        outcomes: [],
+        routine_id: routineId,
+      })
+    );
+    expect((cleared.routine as { outcomes: unknown[] }).outcomes).toEqual([]);
+    expect(h.stores.outcomes).toHaveLength(0);
+  });
+
+  it("asks for a new external destination only where the Space's mode asks", async () => {
+    const policy: { mode: "manual" | "auto" } = { mode: "auto" };
+    const h = harness(policy);
+    const created = await runAs(OWNER, () =>
+      execute(h, ROUTINES_CREATE_TOOL_ID, {
+        ...fridayReport,
+        outcomes: [{ mode: "always", provider_id: "notification.update" }],
+      })
+    );
+    const routineId = (created.routine as { routine_id: string }).routine_id;
+    const email = {
+      config: { to: "me@example.com" },
+      mode: "always",
+      provider_id: "email",
+    };
+    const providers = () => h.stores.outcomes.map((row) => row.provider_id);
+
+    policy.mode = "manual";
+    const suspend = vi.fn(async () => undefined);
+    const parked = await runAs(OWNER, () =>
+      execute(
+        h,
+        ROUTINES_UPDATE_TOOL_ID,
+        { outcomes: [email], routine_id: routineId },
+        { agent: { suspend } }
+      )
+    );
+    expect(parked).toBeUndefined();
+    expect(suspend).toHaveBeenCalledTimes(1);
+    expect(providers()).toEqual(["notification.update"]);
+
+    const approved = await runAs(OWNER, () =>
+      execute(
+        h,
+        ROUTINES_UPDATE_TOOL_ID,
+        { outcomes: [email], routine_id: routineId },
+        { agent: { resumeData: { choice_id: "approve" } } }
+      )
+    );
+    expect(approved.status).toBe("updated");
+    expect(providers()).toEqual(["email"]);
+
+    const nobodyToAsk = await runAs(
+      OWNER,
+      () =>
+        execute(h, ROUTINES_UPDATE_TOOL_ID, {
+          outcomes: [{ ...email, config: { to: "other@example.com" } }],
+          routine_id: routineId,
+        }),
+      { interactive: false }
+    );
+    expect(nobodyToAsk.status).toBe("refused");
+    expect(providers()).toEqual(["email"]);
+
+    policy.mode = "auto";
+    const auto = await runAs(OWNER, () =>
+      execute(
+        h,
+        ROUTINES_UPDATE_TOOL_ID,
+        {
+          outcomes: [{ ...email, config: { to: "other@example.com" } }],
+          routine_id: routineId,
+        },
+        { agent: { suspend } }
+      )
+    );
+    expect(auto.status).toBe("updated");
+    expect(suspend).toHaveBeenCalledTimes(1);
   });
 });

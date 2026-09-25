@@ -60,18 +60,24 @@ export function ThreadContextPane({
   header,
   hostKey,
   layout = "float",
+  showContext = true,
 }: {
   children: ReactNode;
   /** Column layout only: rendered above the chat, in the chat's column. */
   header?: ReactNode;
   hostKey: string;
   layout?: "column" | "float";
+  /**
+   * False where the host's skills and memory say nothing about the thread —
+   * an agent-to-agent thread on its desk. The card and its topbar icon hide.
+   */
+  showContext?: boolean;
 }) {
   const summary = useThreadContextSummary(hostKey);
   // An engenty's own skills, memory and files count as context even before
   // the thread has touched anything: the card is not empty on a fresh desk.
   const owned = useAgentOwnedContext(hostKey);
-  const isEmpty = summary.isEmpty && !hasOwnedContext(owned);
+  const isEmpty = !showContext || (summary.isEmpty && !hasOwnedContext(owned));
   const { paneOpen } = useArtifacts(hostKey);
   // Any pane in the workspace end column — artifact, browser, agent settings —
   // is the same screen real estate this card floats in. Two stacked cards read

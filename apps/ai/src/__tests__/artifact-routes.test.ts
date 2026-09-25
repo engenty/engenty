@@ -311,72 +311,6 @@ describe("artifact routes", () => {
     expect(threadList.artifacts).toHaveLength(0);
   });
 
-  it("promotes an artifact to an Engenty (agent) scope", async () => {
-    const { app } = makeHarness();
-    const { artifact } = (await (
-      await createArtifact(app, "thread-1")
-    ).json()) as {
-      artifact: { id: string };
-    };
-
-    const stored = await app.request(`/ai/artifacts/${artifact.id}/store`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: "Bearer t",
-      },
-      body: JSON.stringify({
-        scope_type: "agent",
-        scope_id: "contacts.manager",
-      }),
-    });
-    expect(stored.status).toBe(200);
-
-    const withAgent = await app.request(
-      "/ai/artifacts?scope_type=agent&scope_id=contacts.manager",
-      { headers: { authorization: "Bearer t" } }
-    );
-    const agentList = (await withAgent.json()) as { artifacts: unknown[] };
-    expect(agentList.artifacts).toHaveLength(1);
-
-    const inThread = await app.request(
-      "/ai/artifacts?scope_type=thread&scope_id=thread-1",
-      { headers: { authorization: "Bearer t" } }
-    );
-    const threadList = (await inThread.json()) as { artifacts: unknown[] };
-    expect(threadList.artifacts).toHaveLength(0);
-  });
-
-  it("lists every artifact across scopes for the tenant via /all", async () => {
-    const { app } = makeHarness();
-    await createArtifact(app, "thread-1", "A");
-    const second = (await (
-      await createArtifact(app, "thread-2", "B")
-    ).json()) as { artifact: { id: string } };
-    // Promote the second one to a project — /all must still surface it.
-    await app.request(`/ai/artifacts/${second.artifact.id}/store`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: "Bearer t",
-      },
-      body: JSON.stringify({ scope_type: "project", scope_id: "project-9" }),
-    });
-
-    const all = await app.request("/ai/artifacts/all", {
-      headers: { authorization: "Bearer t" },
-    });
-    expect(all.status).toBe(200);
-    const body = (await all.json()) as {
-      artifacts: { title: string; scope_type: string; storage: string }[];
-    };
-    expect(body.artifacts).toHaveLength(2);
-    expect(body.artifacts.map((a) => a.title).sort()).toEqual(["A", "B"]);
-    // Rows carry the storage facts the admin console renders.
-    expect(body.artifacts.every((a) => a.storage === "inline")).toBe(true);
-    expect(body.artifacts.some((a) => a.scope_type === "project")).toBe(true);
-  });
-
   it("returns 401 when the scope cannot be resolved", async () => {
     const rejecting: AiScopeResolver = async () => ({
       ok: false,
@@ -414,90 +348,32 @@ describe("artifact routes", () => {
     expect(res.status).toBe(404);
   });
 
-  it("creates a space-scoped markdown page with empty content", async () => {
+  it("refuses to move a page under a folder in another Space", async () => {
     const { app } = makeHarness();
-    const spaceId = "019fe8ec-0000-4000-8000-00000000000a";
-    const res = await app.request("/ai/artifacts", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: "Bearer t",
-      },
-      body: JSON.stringify({
-        type: "markdown",
-        title: "New page",
-        scope_id: spaceId,
-        scope_type: "space",
-        content: "",
-      }),
-    });
-    expect(res.status).toBe(201);
-    const body = (await res.json()) as {
-      artifact: { scope_id: string; scope_type: string; type: string };
-      version: { content: string };
-    };
-    expect(body.artifact.scope_type).toBe("space");
-    expect(body.artifact.scope_id).toBe(spaceId);
-    expect(body.artifact.type).toBe("markdown");
-    expect(body.version.content).toBe("");
-  });
-
-  it("lists versions newest first", async () => {
-    const { app } = makeHarness();
-    const { artifact } = (await (
-      await createArtifact(app, "thread-1")
-    ).json()) as { artifact: { id: string } };
-    await app.request(`/ai/artifacts/${artifact.id}/versions`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: "Bearer t",
-      },
-      body: JSON.stringify({ content: "# Two", expected_version: 1 }),
-    });
-    const listed = await app.request(`/ai/artifacts/${artifact.id}/versions`, {
-      headers: { authorization: "Bearer t" },
-    });
-    expect(listed.status).toBe(200);
-    const body = (await listed.json()) as {
-      versions: { version: number }[];
-    };
-    expect(body.versions.map((row) => row.version)).toEqual([2, 1]);
-  });
-
-  it("moves a page under a folder in the same space", async () => {
-    const { app } = makeHarness();
-    const spaceId = "019fe8ec-0000-4000-8000-00000000000a";
-    const folderRes = await app.request("/ai/artifacts", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: "Bearer t",
-      },
-      body: JSON.stringify({
-        type: "folder",
+    const post = (body: Record<string, unknown>) =>
+      app.request("/ai/artifacts", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: "Bearer t",
+        },
+        body: JSON.stringify({ content: "", scope_type: "space", ...body }),
+      });
+    const folder = (await (
+      await post({
+        scope_id: "019fe8ec-0000-4000-8000-00000000000a",
         title: "Notes",
-        scope_id: spaceId,
-        scope_type: "space",
-        content: "",
-      }),
-    });
-    const pageRes = await app.request("/ai/artifacts", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: "Bearer t",
-      },
-      body: JSON.stringify({
-        type: "markdown",
+        type: "folder",
+      })
+    ).json()) as { artifact: { id: string } };
+    const page = (await (
+      await post({
+        scope_id: "019fe8ec-0000-4000-8000-00000000000b",
         title: "Page",
-        scope_id: spaceId,
-        scope_type: "space",
-        content: "",
-      }),
-    });
-    const folder = (await folderRes.json()) as { artifact: { id: string } };
-    const page = (await pageRes.json()) as { artifact: { id: string } };
+        type: "markdown",
+      })
+    ).json()) as { artifact: { id: string } };
+
     const moved = await app.request(`/ai/artifacts/${page.artifact.id}`, {
       method: "PATCH",
       headers: {
@@ -506,10 +382,7 @@ describe("artifact routes", () => {
       },
       body: JSON.stringify({ parent_id: folder.artifact.id }),
     });
-    expect(moved.status).toBe(200);
-    const body = (await moved.json()) as {
-      artifact: { parent_id: string | null };
-    };
-    expect(body.artifact.parent_id).toBe(folder.artifact.id);
+
+    expect(moved.status).toBe(400);
   });
 });

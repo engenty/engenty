@@ -100,6 +100,44 @@ describe("pendingInterruptFromTranscript", () => {
     expect(open).toBeNull();
   });
 
+  it("never docks an older unanswered question behind a newer suspended one", () => {
+    // A natively suspended requestDecision has no artifact output yet. Walking
+    // past it docked the abandoned feedback question from an earlier turn while
+    // the real decision rendered inline — two open cards at once.
+    const open = pendingInterruptFromTranscript([
+      {
+        parts: [
+          {
+            type: "dynamic-tool",
+            toolCallId: "tc-old-feedback",
+            toolName: "requestFeedback",
+            state: "output-available",
+            output: {
+              artifact_id: "f-old",
+              artifact_type: "feedback",
+              interrupt_id: "f-old",
+              title: "Old question",
+            },
+          },
+        ],
+      },
+      { parts: [{ type: "text", text: "something else" }] },
+      {
+        parts: [
+          {
+            type: "dynamic-tool",
+            toolCallId: "tc-suspended",
+            toolName: "requestDecision",
+            state: "input-available",
+            input: { title: "Current question", choices: [] },
+          },
+        ],
+      },
+    ]);
+
+    expect(open).toBeNull();
+  });
+
   it("returns null when there is no interactive interrupt part", () => {
     expect(
       pendingInterruptFromTranscript([

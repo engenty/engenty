@@ -18,14 +18,13 @@ export function useCopilotInitialMessages(activeThreadId: string | null) {
     if (thread.threadId !== activeThreadId) {
       return;
     }
-    if (thread.isLoading || thread.messagesError || thread.isLoadingMessages) {
+    if (thread.messagesError || thread.isLoadingMessages) {
       return;
     }
     return thread.agUiMessages;
   }, [
     activeThreadId,
     thread.agUiMessages,
-    thread.isLoading,
     thread.isLoadingMessages,
     thread.messagesError,
     thread.threadId,

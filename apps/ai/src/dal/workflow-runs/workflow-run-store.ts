@@ -17,6 +17,8 @@ export type WorkflowRunStatus = "completed" | "failed" | "cancelled";
 
 export interface WorkflowRunRow {
   agent_id: string | null;
+  /** Artifact a routine outcome pointed at: `{ id, title }`. */
+  artifact_pointer?: { id: string; title: string } | null;
   context_id: string | null;
   context_type: string | null;
   created_at: string;
@@ -137,6 +139,12 @@ export interface WorkflowRunStore {
     routineId: string;
     tenantId: string;
   }): Promise<WorkflowRunRow[]>;
+  /** Record an artifact pointer from a routine outcome delivery. */
+  setArtifactPointer(input: {
+    id: string;
+    pointer: { id: string; title: string };
+    tenantId: string;
+  }): Promise<void>;
   /** Set a non-terminal status (e.g. 'requires_action' when suspended for approval). */
   setStatus(input: {
     id: string;
@@ -274,6 +282,19 @@ export function createWorkflowRunStore(source: DbSource): WorkflowRunStore {
         .eq("tenant_id", input.tenantId);
       if (error) {
         throw new Error(`workflow_run setStatus: ${error.message}`);
+      }
+    },
+
+    async setArtifactPointer(input) {
+      const { error } = await table(input.tenantId)
+        .update({
+          artifact_pointer: input.pointer,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", input.id)
+        .eq("tenant_id", input.tenantId);
+      if (error) {
+        throw new Error(`workflow_run setArtifactPointer: ${error.message}`);
       }
     },
 

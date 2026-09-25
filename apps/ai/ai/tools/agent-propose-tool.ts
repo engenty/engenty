@@ -5,11 +5,7 @@
 // with an Approve/Reject widget; that card must not write a second inbox row
 // (`durable_inbox` on the artifact).
 
-import {
-  AGENT_ENGENTY_KINDS,
-  resolveAgentEngenty,
-  resolveChatModelId,
-} from "@engenty/ai-core";
+import { AGENT_ENGENTY_KINDS, resolveAgentEngenty } from "@engenty/ai-core";
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 import { getEngentyCoreBaseUrlFromEnv } from "../../src/ai/core-http-client.js";
@@ -125,8 +121,8 @@ function configBody(
     description: input.description,
     engenty: input.engenty ?? resolveAgentEngenty(input.id),
     instructions: input.instructions,
-    model:
-      input.model ?? resolveChatModelId({ override: null, purpose: "chat" }),
+    // Unpinned: runs resolve the tenant default / role binding.
+    ...(input.model ? { model: input.model } : {}),
     // Floored, not replaced: an approved proposal must be able to act.
     // Eligibility below still reads the REQUESTED ids, so the go-live gate
     // is unchanged — naming extra tools still routes through a human.
@@ -249,12 +245,9 @@ export const agentProposeTool = createTool({
             source: "agents",
             spaceId,
             subject: { id: input.id, type: "agent" },
-            summary: `${proposedBy ?? "An agent"} hired ${input.name}${
-              input.tool_ids.length > 0
-                ? ` with ${input.tool_ids.join(", ")}`
-                : " (no tools)"
-            }`,
+            // The new agent's desk in this space (agent_id + space).
             tenantId: run.tenantId,
+            title: { key: "agent_hired", params: { name: input.name } },
             ...(run.userId ? { userId: run.userId } : {}),
           });
         }

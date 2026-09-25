@@ -270,6 +270,54 @@ describe("resolveUiPlugins", () => {
     ]);
   });
 
+  it("starts eligible plugin imports concurrently and registers in catalog order", async () => {
+    const importStarted: string[] = [];
+    const registered: string[] = [];
+    let resolveSlow!: (registrar: UiPluginRegistrar) => void;
+    const slowImport = new Promise<UiPluginRegistrar>((resolve) => {
+      resolveSlow = resolve;
+    });
+
+    const pending = resolveUiPlugins({
+      catalog: [
+        {
+          id: "slow",
+          loadUiPlugin: () => {
+            importStarted.push("slow");
+            return slowImport;
+          },
+        },
+        {
+          id: "fast",
+          loadUiPlugin: async () => {
+            importStarted.push("fast");
+            return () => {
+              registered.push("fast");
+            };
+          },
+        },
+        createCatalogEntry("skipped", () => {
+          registered.push("skipped");
+        }),
+      ],
+      plugins: [
+        { id: "slow", enabled: true, loaded: true },
+        { id: "fast", enabled: true, loaded: true },
+        { id: "skipped", enabled: false, loaded: true },
+      ],
+    });
+
+    expect(importStarted).toEqual(["slow", "fast"]);
+    expect(registered).toEqual([]);
+
+    resolveSlow(() => {
+      registered.push("slow");
+    });
+    await pending;
+
+    expect(registered).toEqual(["slow", "fast"]);
+  });
+
   it("emits warnings for duplicate ids and paths", async () => {
     const Page = () => null;
     const catalog = [

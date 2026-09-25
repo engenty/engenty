@@ -52,18 +52,23 @@ export {
 } from "./artifacts/artifact-renderers.js";
 export { ArtifactStoragePicker } from "./artifacts/artifact-storage-picker.js";
 export {
+  type A2uiSurfacePaneTab,
   type ArtifactPaneState,
   activateArtifact,
   clearArtifactsForTests,
+  closeA2uiSurfacePaneTab,
   closeObjectPaneTab,
   closeWorkFilePaneTab,
   getArtifactPaneOpen,
+  isA2uiSurfacePaneTabKey,
   isObjectPaneTabKey,
   isTransientPaneTabKey,
   isWorkFilePaneTabKey,
+  LIVE_A2UI_SURFACE_TAB_KEY,
   type ObjectPaneTab,
   objectPaneTabKey,
   objectRefFromPaneTabKey,
+  openA2uiSurfacePaneTab,
   openArtifactPane,
   openObjectPaneTab,
   openWorkFilePaneTab,
@@ -123,6 +128,7 @@ export {
   openAgUiAgentInspector,
 } from "./components/ag-ui-inspector/ag-ui-inspector-widget.js";
 export { AgentFace } from "./components/agent-face.js";
+export { MessageResponse } from "./components/ai-elements/message.js";
 export {
   PromptInput,
   PromptInputBody,
@@ -238,6 +244,11 @@ export {
   useThreadContextSummary,
   useThreadContextUi,
 } from "./components/copilot/thread-context/index.js";
+export {
+  applyChatStyle,
+  CHAT_STYLES,
+  type ChatStyle,
+} from "./components/copilot/transcript/chat-style.js";
 export { TranscriptLoadOlder } from "./components/copilot/transcript/transcript-load-older.js";
 export {
   CopilotVoiceFab,
@@ -394,11 +405,16 @@ export { AgentRoom } from "./features/agent-desk/agent-room.js";
 export type { AgentDeskSpacePerson } from "./features/agent-desk/agent-room-info-panel.js";
 export { CompanionWorkChat } from "./features/agent-desk/companion-work-chat.js";
 export {
+  fetchSpaceConversations,
+  ROOM_STATE_POLL_MS,
   type RoomVisibility,
+  roomKeys,
+  SPACE_CONVERSATIONS_POLL_MS,
   type SpaceConversations,
   type SpaceDmRow,
   type SpaceRoomDirectoryRow,
   type SpaceRoomRow,
+  spaceConversationsQueryOptions,
   useContinueRoomMutation,
   useJoinRoomMutation,
   useLeaveRoomMutation,
@@ -418,10 +434,17 @@ export {
 } from "./features/agent-desk/send-desk-message.js";
 export { useAgentDeskFeed } from "./features/agent-desk/use-agent-desk-feed.js";
 export {
+  AGENT_LIVE_ACTIVITY_IDLE_POLL_MS,
+  AGENT_LIVE_ACTIVITY_POLL_MS,
   type AgentLiveActivity,
+  agentLiveActivityPollMs,
   useAgentLiveActivity,
   useAgentLiveActivityMap,
 } from "./features/agent-desk/use-agent-live-activity.js";
+export {
+  type ChatPrefetch,
+  useChatPrefetch,
+} from "./features/agent-desk/use-chat-prefetch.js";
 export {
   AGENT_ROLE_TEMPLATES,
   type AgentRoleTemplate,
@@ -455,6 +478,10 @@ export { useEffortModelBindings } from "./features/ai-effort/use-effort-model-bi
 export { useEffortResolvedFeedback } from "./features/ai-effort/use-effort-resolved-feedback.js";
 export { CopilotAdminLinksSection } from "./features/ai-settings/copilot-admin-links-section.js";
 export { EffortTiersCard } from "./features/ai-settings/effort-tiers-card.js";
+export {
+  type BrowserTarget,
+  BrowserTargetProvider,
+} from "./features/browser/browser-target.js";
 export { CopilotBrowserPanel } from "./features/browser/copilot-browser-panel.js";
 export {
   mintUserBrowserTicket,
@@ -462,10 +489,10 @@ export {
   signOutUserBrowser,
   startUserBrowser,
   stopUserBrowser,
-  USER_BROWSER_QUERY_KEY,
   type UserBrowserGrant,
   type UserBrowserState,
   type UserBrowserStatus,
+  userBrowserQueryKey,
 } from "./features/browser/user-browser-api.js";
 export {
   UserBrowserPane,
@@ -476,6 +503,7 @@ export {
   type UserBrowserSeat,
   UserBrowserView,
 } from "./features/browser/user-browser-view.js";
+export { SkillProposalsCard } from "./features/skill-proposals/skill-proposals-card.js";
 export {
   organizeSpaceChats,
   SPACE_CHAT_KIND_ORDER,
@@ -497,6 +525,9 @@ export {
   useSpaceChats,
 } from "./features/space-chats/index.js";
 export {
+  fetchSpaceHome,
+  SPACE_HOME_IDLE_POLL_MS,
+  SPACE_HOME_LIVE_POLL_MS,
   type SpaceHomeAppRelease,
   type SpaceHomeInterrupt,
   type SpaceHomeJob,
@@ -505,7 +536,10 @@ export {
   type SpaceHomeState,
   type SpaceHomeThread,
   type SpaceHomeThreadKind,
+  spaceHomeIsLive,
+  spaceHomePollMs,
   spaceHomeQueryKey,
+  spaceHomeQueryOptions,
   useSpaceHomeQuery,
 } from "./features/space-home/space-home-api.js";
 export {
@@ -587,6 +621,7 @@ export {
 export {
   useAiSettingsQuery,
   useEffectiveAiSettingsQuery,
+  useSaveAiSettingsMutation,
 } from "./lib/admin/ai-settings-queries.js";
 export { AgentFormPage } from "./routes/agent-form-page.js";
 export {
@@ -599,3 +634,4 @@ export {
   isTemporaryEngentyThreadId,
   TEMPORARY_ENGENTY_THREAD_ID_PREFIX,
 } from "./threads/index.js";
+export { clearThreadTranscriptStore } from "./threads/thread-transcript-store.js";

@@ -15,13 +15,12 @@ export function useAgentDeskThread(hostKey: string, threadId: string | null) {
     if (thread.threadId !== threadId) {
       return;
     }
-    if (thread.isLoading || thread.messagesError || thread.isLoadingMessages) {
+    if (thread.messagesError || thread.isLoadingMessages) {
       return;
     }
     return thread.agUiMessages;
   }, [
     thread.agUiMessages,
-    thread.isLoading,
     thread.isLoadingMessages,
     thread.messagesError,
     thread.threadId,

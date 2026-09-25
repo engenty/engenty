@@ -12,7 +12,7 @@ export type WebIngestAdapterId = WebIngestResult["provider"];
 
 /** Fetch adapter: optional CSS extraction + LLM-assisted pattern generation. */
 export interface WebIngestHtmlExtractOptions extends HtmlExtractPatternOptions {
-  /** AI Gateway model id for pattern suggestion (default: openai/gpt-5-mini). */
+  /** Per-source model for pattern suggestion; overrides the call's `llmModel`. */
   llmModel?: string;
   /** When true, runs LLM pattern suggestion on the fetched HTML, then merges selectors. */
   suggestPatternsWithLlm?: boolean;
@@ -44,6 +44,11 @@ export interface WebIngestAdapterOptions {
    * Omit for legacy behavior (full document). Pass `{}` to apply smart default excludes only.
    */
   htmlExtract?: WebIngestHtmlExtractOptions;
+  /**
+   * AI Gateway model id for the optional LLM passes (page title, pattern
+   * suggestion). Omit to skip the title LLM.
+   */
+  llmModel?: string;
   /** @alias maxResponseBytes — fetch adapter only */
   maxBytes?: number;
   /** Fetch adapter: max response body size (bytes). */

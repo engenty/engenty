@@ -1,6 +1,6 @@
 import type {
+  ClassifierClient,
   SystemOneResponse,
-  TypeSafeClient,
 } from "@engenty/typesafe-client";
 import { describe, expect, it, vi } from "vitest";
 
@@ -43,14 +43,14 @@ const page: PageSnapshot = {
 
 function clientAnswering(
   answers: SystemOneResponse["answers"]
-): TypeSafeClient {
+): ClassifierClient {
   return {
     systemOne: vi.fn(async () => ({
       answers,
       model: "jev-1.13.0",
       usage: { input_tokens: 321, output_tokens: 0 },
     })),
-  } as unknown as TypeSafeClient;
+  } as unknown as ClassifierClient;
 }
 
 const operation = (probabilities: Record<string, number>) => {

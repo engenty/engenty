@@ -23,7 +23,7 @@ and is enforced by `pnpm ai:check`.
 
 ## AI Gateway (models)
 
-Product chat is **not** AI SDK UI — use `apps/ai` + `@engenty/ai-ui` (AG-UI). Gateway model ids via `resolveChatModelId` / `DEFAULT_AI_CHAT_MODEL_ID` (`src/config/chat-model-id.ts`).
+Product chat is **not** AI SDK UI — use `apps/ai` + `@engenty/ai-ui` (AG-UI). Model ids come only from role bindings (`ai.model_binding`, manage → Role bindings), resolved via `resolvePurposeModel` / `resolveChatModelId` (`src/config/model-purposes.ts`) — no env model vars, no package default. See `docs/howto-ai-config.md`.
 
 See [docs/dev/ai-gateway.md](../../docs/dev/ai-gateway.md) and `.cursor/rules/ai-gateway.mdc`.
 

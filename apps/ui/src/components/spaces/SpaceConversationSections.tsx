@@ -12,12 +12,13 @@ import {
   AgentDeskNewRoomDialog,
   type AgentDeskSwitchAgent,
   conversationEngagement,
+  useChatPrefetch,
   useOpenDmMutation,
 } from "@engenty/ai-ui";
 import { useTranslation } from "@engenty/i18n/ui";
 import { useWorkspaceContext } from "@engenty/ui-plugin-sdk";
 import type { ConversationNavItem } from "@engenty/user-settings";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { arrayMoveIds } from "@/lib/space-agent-nav-order";
 import { useSpaceAudience } from "@/lib/space-audience";
@@ -41,6 +42,8 @@ import {
   SpaceConversationSidebarProvider,
   type SpaceNameDialogRequest,
 } from "./space-conversation-sidebar-context";
+
+const RECENT_CHATS_TO_WARM = 3;
 
 export function SpaceConversationSections({
   canAdd,
@@ -111,6 +114,44 @@ export function SpaceConversationSections({
     }
     return map;
   }, [model]);
+
+  // Once the list is up and the app is idle, warm the few chats most likely
+  // to be opened next — the most recently active — once per space.
+  const prefetch = useChatPrefetch();
+  const warmedSpaceRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (
+      !spaceId ||
+      warmedSpaceRef.current === spaceId ||
+      itemsByKey.size === 0
+    ) {
+      return;
+    }
+    const recent = [...itemsByKey.values()]
+      .filter((item) => item.updatedAt)
+      .toSorted((left, right) =>
+        (right.updatedAt ?? "").localeCompare(left.updatedAt ?? "")
+      )
+      .slice(0, RECENT_CHATS_TO_WARM);
+    const warm = () => {
+      warmedSpaceRef.current = spaceId;
+      for (const item of recent) {
+        if (item.kind === "desk") {
+          prefetch.agentDesk({ agentId: item.agent.id, spaceId });
+        } else if (item.kind === "room") {
+          prefetch.thread(item.room.session.id);
+        } else if (item.kind === "dm") {
+          prefetch.thread(item.dm.session.id);
+        }
+      }
+    };
+    if (typeof window.requestIdleCallback === "function") {
+      const handle = window.requestIdleCallback(warm, { timeout: 4000 });
+      return () => window.cancelIdleCallback(handle);
+    }
+    const handle = window.setTimeout(warm, 1500);
+    return () => window.clearTimeout(handle);
+  }, [itemsByKey, prefetch, spaceId]);
 
   const onDrop = useCallback(
     (drop: SpaceConversationDrop) => {

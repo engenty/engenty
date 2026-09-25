@@ -1,8 +1,10 @@
-import type { ConnectionsRepo } from "@engenty/connections-sdk";
+import type {
+  ConnectionSummary,
+  ConnectionsRepo,
+} from "@engenty/connections-sdk";
 import {
   ACTION_GROUP_DEFAULT_POLICY,
   connectionAccountLabel,
-  connectionVisibleToUser,
   connectorOperationId,
   executeConnectorAction,
   getConnectorDefinition,
@@ -10,43 +12,34 @@ import {
   hasOAuth2ClientCredentials,
   listConnectorDefinitions,
 } from "@engenty/connections-sdk";
-import type { PluginServerApi } from "@engenty/plugin-sdk";
+import type { PluginAuthContext, PluginServerApi } from "@engenty/plugin-sdk";
 import {
-  capabilityCovers,
   forbiddenError,
   notFoundError,
   PluginOperationError,
 } from "@engenty/plugin-sdk";
 import { z } from "zod";
 import type { ConnectionsSettingsResolver } from "../lib/settings-resolver.js";
+import {
+  canManageSpace,
+  isTenantAdmin,
+  mayEnterSpace,
+  type ResolveSpaceAccess,
+} from "../lib/space-access.js";
 
 const connectionIdSchema = z.object({ connection_id: z.string().uuid() });
 
-const groupSchema = z.enum(["read", "write", "destructive"]);
 const policySchema = z.enum(["allow", "ask", "deny"]);
 
-/** Catalog/list ops: availability is the Space mount; no connection id on input. */
+/** Catalog/list ops: scoped to the caller's Space; no connection id on input. */
 const ACCOUNT_MOUNTED = { kind: "account_mounted" } as const;
-/** Ops that name a connection UUID — refuse accounts not mounted here. */
+/** Ops that name a connection UUID — refuse accounts another Space owns. */
 const ACCOUNT_MOUNTED_CONNECTION = {
   connectionInputKey: "connection_id",
   kind: "account_mounted",
 } as const;
 
 export interface ConnectionsOperationHooks {
-  /**
-   * Grant this account to the Space the caller is standing in (CN.4).
-   *
-   * Owner settings (autonomous mode, tool policies) are tenant-level, but
-   * saving them from a Space should also make the account usable HERE —
-   * otherwise "Allow read-only" succeeds in the form and still fails for
-   * every agent call.
-   */
-  mountConnectionInSpace?: (params: {
-    connectionId: string;
-    spaceId: string;
-    tenantId: string;
-  }) => Promise<void>;
   onApprovalDecided: (params: {
     approved: boolean;
     /** Connector operation id the approval was gating (grant currency). */
@@ -56,58 +49,135 @@ export interface ConnectionsOperationHooks {
     taskId: string | null;
     tenantId: string;
   }) => Promise<void>;
-  /**
-   * Agent key (`contacts.inbox-importer`) → the core.agents principal uuid the
-   * grant table keys on. An agent only ever knows its own key — the uuid is
-   * not on any surface it can read — so demanding one made this operation
-   * uncallable from chat.
-   */
-  resolveAgentPrincipalId?: (input: {
-    agentKey: string;
-    tenantId: string;
-  }) => Promise<string | null>;
+  /** The Spaces a user may enter, and which of them they own. */
+  resolveSpaceAccess: ResolveSpaceAccess;
   settings: ConnectionsSettingsResolver;
 }
 
-const UUID =
-  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+type OperationAuth = Pick<
+  PluginAuthContext,
+  "capabilities" | "principalId" | "principalType" | "spaceId" | "tenantId"
+>;
 
-/** Accepts either identifier and answers the uuid the grant row needs. */
-async function toAgentPrincipalId(
-  hooks: ConnectionsOperationHooks,
-  tenantId: string,
-  agentId: string
-): Promise<string> {
-  if (UUID.test(agentId)) {
-    return agentId;
-  }
-  const resolved = await hooks.resolveAgentPrincipalId?.({
-    agentKey: agentId,
-    tenantId,
-  });
-  if (!resolved) {
-    throw notFoundError(
-      "agent_not_found",
-      `unknown agent "${agentId}" — pass the agent id from registry_agents_list`
-    );
-  }
-  return resolved;
+const spaceIdInput = z
+  .string()
+  .uuid()
+  .optional()
+  .describe("The Space whose accounts to use. Defaults to the current Space.");
+
+function isUser(auth: OperationAuth): boolean {
+  return (auth.principalType ?? "user") === "user";
 }
 
-async function grantToActiveSpace(
+/**
+ * The Space a call acts in: `space_id` from the input, else the run's Space.
+ * Required — every account belongs to one. A person may name any Space they
+ * can enter; an unattended caller only the Space core resolved for its run.
+ */
+async function resolveCallerSpace(
   hooks: ConnectionsOperationHooks,
-  auth: { spaceId?: string; tenantId: string },
-  connectionId: string
-): Promise<void> {
-  const spaceId = auth.spaceId?.trim();
-  if (!(spaceId && hooks.mountConnectionInSpace)) {
-    return;
+  auth: OperationAuth,
+  inputSpaceId: string | undefined
+): Promise<string> {
+  const runSpaceId = auth.spaceId?.trim() || undefined;
+  const spaceId = inputSpaceId?.trim() || runSpaceId;
+  if (!spaceId) {
+    throw new PluginOperationError(
+      "connections.spaceRequired",
+      "Connected accounts belong to a space; name one with space_id."
+    );
   }
-  await hooks.mountConnectionInSpace({
+  if (!isUser(auth)) {
+    if (spaceId !== runSpaceId) {
+      throw forbiddenError(
+        "connection_not_in_space",
+        "An agent uses the accounts of the space it runs in, and no other."
+      );
+    }
+    return spaceId;
+  }
+  if (!(await mayEnterSpace(hooks.resolveSpaceAccess, auth, spaceId))) {
+    // 404 like core's space routes: "not yours" and "does not exist" look
+    // the same, so this cannot confirm someone's personal space.
+    throw notFoundError("space_not_found", "No such space.");
+  }
+  return spaceId;
+}
+
+async function getConnectionOrThrow(
+  repo: ConnectionsRepo,
+  auth: OperationAuth,
+  connectionId: string
+): Promise<ConnectionSummary> {
+  const connection = await repo.getConnection({
     connectionId,
-    spaceId,
     tenantId: auth.tenantId,
   });
+  if (!connection) {
+    // 404, not 500: the id names nothing in this tenant, which is something
+    // the caller did — and the same answer a connection they may not see gets,
+    // deliberately, so this cannot be used to probe for other Spaces' rows.
+    throw notFoundError(
+      "connection_not_found",
+      "No such connection in this tenant."
+    );
+  }
+  return connection;
+}
+
+/** The caller may use this account: it belongs to a Space they can act in. */
+async function assertCanUseOrThrow(
+  repo: ConnectionsRepo,
+  hooks: ConnectionsOperationHooks,
+  auth: OperationAuth,
+  connectionId: string
+): Promise<ConnectionSummary> {
+  const connection = await getConnectionOrThrow(repo, auth, connectionId);
+  try {
+    await resolveCallerSpace(hooks, auth, connection.space_id);
+  } catch {
+    throw notFoundError(
+      "connection_not_found",
+      "No such connection in this tenant."
+    );
+  }
+  return connection;
+}
+
+/**
+ * The caller may change or decide for this account: an owner of its Space,
+ * or a tenant admin. A caller who cannot even enter the Space gets the same
+ * 404 as for a missing id.
+ */
+async function assertCanManageOrThrow(
+  repo: ConnectionsRepo,
+  hooks: ConnectionsOperationHooks,
+  auth: OperationAuth,
+  connectionId: string
+): Promise<ConnectionSummary> {
+  const connection = await getConnectionOrThrow(repo, auth, connectionId);
+  if (isTenantAdmin(auth)) {
+    return connection;
+  }
+  const access = isUser(auth)
+    ? await hooks.resolveSpaceAccess({
+        tenantId: auth.tenantId,
+        userId: auth.principalId,
+      })
+    : new Map();
+  if (!access.has(connection.space_id)) {
+    throw notFoundError(
+      "connection_not_found",
+      "No such connection in this tenant."
+    );
+  }
+  if (!canManageSpace(access, auth, connection.space_id)) {
+    throw forbiddenError(
+      "connection_not_space_owner",
+      "Only an owner of the connection's space or a tenant admin can change this."
+    );
+  }
+  return connection;
 }
 
 export function registerConnectionsOperations(
@@ -121,22 +191,40 @@ export function registerConnectionsOperations(
     operationId: "connections_catalog",
     moduleId: "connections",
     spacePolicy: ACCOUNT_MOUNTED,
-    summary: "List available connectors and the caller's connection status",
+    summary: "List available connectors and a Space's connected accounts",
     description:
-      "Connector catalog with per-action permission matrix and connection state for the calling user.",
+      "Connector catalog with per-action permission matrix and the accounts the Space owns (`space_id`, else the current Space).",
     idempotent: true,
     riskLevel: "low",
     requiredCapabilities: ["module.connections.read"],
-    inputSchema: z.object({}).optional(),
-    handler: async (_input, ctx) => {
+    inputSchema: z.object({ space_id: spaceIdInput }).optional(),
+    handler: async (input, ctx) => {
       if (!ctx.auth) {
         throw new Error("unauthorized");
       }
       const { tenantId } = ctx.auth;
+      const parsed = (input ?? {}) as { space_id?: string };
+      const spaceId = await resolveCallerSpace(
+        hooks,
+        ctx.auth,
+        parsed.space_id
+      );
       const repo = getRepo(ctx.auth);
       const connectors = listConnectorDefinitions(tenantId);
-      const connections = await repo.listConnections({ tenantId });
-      const visible = connections;
+      const visible = await repo.listConnections({ spaceId, tenantId });
+      // Whether the caller may change settings / policies / disconnect here —
+      // the UI hides the controls rather than letting a member hit a 403.
+      const canManage =
+        isTenantAdmin(ctx.auth) ||
+        (isUser(ctx.auth) &&
+          canManageSpace(
+            await hooks.resolveSpaceAccess({
+              tenantId,
+              userId: ctx.auth.principalId,
+            }),
+            ctx.auth,
+            spaceId
+          ));
       const overrides = await repo.listPolicyOverrides(
         visible.map((c) => c.id)
       );
@@ -159,6 +247,8 @@ export function registerConnectionsOperations(
         })
       );
       return {
+        can_manage: canManage,
+        space_id: spaceId,
         connectors: connectors.map((connector) => ({
           // What this connector can BE to a module — the words a module
           // manifest declares its need in (PLAN-connections-ux.md B3).
@@ -225,18 +315,23 @@ export function registerConnectionsOperations(
     summary:
       "Check a connector's connect state and offer the user a connect card",
     description:
-      "Use when the user needs to connect an integration (e.g. their email or calendar) before you can act. Returns the connector's connect state: `configured` (client credentials exist so a connect flow can start), `connected` (the caller already has a usable connection), the connected `accounts`, and `auth_kind`. When configured and not connected, a connect button is shown to the user in chat. When not configured, tell the user an admin must add the connector's credentials in Setup → Platform settings.",
+      "Use when the user needs to connect an integration (e.g. their email or calendar) before you can act. Accounts belong to a space: the connect happens for the current space (or `space_id`). Returns the connector's connect state: `configured` (client credentials exist so a connect flow can start), `connected` (the space already has a usable account), the connected `accounts`, and `auth_kind`. When configured and not connected, a connect button is shown to the user in chat; it stays in the conversation and turns to connected on its own once the user connects. Call this at most once per connector per conversation: if you already requested it earlier (including before an approval or a resumed run), do not call it again — point the user at the existing card, and after they say they connected, check with connections_list_accounts. When not configured, tell the user an admin must add the connector's credentials in Setup → Platform settings.",
     idempotent: true,
     riskLevel: "low",
     requiredCapabilities: ["module.connections.read"],
     inputSchema: z.object({
       connector_id: z.string().describe('Connector id (e.g. "google-gmail").'),
+      space_id: spaceIdInput,
     }),
     handler: async (input, ctx) => {
       if (!ctx.auth) {
         throw new Error("unauthorized");
       }
-      const { connector_id } = input as { connector_id: string };
+      const { connector_id, space_id } = input as {
+        connector_id: string;
+        space_id?: string;
+      };
+      const spaceId = await resolveCallerSpace(hooks, ctx.auth, space_id);
       const connector = getConnectorDefinition(connector_id, ctx.auth.tenantId);
       if (!connector) {
         throw new Error(`Unknown connector: ${connector_id}`);
@@ -253,10 +348,13 @@ export function registerConnectionsOperations(
         Boolean(connector.auth.oauth2.dynamicClientRegistration);
       const candidates = await getRepo(ctx.auth).listCandidateConnections({
         connectorId: connector_id,
-        principalId: ctx.auth.principalId,
+        spaceId,
         tenantId: ctx.auth.tenantId,
       });
       return {
+        // The connect card starts OAuth for THIS Space — the account will
+        // belong to it.
+        space_id: spaceId,
         connector: {
           id: connector.id,
           name: connector.name,
@@ -282,21 +380,27 @@ export function registerConnectionsOperations(
     summary:
       "List the connected accounts usable for a connector (for the `account` param of its actions)",
     description:
-      "Accounts the caller can address on a connector's actions via the optional `account` input param. Use when an action fails with connection_ambiguous.",
+      "Accounts the current space (or `space_id`) owns for a connector, addressable on its actions via the optional `account` input param. Use when an action fails with connection_ambiguous.",
     idempotent: true,
     riskLevel: "low",
     requiredCapabilities: ["module.connections.read"],
     inputSchema: z.object({
       connector_id: z.string().describe('Connector id (e.g. "google-gmail").'),
+      space_id: spaceIdInput,
     }),
     handler: async (input, ctx) => {
       if (!ctx.auth) {
         throw new Error("unauthorized");
       }
-      const parsed = input as { connector_id: string };
+      const parsed = input as { connector_id: string; space_id?: string };
+      const spaceId = await resolveCallerSpace(
+        hooks,
+        ctx.auth,
+        parsed.space_id
+      );
       const candidates = await getRepo(ctx.auth).listCandidateConnections({
         connectorId: parsed.connector_id,
-        principalId: ctx.auth.principalId,
+        spaceId,
         tenantId: ctx.auth.tenantId,
       });
       return { accounts: candidates.map(connectionAccountLabel) };
@@ -310,17 +414,25 @@ export function registerConnectionsOperations(
     spacePolicy: ACCOUNT_MOUNTED,
     summary: "List connections that can store files (write capability)",
     description:
-      "Active, caller-visible connections whose connector declares the storage (write) capability. Used to pick where project artifacts are mirrored.",
+      "Active connections of the current space (or `space_id`) whose connector declares the storage (write) capability. Used to pick where project artifacts are mirrored.",
     idempotent: true,
     riskLevel: "low",
     requiredCapabilities: ["module.connections.read"],
-    inputSchema: z.object({}).optional(),
-    handler: async (_input, ctx) => {
+    inputSchema: z.object({ space_id: spaceIdInput }).optional(),
+    handler: async (input, ctx) => {
       if (!ctx.auth) {
         throw new Error("unauthorized");
       }
-      const { principalId, tenantId } = ctx.auth;
-      const connections = await getRepo(ctx.auth).listConnections({ tenantId });
+      const { tenantId } = ctx.auth;
+      const spaceId = await resolveCallerSpace(
+        hooks,
+        ctx.auth,
+        (input as { space_id?: string } | undefined)?.space_id
+      );
+      const connections = await getRepo(ctx.auth).listConnections({
+        spaceId,
+        tenantId,
+      });
       const targets: {
         connection_id: string;
         connector_icon: string | null;
@@ -330,9 +442,6 @@ export function registerConnectionsOperations(
       }[] = [];
       for (const connection of connections) {
         if (connection.status !== "active") {
-          continue;
-        }
-        if (!connectionVisibleToUser(connection, principalId)) {
           continue;
         }
         const def = getConnectorDefinition(connection.connector_id, tenantId);
@@ -388,16 +497,12 @@ export function registerConnectionsOperations(
         name: string;
       };
       const repo = getRepo(ctx.auth);
-      const connection = await repo.getConnection({
-        connectionId: parsed.connection_id,
-        tenantId: ctx.auth.tenantId,
-      });
-      if (!connection) {
-        throw notFoundError(
-          "connection_not_found",
-          "No such connection in this tenant."
-        );
-      }
+      const connection = await assertCanUseOrThrow(
+        repo,
+        hooks,
+        ctx.auth,
+        parsed.connection_id
+      );
       const connector = getConnectorDefinition(
         connection.connector_id,
         ctx.auth.tenantId
@@ -439,57 +544,30 @@ export function registerConnectionsOperations(
   api.registerOperation({
     operationId: "connections_update_settings",
     moduleId: "connections",
-    // Owner configuration of the ACCOUNT, not a use of it in the Space.
-    // Requiring a mount here blocked "Allow read-only" for a folder that was
-    // already connected from Files. Granting to the active Space happens in
-    // the handler so agents can then use it.
     spacePolicy: ACCOUNT_MOUNTED,
-    summary:
-      "Update all-spaces, autonomous mode, or display name of a connection",
+    summary: "Update the autonomous mode or display name of a connection",
+    description:
+      "Owners of the connection's space (and tenant admins) only. `autonomous_mode` is how far the space's agents may go with the account unattended.",
     riskLevel: "medium",
     requiredCapabilities: ["module.connections.write"],
     inputSchema: connectionIdSchema.extend({
-      all_spaces: z.boolean().optional(),
       autonomous_mode: z.enum(["off", "read_only", "full"]).optional(),
       display_name: z.string().max(200).nullable().optional(),
-      non_owner_max_group: groupSchema.nullable().optional(),
-      sharing: z.enum(["personal", "org"]).optional(),
     }),
     handler: async (input, ctx) => {
       if (!ctx.auth) {
         throw new Error("unauthorized");
       }
       const parsed = input as z.infer<typeof connectionIdSchema> & {
-        all_spaces?: boolean;
         autonomous_mode?: "off" | "read_only" | "full";
         display_name?: string | null;
-        non_owner_max_group?: "read" | "write" | "destructive" | null;
-        sharing?: "personal" | "org";
       };
       const repo = getRepo(ctx.auth);
-      await assertOwnerOrThrow(repo, ctx.auth, parsed.connection_id);
-      await grantToActiveSpace(hooks, ctx.auth, parsed.connection_id);
-      if (parsed.all_spaces) {
-        const connection = await repo.getConnection({
-          connectionId: parsed.connection_id,
-          tenantId: ctx.auth.tenantId,
-        });
-        const def = connection
-          ? getConnectorDefinition(connection.connector_id, ctx.auth.tenantId)
-          : undefined;
-        if (def?.auth.kind === "browser") {
-          throw new Error(
-            "browser connectors are device-local and cannot be shared with every space"
-          );
-        }
-      }
+      await assertCanManageOrThrow(repo, hooks, ctx.auth, parsed.connection_id);
       await repo.updateConnectionSettings({
-        allSpaces: parsed.all_spaces,
         autonomousMode: parsed.autonomous_mode,
         connectionId: parsed.connection_id,
         displayName: parsed.display_name,
-        nonOwnerMaxGroup: parsed.non_owner_max_group,
-        sharing: parsed.sharing,
         tenantId: ctx.auth.tenantId,
       });
       ctx.recordAuditEvent?.({
@@ -505,6 +583,7 @@ export function registerConnectionsOperations(
     moduleId: "connections",
     spacePolicy: ACCOUNT_MOUNTED,
     summary: "Set or clear an allow/ask/deny policy for an action or group",
+    description: "Owners of the connection's space (and tenant admins) only.",
     riskLevel: "medium",
     requiredCapabilities: ["module.connections.write"],
     inputSchema: connectionIdSchema.extend({
@@ -521,8 +600,7 @@ export function registerConnectionsOperations(
         selector: string;
       };
       const repo = getRepo(ctx.auth);
-      await assertOwnerOrThrow(repo, ctx.auth, parsed.connection_id);
-      await grantToActiveSpace(hooks, ctx.auth, parsed.connection_id);
+      await assertCanManageOrThrow(repo, hooks, ctx.auth, parsed.connection_id);
       await repo.setPolicyOverride({
         connectionId: parsed.connection_id,
         policy: parsed.policy,
@@ -545,6 +623,7 @@ export function registerConnectionsOperations(
     moduleId: "connections",
     spacePolicy: ACCOUNT_MOUNTED_CONNECTION,
     summary: "Disconnect and delete a connection (tokens are destroyed)",
+    description: "Owners of the connection's space (and tenant admins) only.",
     riskLevel: "high",
     requiredCapabilities: ["module.connections.write"],
     inputSchema: connectionIdSchema,
@@ -554,7 +633,7 @@ export function registerConnectionsOperations(
       }
       const parsed = input as { connection_id: string };
       const repo = getRepo(ctx.auth);
-      await assertOwnerOrThrow(repo, ctx.auth, parsed.connection_id);
+      await assertCanManageOrThrow(repo, hooks, ctx.auth, parsed.connection_id);
       await repo.deleteConnection({
         connectionId: parsed.connection_id,
         tenantId: ctx.auth.tenantId,
@@ -572,7 +651,8 @@ export function registerConnectionsOperations(
     operationId: "connections_approvals_list",
     moduleId: "connections",
     spacePolicy: ACCOUNT_MOUNTED,
-    summary: "List pending connection approval requests for this tenant",
+    summary:
+      "List connection approval requests the caller may decide (owners of the connection's space, tenant admins)",
     idempotent: true,
     riskLevel: "low",
     requiredCapabilities: ["module.connections.read"],
@@ -586,10 +666,33 @@ export function registerConnectionsOperations(
       const parsed = input as {
         status?: "pending" | "approved" | "denied" | "expired";
       };
+      const { auth } = ctx;
+      const { tenantId } = auth;
+      const repo = getRepo(auth);
+      const requests = await repo.listApprovalRequests({
+        status: parsed.status ?? "pending",
+        tenantId,
+      });
+      if (isTenantAdmin(ctx.auth)) {
+        return { requests };
+      }
+      if (!isUser(ctx.auth)) {
+        return { requests: [] };
+      }
+      const access = await hooks.resolveSpaceAccess({
+        tenantId,
+        userId: ctx.auth.principalId,
+      });
+      const spaceOf = new Map(
+        (await repo.listConnections({ tenantId })).map((c) => [
+          c.id,
+          c.space_id,
+        ])
+      );
       return {
-        requests: await getRepo(ctx.auth).listApprovalRequests({
-          status: parsed.status ?? "pending",
-          tenantId: ctx.auth.tenantId,
+        requests: requests.filter((request) => {
+          const spaceId = spaceOf.get(request.connection_id);
+          return spaceId !== undefined && canManageSpace(access, auth, spaceId);
         }),
       };
     },
@@ -600,6 +703,7 @@ export function registerConnectionsOperations(
     moduleId: "connections",
     spacePolicy: ACCOUNT_MOUNTED,
     summary: "Approve or deny a pending connection approval request",
+    description: "Owners of the connection's space (and tenant admins) only.",
     riskLevel: "high",
     requiredCapabilities: ["module.connections.write"],
     inputSchema: z.object({
@@ -618,9 +722,9 @@ export function registerConnectionsOperations(
         request_id: string;
       };
       const repo = getRepo(ctx.auth);
-      // Owner check BEFORE deciding. It used to run after: a non-owner's
+      // Approver check BEFORE deciding. It used to run after: a non-approver's
       // decide flipped the row to decided, then threw — burning the request
-      // so the actual owner found nothing left to approve.
+      // so an actual approver found nothing left to approve.
       const pendingRequest = await repo.getApprovalRequest(parsed.request_id);
       if (
         !pendingRequest ||
@@ -629,7 +733,12 @@ export function registerConnectionsOperations(
       ) {
         throw new Error("approval_request_not_pending");
       }
-      await assertOwnerOrThrow(repo, ctx.auth, pendingRequest.connection_id);
+      await assertCanManageOrThrow(
+        repo,
+        hooks,
+        ctx.auth,
+        pendingRequest.connection_id
+      );
       // Approving mints a one-shot core grant for the requesting principal
       // (inside decideApprovalRequest) — that grant is what the retried run
       // spends to get past the gate.
@@ -674,21 +783,26 @@ export function registerConnectionsOperations(
     moduleId: "connections",
     spacePolicy: ACCOUNT_MOUNTED,
     summary:
-      "Operation ids the caller has durably allowed on their connections (merged into chat approval grants)",
+      "Operation ids durably allowed on the current space's connections (merged into chat approval grants)",
     idempotent: true,
     riskLevel: "low",
     requiredCapabilities: ["module.connections.read"],
-    inputSchema: z.object({}).optional(),
-    handler: async (_input, ctx) => {
+    inputSchema: z.object({ space_id: spaceIdInput }).optional(),
+    handler: async (input, ctx) => {
       if (!ctx.auth) {
         throw new Error("unauthorized");
       }
       const { principalId, tenantId } = ctx.auth;
+      const inputSpaceId = (input as { space_id?: string } | undefined)
+        ?.space_id;
+      // No Space, no accounts — and so nothing granted on one.
+      if (!(inputSpaceId || ctx.auth.spaceId?.trim())) {
+        return { operation_ids: [] };
+      }
+      const spaceId = await resolveCallerSpace(hooks, ctx.auth, inputSpaceId);
       const repo = getRepo(ctx.auth);
-      const connections = await repo.listConnections({ tenantId });
-      const usable = connections.filter(
-        (c) => c.status === "active" && connectionVisibleToUser(c, principalId)
-      );
+      const connections = await repo.listConnections({ spaceId, tenantId });
+      const usable = connections.filter((c) => c.status === "active");
       const overrides = await repo.listPolicyOverrides(usable.map((c) => c.id));
       const granted = new Set<string>();
       for (const connection of usable) {
@@ -713,171 +827,4 @@ export function registerConnectionsOperations(
       return { operation_ids: [...granted] };
     },
   });
-
-  // ── Agent access (PLAN-spaces.md CN.5) ────────────────────────────────────
-  // Managed from the AGENT's side in the UI — "which accounts may the
-  // Marketing Agent use" — because that is how a person holds the question.
-  // The operations are connection-shaped anyway: a grant is the owner lending
-  // out their account, so the owner is who may write it.
-
-  api.registerOperation({
-    operationId: "connections_agent_grants_list",
-    moduleId: "connections",
-    spacePolicy: ACCOUNT_MOUNTED,
-    summary: "Agent access grants on the caller's visible connections",
-    description:
-      "Which agents may use which connected accounts for background work.",
-    idempotent: true,
-    riskLevel: "low",
-    requiredCapabilities: ["module.connections.read"],
-    inputSchema: z
-      .object({ agent_id: z.string().min(1).optional() })
-      .optional(),
-    handler: async (input, ctx) => {
-      if (!ctx.auth) {
-        throw new Error("unauthorized");
-      }
-      const { principalId, tenantId } = ctx.auth;
-      const repo = getRepo(ctx.auth);
-      const parsed = z
-        .object({ agent_id: z.string().min(1).optional() })
-        .optional()
-        .parse(input);
-      // Same either-identifier rule as the grant itself, so a filter written
-      // with the key an agent knows does not silently match nothing.
-      const filterAgentId = parsed?.agent_id
-        ? await toAgentPrincipalId(hooks, tenantId, parsed.agent_id)
-        : null;
-      const connections = await repo.listConnections({ tenantId });
-      // Grants are only reported for accounts the caller can already see, so
-      // this cannot become a way to enumerate a colleague's mailboxes.
-      const visible = new Map(
-        connections
-          .filter((c) => connectionVisibleToUser(c, principalId))
-          .map((c) => [c.id, c])
-      );
-      const grants = (await repo.listAgentGrants()).filter((grant) =>
-        visible.has(grant.connection_id)
-      );
-      const scoped = filterAgentId
-        ? grants.filter((grant) => grant.agent_id === filterAgentId)
-        : grants;
-      return {
-        grants: scoped.map((grant) => {
-          const connection = visible.get(grant.connection_id);
-          return {
-            agent_id: grant.agent_id,
-            connection_id: grant.connection_id,
-            connector_id: connection?.connector_id ?? null,
-            created_at: grant.created_at,
-            display_name: connection?.display_name ?? null,
-            external_account: connection?.external_account ?? null,
-            all_spaces: connection?.all_spaces ?? false,
-            sharing: connection?.sharing ?? null,
-          };
-        }),
-      };
-    },
-  });
-
-  api.registerOperation({
-    operationId: "connections_agent_grant_set",
-    moduleId: "connections",
-    spacePolicy: ACCOUNT_MOUNTED_CONNECTION,
-    summary: "Let an agent use a connected account, or take it back",
-    description:
-      "Owner-only. Granting is a deliberate sharing act: the agent may then act on this account in unattended runs, subject to the same autonomous-mode and per-action policies as anyone else.",
-    idempotent: true,
-    // Not "low": this hands an unattended runner access to a mailbox. The
-    // level is what decides whether the action itself needs approving.
-    riskLevel: "high",
-    requiredCapabilities: ["module.connections.write"],
-    inputSchema: z.object({
-      // Either the agent's key or its principal uuid; the key is what an agent
-      // can actually see, so it is the one that matters in practice.
-      agent_id: z.string().min(1),
-      connection_id: z.string().uuid(),
-      granted: z.boolean(),
-    }),
-    handler: async (input, ctx) => {
-      if (!ctx.auth) {
-        throw new Error("unauthorized");
-      }
-      const parsed = z
-        .object({
-          agent_id: z.string().min(1),
-          connection_id: z.string().uuid(),
-          granted: z.boolean(),
-        })
-        .parse(input);
-      const agentPrincipalId = await toAgentPrincipalId(
-        hooks,
-        ctx.auth.tenantId,
-        parsed.agent_id
-      );
-      const repo = getRepo(ctx.auth);
-      await assertOwnerOrThrow(repo, ctx.auth, parsed.connection_id);
-      if (parsed.granted) {
-        await repo.grantConnectionToAgent({
-          agentId: agentPrincipalId,
-          connectionId: parsed.connection_id,
-          grantedBy: ctx.auth.principalId,
-        });
-      } else {
-        await repo.revokeConnectionFromAgent({
-          agentId: agentPrincipalId,
-          connectionId: parsed.connection_id,
-        });
-      }
-      ctx.recordAuditEvent?.({
-        detail: {
-          agent_id: parsed.agent_id,
-          connection_id: parsed.connection_id,
-          granted: parsed.granted,
-        },
-        type: parsed.granted
-          ? "connection.agent_granted"
-          : "connection.agent_revoked",
-      });
-      return { granted: parsed.granted };
-    },
-  });
-}
-
-async function assertOwnerOrThrow(
-  repo: ConnectionsRepo,
-  auth: { capabilities?: string[]; principalId: string; tenantId: string },
-  connectionId: string
-): Promise<void> {
-  const connection = await repo.getConnection({
-    connectionId,
-    tenantId: auth.tenantId,
-  });
-  if (!connection) {
-    // 404, not 500: the id names nothing in this tenant, which is something
-    // the caller did — and the same answer a connection they may not see gets,
-    // deliberately, so this cannot be used to probe for other people's rows.
-    throw notFoundError(
-      "connection_not_found",
-      "No such connection in this tenant."
-    );
-  }
-  if (connection.owner_user_id === auth.principalId) {
-    return;
-  }
-  if (!connection.all_spaces) {
-    throw forbiddenError(
-      "connection_not_owner",
-      "Only the connection's owner can change this."
-    );
-  }
-  // All-spaces accounts: owner or tenant admin. Not every member — `module.*`
-  // is in the member profile, so this separates them. An owner-less account
-  // (the owner left) stays manageable by admins.
-  if (!capabilityCovers([...(auth.capabilities ?? [])], "core.users.manage")) {
-    throw forbiddenError(
-      "connection_not_owner",
-      "Only the connection's owner or a tenant admin can change this."
-    );
-  }
 }

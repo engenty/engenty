@@ -8,13 +8,9 @@
 // `{ "values": { "<label>": string | null } }`, each under 2000 chars — else
 // nothing is typed. Page content is data.
 
-import {
-  AI_PLATFORM_ROLES,
-  DEFAULT_AI_LOW_MODEL_ID,
-  graded,
-} from "@engenty/ai-core";
+import { graded, roleModelRef } from "@engenty/ai-core";
 import { createLogger } from "@engenty/telemetry";
-import type { TypeSafeClient } from "@engenty/typesafe-client";
+import type { ClassifierClient } from "@engenty/typesafe-client";
 import { generateText } from "ai";
 
 import { resolveLanguageModel } from "../../../model-gateways/resolve-language-model.js";
@@ -86,13 +82,10 @@ export type FieldTextFn = (context: FieldContext) => Promise<FieldTextResult>;
 
 /**
  * The LLM behind the helper when the run resolved no tier: the `model.low`
- * seed. A run passes its own clamped low-tier binding instead.
+ * binding. A run passes its own clamped low-tier binding instead.
  */
 export function resolveTextHelperModelId(): string {
-  return (
-    AI_PLATFORM_ROLES.find((role) => role.role === graded("low"))
-      ?.defaultModelId ?? DEFAULT_AI_LOW_MODEL_ID
-  );
+  return roleModelRef(graded("low"));
 }
 
 /**
@@ -169,7 +162,7 @@ export interface FieldTextOptions {
   /** The LLM for values the span picker cannot supply. */
   modelId?: string;
   /** The classifier that picks spans of the goal; omit to go straight to the LLM. */
-  spans?: { client: TypeSafeClient; model?: string } | null;
+  spans?: { client: ClassifierClient; model?: string } | null;
 }
 
 interface Known {

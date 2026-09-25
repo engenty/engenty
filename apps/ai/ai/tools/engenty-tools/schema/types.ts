@@ -50,7 +50,11 @@ export interface EngentyToolsClient {
   ): Promise<unknown>;
   describeTool(toolId: string): Promise<EngentyToolContract>;
   getWorkspaceContext(): Promise<EngentyWorkspaceContext>;
-  invokeTool<TInput, TResult>(toolId: string, input: TInput): Promise<TResult>;
+  invokeTool<TInput, TResult>(
+    toolId: string,
+    input: TInput,
+    options?: { spaceId?: string }
+  ): Promise<TResult>;
   listAiAgents(
     moduleId?: string | null
   ): Promise<{ agents: EngentyCoreAiAgentListItem[] }>;

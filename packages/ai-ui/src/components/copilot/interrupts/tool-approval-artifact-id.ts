@@ -16,6 +16,9 @@
 const TOOL_APPROVAL_ARTIFACT_PREFIX = "tool-approval|";
 
 export interface ToolApprovalArtifactId {
+  /** The grant context listed the operations: a bulk pre-approval or a
+   *  delegated specialist's ask, whose body is a summary — not the call. */
+  listed: boolean;
   /** The primary operation id (the one the server keys the grant on). */
   operationId: string;
   /** Every operation the card covers — the primary op first. Length > 1 marks a
@@ -35,23 +38,31 @@ function decodeSegment(segment: string): string {
 /** Operation ids as core registers them — same conservative shape the server validates. */
 const OPERATION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/;
 
-function readGrantContextOperationIds(segment: string | undefined): string[] {
+function readGrantContextOperationIds(segment: string | undefined): {
+  ids: string[];
+  listed: boolean;
+} {
   if (!segment) {
-    return [];
+    return { ids: [], listed: false };
   }
   try {
     const parsed = JSON.parse(decodeSegment(segment)) as {
       operation_ids?: unknown;
     };
     if (!Array.isArray(parsed.operation_ids)) {
-      return [];
+      return { ids: [], listed: false };
     }
-    return parsed.operation_ids.filter(
-      (id): id is string =>
-        typeof id === "string" && OPERATION_ID_PATTERN.test(id)
-    );
+    // Listed even when no id passes the display pattern: a workspace id
+    // carries its command, spaces and all.
+    return {
+      ids: parsed.operation_ids.filter(
+        (id): id is string =>
+          typeof id === "string" && OPERATION_ID_PATTERN.test(id)
+      ),
+      listed: true,
+    };
   } catch {
-    return [];
+    return { ids: [], listed: false };
   }
 }
 
@@ -72,8 +83,8 @@ export function parseToolApprovalArtifactId(
   if (!operationId) {
     return null;
   }
-  const contextIds = readGrantContextOperationIds(segments[1]);
+  const context = readGrantContextOperationIds(segments[1]);
   // The primary op leads; the grant context repeats it, so de-dupe.
-  const operationIds = Array.from(new Set([operationId, ...contextIds]));
-  return { operationId, operationIds };
+  const operationIds = Array.from(new Set([operationId, ...context.ids]));
+  return { listed: context.listed, operationId, operationIds };
 }

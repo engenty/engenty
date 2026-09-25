@@ -1,5 +1,12 @@
 # Retrieval Service — unified hybrid search across modules
 
+> **Superseded in part (2026-09-23):** connections belong to a Space
+> (`module_connections.connections.space_id`; `connected_by` is audit only).
+> `sharing`, `non_owner_max_group`, owner-based reach and owner approvals are
+> gone. Current model: `docs/content/dev/connections.md`,
+> `PLAN-space-owned-connections.md`. The `owner` visibility kind became
+> `space` (visible to the owning Space's members and agents).
+
 - **Status:** design approved for implementation · Phase 1 in progress
 - **Branch:** `feat/retrieval-service`
 - **Date:** 2026-07-05
@@ -198,10 +205,8 @@ export interface RetrievalSourceRegistration<TResult = unknown> {
   /** Rebuild the canonical document. null = delete from index. */
   buildDocument(input: { doc_id: string; tenant_id: string }): Promise<RetrievalDocument | null>;
   splitter: SplitterConfig;
-  embedding?: {
-    model?: string;                     // default "openai/text-embedding-3-small"
-    resolveModel?(tenant_id: string): Promise<string>;   // per-tenant (KB)
-  };
+  // No per-source embedding model: every source embeds with the platform
+  // `embedding` role binding, resolved once by the service host.
   visibility: VisibilityDescriptor;
   onEvents?: SearchIndexEventBinding[];
   retriever?: {

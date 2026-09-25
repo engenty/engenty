@@ -1,5 +1,5 @@
 // Connections page inside the /admin/engenty workspace: every connection the
-// caller can see (own personal + org-shared). Replaces the old standalone
+// caller can see, with the Space each belongs to. Replaces the old standalone
 // /admin/connections page.
 
 import {
@@ -38,16 +38,21 @@ import type {
 import { StatusBadge } from "../components/connection-panel.js";
 import { PluginMarketplaceDialog } from "../components/marketplace/plugin-marketplace-dialog.js";
 import { NewConnectionButton } from "../components/new-connection-button.js";
+import { useConnectionSpacesQuery } from "../hooks/use-connection-space.js";
 import { useConnectionsWorkspaceAgentUiSlice } from "../hooks/use-connections-agent-ui-slice.js";
 import { useConnectionsCatalogQuery } from "../queries.js";
 import {
+  CONNECTIONS_SETTINGS_PATH,
   ConnectorIcon,
   useConnectResultToast,
 } from "./connections-settings-page.js";
 
-/** Old /admin/connections URL → the workspace page. */
+/**
+ * Old /admin/connections URL → the Setup connections page, not the
+ * /admin/engenty workspace (a superadmin debugging area).
+ */
 export function LegacyConnectionsAdminRedirect() {
-  return <Navigate replace to={CONNECTIONS_ROOT_PATH} />;
+  return <Navigate replace to={CONNECTIONS_SETTINGS_PATH} />;
 }
 
 export function ConnectionsWorkspacePage() {
@@ -140,6 +145,9 @@ function collectConnections(
 function ConnectionsTable({ rows }: { rows: ConnectionRow[] }) {
   const { t } = useTranslation("connections");
   const navigate = useNavigate();
+  const spacesQuery = useConnectionSpacesQuery();
+  const spaceName = (spaceId: string) =>
+    spacesQuery.data?.find((space) => space.id === spaceId)?.name ?? null;
   return (
     <Card className="space-y-0 overflow-x-auto" variant="settings">
       <Table>
@@ -147,7 +155,7 @@ function ConnectionsTable({ rows }: { rows: ConnectionRow[] }) {
           <TableRow>
             <TableHead>{t("admin.listColumns.connector")}</TableHead>
             <TableHead>{t("admin.listColumns.account")}</TableHead>
-            <TableHead>{t("sharing.label")}</TableHead>
+            <TableHead>{t("admin.listColumns.space")}</TableHead>
             <TableHead>{t("settings.autonomousMode")}</TableHead>
             <TableHead>{t("admin.listColumns.status")}</TableHead>
           </TableRow>
@@ -157,7 +165,11 @@ function ConnectionsTable({ rows }: { rows: ConnectionRow[] }) {
             <TableRow
               className="cursor-pointer"
               key={connection.id}
-              onClick={() => navigate(buildConnectionDetailPath(connector.id))}
+              onClick={() =>
+                navigate(
+                  `${buildConnectionDetailPath(connector.id)}?space=${encodeURIComponent(connection.space_id)}`
+                )
+              }
             >
               <TableCell>
                 <div className="flex items-center gap-2.5">
@@ -170,12 +182,10 @@ function ConnectionsTable({ rows }: { rows: ConnectionRow[] }) {
                   <span className="text-muted-foreground">—</span>
                 )}
               </TableCell>
-              <TableCell>
-                <Badge variant="outline">
-                  {t(
-                    connection.all_spaces ? "sharing.org" : "sharing.personal"
-                  )}
-                </Badge>
+              <TableCell className="max-w-[180px] truncate">
+                {spaceName(connection.space_id) ?? (
+                  <span className="text-muted-foreground">—</span>
+                )}
               </TableCell>
               <TableCell className="text-sm">
                 {connection.autonomous_mode === "off" ? (

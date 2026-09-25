@@ -1,4 +1,4 @@
-import { createContext, type ReactNode, useContext } from "react";
+import { createContext, type ReactNode, useContext, useMemo } from "react";
 
 export interface WorkspaceTenant {
   id: string;
@@ -21,8 +21,8 @@ export interface WorkspaceSpace {
   name: string;
 }
 
-interface WorkspaceContextValue {
-  currentSpace: WorkspaceSpace | null;
+/** Tenant, user, and admin flags — stable across space switches. */
+export interface WorkspaceTenantState {
   currentTenant: WorkspaceTenant | null;
   /** Engenty `core.users` id (from workspace context); null when unknown. */
   currentUserId: string | null;
@@ -43,7 +43,21 @@ interface WorkspaceContextValue {
   isTenantAdmin: boolean;
 }
 
-const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
+export interface WorkspaceContextValue extends WorkspaceTenantState {
+  currentSpace: WorkspaceSpace | null;
+}
+
+const WORKSPACE_TENANT_FALLBACK: WorkspaceTenantState = {
+  currentTenant: null,
+  currentUserId: null,
+  isSuperAdmin: false,
+  isTenantAdmin: false,
+};
+
+const WorkspaceTenantContext = createContext<WorkspaceTenantState>(
+  WORKSPACE_TENANT_FALLBACK
+);
+const WorkspaceSpaceContext = createContext<WorkspaceSpace | null>(null);
 
 export interface WorkspaceProviderProps {
   children: ReactNode;
@@ -62,38 +76,63 @@ export function WorkspaceProvider({
   isSuperAdmin = false,
   isTenantAdmin = false,
 }: WorkspaceProviderProps) {
-  const value: WorkspaceContextValue = {
-    currentSpace,
-    currentTenant,
-    currentUserId: currentUserId ?? null,
-    isSuperAdmin,
-    isTenantAdmin,
-  };
+  const tenantId = currentTenant?.id ?? null;
+  const tenantName = currentTenant?.name ?? null;
+  const tenantSlug = currentTenant?.slug ?? null;
+  const tenant = useMemo((): WorkspaceTenant | null => {
+    if (!(tenantId && tenantName != null && tenantSlug != null)) {
+      return null;
+    }
+    return { id: tenantId, name: tenantName, slug: tenantSlug };
+  }, [tenantId, tenantName, tenantSlug]);
+
+  const tenantValue = useMemo(
+    (): WorkspaceTenantState => ({
+      currentTenant: tenant,
+      currentUserId: currentUserId ?? null,
+      isSuperAdmin,
+      isTenantAdmin,
+    }),
+    [currentUserId, isSuperAdmin, isTenantAdmin, tenant]
+  );
+
+  const spaceId = currentSpace?.id ?? null;
+  const spaceKey = currentSpace?.key ?? null;
+  const spaceName = currentSpace?.name ?? null;
+  const spaceValue = useMemo((): WorkspaceSpace | null => {
+    if (!(spaceId && spaceKey != null && spaceName != null)) {
+      return null;
+    }
+    return { id: spaceId, key: spaceKey, name: spaceName };
+  }, [spaceId, spaceKey, spaceName]);
+
   return (
-    <WorkspaceContext.Provider value={value}>
-      {children}
-    </WorkspaceContext.Provider>
+    <WorkspaceTenantContext.Provider value={tenantValue}>
+      <WorkspaceSpaceContext.Provider value={spaceValue}>
+        {children}
+      </WorkspaceSpaceContext.Provider>
+    </WorkspaceTenantContext.Provider>
   );
 }
 
+/** Tenant + admin flags only. Does not re-render when the route space changes. */
+export function useWorkspaceTenant(): WorkspaceTenantState {
+  return useContext(WorkspaceTenantContext);
+}
+
+/** Route space only. Re-renders when the user switches spaces. */
+export function useWorkspaceSpace(): WorkspaceSpace | null {
+  return useContext(WorkspaceSpaceContext);
+}
+
 export function useWorkspaceContext(): WorkspaceContextValue {
-  const context = useContext(WorkspaceContext);
-  if (!context) {
-    // Default to NOT admin: a module rendering outside a provider should hide
-    // admin-only affordances rather than offer a dead end.
-    return {
-      currentSpace: null,
-      currentTenant: null,
-      currentUserId: null,
-      isSuperAdmin: false,
-      isTenantAdmin: false,
-    };
-  }
-  return context;
+  const tenant = useWorkspaceTenant();
+  const currentSpace = useWorkspaceSpace();
+  return useMemo(() => ({ ...tenant, currentSpace }), [currentSpace, tenant]);
 }
 
 /** Convenience: may this user reach tenant-config surfaces under /settings/*? */
 export function useCanAdministerTenant(): boolean {
-  const { isSuperAdmin, isTenantAdmin } = useWorkspaceContext();
+  const { isSuperAdmin, isTenantAdmin } = useWorkspaceTenant();
   return isSuperAdmin || isTenantAdmin;
 }

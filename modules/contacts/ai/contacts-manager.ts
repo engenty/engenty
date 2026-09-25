@@ -2,11 +2,7 @@ import type {
   AgentConfig,
   InstructionDocumentDefinition,
 } from "@engenty/ai-core";
-import {
-  buildMastraWebSearchTool,
-  DEFAULT_AI_CHAT_MODEL_ID,
-  readAgentTextAsset,
-} from "@engenty/ai-core";
+import { buildMastraWebSearchTool, readAgentTextAsset } from "@engenty/ai-core";
 import { createTool } from "@mastra/core/tools";
 
 export const CONTACTS_MANAGER_AGENT_ID = "contacts.manager";
@@ -67,7 +63,6 @@ export const contactsManagerAgentConfig: AgentConfig = {
     "Search, inspect, create, research, and enrich tenant contacts with catalog-backed operations and human-reviewed suggestions.",
   id: CONTACTS_MANAGER_AGENT_ID,
   instructions: buildContactsManagerSystemPrompt(),
-  model: DEFAULT_AI_CHAT_MODEL_ID,
   name: "Contacts Specialist",
   skillIds: CONTACTS_MANAGER_SKILL_IDS,
   source: "module",

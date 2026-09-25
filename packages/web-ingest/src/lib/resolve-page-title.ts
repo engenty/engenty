@@ -13,7 +13,6 @@ import {
 
 const logger = createLogger({ name: "web-ingest:resolve-page-title" });
 
-const DEFAULT_LLM_MODEL = "openai/gpt-5-mini";
 const MAX_TITLE_LEN = 120;
 const LLM_MARKDOWN_BUDGET = 1500;
 
@@ -29,7 +28,7 @@ const pageTitleLlmSchema = z.object({
 
 export interface ResolveSuggestedPageTitleOptions {
   html?: string;
-  /** AI Gateway model id for optional title LLM (default openai/gpt-5-mini). */
+  /** AI Gateway model id for the optional title LLM; omit to skip it. */
   llmModel?: string;
   markdown: string;
   pageUrl: string;
@@ -230,10 +229,10 @@ async function suggestPageTitleWithLlm(options: {
   markdown: string;
   pageUrl: string;
 }): Promise<string | undefined> {
-  if (!process.env.AI_GATEWAY_API_KEY?.trim()) {
+  const model = options.llmModel;
+  if (!(model && process.env.AI_GATEWAY_API_KEY?.trim())) {
     return;
   }
-  const model = options.llmModel ?? DEFAULT_LLM_MODEL;
   const mdSnippet = options.markdown.trim().slice(0, LLM_MARKDOWN_BUDGET);
   const htmlTitleLine = options.htmlTitle?.trim()
     ? `HTML <title>: ${options.htmlTitle.trim()}\n`

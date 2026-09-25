@@ -50,13 +50,13 @@ export interface FileSpaceListing {
 
 /** A connection that can be mounted as a file source. */
 export interface FileSourceSummary {
-  allSpaces?: boolean;
   connectionId: string;
   connectorIcon: string | null;
   connectorId: string;
   connectorName: string;
   label: string;
-  sharing: string;
+  /** The Space that owns the drive. */
+  spaceId: string;
 }
 
 export interface SourceBrowseEntry {
@@ -160,10 +160,16 @@ export async function getSpaceFileUrl(
 
 /* ── Connected sources (mounts) ── */
 
+/**
+ * Drives of the caller's Spaces; with `spaceId`, that Space's only — a drive
+ * mounts only into the Files of the Space that owns it.
+ */
 export async function listFileSources(
+  spaceId: string | null,
   signal?: AbortSignal
 ): Promise<{ sources: FileSourceSummary[] }> {
-  return requestApiJson("/api/files/sources", { method: "GET", signal });
+  const qs = spaceId ? `?spaceId=${encodeURIComponent(spaceId)}` : "";
+  return requestApiJson(`/api/files/sources${qs}`, { method: "GET", signal });
 }
 
 export async function browseFileSource(

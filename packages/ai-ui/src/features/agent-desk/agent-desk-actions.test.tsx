@@ -95,7 +95,8 @@ describe("AgentDeskActions", () => {
     expect(screen.getByText("agentDesk.actions.addRoutine")).toBeTruthy();
   });
 
-  it("offers the admin screens in the overflow menu for tenant-owned agents", () => {
+  it("offers the admin screens in the overflow menu for tenant-owned agents in developer mode", () => {
+    developerMode.enabled = true;
     renderActions({
       agentId: "custom.researcher",
       canAssignWork: false,
@@ -118,7 +119,23 @@ describe("AgentDeskActions", () => {
     expect(screen.queryByText("agentDesk.actions.addRoutine")).toBeNull();
   });
 
+  it("hides the admin screens outside developer mode", () => {
+    renderActions({
+      agentId: "custom.researcher",
+      canAssignWork: false,
+      canManage: true,
+      isCustomAgent: true,
+    });
+
+    openOverflowMenu();
+    expect(screen.queryByText("agentDesk.actions.manageAgent")).toBeNull();
+    expect(screen.queryByText("agentDesk.actions.capabilities")).toBeNull();
+    expect(screen.queryByText("agentDesk.actions.editAgent")).toBeNull();
+    expect(screen.getByText("agentDesk.actions.removeFromSpace")).toBeTruthy();
+  });
+
   it("hides the edit item for agents without an edit form", () => {
+    developerMode.enabled = true;
     renderActions({
       agentId: "invoices.manager",
       canAssignWork: false,

@@ -1,7 +1,835 @@
 [
   {
+    "version": "v0.2.19",
+    "timestamp": 1790291515,
+    "commits": [
+      {
+        "id": "93540e2",
+        "message": "thread message writes drop U+0000, so a tool output carrying one no longer aborts the run",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "9ecc7be",
+        "message": "per-Space egress allowlist — a Space computer reaches the shared registries plus the hosts its Space allows",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "462f398",
+        "message": "the computer prompt says the Space computer is the current_space's, so a new $HOME after the conversation moves Spaces reads as expected",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "6de9a14",
+        "message": "the Copilot uses the computer and browser of the Space the person stands in, and runs commands without approval",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "3abdc82",
+        "message": "tenant box marked superseded by the Space computer",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "bde6e6e",
+        "message": "docs match the code on mounts, coordinators, artifact scopes and memory; Copilot manifest drops removed tool ids",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "1f377ef",
+        "message": "the Copilot runs on the person's personal Space computer",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "849f8a3",
+        "message": "engenty.cli runs on the Space computer of the run it is delegated from",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "7996a0a",
+        "message": "a purged Space's folder, computer and browser are removed; each Space folder is measured with du against a quota",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "eaf8d29",
+        "message": "one host root and one folder per Space — ENGENTY_SPACES_DIR holds each Space drive; the space computer's /sandbox is no longer synced",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "360fcb8",
+        "message": "engenty tools list|schema|call in every sandbox shell, relayed over docker exec stdio with a ticket per command",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "b99b68e",
+        "message": "browser_sign_in — a CLI on the Space computer signs in through the person in the Space browser, its loopback callback forwarded into the computer",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "8e3f78a",
+        "message": "computer skills are any skills/<name>/SKILL.md in $HOME or /sandbox, links inside the tree followed",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "ece1598",
+        "message": "skills and MCP servers an installer leaves on the Space computer are offered to the Space",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "8cc2ea0",
+        "message": "chat runs are told what their computer is — which paths the shell reaches, where installs go and whether they stay",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "1333a0a",
+        "message": "a space computer no longer binds a staged /data every run shares",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "fd1ae87",
+        "message": "a space computer no longer binds the first run's /home for every agent",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "18c82cd",
+        "message": "chats land at their bottom before the first paint and stay where the person left them",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "da7b64a",
+        "message": "a colleague's message is a bubble on the right, its name above and its face in the margin",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "86e3b03",
+        "message": "the last three chats of a space stay mounted between visits",
+        "group": "Performance",
+        "breaking": false
+      },
+      {
+        "id": "4e63270",
+        "message": "cache a granted Space entry for 30 s per tenant, user and Space",
+        "group": "Performance",
+        "breaking": false
+      },
+      {
+        "id": "e4aa274",
+        "message": "a settled run re-reads only the newest stretch of a long transcript",
+        "group": "Performance",
+        "breaking": false
+      },
+      {
+        "id": "e7ef11d",
+        "message": "slim transcript pages, full row on expand",
+        "group": "Performance",
+        "breaking": false
+      },
+      {
+        "id": "6e1b4a5",
+        "message": "delta fetch for thread messages via after/after_id",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "f4dcc3a",
+        "message": "index ai.thread_message for transcript paging by (created_at, id)",
+        "group": "Performance",
+        "breaking": false
+      },
+      {
+        "id": "4acd456",
+        "message": "long transcripts open tail first and skip off-screen rows",
+        "group": "Performance",
+        "breaking": false
+      },
+      {
+        "id": "e8db5c5",
+        "message": "transcript rows share one resize observer",
+        "group": "Performance",
+        "breaking": false
+      },
+      {
+        "id": "4e42028",
+        "message": "markdown blocks render once with the shared plugin set",
+        "group": "Performance",
+        "breaking": false
+      },
+      {
+        "id": "0c3bb15",
+        "message": "composer keystrokes no longer redraw the transcript",
+        "group": "Performance",
+        "breaking": false
+      },
+      {
+        "id": "8eac418",
+        "message": "a streaming token redraws only the transcript row it lands in",
+        "group": "Performance",
+        "breaking": false
+      },
+      {
+        "id": "52806ea",
+        "message": "unchanged transcript messages keep their objects across stream events",
+        "group": "Performance",
+        "breaking": false
+      },
+      {
+        "id": "83807ce",
+        "message": "short titles, stored links, decide at the source",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "14bf3d1",
+        "message": "chats open from cache and load before they are clicked",
+        "group": "Performance",
+        "breaking": false
+      },
+      {
+        "id": "a993b2e",
+        "message": "park the closed hover column past its own shadow",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "cb7a802",
+        "message": "the more menu sits last in a tall bubble's action column",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "383eb74",
+        "message": "message actions stack beside tall bubbles, the link moves to a menu; replies fold only past 70vh, never the newest",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "cb86745",
+        "message": "clip lines get a little more air",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "ec75e5c",
+        "message": "the copilot's full chat on its card fill, its own face in the margin",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "febf2bd",
+        "message": "actions under a bubble take no room until it is tapped",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "96d899a",
+        "message": "a new speaker opens with the full gap, clips included",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "a253ada",
+        "message": "a turn of only silent tools takes no gap and parts no bubbles",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "48d4ab3",
+        "message": "measure chat gaps edge to edge",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "52c16a6",
+        "message": "one spacing rule for the chat, a narrow lane like a phone messenger",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "fbda92f",
+        "message": "part bubbles where clips are drawn, not where calls sit",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "f42cf55",
+        "message": "the agent's name on its first bubble with words",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "e7bb046",
+        "message": "no face on a row without words, name only when the speaker changes",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "d2f72f4",
+        "message": "hover actions beside the agent's bubble",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "1b8c3f1",
+        "message": "the copilot's full chat on the sidebar's light fill",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "b14814f",
+        "message": "a face on every bubble a clip or date line stands apart",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "e24dad4",
+        "message": "two chat styles to pick, bubbles visible on every canvas",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "830e8f6",
+        "message": "each agent's own face beside its bubbles",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "8213c98",
+        "message": "the copilot's own face beside its bubbles",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "eaa6357",
+        "message": "messenger layout for agent bubbles",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "72283ce",
+        "message": "clips and date lines in the chat, step list for developers",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "c02c76a",
+        "message": "agent messages as bubbles, chosen in appearance settings",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "8fe4c4d",
+        "message": "the copilot steps aside while a guide is on screen",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "7a1e72d",
+        "message": "render guide bodies as Markdown, translate the close button",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "0c6f0d9",
+        "message": "solid fill for the guide card",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "5e88a9f",
+        "message": "name the guide step a click answered",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "37172d4",
+        "message": "show a guide click as the button pressed, not the raw line",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "b181c37",
+        "message": "a closed guide's next step is a new show_ui_guide",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "f53ffbe",
+        "message": "keep the guide card on screen beside a full-height target",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "0012787",
+        "message": "the setup wizard's language becomes the tenant's",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "b3512c1",
+        "message": "retry the AI service credential check after a db reset",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "f63ae69",
+        "message": "mount the AG-UI inspector inside the workspace provider",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "13ab12f",
+        "message": "translate the copilot's welcome into the person's language",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "90566ac",
+        "message": "name the pair in the desk crumb, link hand-offs to their thread",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "b3f620f",
+        "message": "show an agent-to-agent thread as the pair, not as the host's desk",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "c75b0f7",
+        "message": "developer tools in the copilot's menu",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "7e23960",
+        "message": "remove the copilot's context picker",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "b51837f",
+        "message": "keep close on the outer edge of the docked copilot header",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "200d601",
+        "message": "read the connect card's state from its own Space",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "7ee68c6",
+        "message": "approval mode under the composer, voice from the blob only",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "8ef5606",
+        "message": "load namespaces for a regional browser language",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "5169852",
+        "message": "attach the copilot window to the sidebar from its title bar",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "d98134f",
+        "message": "start in the browser's language until the person chooses one",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "82a2ec5",
+        "message": "let the scheduler wait quietly for the first tenant",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "27d0838",
+        "message": "bind the approval mode to the agent, auto for the copilot",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "7e07534",
+        "message": "welcome a new person in a window beside the blob",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "d2957f6",
+        "message": "add a getting-started skill for the first setup",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "4b56ce4",
+        "message": "never dock an older question behind a newer suspended one",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "cec8d87",
+        "message": "tighten test-writing rules for agents",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "822a274",
+        "message": "keep the copilot oriented across a Space switch and an unanswered chooser",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "6b361a1",
+        "message": "keep the composer flap closed for an interrupt with no card",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "16543ea",
+        "message": "run the copilot in the Space the person stands in",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "2911c73",
+        "message": "show a delegated approval as a summary, not as a shell command",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "36636cf",
+        "message": "do not announce the resumed tool call again",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "e3b117b",
+        "message": "hire a Chief of Staff as the Space coordinator, no Routine",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "da7ac01",
+        "message": "Space-owned connections and a browser per Space",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "c042310",
+        "message": "run the copilot out of its person's personal Space",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "0b18e25",
+        "message": "give the AI service credential connections and agent provisioning caps",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "9fcb724",
+        "message": "one attention rule behind a Wichtig tab, toasts and Space dashboard cards",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "6647eaa",
+        "message": "give the AI service credential connections and agent provisioning caps",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "9fb4739",
+        "message": "approve sandbox commands per exact command and per agent",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "e4c6aea",
+        "message": "open a connection's details from the agent's connection rows",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "e2565e0",
+        "message": "move agent settings one level down behind a gear in the pane",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "f2255cc",
+        "message": "list agent connections as logo rows above skills, actions in the headings",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "a66e4fa",
+        "message": "lead wire rows with timings and add hover copy on run rows",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "55febc1",
+        "message": "scroll long routine prompts and show summary and destinations on routine cards",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "9bc0676",
+        "message": "let coordinators remove specialists behind an approval card",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "0bbfa86",
+        "message": "ask before a routine gains an external destination where the Space asks",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "955aff1",
+        "message": "route notify requests to routine destinations",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "8a946a6",
+        "message": "let routine tools set delivery destinations",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "2c11f9e",
+        "message": "label routine destinations Zustellung and show the promise on prompt routines",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "3ab5085",
+        "message": "re-mint the local AI service credential after db reset",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "fe70b63",
+        "message": "ask agents to request a connect card once per conversation",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "366281d",
+        "message": "show live connect state on chat connect cards",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "69771af",
+        "message": "fold wire chunks into one row and show compact run timings",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "2bcd87d",
+        "message": "stamp trajectory rows with start/end times from stored events",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "7fd6c62",
+        "message": "use the full-screen copilot header in sidebar and window",
+        "group": "Added",
+        "breaking": false
+      }
+    ]
+  },
+  {
+    "version": "v0.2.18",
+    "timestamp": 1790183703,
+    "commits": [
+      {
+        "id": "0acaf2b",
+        "message": "boot after DB reset when role bindings are still empty",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
+    "version": "v0.2.17",
+    "timestamp": 1790181697,
+    "commits": [
+      {
+        "id": "ea9c65b",
+        "message": "stamp catalog sync runs and keep new models inactive",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "dc7dd93",
+        "message": "make platform role bindings the sole model source of truth",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "4bc1381",
+        "message": "capabilities and price columns, media and voice rows on model bindings",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "753497c",
+        "message": "image, embedding, video and realtime model roles",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "36cccf3",
+        "message": "classifier and fast text rows on the model bindings page",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "c148d23",
+        "message": "group summaries on the fast_text model",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "f868e30",
+        "message": "collapse model roles to graded, classifier and fast text",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "f75b2a7",
+        "message": "model catalog privacy, region and gateway settings polish",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "be14934",
+        "message": "optional icon on ListFilterChip options",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "e06fcbf",
+        "message": "mask the probed gateway key and test Mistral and SpaceX keys",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "222a759",
+        "message": "add Mistral and SpaceX AI as direct model gateways",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "d0f2be3",
+        "message": "store data-usage coverage and inference regions per catalog model",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "cfef7da",
+        "message": "model defaults export/reset, gateway settings and catalog UI",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "a8ff354",
+        "message": "test the stored gateway key when the probe gets none",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "152f7c8",
+        "message": "commit model defaults with bindings and apply them on fresh catalogs",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "ff6126c",
+        "message": "chart components and a composed inbox dashboard",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "9313a4c",
+        "message": "drop remaining normal-flow links into /admin/engenty",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "9ab3a49",
+        "message": "restrict /admin/engenty to superadmins in developer mode",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "6e818fc",
+        "message": "don't nudge a turn the provider failed",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "b512530",
+        "message": "map unconfigured model gateway to a clear client error",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "d01c248",
+        "message": "add extensible outcome destination providers",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "a665df1",
+        "message": "make Mod+. toggle dictation only in chat inputs",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "759dc4f",
+        "message": "widen ⌘K with space tabs and open copilot on ⌘O",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "3874949",
+        "message": "keep space switches off React’s 5s transition expiration",
+        "group": "Performance",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.2.16",
-    "timestamp": 1790086013,
+    "timestamp": 1790086018,
     "commits": [
       {
         "id": "bab58d6",

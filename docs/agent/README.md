@@ -15,7 +15,7 @@
 - [Spaces runtime contract](./spaces-runtime.md) — canonical tenant, active
   Space, catalog, execution-evidence, and record-scope semantics for agent runs
 - [Agent computers](../content/dev/agent-computers.md) — the containers behind a
-  run: per-run sandboxes, the space computer, a person's browser, and what
+  run: per-run sandboxes, the space computer, the space browser, and what
   each one can reach
 - [Design system](./DESIGN.md) — canonical visual UI rules
 

@@ -7,11 +7,13 @@
  */
 import { resolveRailSpaces, SidebarSpacesZone } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
+import { useQueryClient } from "@engenty/query-client";
 import { useWorkspaceContext } from "@engenty/ui-plugin-sdk";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { SpaceSetupDialog } from "@/components/spaces/SpaceSetupDialog";
 import { isPersonalSpace } from "@/lib/api/spaces-client";
+import { prefetchSpaceDestination } from "@/lib/prefetch-space-destination";
 import { spaceRootPath } from "@/lib/space-routes";
 import { useSpacesQuery } from "@/lib/spaces-queries";
 import { useSpacesRecent } from "@/lib/spaces-recent-persistence";
@@ -71,6 +73,13 @@ export function SpacesRailZone() {
   }, [currentSpaceId, resolved.currentPromoted, visit]);
 
   const canManage = Boolean(isTenantAdmin || isSuperAdmin);
+  const queryClient = useQueryClient();
+  const onPrefetchSpace = useCallback(
+    (space: { id: string }) => {
+      prefetchSpaceDestination(queryClient, space);
+    },
+    [queryClient]
+  );
 
   return (
     <>
@@ -92,6 +101,7 @@ export function SpacesRailZone() {
         // The full switcher is the spaces list until Phase 5's search lands;
         // a real destination beats a dead control.
         onOpenSwitcher={() => navigate("/settings/spaces")}
+        onPrefetchSpace={onPrefetchSpace}
         pending={spacesQuery.isPending}
         resolved={resolved}
         spaceHref={(space) => spaceRootPath(space.key)}

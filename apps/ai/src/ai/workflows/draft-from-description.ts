@@ -62,7 +62,7 @@ export interface DraftGraphInput {
 }
 
 export interface DraftGraphResult {
-  /** True when the chat tier drafted because no planning tier is bound. */
+  /** True when the chat model drafted because no high tier is bound. */
   draftedWithFallbackTier?: boolean;
   graph: {
     graph: unknown[];
@@ -188,27 +188,24 @@ function asSchema(value: unknown): Record<string, unknown> {
 }
 
 /**
- * Pin this run to the tenant's PLANNING & CODING tier.
+ * Pin this run to the tenant's HIGH tier.
  *
- * Without this the drafting run inherits the copilot's own declared
- * `purpose: "routing"` — and worse, `assembleDynamicAgent` short-circuits to the
- * agent's compiled-in default when no `modelConfig` is supplied at all, so the
- * tenant's configured bindings were bypassed entirely. Writing declarative graph
- * JSON against a strict schema is planning/coding work, not routing work, and
- * the difference showed: the shapes the validator now rejects (a toolId used as
- * an entry type, a conditional written as an inline if) are exactly the mistakes
- * a router-tier model makes.
+ * Without this the drafting run inherits the copilot's own chat model — and
+ * worse, `assembleDynamicAgent` short-circuits to the agent's compiled-in
+ * default when no `modelConfig` is supplied at all, so the tenant's configured
+ * bindings were bypassed entirely. Writing declarative graph JSON against a
+ * strict schema is high-effort work, and the difference showed: the shapes the
+ * validator now rejects (a toolId used as an entry type, a conditional written
+ * as an inline if) are exactly the mistakes a lower-tier model makes.
  *
- * All three ids are set to the same model deliberately. The copilot resolves by
- * its OWN purpose, so `routingModelId` is the field it actually reads — pinning
- * only `planningCodingModelId` would change nothing. This says "run this
- * delegation at planning quality" without editing the shared agent's purpose,
- * which would affect every other copilot turn.
+ * The tier is pinned (`effortPinned`) so the copilot's own default tier cannot
+ * move it, without editing the shared agent, which would affect every other
+ * copilot turn.
  */
 async function resolveDraftingModelConfig(scope: AiSessionScope): Promise<{
   config: RuntimeModelConfig;
   /**
-   * True when no planning tier is bound and the chat tier drafted instead.
+   * True when no high tier is bound and the chat model drafted instead.
    * Surfaced to the canvas: the shapes the validator rejects are exactly the
    * mistakes a weaker tier makes, and a weak-tier single-node draft is
    * otherwise indistinguishable from a correct one.
@@ -216,15 +213,15 @@ async function resolveDraftingModelConfig(scope: AiSessionScope): Promise<{
   usedFallbackTier: boolean;
 }> {
   const base = await resolveGraphRunModelConfig(scope);
-  // The planning tier is optional in the config; its documented fallback is
-  // the chat tier, and spelling that out here keeps both ids `string`.
-  const usedFallbackTier = !base.planningCodingModelId;
-  const modelId = base.planningCodingModelId ?? base.chatModelId;
+  // The graded tiers are clamped to the plan, so high may be absent; the
+  // chat model drafts then, and the canvas is told.
+  const highModelId = base.gradedModelIds?.high;
+  const usedFallbackTier = !highModelId;
   return {
     config: {
       ...base,
-      chatModelId: modelId,
-      routingModelId: modelId,
+      chatModelId: highModelId ?? base.chatModelId,
+      effortPinned: true,
     },
     usedFallbackTier,
   };
@@ -260,7 +257,7 @@ interface DraftingSession {
   /** Wraps the model rounds: maps an abort to DRAFT_CANCELLED, cleans up. */
   run: <T>(rounds: (abortSignal?: AbortSignal) => Promise<T>) => Promise<T>;
   runOnce: (brief: string, roundRunId: string) => Promise<string>;
-  /** No planning tier bound — the chat tier drafted. Rides the result. */
+  /** No high tier bound — the chat model drafted. Rides the result. */
   usedFallbackTier: boolean;
 }
 
@@ -302,7 +299,7 @@ async function createDraftingSession(params: {
   const { config: modelConfig, usedFallbackTier } =
     await resolveDraftingModelConfig(params.scope);
   logger.info("starting a drafting session", {
-    modelId: modelConfig.routingModelId,
+    modelId: modelConfig.chatModelId,
     usedFallbackTier,
     tenantId: params.scope.tenantId,
     title: params.title,
@@ -314,7 +311,7 @@ async function createDraftingSession(params: {
       agentId: ENGENTY_COPILOT_AGENT_ID,
       createdByUserId: params.scope.userId ?? null,
       id: params.runId,
-      modelId: modelConfig.routingModelId,
+      modelId: modelConfig.chatModelId,
       tenantId: params.scope.tenantId,
       threadId: thread.id,
       // The canvas asked for a draft; no chat turn produced this.

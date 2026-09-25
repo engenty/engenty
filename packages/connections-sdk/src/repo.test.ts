@@ -1,5 +1,6 @@
+import { randomBytes } from "node:crypto";
 import { createFakeApprovalDb } from "@engenty/approvals-sdk";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
   registerConnectorDefinition,
@@ -67,5 +68,71 @@ describe("createConnectionsRepo approval listing", () => {
       tenantId: TENANT,
     });
     expect(listed.map((r) => r.id).sort()).toEqual(["r1", "r2"]);
+  });
+});
+
+describe("createConnectionsRepo.upsertConnectionWithTokens", () => {
+  const KEY_ENV = "CONNECTIONS_TOKEN_ENC_KEY";
+  let previous: string | undefined;
+
+  beforeEach(() => {
+    previous = process.env[KEY_ENV];
+    process.env[KEY_ENV] = randomBytes(32).toString("base64");
+  });
+
+  afterEach(() => {
+    if (previous === undefined) {
+      delete process.env[KEY_ENV];
+    } else {
+      process.env[KEY_ENV] = previous;
+    }
+  });
+
+  function connect(
+    repo: ReturnType<typeof createConnectionsRepo>,
+    patch: { connectedBy?: string; spaceId: string }
+  ) {
+    return repo.upsertConnectionWithTokens({
+      accessToken: "token",
+      connectedBy: patch.connectedBy ?? "user-1",
+      connectorId: "test-mail",
+      expiresAt: null,
+      externalAccount: "Office@x.com",
+      grantedScopes: [],
+      refreshToken: null,
+      spaceId: patch.spaceId,
+      tenantId: TENANT,
+    });
+  }
+
+  it("keys the account on its Space: same account, two Spaces, two rows", async () => {
+    const db = createFakeApprovalDb();
+    db.tables.connections = [];
+    const repo = createConnectionsRepo(db.client);
+
+    const marketing = await connect(repo, { spaceId: "space-marketing" });
+    const sales = await connect(repo, { spaceId: "space-sales" });
+    expect(marketing.id).not.toBe(sales.id);
+    expect(db.tables.connections).toHaveLength(2);
+    expect(db.tables.connections?.[0]).toMatchObject({
+      connected_by: "user-1",
+      space_id: "space-marketing",
+    });
+  });
+
+  it("reconnecting in the same Space replaces tokens and keeps the id", async () => {
+    const db = createFakeApprovalDb();
+    db.tables.connections = [];
+    const repo = createConnectionsRepo(db.client);
+
+    const first = await connect(repo, { spaceId: "space-marketing" });
+    const again = await connect(repo, {
+      connectedBy: "user-2",
+      spaceId: "space-marketing",
+    });
+    expect(again.id).toBe(first.id);
+    expect(db.tables.connections).toHaveLength(1);
+    // Who signed in first stays on record; a reconnect only swaps tokens.
+    expect(db.tables.connections?.[0]?.connected_by).toBe("user-1");
   });
 });

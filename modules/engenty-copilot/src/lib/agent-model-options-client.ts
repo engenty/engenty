@@ -1,10 +1,4 @@
-import {
-  parseTenantAiSettings,
-  resolveChatModelId,
-} from "@engenty/ai-core/browser";
 import { getCurrentAccessToken, requestApiJson } from "@engenty/api-client";
-
-const AI_CONFIG_KEY = "ai.config";
 
 export type AgentModelPriceTier =
   | "cheap"
@@ -25,61 +19,43 @@ export interface AgentModelOption {
 }
 
 export interface AgentModelConfig {
+  /**
+   * The chat model the server resolves for this tenant (tenant pin → role
+   * binding); null when the ai service could not resolve one.
+   */
   chat_model_id: string | null;
-  coordinator_model_id: string | null;
 }
 
-type TenantSettingApiResponse =
-  | { ok: true; data: { name: string; type: string; value?: unknown } }
-  | { name?: string; type?: string; value?: unknown }
-  | { error: string };
-
-export function resolveConfiguredAgentModelId(
-  config: AgentModelConfig | null | undefined
-): string {
-  const tenantChatModel = config?.chat_model_id?.trim() || null;
-  return resolveChatModelId({
-    purpose: "routing",
-    readEnv: () => undefined,
-    tenantDefault: config?.coordinator_model_id?.trim() || tenantChatModel,
-  });
+interface EffectiveAiSettingsResponse {
+  models?: { chat?: { value?: string | null } };
 }
 
-export async function getAgentModelConfig(
-  signal?: AbortSignal
-): Promise<AgentModelConfig> {
-  try {
-    const res = await requestApiJson<TenantSettingApiResponse>(
-      `/api/tenant-settings/${encodeURIComponent(AI_CONFIG_KEY)}`,
-      { signal, unwrapEnvelope: false }
-    );
-    if ("error" in res) {
-      return { chat_model_id: null, coordinator_model_id: null };
+function trimBaseUrl(serviceBaseUrl: string): string {
+  return serviceBaseUrl.trim().replace(/\/$/, "");
+}
+
+/** Reads the effective chat model from `GET /ai/v1/settings/effective`. */
+export async function getAgentModelConfig(params: {
+  serviceBaseUrl: string;
+  signal?: AbortSignal;
+}): Promise<AgentModelConfig> {
+  const res = await requestApiJson<EffectiveAiSettingsResponse>(
+    "/ai/v1/settings/effective",
+    {
+      authToken: (await getCurrentAccessToken()) ?? undefined,
+      baseUrl: trimBaseUrl(params.serviceBaseUrl),
+      signal: params.signal,
     }
-    const raw =
-      "data" in res && res.data != null
-        ? res.data.value
-        : "value" in res
-          ? res.value
-          : undefined;
-    if (raw != null && typeof raw === "object" && !Array.isArray(raw)) {
-      const parsed = parseTenantAiSettings(raw);
-      return {
-        chat_model_id: parsed.chat_model_id ?? null,
-        coordinator_model_id: parsed.coordinator_model_id ?? null,
-      };
-    }
-  } catch {
-    return { chat_model_id: null, coordinator_model_id: null };
-  }
-  return { chat_model_id: null, coordinator_model_id: null };
+  );
+  const value = res.models?.chat?.value?.trim();
+  return { chat_model_id: value || null };
 }
 
 export async function listAgentModelOptions(params: {
   serviceBaseUrl: string;
   signal?: AbortSignal;
 }): Promise<{ items: AgentModelOption[] }> {
-  const baseUrl = params.serviceBaseUrl.trim().replace(/\/$/, "");
+  const baseUrl = trimBaseUrl(params.serviceBaseUrl);
   const search = new URLSearchParams({
     availability_purpose: "routing",
     use_case: "text",

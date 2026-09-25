@@ -89,6 +89,7 @@ type AssembleInstructionExtras = NonNullable<
 
 import { resolveThreadInterruptNotifications } from "../../notifications/thread-interrupts.js";
 import type { EngentySandboxProvider } from "../sandbox/sandbox-provider.js";
+import { loadAgentApprovalGrants } from "../sessions/agent-approval-grants.js";
 import {
   loadConnectionApprovalGrants,
   mergeApprovalGrants,
@@ -174,6 +175,7 @@ export interface ResumeConversationRunInput {
    */
   resolveWorkspace?: () => Promise<
     | {
+        computeInstructions?: string;
         sandboxProvider?: EngentySandboxProvider;
         workspace?: Workspace;
       }
@@ -185,7 +187,8 @@ export interface ResumeConversationRunInput {
    * SNAPSHOT lane only: the thread's persisted route context, which is where
    * the user's UI language lives. Without it a post-restart continuation
    * answers in English to a German user — the most visible symptom of the
-   * re-assembled agent losing the start lane's runtime instructions.
+   * re-assembled agent losing the start lane's runtime instructions. It also
+   * places a thread with no space of its own (the copilot's river).
    */
   routeContext?: unknown;
   /** SNAPSHOT lane only: this request's chat context entries (see agentUi). */
@@ -253,10 +256,13 @@ async function buildResumeToolsRunContext(input: ResumeConversationRunInput) {
     input.scope.tenantId,
     input.agentId
   );
-  // The continuation runs in the same space the turn started in — resolved
-  // from the thread, not from wherever the browser has navigated since
-  // (PLAN-spaces.md Phase C3a).
+  // The continuation runs in the thread's space (PLAN-spaces.md Phase C3a).
+  // A thread with none — the copilot's river — is placed by the route context
+  // the answer was sent from, as its start lane was.
   const spaceResolution = await resolveRunSpaceForThread({
+    ...(input.routeContext
+      ? { routeContext: input.routeContext as Record<string, unknown> }
+      : {}),
     runId: input.newRunId,
     scope: input.scope,
     store: input.store,
@@ -269,9 +275,15 @@ async function buildResumeToolsRunContext(input: ResumeConversationRunInput) {
     agentTypeKey: input.agentId,
     space: toolsSpace,
     approvalGrants: mergeApprovalGrants(
-      readToolApprovalGrants(input.sessionMetadata ?? {}),
-      await loadConnectionApprovalGrants({
-        accessToken: scopeAccessToken(input.scope),
+      mergeApprovalGrants(
+        readToolApprovalGrants(input.sessionMetadata ?? {}),
+        await loadConnectionApprovalGrants({
+          accessToken: scopeAccessToken(input.scope),
+        })
+      ),
+      await loadAgentApprovalGrants({
+        agentId: input.agentId,
+        tenantId: input.scope.tenantId,
       })
     ),
     approvalPolicy: "suspend" as const,
@@ -347,7 +359,8 @@ function suspendedAgainLabel(suspended: SuspendedAgain): string {
 async function resolveResumeInstructionExtras(
   input: ResumeConversationRunInput,
   spaceResolution: RunSpaceResolution,
-  frontendToolGrant: FrontendToolGrant | null
+  frontendToolGrant: FrontendToolGrant | null,
+  computeInstructions: string | undefined
 ): Promise<{
   instructionExtras?: AssembleInstructionExtras;
   runtimeContextInstructions?: string;
@@ -379,6 +392,7 @@ async function resolveResumeInstructionExtras(
               frontend_tools: input.agentUi.frontend_tools ?? [],
             }
           : null,
+        ...(computeInstructions ? { computeInstructions } : {}),
         frontendToolGrant,
         routeContext: (input.routeContext ?? null) as never,
         runContext: input.runContext as never,
@@ -457,7 +471,11 @@ async function resumeFromSnapshot(
   // Never fail the resume over this: continuing without the sandbox is a
   // degraded turn, while throwing here would strand a recoverable interrupt.
   let resolved:
-    | { sandboxProvider?: EngentySandboxProvider; workspace?: Workspace }
+    | {
+        computeInstructions?: string;
+        sandboxProvider?: EngentySandboxProvider;
+        workspace?: Workspace;
+      }
     | undefined;
   try {
     resolved = await input.resolveWorkspace?.();
@@ -476,6 +494,9 @@ async function resumeFromSnapshot(
   // a stranded interrupt.
   try {
     const spaceResolution = await resolveRunSpaceForThread({
+      ...(input.routeContext
+        ? { routeContext: input.routeContext as Record<string, unknown> }
+        : {}),
       runId: input.newRunId,
       scope: input.scope,
       store: input.store,
@@ -498,7 +519,8 @@ async function resumeFromSnapshot(
       await resolveResumeInstructionExtras(
         input,
         spaceResolution,
-        frontendToolGrant
+        frontendToolGrant,
+        resolved?.computeInstructions
       );
     const resumeThread =
       typeof input.store.getThread === "function"
@@ -515,7 +537,7 @@ async function resumeFromSnapshot(
     const memoryRuntime = createEngentySessionMemoryRuntime({
       agentId: input.agentId,
       ...(agentConfig?.name ? { agentName: agentConfig.name } : {}),
-      observationalModelId: input.modelConfig?.memoryModelId,
+      observationalModelId: input.modelConfig?.fastTextModelId,
       scope: input.scope,
       sharedObservations: agentConfig
         ? resolveSharedObservationsScope(agentConfig)
@@ -560,8 +582,8 @@ async function resumeFromSnapshot(
       : { extraTools: {}, skipNativeSubAgents: false };
     // An "Allow" on the browser_start card creates the browser first, so the
     // toolset below is the full browser_* set, not the ask-tool again.
-    const runBrowser = await resolveRunBrowser({
-      scope: input.scope,
+    const runBrowser = resolveRunBrowser({
+      agentId: input.agentId,
       source: spaceResolution,
     });
     await startUserBrowserOnResume(
@@ -575,6 +597,7 @@ async function resumeFromSnapshot(
       headless: false,
       tenantId: input.scope.tenantId,
       textModelId: input.modelConfig?.gradedModelIds?.low ?? null,
+      classifierModelId: input.modelConfig?.classifierModelId ?? null,
     });
     const extraTools = {
       ...createNativeFrontendTools(mergedDefinitions),

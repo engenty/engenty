@@ -21,9 +21,8 @@
  * tab as its count (and on Plan while that tab exists), because a space
  * without Tasks still receives approvals, questions and reports.
  */
-import { useInboxUnseenCountQuery } from "@engenty/ai-ui/embed";
 import { useTranslation } from "@engenty/i18n/ui";
-import { useSpaceNeedsInputCount } from "@engenty/notifications-ui";
+import { useAttentionCount } from "@engenty/notifications-ui";
 import { cn } from "@engenty/ui-core";
 import {
   type SpaceResourceKind,
@@ -85,15 +84,10 @@ export function SpaceNavTabs({
   const { contributions } = useUiContributions();
   const { isSuperAdmin, isTenantAdmin } = useWorkspaceContext();
   const { modules: mounted, isPending } = useSpaceModules(spaceId);
-  const inboxUnseenQuery = useInboxUnseenCountQuery();
-  // Inside a space the tab counts what waits here (tenant-global rows
-  // included); the tenant-wide number is the bell's.
-  const inboxCount =
-    inboxUnseenQuery.data?.in_space ?? inboxUnseenQuery.data?.total ?? 0;
-  // The Work tab's own badge counts what still WAITS for a person here, not
-  // what is unread: an approval you looked at yesterday and left open is the
-  // whole reason to put a number on the tab.
-  const needsInputCount = useSpaceNeedsInputCount();
+  // What still WAITS for a person in this space (`isAttention`), not what is
+  // unread: an approval you looked at yesterday and left open is the whole
+  // reason to put a number on the tab. The tenant-wide number is the bell's.
+  const attentionCount = useAttentionCount("space");
   const canManage = Boolean(isTenantAdmin || isSuperAdmin);
   // Personal-space owners may mount modules and agents (admins cannot see
   // those spaces). Adding people is admin-only, and only on shared spaces.
@@ -168,14 +162,10 @@ export function SpaceNavTabs({
         {sections.map((item) => {
           const Icon = item.icon;
           const isActive = section === item.id;
-          // Work carries what waits for a person in the space (the home's
-          // bell shows the same number); Plan carries the inbox's unseen.
+          // Work and Plan (its inbox) both carry what waits for a person in
+          // the space — the home's bell shows the same number.
           const badge =
-            item.id === "plan"
-              ? inboxCount
-              : item.id === "work"
-                ? needsInputCount
-                : 0;
+            item.id === "plan" || item.id === "work" ? attentionCount : 0;
           const badgeLabel =
             badge <= 0
               ? undefined

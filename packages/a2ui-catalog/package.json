@@ -27,6 +27,7 @@
     "@a2ui/web_core": "0.10.5",
     "@engenty/ui-core": "workspace:*",
     "lucide-react": "^1.46.0",
+    "recharts": "3.8.0",
     "zod": "3.25.76"
   },
   "peerDependencies": {

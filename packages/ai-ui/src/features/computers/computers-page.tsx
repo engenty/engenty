@@ -35,6 +35,17 @@ function age(createdAtMs: number | null): string {
     : `${Math.floor(hours / 24)}d`;
 }
 
+function size(bytes: number): string {
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return `${value < 10 && unit > 0 ? value.toFixed(1) : Math.round(value)} ${units[unit]}`;
+}
+
 export function ComputersPage() {
   const queryClient = useQueryClient();
   const computers = useQuery({
@@ -113,6 +124,7 @@ export function ComputersPage() {
                 <th className="px-3 py-2 font-medium">Lifecycle</th>
                 <th className="px-3 py-2 font-medium">State</th>
                 <th className="px-3 py-2 font-medium">Age</th>
+                <th className="px-3 py-2 font-medium">Disk</th>
                 <th className="px-3 py-2 font-medium">Container</th>
                 <th className="px-3 py-2" />
               </tr>
@@ -125,12 +137,12 @@ export function ComputersPage() {
                       {row.lifecycle === "space"
                         ? "Space computer"
                         : row.lifecycle === "browser"
-                          ? "User browser"
+                          ? "Space browser"
                           : (row.agent_id ?? "unknown")}
                     </span>
-                    {row.lifecycle === "browser" && row.user_id ? (
+                    {row.lifecycle === "browser" && row.space_id ? (
                       <span className="ml-2 font-mono text-muted-foreground text-xs">
-                        {row.user_id.slice(0, 8)}
+                        {row.space_id.slice(0, 8)}
                       </span>
                     ) : null}
                     {row.title ? (
@@ -152,6 +164,22 @@ export function ComputersPage() {
                   </td>
                   <td className="px-3 py-2 tabular-nums">
                     {age(row.created_at_ms)}
+                  </td>
+                  <td className="px-3 py-2 tabular-nums">
+                    {row.drive ? (
+                      <span
+                        title={`Space folder on the host; quota ${size(row.drive.max_bytes)}`}
+                      >
+                        {size(row.drive.bytes)}
+                        {row.drive.bytes > row.drive.max_bytes ? (
+                          <Badge className="ml-2" variant="destructive">
+                            over quota
+                          </Badge>
+                        ) : null}
+                      </span>
+                    ) : (
+                      "—"
+                    )}
                   </td>
                   <td className="max-w-56 truncate px-3 py-2 font-mono text-muted-foreground text-xs">
                     {row.container_name}

@@ -1,36 +1,54 @@
 import { currentRequestSpaceId } from "@engenty/api-client";
-import { useMutation, useQuery, useQueryClient } from "@engenty/query-client";
+import {
+  keepPollingWhenHidden,
+  staggeredRefetchInterval,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@engenty/query-client";
+import { useMemo } from "react";
 import {
   type ApprovalDecision,
   decideApprovalRequest,
-  fetchUnseenCount,
+  fetchAttentionCount,
   type ListNotificationsInput,
   listNotifications,
   markAllSeen,
   markNotification,
+  type NotificationDto,
 } from "./api.js";
-import { isNeedsInput } from "./classification.js";
+import { groupAttentionByAgent, isAttention } from "./classification.js";
 
 // The space rides every request as a header, so a response is a different
 // query per space: the keys carry it, or a space switch would serve the
 // previous space's list from cache.
-/** How far back the badge looks. Open items that need a person are few; a
- * space with more than this many has a bigger problem than a badge. */
-export const NEEDS_INPUT_SCAN_LIMIT = 100;
+/** How far back the lists look. Open items that need a person are few; a
+ * space with more than this many has a bigger problem than a list. */
+export const ATTENTION_SCAN_LIMIT = 100;
 
 export const notificationKeys = {
   all: ["notifications"] as const,
   list: (input: ListNotificationsInput, spaceId: string | null) =>
     [...notificationKeys.all, "list", input, spaceId] as const,
-  unseenCount: (spaceId: string | null) =>
-    [...notificationKeys.all, "unseen-count", spaceId] as const,
+  attentionCount: (spaceId: string | null) =>
+    [...notificationKeys.all, "attention-count", spaceId] as const,
 };
 
-// In the desktop shell the window is often hidden (tray/dock) while the app
-// keeps running — dock badge + native notifications must stay live, so keep
-// polling with `document.hidden`. In the browser a hidden tab can idle.
-const pollWhileHidden =
-  typeof globalThis !== "undefined" && "__TAURI_INTERNALS__" in globalThis;
+// Realtime on `core.notifications` is the live path (see realtime.ts). This
+// interval is a backup in case the channel drops. Hidden browser tabs idle;
+// the desktop shell keeps polling so the dock badge stays live.
+export const NOTIFICATIONS_BACKUP_POLL_MS = 60_000;
+
+const pollWhileHidden = keepPollingWhenHidden();
+
+const LIST_POLL_MS = staggeredRefetchInterval(
+  NOTIFICATIONS_BACKUP_POLL_MS,
+  "notifications-list"
+);
+const ATTENTION_COUNT_POLL_MS = staggeredRefetchInterval(
+  NOTIFICATIONS_BACKUP_POLL_MS,
+  "notifications-attention"
+);
 
 export function useNotificationsQuery(input?: ListNotificationsInput) {
   const normalized: ListNotificationsInput = { status: "open", ...input };
@@ -39,52 +57,70 @@ export function useNotificationsQuery(input?: ListNotificationsInput) {
   return useQuery({
     queryKey: notificationKeys.list(normalized, spaceId),
     queryFn: ({ signal }) => listNotifications(normalized, signal),
-    refetchInterval: 30_000,
+    refetchInterval: LIST_POLL_MS,
     refetchIntervalInBackground: pollWhileHidden,
     staleTime: 10_000,
   });
 }
 
 /**
- * Both badge numbers from one poll: `total` for the bell (tenant-wide) and
- * `in_space` for the space card. `total` does not depend on the space, so the
+ * Both attention numbers from one poll: `total` for the bell (tenant-wide)
+ * and `in_space` for the space. `total` does not depend on the space, so the
  * previous value stays on screen while a space switch refetches.
  */
-export function useUnseenCountQuery() {
+export function useAttentionCountQuery() {
   const spaceId = currentRequestSpaceId();
   return useQuery({
-    queryKey: notificationKeys.unseenCount(spaceId),
-    queryFn: ({ signal }) => fetchUnseenCount(signal),
+    queryKey: notificationKeys.attentionCount(spaceId),
+    queryFn: ({ signal }) => fetchAttentionCount(signal),
     placeholderData: (previous) => previous,
-    refetchInterval: 30_000,
+    refetchInterval: ATTENTION_COUNT_POLL_MS,
     refetchIntervalInBackground: pollWhileHidden,
     staleTime: 10_000,
   });
 }
 
 /**
- * Open decisions, todos and alerts — Freigaben + Fehler. Updates never
- * count: they are FYI. Not the unseen count: an approval you looked at
- * yesterday and did not answer is still waiting. Shares the inbox list
- * query, so the rail badge and the tab numbers cannot disagree. Space
- * scope is that space's rows only — tenant-wide waits live under Tenant.
+ * The badge number: open attention rows (`isAttention`), seen or not. Space
+ * scope is that space's rows only — tenant-wide rows live under Tenant.
  */
-export function useNeedsInputCount(scope: "space" | "tenant"): number {
-  const query = useNotificationsQuery({
-    limit: NEEDS_INPUT_SCAN_LIMIT,
-    scope,
-    status: "open",
-  });
-  const spaceId = currentRequestSpaceId();
-  const rows = (query.data?.notifications ?? []).filter((n) =>
-    scope === "space" ? Boolean(spaceId) && n.space_id === spaceId : true
-  );
-  return rows.filter(isNeedsInput).length;
+export function useAttentionCount(scope: "space" | "tenant"): number {
+  const { data } = useAttentionCountQuery();
+  return (scope === "space" ? data?.in_space : data?.total) ?? 0;
 }
 
-/** `useNeedsInputCount("space")` — dashboard row and space-home bell. */
-export function useSpaceNeedsInputCount(): number {
-  return useNeedsInputCount("space");
+export interface SpaceAttention {
+  /** Agent id → its open attention rows (`actor_kind` agent). */
+  byAgent: Map<string, NotificationDto[]>;
+  isPending: boolean;
+  /** This space's open attention rows, newest first. */
+  items: NotificationDto[];
+}
+
+/**
+ * The space's Wichtig: open attention rows of the request's space, newest
+ * first, plus the same rows per agent. Rides the inbox list query (same key
+ * as the bell's space list), so realtime invalidation keeps every reader —
+ * the popover, the dashboard block, the per-agent pills — on one list.
+ */
+export function useSpaceAttention(): SpaceAttention {
+  const query = useNotificationsQuery({
+    limit: ATTENTION_SCAN_LIMIT,
+    scope: "space",
+  });
+  const spaceId = currentRequestSpaceId();
+  const rows = query.data?.notifications;
+  return useMemo(() => {
+    // The server lists newest first.
+    const items = (rows ?? []).filter(
+      (n) => Boolean(spaceId) && n.space_id === spaceId && isAttention(n)
+    );
+    return {
+      byAgent: groupAttentionByAgent(items),
+      isPending: query.isPending,
+      items,
+    };
+  }, [query.isPending, rows, spaceId]);
 }
 
 export function useMarkNotificationMutation() {

@@ -1,6 +1,10 @@
 "use client";
 
-import type { ObjectDisplayHint, ObjectRef } from "@engenty/ai-core/browser";
+import type {
+  A2uiRenderMeta,
+  ObjectDisplayHint,
+  ObjectRef,
+} from "@engenty/ai-core/browser";
 import { createContext, type ReactNode, useContext, useMemo } from "react";
 
 /**
@@ -46,6 +50,11 @@ export interface ObjectDisplayIntent {
     ref: ObjectRef,
     opts?: { expanded?: boolean; title?: string }
   ) => void;
+  /**
+   * Publish an A2UI spec to the workspace end-pane (live canvas). Absent when
+   * the surface has no pane — the chat card still shows the frozen snapshot.
+   */
+  openLiveSurface?: (meta: A2uiRenderMeta) => void;
 }
 
 const ObjectDisplayIntentContext = createContext<ObjectDisplayIntent>({});
@@ -64,6 +73,7 @@ export function ObjectDisplayIntentProvider({
       value.applyDisplayHint,
       value.askAgent,
       value.navigateFromChat,
+      value.openLiveSurface,
     ]
   );
   return (

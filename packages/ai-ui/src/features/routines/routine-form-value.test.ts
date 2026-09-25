@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   defaultRoutineFormValue,
   routineFormToPayload,
+  routineFormToRoutinePatch,
   routineToFormValue,
   validateRoutineForm,
 } from "./routine-form-value.js";
@@ -44,6 +45,7 @@ const routine: RoutineDto = {
   name: "Daily Email Sort",
   next_due_at: null,
   outcome: null,
+  outcomes: [],
   quiet_hours: null,
   report: "quiet",
   source: "custom",
@@ -67,6 +69,8 @@ describe("routine outcome + reporting", () => {
       outcome: "Inbox is empty and every mail is filed.",
       report: "ask",
     });
+    expect(routineFormToPayload(value)).not.toHaveProperty("outcomes");
+    expect(routineFormToRoutinePatch(value)).not.toHaveProperty("outcomes");
   });
 
   it("defaults to quiet — silence unless there is something to say", () => {
@@ -134,6 +138,7 @@ describe("routine form value mapping", () => {
       ],
       workflow_id: WORKFLOW_ID,
     });
+    expect(payload).not.toHaveProperty("outcomes");
   });
 
   it("builds an event payload for module-event and webhook wake sources", () => {

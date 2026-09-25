@@ -125,8 +125,15 @@ const DEFAULT_EGRESS_NETWORK = "bridge";
  * sandbox is allowlisted by that one service. Without a proxy URL the tier
  * still works — it just reaches the whole internet through the default bridge.
  */
+/** Whether `egress` goes through the allowlist proxy on this host. */
+export function isSandboxEgressProxied(): boolean {
+  return Boolean(process.env.ENGENTY_SANDBOX_EGRESS_PROXY_URL?.trim());
+}
+
 export function resolveSandboxNetworkPlan(
-  tier: SandboxNetworkTier
+  tier: SandboxNetworkTier,
+  /** A Space computer's name at the proxy (`space-egress.ts`). */
+  proxyAuth?: { password: string; username: string }
 ): SandboxNetworkPlan {
   if (tier === "none") {
     return { env: {}, network: "none" };
@@ -134,10 +141,16 @@ export function resolveSandboxNetworkPlan(
   const network =
     process.env.ENGENTY_SANDBOX_EGRESS_NETWORK?.trim() ||
     DEFAULT_EGRESS_NETWORK;
-  const proxyUrl = process.env.ENGENTY_SANDBOX_EGRESS_PROXY_URL?.trim();
-  if (!proxyUrl) {
+  const configured = process.env.ENGENTY_SANDBOX_EGRESS_PROXY_URL?.trim();
+  if (!configured) {
     return { env: {}, network };
   }
+  const url = new URL(configured);
+  if (proxyAuth) {
+    url.username = encodeURIComponent(proxyAuth.username);
+    url.password = encodeURIComponent(proxyAuth.password);
+  }
+  const proxyUrl = url.toString().replace(/\/$/, "");
   // Lower-case variants too: curl reads `http_proxy`, most language runtimes
   // read the upper-case ones, and uv/pip read both.
   return {

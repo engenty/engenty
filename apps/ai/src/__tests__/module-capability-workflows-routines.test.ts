@@ -1,10 +1,5 @@
-// Module workflow + trigger declarations must reach the apps/ai runtime via
-// the module capability channel: GET /ai/v1/workflows/catalog and the scheduler
-// reconcile (agent.json triggers → ai.routines binding rows).
 import type { DynamicAiModuleCapabilityLoader } from "@engenty/ai-core";
-import { Hono } from "hono";
 import { describe, expect, it, vi } from "vitest";
-import { registerRegistryRoutes } from "../api/registry-routes.js";
 import { reconcileScheduler } from "../scheduler/heartbeat-sync.js";
 
 const fakeLoader: DynamicAiModuleCapabilityLoader = {
@@ -49,46 +44,7 @@ const fakeLoader: DynamicAiModuleCapabilityLoader = {
   },
 };
 
-function createScopeResolver() {
-  return async () => ({
-    ok: true as const,
-    scope: {
-      isSuperAdmin: false,
-      isTenantAdmin: false,
-      tenantId: "tenant-1",
-      tenantRole: "member",
-      accessToken: "token",
-      userId: "user-1",
-    },
-  });
-}
-
-describe("module capability workflows/routines runtime", () => {
-  it("GET /ai/v1/workflows/catalog returns module workflows from the capability channel", async () => {
-    const app = new Hono();
-    registerRegistryRoutes(app, {
-      getStore: () => null,
-      moduleLoader: fakeLoader,
-      scopeResolver: createScopeResolver() as any,
-    });
-
-    const res = await app.request("/ai/v1/workflows/catalog");
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as {
-      workflows: Record<string, unknown>[];
-    };
-    const workflow = body.workflows.find(
-      (entry) => entry.id === "demo-module.review"
-    );
-    expect(workflow).toBeDefined();
-    expect(workflow).toMatchObject({
-      agent_id: "demo.agent",
-      module_id: "demo-module",
-      name: "Demo review",
-    });
-    expect(workflow?.input_schema_json).toMatchObject({ type: "object" });
-  });
-
+describe("module routine declarations", () => {
   it("reconcile creates binding rows for module trigger declarations", async () => {
     const created: Record<string, unknown>[] = [];
     const createdTriggers: Record<string, unknown>[] = [];
@@ -161,7 +117,7 @@ describe("module capability workflows/routines runtime", () => {
     });
 
     // The declaration id is what the row reconciles against; the binding
-    // names the resolved workflow — there is no task anywhere in this path.
+    // names the resolved workflow.
     expect(created).toHaveLength(1);
     expect(created[0]).toMatchObject({
       agentId: "demo.agent",

@@ -75,6 +75,19 @@ Hover, focus, and active feedback on cards, rows, and links must be **paint-only
 
 Morph containers (e.g. KB hub search → chat composer) may animate **height** when swapping distinct controls, but individual card/link hovers must not shift the grid.
 
+### Charts (A2UI dashboards)
+
+Chat dashboards use the A2UI catalog (`Metric`, `BarChart`, `LineChart`, `AreaChart`, `DonutChart`) on the ui-core Recharts primitive (`ChartContainer`). Series bind with `{ "path": "/…" }` the same way `Table` binds rows.
+
+| Do | Don't |
+|---|---|
+| Fixed-height chart box (`height` prop, default 220) | `aspect-video` or height that grows on hover |
+| Tooltip paint + legend toggle that hides a series in place | `scale` / `translate` on the card or chart |
+| Draw-in animation inside the box (`isAnimationActive`) | Layout motion on hover |
+| Ember series colors `--chart-1`…`--chart-5` (moss, cobalt, ember, amber, rose) | Ad-hoc hex palettes |
+
+Clicking a bar, point, or slice is an A2UI action (same channel as `Button`), not a navigation.
+
 ### Canvas chrome utilities (`ui-canvas-chrome.css`)
 
 Logical surfaces share variables so lists, toolbars, and tables stay aligned:

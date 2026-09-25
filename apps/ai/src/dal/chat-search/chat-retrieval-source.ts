@@ -20,6 +20,7 @@
 // below) instead of going through core's plugin loader. The manufactured
 // provider is re-exposed under the legacy registry id `ai_chat_search`.
 
+import { resolvePlatformEmbeddingModelId } from "@engenty/ai-core";
 import {
   createRetrievalService,
   type RetrievalMatch,
@@ -297,6 +298,8 @@ export function createChatSearchRetrieval(options: {
   };
 }): ChatSearchRetrieval {
   const service = createRetrievalService({
+    // The platform `embedding` role (process snapshot).
+    resolveEmbeddingModel: async () => resolvePlatformEmbeddingModelId(),
     supabase: options.retrievalDb ?? options.supabase,
   });
   service.registerSource(createChatSessionRetrievalSource(options));

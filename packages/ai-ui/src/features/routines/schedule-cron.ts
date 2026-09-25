@@ -140,10 +140,12 @@ export function cronToPreset(
 export function cronToHumanLabel(
   cron: string,
   locale = "en",
-  timezone?: string | null
+  timezone?: string | null,
+  options: { showTimezone?: boolean } = {}
 ): string {
   const preset = cronToPreset(cron, !timezone);
-  const tzSuffix = timezone ? ` (${timezone})` : "";
+  const tzSuffix =
+    timezone && options.showTimezone !== false ? ` (${timezone})` : "";
   const formatTime = (h: number, m: number) => {
     const pad = (n: number) => String(n).padStart(2, "0");
     return `${pad(h)}:${pad(m)}`;

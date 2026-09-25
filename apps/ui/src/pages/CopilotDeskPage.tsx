@@ -6,7 +6,7 @@ import { CopilotDesk } from "@engenty/ai-ui";
 import { CopilotEffortControl } from "@engenty/engenty-copilot/ui/effort-control";
 import { useMemo } from "react";
 import { useParams } from "react-router-dom";
-import { SpaceComposerControls } from "@/components/spaces/SpaceComposerControls";
+import { CopilotApprovalModeControl } from "@/components/copilot-approval-mode-control";
 import { useSpaceAudience } from "@/lib/space-audience";
 import { useSpacesQuery } from "@/lib/spaces-queries";
 import { useSpaceMentionRefSearch } from "@/lib/use-space-mention-ref-search";
@@ -23,13 +23,13 @@ export function CopilotDeskPage() {
   );
   const mentionRefSearch = useSpaceMentionRefSearch(space);
   const spaceAudience = useSpaceAudience(space);
-  // Inside a space the copilot reaches the space's tools, so its composer
-  // carries the space's approval mode beside the effort chooser; outside,
-  // effort alone.
-  const composerLeadingControl = space ? (
-    <SpaceComposerControls space={space} />
-  ) : (
-    <CopilotEffortControl />
+  // The copilot's approval mode is its own, wherever it stands — not the
+  // space's (the mode is bound to the agent).
+  const composerLeadingControl = (
+    <>
+      <CopilotEffortControl />
+      <CopilotApprovalModeControl />
+    </>
   );
   return (
     <CopilotDesk

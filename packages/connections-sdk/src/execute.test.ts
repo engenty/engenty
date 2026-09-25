@@ -11,22 +11,22 @@ import type {
   ConnectorDefinition,
 } from "./types.js";
 
+const SPACE = "space-1";
+
 function connection(
   overrides: Partial<ConnectionSummary> & { id: string }
 ): ConnectionSummary {
   return {
-    all_spaces: false,
     auth_kind: "oauth2",
     autonomous_mode: "off",
+    connected_by: "user-1",
     connector_id: "google-gmail",
     created_at: "2026-07-04T00:00:00Z",
     display_name: null,
     error_message: null,
     external_account: null,
     granted_scopes: [],
-    non_owner_max_group: null,
-    owner_user_id: "user-1",
-    sharing: "personal",
+    space_id: SPACE,
     status: "active",
     tenant_id: "tenant-1",
     ...overrides,
@@ -75,15 +75,15 @@ function fakeRepo(state: FakeRepoState) {
     listApprovalRequests: async () =>
       (state.pending ?? []) as ApprovalRequestRecord[],
     listCandidateConnections: async (params: {
-      agentGrantedConnectionIds?: ReadonlySet<string>;
       connectorId: string;
-      principalId: string;
-      spaceOwnerUserId?: string | null;
+      spaceId: string;
     }) =>
       state.connections.filter(
-        (c) => c.status === "active" && c.connector_id === params.connectorId
+        (c) =>
+          c.status === "active" &&
+          c.connector_id === params.connectorId &&
+          c.space_id === params.spaceId
       ),
-    listAgentGrantedConnectionIds: async () => new Set<string>(),
     listPolicyOverrides: async (ids: string[]) =>
       (state.overrides ?? []).filter((o) => ids.includes(o.connection_id)),
     withFreshAccessToken: async (
@@ -142,6 +142,7 @@ describe("executeConnectorAction", () => {
       principal: user,
       recordAuditEvent: audit,
       repo,
+      spaceId: SPACE,
       tenantId: "tenant-1",
     });
     expect(result.connection.id).toBe("c-1");
@@ -185,6 +186,7 @@ describe("executeConnectorAction", () => {
       moduleId: "files",
       principal: user,
       repo,
+      spaceId: SPACE,
       tenantId: "tenant-1",
     });
     expect(result.output).toEqual({ token: "" });
@@ -201,10 +203,8 @@ describe("executeConnectorAction", () => {
       id: "c-personal",
     });
     const org = connection({
-      all_spaces: true,
       external_account: "office@x.com",
       id: "c-org",
-      owner_user_id: "admin-1",
     });
     const { repo } = fakeRepo({ connections: [personal, org] });
     const result = await executeConnectorAction({
@@ -215,6 +215,7 @@ describe("executeConnectorAction", () => {
       isAutonomous: false,
       principal: user,
       repo,
+      spaceId: SPACE,
       tenantId: "tenant-1",
     });
     expect(result.connection.id).toBe("c-org");
@@ -225,10 +226,8 @@ describe("executeConnectorAction", () => {
       connections: [
         connection({ external_account: "alice@x.com", id: "c-1" }),
         connection({
-          all_spaces: true,
           external_account: "office@x.com",
           id: "c-2",
-          owner_user_id: "admin-1",
         }),
       ],
     });
@@ -239,6 +238,7 @@ describe("executeConnectorAction", () => {
       isAutonomous: false,
       principal: user,
       repo,
+      spaceId: SPACE,
       tenantId: "tenant-1",
     }).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(ConnectionsActionError);
@@ -258,6 +258,7 @@ describe("executeConnectorAction", () => {
         isAutonomous: false,
         principal: user,
         repo,
+        spaceId: SPACE,
         tenantId: "tenant-1",
       })
     ).rejects.toMatchObject({ code: "connection_not_connected" });
@@ -269,7 +270,6 @@ describe("executeConnectorAction", () => {
         connection({
           autonomous_mode: "off",
           id: "c-1",
-          owner_user_id: "svc-1",
         }),
       ],
     });
@@ -281,6 +281,7 @@ describe("executeConnectorAction", () => {
         isAutonomous: true,
         principal: { principalId: "svc-1", principalType: "service" },
         repo,
+        spaceId: SPACE,
         tenantId: "tenant-1",
       })
     ).rejects.toMatchObject({ code: "connection_denied" });
@@ -290,7 +291,6 @@ describe("executeConnectorAction", () => {
     const target = connection({
       autonomous_mode: "full",
       id: "c-1",
-      owner_user_id: "svc-1",
     });
     const { createdRequests, repo } = fakeRepo({ connections: [target] });
     const handler = vi.fn();
@@ -304,6 +304,7 @@ describe("executeConnectorAction", () => {
       principal: { principalId: "svc-1", principalType: "service" },
       repo,
       taskId: "task-7",
+      spaceId: SPACE,
       tenantId: "tenant-1",
     }).catch((e: unknown) => e);
     expect((error as ConnectionsActionError).code).toBe(
@@ -331,7 +332,6 @@ describe("executeConnectorAction", () => {
     const target = connection({
       autonomous_mode: "full",
       id: "c-1",
-      owner_user_id: "svc-1",
     });
     const { createdRequests, repo } = fakeRepo({
       connections: [target],
@@ -346,6 +346,7 @@ describe("executeConnectorAction", () => {
       principal: { principalId: "svc-1", principalType: "service" },
       repo,
       taskId: "task-7",
+      spaceId: SPACE,
       tenantId: "tenant-1",
     });
     expect(first.output).toEqual({ ok: true });
@@ -361,6 +362,7 @@ describe("executeConnectorAction", () => {
         principal: { principalId: "svc-1", principalType: "service" },
         repo,
         taskId: "task-7",
+        spaceId: SPACE,
         tenantId: "tenant-1",
       })
     ).rejects.toMatchObject({ code: "connection_approval_pending" });
@@ -370,7 +372,6 @@ describe("executeConnectorAction", () => {
     const target = connection({
       autonomous_mode: "full",
       id: "c-1",
-      owner_user_id: "svc-1",
     });
     const { createdRequests, repo } = fakeRepo({
       connections: [target],
@@ -392,6 +393,7 @@ describe("executeConnectorAction", () => {
         onApprovalRequested,
         principal: { principalId: "svc-1", principalType: "service" },
         repo,
+        spaceId: SPACE,
         tenantId: "tenant-1",
       })
     ).rejects.toMatchObject({ code: "connection_approval_pending" });
@@ -403,7 +405,6 @@ describe("executeConnectorAction", () => {
     const target = connection({
       autonomous_mode: "full",
       id: "c-1",
-      owner_user_id: "svc-1",
     });
     const { repo } = fakeRepo({
       connections: [target],
@@ -418,6 +419,7 @@ describe("executeConnectorAction", () => {
       isAutonomous: true,
       principal: { principalId: "svc-1", principalType: "service" },
       repo,
+      spaceId: SPACE,
       tenantId: "tenant-1",
     });
     expect(result.output).toEqual({ ok: true });
@@ -432,6 +434,7 @@ describe("executeConnectorAction", () => {
       isAutonomous: false,
       principal: user,
       repo,
+      spaceId: SPACE,
       tenantId: "tenant-1",
     });
     expect(result.output).toEqual({ ok: true });
@@ -456,106 +459,89 @@ describe("executeConnectorAction", () => {
   });
 });
 
-describe("executeConnectorAction — space parity (§2.1 / CN.3)", () => {
+describe("executeConnectorAction — Space reach", () => {
   const service = { principalId: "svc-1", principalType: "service" as const };
 
-  it("reaches the verified space owner's personal account headless", async () => {
-    const target = connection({
+  it("reaches an account only in the Space that owns it", async () => {
+    const ours = connection({ autonomous_mode: "full", id: "c-ours" });
+    const theirs = connection({
       autonomous_mode: "full",
-      id: "c-own",
-      owner_user_id: "owner-9",
+      id: "c-theirs",
+      space_id: "space-other",
     });
-    const { repo } = fakeRepo({ connections: [target] });
+    const { repo } = fakeRepo({ connections: [ours, theirs] });
     const result = await executeConnectorAction({
       action: makeAction(),
       connector,
       input: {},
       isAutonomous: true,
-      mountedConnectionAccess: new Map([["c-own", null]]),
       principal: service,
       repo,
-      spaceOwnerUserId: "owner-9",
+      spaceId: SPACE,
       tenantId: "tenant-1",
     });
-    expect(result.connection.id).toBe("c-own");
-  });
-
-  it("refuses when the space mounts none of the candidates", async () => {
-    const target = connection({
-      autonomous_mode: "full",
-      id: "c-own",
-      owner_user_id: "owner-9",
-    });
-    const { repo } = fakeRepo({ connections: [target] });
+    expect(result.connection.id).toBe("c-ours");
     await expect(
       executeConnectorAction({
         action: makeAction(),
         connector,
         input: {},
         isAutonomous: true,
-        mountedConnectionAccess: new Map(),
         principal: service,
         repo,
-        spaceOwnerUserId: "owner-9",
+        spaceId: "space-empty",
         tenantId: "tenant-1",
       })
-    ).rejects.toMatchObject({ code: "connection_not_in_space" });
+    ).rejects.toMatchObject({ code: "connection_not_connected" });
   });
 
-  it("applies the mount level to the resolved connection", async () => {
-    const target = connection({
-      autonomous_mode: "full",
-      id: "c-own",
-      owner_user_id: "owner-9",
+  it("refuses with connection_not_in_space when the run names no Space", async () => {
+    const listCandidates = vi.fn();
+    const { repo } = fakeRepo({
+      connections: [connection({ autonomous_mode: "full", id: "c-ours" })],
     });
-    const { repo } = fakeRepo({ connections: [target] });
+    repo.listCandidateConnections = listCandidates;
+    for (const spaceId of [null, undefined, " "]) {
+      await expect(
+        executeConnectorAction({
+          action: makeAction(),
+          connector,
+          input: {},
+          isAutonomous: true,
+          principal: service,
+          repo,
+          spaceId,
+          tenantId: "tenant-1",
+        })
+      ).rejects.toMatchObject({ code: "connection_not_in_space" });
+    }
+    expect(listCandidates).not.toHaveBeenCalled();
+  });
+
+  it("clamps an unattended run by the account's autonomous_mode", async () => {
+    const { repo } = fakeRepo({
+      connections: [connection({ autonomous_mode: "read_only", id: "c-1" })],
+      overrides: [{ connection_id: "c-1", policy: "allow", selector: "send" }],
+    });
     await expect(
       executeConnectorAction({
         action: makeAction({ group: "write", id: "send" }),
         connector,
         input: {},
         isAutonomous: true,
-        mountedConnectionAccess: new Map([["c-own", "read"]]),
         principal: service,
         repo,
-        spaceOwnerUserId: "owner-9",
+        spaceId: SPACE,
         tenantId: "tenant-1",
       })
-    ).rejects.toMatchObject({ code: "connection_denied" });
+    ).rejects.toMatchObject({
+      code: "connection_denied",
+      message: "connection_denied: connection_autonomous_read_only",
+    });
   });
 
-  it("unions an agent grant with space mounts (river rule)", async () => {
-    const granted = connection({
-      autonomous_mode: "full",
-      id: "c-grant",
-      owner_user_id: "someone-else",
-    });
-    const { repo } = fakeRepo({ connections: [granted] });
-    repo.listAgentGrantedConnectionIds = async () => new Set(["c-grant"]);
-    repo.listCandidateConnections = async (params: {
-      agentGrantedConnectionIds?: ReadonlySet<string>;
-      connectorId: string;
-    }) => (params.agentGrantedConnectionIds?.has("c-grant") ? [granted] : []);
-    const result = await executeConnectorAction({
-      action: makeAction(),
-      agentId: "engenty.copilot",
-      connector,
-      input: {},
-      isAutonomous: true,
-      mountedConnectionAccess: new Map(),
-      principal: service,
-      repo,
-      tenantId: "tenant-1",
-    });
-    expect(result.connection.id).toBe("c-grant");
-  });
-
-  it("direct connectionId still executes without a space mount", async () => {
-    const target = connection({
-      autonomous_mode: "full",
-      id: "c-own",
-      owner_user_id: "owner-9",
-    });
+  it("direct connectionId still executes without a Space", async () => {
+    const target = connection({ autonomous_mode: "full", id: "c-own" });
     const { repo } = fakeRepo({ connections: [target] });
     const result = await executeConnectorAction({
       action: makeAction(),

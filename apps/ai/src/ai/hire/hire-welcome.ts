@@ -96,8 +96,7 @@ async function generateWelcomeText(
     return null;
   }
   const modelId = resolvePurposeModelId({
-    purpose: "routing",
-    readEnv: (key) => process.env[key],
+    purpose: "fast_text",
   });
   try {
     const text = await Promise.race([

@@ -38,6 +38,13 @@ export {
   type MastraUiMessage,
   type MastraUiMessagePart,
 } from "./ag-ui/mastra-ui-projection.js";
+export {
+  isSlimToolResult,
+  SLIM_TOOL_RESULT_MARKER,
+  SLIM_TOOL_RESULT_MAX_CHARS,
+  type SlimToolResultPlaceholder,
+  slimThreadMessage,
+} from "./ag-ui/slim-thread-message.js";
 export { isToolApprovalResumeNudgeText } from "./ag-ui/tool-approval-resume-nudge.js";
 export {
   AGENT_DESK_LANES,
@@ -93,8 +100,6 @@ export {
 export {
   buildAgentLookImagePrompt,
   buildAgentLookSvgPrompt,
-  DEFAULT_AGENT_LOOK_IMAGE_MODEL,
-  DEFAULT_AGENT_LOOK_SVG_MODEL,
 } from "./agents/agent-look-prompt.js";
 export type {
   AgentAssetLocator,
@@ -175,6 +180,16 @@ export {
 } from "./chat-commands/contracts.js";
 export { loadChatCommandDefinitionsFromDirectory } from "./chat-commands/loader.js";
 export {
+  type ClassifierClientOptions,
+  createClassifierClient,
+  isJevClassifierRef,
+  type ModuleClassifierSource,
+  type ResolvedClassifier,
+  resolveModuleClassifier,
+  resolveModuleClassifierModelId,
+  warmClassifier,
+} from "./classifier/index.js";
+export {
   configuredModelGateways,
   gatewayApiKeyEnvName,
   hasAnyModelGatewayApiKey,
@@ -185,22 +200,17 @@ export {
 export { isCapableAgentModel } from "./config/capable-agent-model.js";
 export {
   type ChatModelResolutionPurpose,
-  DEFAULT_AI_CHAT_MODEL_ID,
-  DEFAULT_AI_CLASSIFIER_MODEL_ID,
-  DEFAULT_AI_CODE_EXECUTION_MODEL_ID,
-  DEFAULT_AI_LOW_MODEL_ID,
-  DEFAULT_AI_SAFEGUARD_MODEL_ID,
   type ResolveChatModelIdOptions,
-  type ResolveSafeguardModelIdOptions,
   resolveChatModelId,
-  resolveSafeguardModelId,
 } from "./config/chat-model-id.js";
 export {
   gatewayLanguageModel,
   installGatewayAwareDefaultProvider,
+  MISTRAL_BASE_URL,
   OPPER_COMPAT_BASE_URL,
   openRouterLanguageModel,
   resetGatewayAwareDefaultProviderForTests,
+  SPACEXAI_BASE_URL,
   UnconfiguredModelGatewayError,
 } from "./config/gateway-provider.js";
 export { withLlmTrace } from "./config/llm-trace.js";
@@ -215,11 +225,10 @@ export {
   seedGatewayFromEnv,
 } from "./config/model-binding-packs.js";
 export {
-  AI_MODEL_PURPOSE_SPECS,
+  AI_MODEL_PURPOSE_TENANT_FIELDS,
   AI_MODEL_PURPOSES,
   type AiModelPurpose,
   type AiSettingSource,
-  DEFAULT_AI_PLANNING_CODING_MODEL_ID,
   type ResolvedModel,
   type ResolvePurposeModelOptions,
   resolvePurposeModel,
@@ -231,6 +240,7 @@ export {
   formatModelRef,
   gatewayOfRef,
   isNonDefaultGatewayRef,
+  MISTRAL_GATEWAY_ID,
   MODEL_GATEWAY_IDS,
   type ModelRef,
   modelIdOfRef,
@@ -238,6 +248,7 @@ export {
   OPENROUTER_GATEWAY_ID,
   OPPER_GATEWAY_ID,
   parseModelRef,
+  SPACEXAI_GATEWAY_ID,
   vendorModelId,
 } from "./config/model-ref.js";
 export {
@@ -256,11 +267,25 @@ export {
   PURPOSE_TO_ROLE,
   seedBindings,
 } from "./config/model-roles.js";
+export {
+  readPlatformBindings,
+  roleModelRef,
+  syncPlatformBindingsFromDb,
+} from "./config/platform-bindings.js";
+export {
+  ModelRoleNotBoundError,
+  platformBindings,
+  requirePlatformBinding,
+  setPlatformBindings,
+  startPlatformBindingsSync,
+} from "./config/platform-bindings-snapshot.js";
 export type {
   AgentSessionStatus,
   AiRegistration,
   InstructionDocumentDefinition,
+  JsonSchema,
   ModelRoleDefinition,
+  OutcomeProviderDefinition,
   RoutineDefinition,
   SkillDefinition,
   WorkflowDefinition,
@@ -297,7 +322,6 @@ export {
   type AgentConfig,
   type AgentGuardrailsConfig,
   type AgentLimitsConfig,
-  type AgentModelPurpose,
   type AgentResolveContext,
   type AgentToolGatingConfig,
   type AgentWorkspaceConfig,
@@ -337,12 +361,12 @@ export {
   renderAgentFn,
   renderedToolsOf,
   type ThreadStateSetter,
+  useEffort,
   useGuardrails,
   useInstruction,
   useLimits,
   useMachine,
   useModel,
-  usePurpose,
   useRegisteredTool,
   useSkillHint,
   useSubagent,
@@ -385,16 +409,33 @@ export {
   withAiErrorDebug,
 } from "./lib/debug.js";
 export {
+  EMBEDDING_MODEL_ROLE,
+  resolvePlatformEmbeddingModelId,
+} from "./models/embedding-model.js";
+export {
+  type GenerateImageBytesInput,
+  generateImageBytes,
+  IMAGE_MODEL_ROLE,
+  ImageModelGatewayError,
+  type ImageReference,
+  isChatImageModel,
+  resolvePlatformImageModelId,
+} from "./models/image-generation.js";
+export {
   type SupportedModel,
   type SupportedModelsData,
   supportedModels,
 } from "./models/supported.js";
 export {
+  isIndexCompatibleEmbeddingModel,
+  SEARCH_INDEX_EMBEDDING_DIMENSIONS,
   type SupportedEmbeddingModel,
   type SupportedEmbeddingModelsData,
   supportedEmbeddingModels,
 } from "./models/supported-embeddings.js";
 export {
+  type A2uiLiveInboxDashboard,
+  type A2uiLiveMeta,
   type A2uiRenderMeta,
   readA2uiRenderMeta,
 } from "./objects/a2ui-render.js";
@@ -438,6 +479,7 @@ export {
   listModuleDynamicCapabilitySeeds,
   listRegisteredChatCommands,
   listRegisteredModelRoles,
+  listRegisteredOutcomeProviders,
   listRegisteredRoutines,
   listRegisteredWorkflows,
   registerAiRegistration,

@@ -7,7 +7,7 @@
 // the meter is reporting. They will not add up to that run's `prompt_tokens`,
 // and the panel says so rather than presenting a near-miss as the same number.
 //
-// Developer-mode only — the route 404s outside a development build, which is why
+// Developer-mode only — the route 404s for anyone but a superadmin, which is why
 // callers gate the entry point on `useDeveloperModeEnabled` instead of showing a
 // link that dead-ends.
 import { getCurrentAccessToken } from "@engenty/api-client";

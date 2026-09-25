@@ -156,11 +156,14 @@ export function synthesizeSearchOperation(
       if (userId) {
         filters.user_id = userId;
       }
-      // A space-owned source searched from a Space-bound run sees that space
-      // only. Search never passes a `/s/<key>` route, so this is the one
-      // guard between a private space's records and the rest of the tenant.
-      // Unbound runs (no space) stay unscoped — bounded by the tenant alone.
-      if (options.spacePolicy?.kind === "space_owned" && spaceId) {
+      // A space-owned source — or records kept against a Space's account
+      // (`account_mounted`, e.g. mail) — searched from a Space-bound run sees
+      // that space only. Search never passes a `/s/<key>` route, so this is
+      // the one guard between a private space's records and the rest of the
+      // tenant. Unbound runs (no space) stay unscoped — bounded by the tenant
+      // alone, or, for `space` visibility, by the caller's memberships.
+      const kind = options.spacePolicy?.kind;
+      if ((kind === "space_owned" || kind === "account_mounted") && spaceId) {
         filters.space_ids = [spaceId];
       }
       const { filters: _omit, ...rest } = parsed;

@@ -39,6 +39,21 @@ const BINDINGS = [
     scope: "platform",
     updated_at: "",
   },
+  // Every run also resolves these two; a binding table without them is broken.
+  {
+    gateway: "vercel",
+    model_id: "vendor/fixture-classifier",
+    role: "classifier",
+    scope: "platform",
+    updated_at: "",
+  },
+  {
+    gateway: "vercel",
+    model_id: "vendor/fixture-fast-text",
+    role: "fast_text",
+    scope: "platform",
+    updated_at: "",
+  },
 ];
 
 function makeOpts(

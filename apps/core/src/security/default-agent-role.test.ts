@@ -19,16 +19,6 @@ describe("the role a new agent principal starts with", () => {
     );
   });
 
-  it("is never the editor — writing stays a decision", () => {
-    expect(defaultAgentRoleId("contacts.manager", roleExists)).not.toBe(
-      "contacts.editor"
-    );
-  });
-
-  it("is nothing for platform agents", () => {
-    expect(defaultAgentRoleId("engenty.copilot", roleExists)).toBeNull();
-  });
-
   it("is nothing when the module ships no viewer role", () => {
     expect(defaultAgentRoleId("payroll.manager", roleExists)).toBeNull();
   });

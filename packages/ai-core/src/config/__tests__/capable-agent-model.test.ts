@@ -5,13 +5,13 @@ describe("isCapableAgentModel", () => {
   it("requires tool-use, not merely chat availability", () => {
     expect(
       isCapableAgentModel({
-        available_for_chat: true,
+        available_for_agent: true,
         tags: ["vision"],
       })
     ).toBe(false);
     expect(
       isCapableAgentModel({
-        available_for_chat: true,
+        available_for_agent: true,
         tags: ["tool-use"],
       })
     ).toBe(true);
@@ -25,7 +25,7 @@ describe("isCapableAgentModel", () => {
   it("rejects models that are not available for chat", () => {
     expect(
       isCapableAgentModel({
-        available_for_chat: false,
+        available_for_agent: false,
         tags: ["tool-use"],
       })
     ).toBe(false);

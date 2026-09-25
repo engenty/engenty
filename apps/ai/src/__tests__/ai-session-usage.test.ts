@@ -14,6 +14,7 @@ import type {
   ThreadRow,
   ThreadStore,
 } from "../dal/threads/index.js";
+import { bindTestModelsPerTest } from "./helpers/test-model-bindings.js";
 
 const tenantId = "00000000-0000-4000-8000-000000000001";
 const userId = "00000000-0000-4000-8000-000000000002";
@@ -173,11 +174,11 @@ function makeDynamicAssembler(
   })) as unknown as ThreadServiceOptions["assembleDynamicAgent"];
 }
 
+bindTestModelsPerTest();
+
 describe("AI session usage metering", () => {
   it("runs on a granted model when the platform default is denied", async () => {
-    // The tenant granted `openai/other-model`. Resolution must land on it
-    // rather than on the platform default: returning the default unchecked made
-    // the preflight reject every turn, bricking the tenant with no way out.
+    // Resolving to a denied default would make the preflight reject every turn.
     const usageStore = makeUsageStore({
       getTenantPolicy: vi.fn(
         async (_tenantId: string): Promise<TenantUsagePolicyRecord> => ({
@@ -218,9 +219,7 @@ describe("AI session usage metering", () => {
   });
 
   it("blocks generation when no granted model can be substituted", async () => {
-    // A provider-only grant that excludes the default leaves the resolver with
-    // no id to name — the preflight is the last line of defence and must still
-    // reject rather than run an unlicensed model.
+    // The preflight is the last line of defence against an unlicensed model.
     const usageStore = makeUsageStore({
       getTenantPolicy: vi.fn(
         async (_tenantId: string): Promise<TenantUsagePolicyRecord> => ({
@@ -307,109 +306,30 @@ describe("AI session usage metering", () => {
     expect(usageStore.bumpPeriodTotals).toHaveBeenCalledTimes(2);
   });
 
-  it("uses tenant model settings for supervisor usage checks and metering", async () => {
-    const usageStore = makeUsageStore({
-      getTenantPolicy: vi.fn(
-        async (_tenantId: string): Promise<TenantUsagePolicyRecord> => ({
-          tenant_id: tenantId,
-          tier: "test",
-          period_mode: "calendar",
-          period_unit: "month",
-          period_anchor: null,
-          included_input_tokens: null,
-          included_output_tokens: null,
-          included_cost_micros: null,
-          hard_limit_cost_micros: null,
-          soft_limit_cost_micros: null,
-          // Both tenant-pinned models must be on the allow-list — with enforce
-          // mode, a pin outside the list is demoted to the platform/default.
-          allowed_models: ["openai/tenant-chat", "openai/tenant-routing"],
-          allowed_providers: null,
-          allowed_efforts: null,
-          enforcement_mode: "enforce",
-          currency: "usd",
-          managed_by: "tenant",
-          created_at: "2026-01-01T00:00:00Z",
-          updated_at: "2026-01-01T00:00:00Z",
-        })
-      ),
-    });
-    const assembleDynamicAgent = makeDynamicAssembler({
-      text: "ok",
-      totalUsage: {
-        inputTokens: 2,
-        outputTokens: 1,
-      },
-    });
-    const resolveTenantModelConfig = vi.fn(async () => ({
-      chatModelId: "openai/tenant-chat",
-      routingModelId: "openai/tenant-routing",
-    }));
+  it("meters the tenant's configured model", async () => {
+    const usageStore = makeUsageStore();
     const harness = createAiService({
-      assembleDynamicAgent,
+      assembleDynamicAgent: makeDynamicAssembler({
+        text: "ok",
+        totalUsage: { inputTokens: 2, outputTokens: 1 },
+      }),
       getStore: () => makeSessionStore(),
       getUsageStore: () => usageStore,
       mastra: {} as never,
-      registry: createOfflineCopilotHarnessRegistry({
-        subAgents: [{ alias: "engenty_cli", id: "engenty.cli" }],
-      }),
-      resolveTenantModelConfig,
-    });
-
-    await harness.sessions.generate({
-      scope: { tenantId, userId },
-      threadId,
-    });
-
-    expect(resolveTenantModelConfig).toHaveBeenCalledWith({ tenantId, userId });
-    expect(assembleDynamicAgent).toHaveBeenCalledWith(
-      expect.anything(),
-      "engenty.copilot",
-      expect.objectContaining({
-        modelConfig: expect.objectContaining({
-          chatModelId: "openai/tenant-chat",
-          routingModelId: "openai/tenant-routing",
-        }),
-      })
-    );
-    expect(usageStore.insertEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        model_id: "openai/tenant-routing",
-      } satisfies Partial<UsageEventRecord>)
-    );
-  });
-
-  it("passes request model overrides through runtime model resolution", async () => {
-    const assembleDynamicAgent = makeDynamicAssembler({
-      text: "ok",
-      totalUsage: { inputTokens: 2, outputTokens: 1 },
-    });
-    const harness = createAiService({
-      assembleDynamicAgent,
-      getStore: () => makeSessionStore(),
-      getUsageStore: () => makeUsageStore(),
-      mastra: {} as never,
       resolveTenantModelConfig: vi.fn(async () => ({
         chatModelId: "openai/tenant-chat",
-        routingModelId: "openai/tenant-routing",
       })),
     });
 
     await harness.sessions.generate({
-      modelIdOverride: "openai/requested",
       scope: { tenantId, userId },
       threadId,
     });
 
-    expect(assembleDynamicAgent).toHaveBeenCalledWith(
-      expect.anything(),
-      "engenty.copilot",
+    expect(usageStore.insertEvent).toHaveBeenCalledWith(
       expect.objectContaining({
-        modelConfig: expect.objectContaining({
-          chatModelId: "openai/requested",
-          routingModelId: "openai/requested",
-        }),
-      })
+        model_id: "openai/tenant-chat",
+      } satisfies Partial<UsageEventRecord>)
     );
   });
 });

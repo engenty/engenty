@@ -14,9 +14,6 @@
   },
   "filters": {
     "allAccounts": "Alle Konten",
-    "allSpaces": "Alle Spaces",
-    "org": "Alle Spaces",
-    "personal": "Meine",
     "searchPlaceholder": "Nachrichten durchsuchen…"
   },
   "lanes": {

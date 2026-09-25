@@ -1,8 +1,9 @@
 // The helper's two sources and its cache: the span picker answers what it
 // can, the low-tier model answers the rest, and a page's values are asked
 // for once. The model is mocked at the `ai` boundary.
-import type { TypeSafeClient } from "@engenty/typesafe-client";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { bindingsFromList, setPlatformBindings } from "@engenty/ai-core";
+import type { ClassifierClient } from "@engenty/typesafe-client";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const generateText = vi.fn();
 vi.mock("ai", () => ({
@@ -74,7 +75,7 @@ function spanClient(picks: Record<string, string | null>) {
       };
     }
   );
-  return { client: { systemOne } as unknown as TypeSafeClient, systemOne };
+  return { client: { systemOne } as unknown as ClassifierClient, systemOne };
 }
 
 describe("reasoningOptions", () => {
@@ -97,7 +98,21 @@ describe("reasoningOptions", () => {
 });
 
 describe("resolveTextHelperModelId", () => {
-  it("is the model.low seed, not the classifier", () => {
+  afterEach(() => {
+    setPlatformBindings(undefined);
+  });
+
+  it("is the model.low binding, not the classifier", () => {
+    setPlatformBindings(
+      bindingsFromList([
+        {
+          gateway: "vercel",
+          modelId: "openai/gpt-5.4-nano",
+          role: "model.low",
+        },
+        { gateway: "vercel", modelId: "test/classifier", role: "classifier" },
+      ])
+    );
     expect(resolveTextHelperModelId()).toBe("openai/gpt-5.4-nano");
   });
 });
@@ -181,7 +196,7 @@ describe("createFieldText", () => {
       systemOne: vi.fn(async () => {
         throw new Error("typesafe_http_529");
       }),
-    } as unknown as TypeSafeClient;
+    } as unknown as ClassifierClient;
     generateText.mockResolvedValue({
       text: JSON.stringify({ values: { "Where to?": "Seoul" } }),
     });

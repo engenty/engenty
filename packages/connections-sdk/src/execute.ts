@@ -13,7 +13,6 @@ import type { ConnectionPolicyPrincipal } from "./policy.js";
 import { resolveConnectionActionPolicy } from "./policy.js";
 import { isAccountReachableInRun } from "./reach.js";
 import type { ConnectionsRepo } from "./repo.js";
-import type { SpaceConnectionAccess } from "./space-mounts.js";
 import type {
   ApprovalRequestRecord,
   ConnectionSummary,
@@ -26,15 +25,6 @@ export interface ExecuteConnectorActionParams {
   /** Explicit account addressing (matched by `selectConnectionForAccount`). */
   account?: string | null;
   action: ConnectorAction;
-  /**
-   * The AGENT driving this call (`x-engenty-agent-id`), whose grants may let it
-   * reach a personal account it does not own — PLAN-spaces.md CN.5.
-   *
-   * Resolved here as well as in the profile policy, same doctrine as the
-   * capability re-check above: the policy is authoritative, and a caller that
-   * arrived without it must reach the same answer rather than a laxer one.
-   */
-  agentId?: string | null;
   /** Direct addressing — skips candidate selection (module consumers). */
   connectionId?: string;
   connector: ConnectorDefinition;
@@ -44,17 +34,6 @@ export interface ExecuteConnectorActionParams {
   log?: (msg: string, data?: Record<string, unknown>) => void;
   /** Consuming module id, recorded in the audit event detail. */
   moduleId?: string;
-  /**
-   * The run's space mounts with their levels (CN.3 + B1), when the caller has
-   * a space. Candidates are the union of mounted accounts, all-spaces accounts
-   * already folded into this map, and agent grants. Null/absent = no space.
-   * Direct `connectionId` addressing (module consumers) is not narrowed here;
-   * those operations carry their own space policy.
-   */
-  mountedConnectionAccess?: ReadonlyMap<
-    string,
-    SpaceConnectionAccess | null
-  > | null;
   /** Notify approvers after an ask created a durable approval request. */
   onApprovalRequested?: (
     request: ApprovalRequestRecord
@@ -68,11 +47,12 @@ export interface ExecuteConnectorActionParams {
   /** Tenant/platform-aware client-credential resolver for OAuth token refresh. */
   resolveEnv?: ClientEnvResolver;
   /**
-   * The VERIFIED personal-space owner this run acts for
-   * (PLAN-space-computer.md §2.1) — from `resolveVerifiedSpaceOwnerForRun`,
-   * never a raw claim. Widens candidates to the owner's accounts.
+   * The run's Space (`x-engenty-space-id`). Candidates are the accounts this
+   * Space owns; no Space means no candidate. Direct `connectionId` addressing
+   * (module consumers) is not narrowed here; those operations carry their own
+   * space policy.
    */
-  spaceOwnerUserId?: string | null;
+  spaceId?: string | null;
   taskId?: string | null;
   tenantId: string;
 }
@@ -112,30 +92,15 @@ export async function executeConnectorAction(
     );
   }
 
-  // CN.5 — resolved before the connection, because a granted personal account
-  // has to be a CANDIDATE before any policy can be asked about it.
-  const agentGrants = params.agentId?.trim()
-    ? await repo.listAgentGrantedConnectionIds({
-        agentId: params.agentId.trim(),
-      })
-    : null;
-  const connection = await resolveTargetConnection({
-    ...params,
-    ...(agentGrants ? { agentGrants } : {}),
-  });
+  const connection = await resolveTargetConnection(params);
 
   const overrides = await repo.listPolicyOverrides([connection.id]);
   const resolved = resolveConnectionActionPolicy({
     action,
     connection,
-    actsForSpaceOwner:
-      params.spaceOwnerUserId != null &&
-      connection.owner_user_id === params.spaceOwnerUserId,
-    hasAgentGrant: agentGrants?.has(connection.id) ?? false,
     isAutonomous: params.isAutonomous,
     overrides,
     principal,
-    spaceAccess: params.mountedConnectionAccess?.get(connection.id) ?? null,
   });
   if (resolved.decision === "deny") {
     throw new ConnectionsActionError("connection_denied", resolved.reason, {
@@ -168,7 +133,7 @@ export async function executeConnectorAction(
       }
       throw new ConnectionsActionError(
         "connection_approval_pending",
-        "a human must approve this action; the request was sent to the connection owner",
+        "a human must approve this action; the request was sent to the owners of the connection's space",
         { action_id: action.id, connection_id: connection.id }
       );
     }
@@ -227,10 +192,7 @@ export async function executeConnectorAction(
 }
 
 async function resolveTargetConnection(
-  params: ExecuteConnectorActionParams & {
-    /** Pre-resolved agent grants, so this does not re-query per call. */
-    agentGrants?: ReadonlySet<string>;
-  }
+  params: ExecuteConnectorActionParams
 ): Promise<ConnectionSummary> {
   const { connector, repo } = params;
   if (params.connectionId) {
@@ -251,36 +213,21 @@ async function resolveTargetConnection(
     }
     return connection;
   }
-  const allCandidates = await repo.listCandidateConnections({
-    connectorId: connector.id,
-    principalId: params.principal.principalId,
-    tenantId: params.tenantId,
-    ...(params.agentGrants
-      ? { agentGrantedConnectionIds: params.agentGrants }
-      : {}),
-    ...(params.spaceOwnerUserId == null
-      ? {}
-      : { spaceOwnerUserId: params.spaceOwnerUserId }),
-  });
-  const mountedIds = params.mountedConnectionAccess
-    ? new Set(params.mountedConnectionAccess.keys())
-    : null;
-  const candidates = allCandidates.filter((c) =>
-    isAccountReachableInRun({
-      agentGrantedIds: params.agentGrants,
-      agentId: params.agentId,
-      connection: c,
-      mountedIds,
-      principalId: params.principal.principalId,
-    })
-  );
-  if (allCandidates.length > 0 && candidates.length === 0) {
+  const spaceId = params.spaceId?.trim();
+  if (!spaceId) {
     throw new ConnectionsActionError(
       "connection_not_in_space",
-      `no ${connector.name} account is available in this space; it can be added in the space's connections settings`,
+      `${connector.name} accounts belong to a space; this call names none`,
       { connector_id: connector.id }
     );
   }
+  const candidates = (
+    await repo.listCandidateConnections({
+      connectorId: connector.id,
+      spaceId,
+      tenantId: params.tenantId,
+    })
+  ).filter((c) => isAccountReachableInRun({ connection: c, spaceId }));
   const selection = selectConnectionForAccount({
     account: params.account ?? null,
     candidates,

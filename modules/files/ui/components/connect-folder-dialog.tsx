@@ -71,8 +71,8 @@ export function ConnectFolderDialog({
 
   const sourcesQuery = useQuery({
     enabled: open,
-    queryFn: ({ signal }) => listFileSources(signal),
-    queryKey: ["files", "sources"],
+    queryFn: ({ signal }) => listFileSources(spaceId, signal),
+    queryKey: ["files", "sources", spaceId ?? ""],
     staleTime: 30_000,
   });
   const sources = sourcesQuery.data?.sources ?? [];
@@ -138,6 +138,9 @@ export function ConnectFolderDialog({
   const connectThisComputer = useCallback(async () => {
     setMounting(true);
     try {
+      if (!spaceId) {
+        return;
+      }
       const granted = await grantLocalFolder({ spaceId });
       if (!granted) {
         return;

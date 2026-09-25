@@ -3,9 +3,9 @@
 //
 // The central service owns storage, embedding, the fused query, status, and
 // backfill. Inbox contributes the canonical mail document
-// (`buildMessageSearchDocument`), owner visibility (personal-connection
-// messages stay owner-only), connection/status filters, and hydration back
-// into `InboxSearchMatch`.
+// (`buildMessageSearchDocument`), Space visibility (a message is visible to
+// the members and agents of the Space that owns its mailbox), connection/status
+// filters, and hydration back into `InboxSearchMatch`.
 //
 // `updated` events re-ingest: status is filterable chunk metadata, so a
 // triage change must refresh the row (the text is unchanged — one redundant
@@ -117,11 +117,11 @@ export function createInboxRetrievalSource(options: {
           status: message.status,
         },
         occurred_at: message.received_at,
-        owner_user_id: message.owner_user_id,
         scope_id: message.scope_id,
         source_id: doc_id,
         source_type: INBOX_MESSAGE_SOURCE_TYPE,
         source_updated_at: message.updated_at,
+        space_id: message.space_id,
         tenant_id,
         text: buildMessageSearchDocument(message),
         title: message.subject,
@@ -173,9 +173,10 @@ export function createInboxRetrievalSource(options: {
         summary:
           "Search synced inbox messages by sender, subject, body text, or natural-language question (hybrid lexical + semantic, local store — no provider quota)",
       },
-      // Caller-visible mail, same as thread reads — not mailbox listings.
-      // `account_mounted` without a connection key would not enforce anything.
-      spacePolicy: { kind: "user_owned" },
+      // Mail follows its account's Space: a Space-bound run searches that
+      // Space's mail only (the host injects `space_ids`); a person without a
+      // space searches the Spaces they are a member of (`space` visibility).
+      spacePolicy: { kind: "account_mounted" },
     },
     retriever: {
       hydrate: async (matches, ctx) => {
@@ -228,6 +229,6 @@ export function createInboxRetrievalSource(options: {
     },
     source_type: INBOX_MESSAGE_SOURCE_TYPE,
     splitter: { mode: "none" },
-    visibility: "owner",
+    visibility: "space",
   };
 }

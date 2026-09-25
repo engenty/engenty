@@ -71,13 +71,24 @@ export function TriggerNode({ data }: NodeProps & { data: TriggerNodeData }) {
   );
 }
 
+export interface OutcomeBindingChip {
+  enabled: boolean;
+  id: string;
+  label: string;
+  modeLabel: string;
+}
+
 export interface OutcomeNodeData {
+  /** Destinations under the promise — provider label + mode. */
+  bindings: OutcomeBindingChip[];
+  /** Localized "Holds for review" when report is ask and bindings exist. */
+  holdLine: string | null;
   /** Localized "Outcome" chip. */
   label: string;
   /** Localized "no outcome declared" placeholder. */
   placeholder: string;
-  /** Localized report-floor line, prefix included. */
-  reportLine: string;
+  /** Localized report-floor line; null when destinations replace the desk post. */
+  reportLine: string | null;
   /** The routine's promise, or null when undeclared. */
   text: string | null;
   [key: string]: unknown;
@@ -116,9 +127,36 @@ export function OutcomeNode({ data }: NodeProps & { data: OutcomeNodeData }) {
               {data.placeholder}
             </p>
           )}
-          <p className="mt-1.5 border-emerald-500/20 border-t pt-1.5 text-[10px] text-muted-foreground">
-            {data.reportLine}
-          </p>
+          {data.bindings.length > 0 ? (
+            <ul className="mt-1.5 space-y-0.5 border-emerald-500/20 border-t pt-1.5">
+              {data.bindings.map((binding) => (
+                <li
+                  className={
+                    binding.enabled === false
+                      ? "truncate text-[10px] text-muted-foreground opacity-60"
+                      : "truncate text-[10px] text-muted-foreground"
+                  }
+                  key={binding.id}
+                >
+                  <span className="font-medium text-foreground">
+                    {binding.label}
+                  </span>
+                  {" · "}
+                  {binding.modeLabel}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {data.holdLine ? (
+            <p className="mt-1.5 text-[10px] text-muted-foreground">
+              {data.holdLine}
+            </p>
+          ) : null}
+          {data.reportLine ? (
+            <p className="mt-1.5 border-emerald-500/20 border-t pt-1.5 text-[10px] text-muted-foreground">
+              {data.reportLine}
+            </p>
+          ) : null}
         </div>
       </div>
     </div>

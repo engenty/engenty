@@ -1,8 +1,15 @@
-import type { AiUsageStore } from "@engenty/ai-core";
+import { type AiUsageStore, resolveChatModelId } from "@engenty/ai-core";
 import type { Mastra } from "@mastra/core/mastra";
 import { streamText } from "ai";
 
-import { DEFAULT_AI_CHAT_MODEL_GATEWAY_ID } from "../config/models.js";
+import {
+  createRoutineOutcomeDeliveryStore,
+  type RoutineOutcomeDeliveryStore,
+} from "../dal/routines/routine-outcome-delivery-store.js";
+import {
+  createRoutineOutcomeStore,
+  type RoutineOutcomeStore,
+} from "../dal/routines/routine-outcome-store.js";
 import {
   createRoutineStore,
   type RoutineStore,
@@ -40,6 +47,7 @@ import {
 import { createAiUsageStore } from "../dal/usage/index.js";
 import { createAiDatabaseAdapter } from "../infra/database.js";
 import { createDbSourceFromEnv } from "../infra/tenant-db.js";
+import { resolveLanguageModel } from "../model-gateways/resolve-language-model.js";
 import type { AiRegistry } from "./registry/index.js";
 import {
   type AiSessionScope,
@@ -150,7 +158,7 @@ export function createAiService(opts: AiServiceOptions): AiService {
     }),
     streamPing: () =>
       streamText({
-        model: DEFAULT_AI_CHAT_MODEL_GATEWAY_ID,
+        model: resolveLanguageModel(resolveChatModelId({ purpose: "chat" })),
         prompt: "Reply with exactly the single word: pong",
         maxOutputTokens: 8,
       }),
@@ -240,6 +248,22 @@ export function createRoutineTriggerStoreFromEnv(): RoutineTriggerStore | null {
     return null;
   }
   return createRoutineTriggerStore(source);
+}
+
+export function createRoutineOutcomeStoreFromEnv(): RoutineOutcomeStore | null {
+  const source = createDbSourceFromEnv();
+  if (!source) {
+    return null;
+  }
+  return createRoutineOutcomeStore(source);
+}
+
+export function createRoutineOutcomeDeliveryStoreFromEnv(): RoutineOutcomeDeliveryStore | null {
+  const source = createDbSourceFromEnv();
+  if (!source) {
+    return null;
+  }
+  return createRoutineOutcomeDeliveryStore(source);
 }
 
 export function createWorkflowStoreFromEnv(): WorkflowStore | null {

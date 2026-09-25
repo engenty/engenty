@@ -36,10 +36,7 @@ import type {
 import type { SearchIndexProvider, SearchResult } from "@engenty/search-index";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Contact, ContactSearchMatch } from "../schema/types.js";
-import {
-  buildContactSearchDocument,
-  DEFAULT_CONTACT_EMBEDDING_MODEL,
-} from "../services/contact-embed.js";
+import { buildContactSearchDocument } from "../services/contact-embed.js";
 import { rowToContact } from "./contact-mappers.js";
 
 export const CONTACTS_CONTACT_SOURCE_TYPE = "contacts.contact";
@@ -241,7 +238,6 @@ export function createContactsRetrievalSource(options: {
         title: contact.display_name,
       };
     },
-    embedding: { model: DEFAULT_CONTACT_EMBEDDING_MODEL },
     listDocuments: async ({ limit, tenant_id }) => {
       const { data, error } = await contacts(getDb({ tenantId: tenant_id }))
         .select("id, updated_at")

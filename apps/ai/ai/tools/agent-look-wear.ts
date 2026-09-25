@@ -1,6 +1,11 @@
 import { createRequestDecisionArtifact } from "@engenty/ai-core";
 import { getEngentyCoreBaseUrlFromEnv } from "../../src/ai/core-http-client.js";
 import { createEngentyCoreFileStorageClient } from "../../src/ai/workspace/core-file-storage-client.js";
+import {
+  AGENT_PROPOSAL_SUBJECT,
+  AGENT_PROPOSALS_ROUTE,
+  agentProposalDedupeKey,
+} from "../../src/notifications/agent-proposals.js";
 import { emitInboxNotification } from "../../src/notifications/inbox.js";
 import { releaseFrontendToolSuspendSlot } from "../frontend-tools/frontend-tool-suspend-lock.js";
 import {
@@ -278,18 +283,29 @@ export async function wearAgentLook(input: {
     return undefined as never;
   }
   if (tenantId) {
+    // The propose route above already filed `agent_proposed` about this
+    // agent; this merges into that row (same dedupe key) so it reads as a
+    // look, not a generic revision. Subject + space make the registry's
+    // approve/reject resolve it like any agent proposal.
+    const spaceId = run.space?.spaceId ?? null;
     await emitInboxNotification({
-      dedupeKey: `agent-look:${tenantId}:${agentId}`,
+      actor: { id: agentId, kind: "agent" },
+      body: input.request.summary,
+      dedupeKey: agentProposalDedupeKey({ agentId, tenantId }),
       kind: "agent_proposed",
       metadata: {
         agent_id: agentId,
         agent_type_key: agentId,
-        ...(run.space?.spaceId ? { space_id: run.space.spaceId } : {}),
+        ...(spaceId ? { space_id: spaceId } : {}),
       },
       priority: "medium",
       source: "agent-registry",
-      summary: `${typeof config.name === "string" ? config.name : agentId} proposed a new look: ${input.request.summary}`,
+      spaceId,
+      subject: { id: agentId, type: AGENT_PROPOSAL_SUBJECT },
+      summary: "An agent proposed a new look",
+      ...(spaceId ? {} : { target: AGENT_PROPOSALS_ROUTE }),
       tenantId,
+      title: { key: "agent_look_proposed" },
     });
   }
   return {

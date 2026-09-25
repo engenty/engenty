@@ -22,7 +22,7 @@ Superadmins manage it at **Manage → AI models**.
 
 | Action | What it does |
 | --- | --- |
-| **Sync now** | Re-fetches the model list and prices from the gateway. |
+| **Sync now** | Re-fetches the model list and prices from the gateway. New models stay inactive until you activate them; existing activations are left alone. |
 | **Activate / deactivate** | Controls whether a model is offered anywhere in the installation. |
 | **Filters and search** | Narrow by capability (tool-use, vision, …), provider, gateway, use case, price, or release age. Capability selections are AND — a model must have every tag you pick. Provider, gateway, and use case accept several values at once (OR) so you can activate a cohort, then change the filters and do the next. |
 | **Pricing history** | Shows what each model has cost over time. |

@@ -21,10 +21,11 @@ export interface ListNotificationsInput {
   stream?: string;
 }
 
-export interface UnseenCountDto {
-  /** Open badge-class records the caller has not seen, in the current space (null without one). */
+/** Open attention rows (`isAttention`), seen or not. */
+export interface AttentionCountDto {
+  /** In the current space (null without one). */
   in_space: number | null;
-  /** Open badge-class records the caller has not seen, across their spaces — the bell. */
+  /** Across every space the caller may enter, plus tenant rows — the bell. */
   total: number;
 }
 
@@ -45,12 +46,13 @@ export async function listNotifications(
   );
 }
 
-export async function fetchUnseenCount(
+export async function fetchAttentionCount(
   signal?: AbortSignal
-): Promise<UnseenCountDto> {
-  return requestApiJson<UnseenCountDto>("/api/notifications/unseen-count", {
-    signal,
-  });
+): Promise<AttentionCountDto> {
+  return requestApiJson<AttentionCountDto>(
+    "/api/notifications/attention-count",
+    { signal }
+  );
 }
 
 /**

@@ -2,19 +2,20 @@
 // notification_push_subscriptions. Every call takes a tenant-locked client
 // (`forTenant`), so the tenant filter is belt and the RLS lane is braces.
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type {
-  ChannelPreference,
-  DeliveryStatus,
-  NotificationActorKind,
-  NotificationAudienceKind,
-  NotificationClass,
-  NotificationDelivery,
-  NotificationPriority,
-  NotificationRecord,
-  NotificationRoute,
-  NotificationStatus,
-  NotificationStream,
-  UserNotificationPrefs,
+import {
+  type ChannelPreference,
+  type DeliveryStatus,
+  isAttention,
+  type NotificationActorKind,
+  type NotificationAudienceKind,
+  type NotificationClass,
+  type NotificationDelivery,
+  type NotificationPriority,
+  type NotificationRecord,
+  type NotificationRoute,
+  type NotificationStatus,
+  type NotificationStream,
+  type UserNotificationPrefs,
 } from "../contracts.js";
 
 const SCHEMA = "core";
@@ -28,6 +29,7 @@ export interface InsertNotificationRow {
   actor_kind: NotificationActorKind | null;
   audience_id: string | null;
   audience_kind: NotificationAudienceKind;
+  body: string | null;
   class: NotificationClass;
   coalesce_key: string | null;
   dedupe_key: string | null;
@@ -40,7 +42,10 @@ export interface InsertNotificationRow {
   subject_id: string | null;
   subject_type: string | null;
   summary: string;
+  target: string | null;
   tenant_id: string;
+  title_key: string | null;
+  title_params: Record<string, string | number> | null;
 }
 
 export interface ListNotificationsParams {
@@ -184,8 +189,11 @@ export function createNotificationsStore(source: NotificationsDbSource) {
       return row ?? null;
     },
 
-    /** Open badge rows the viewer has not looked at yet. */
-    async countOpen(
+    /**
+     * Open attention rows the viewer may see (`isAttention`), seen or not:
+     * an attention row counts until it is handled.
+     */
+    async countAttention(
       input: AudienceScope & {
         spaceId: string | null;
         tenantId: string;
@@ -193,28 +201,23 @@ export function createNotificationsStore(source: NotificationsDbSource) {
     ): Promise<{ inSpace: number | null; total: number }> {
       const { data, error } = await applyAudience(
         notifications(input.tenantId)
-          .select("id, space_id, class")
+          .select("id, space_id, class, priority, status")
           .eq("tenant_id", input.tenantId)
-          .eq("status", "pending")
-          .in("class", ["decision", "alert", "todo"]),
+          .eq("status", "pending"),
         input
       );
       if (error) {
         throw new Error(`notifications: count failed: ${error.message}`);
       }
-      const open = (data ?? []) as {
-        class: string;
-        id: string;
-        space_id: string | null;
-      }[];
-      const seenIds = input.userId
-        ? await listSeenIds({
-            notificationIds: open.map((row) => row.id),
-            tenantId: input.tenantId,
-            userId: input.userId,
-          })
-        : new Set<string>();
-      const rows = open.filter((row) => !seenIds.has(row.id));
+      const rows = (
+        (data ?? []) as {
+          class: NotificationClass;
+          id: string;
+          priority: NotificationPriority;
+          space_id: string | null;
+          status: NotificationStatus;
+        }[]
+      ).filter(isAttention);
       const total = rows.length;
       const inSpace = input.spaceId
         ? rows.filter((row) => row.space_id === input.spaceId).length
@@ -557,10 +560,14 @@ export function createNotificationsStore(source: NotificationsDbSource) {
        * its dedupe key the row's, so that request's own repeat is a no-op.
        */
       patch?: {
+        body?: string | null;
         dedupe_key?: string | null;
         metadata?: Record<string, unknown> | null;
         payload?: Record<string, unknown> | null;
         subject_id?: string | null;
+        target?: string | null;
+        title_key?: string | null;
+        title_params?: Record<string, string | number> | null;
       };
       summary: string;
       tenantId: string;

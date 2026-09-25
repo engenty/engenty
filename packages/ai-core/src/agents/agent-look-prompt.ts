@@ -1,12 +1,6 @@
 import type { AgentEngentyKind } from "./agent-engenty.js";
 import { agentEngentyLook } from "./agent-look.js";
 
-/** Gemini Flash Image via the AI Gateway. Override with AI_GATEWAY_IMAGE_MODEL. */
-export const DEFAULT_AGENT_LOOK_IMAGE_MODEL = "google/gemini-2.5-flash-image";
-
-/** Text model that writes SVG markup. Override with AI_GATEWAY_SVG_MODEL. */
-export const DEFAULT_AGENT_LOOK_SVG_MODEL = "google/gemini-2.5-flash";
-
 export function buildAgentLookImagePrompt(input: {
   brief: string;
   color?: string | null;

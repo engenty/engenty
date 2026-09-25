@@ -100,7 +100,7 @@ export function templateRecommendationKeys(
 
 export function selectedCount(
   selection: SpaceSelection,
-  resourceType: "agent" | "connection" | "module" | "skill"
+  resourceType: "agent" | "module" | "skill"
 ): number {
   return [...selection.values()].filter(
     (entry) => entry.resourceType === resourceType
@@ -110,7 +110,7 @@ export function selectedCount(
 export function optionalCount(
   selection: SpaceSelection,
   baseline: readonly SpaceMountDeclaration[],
-  resourceType: "agent" | "connection" | "module" | "skill"
+  resourceType: "agent" | "module" | "skill"
 ): number {
   const baselineKeys = new Set(
     baseline

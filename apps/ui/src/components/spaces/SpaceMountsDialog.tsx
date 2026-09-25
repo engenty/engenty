@@ -57,7 +57,7 @@ export function SpaceMountsDialog({
   space: Space | null;
 }) {
   const { t } = useTranslation("common");
-  const marketplaceKind = kind === "connection" || kind === "plugin";
+  const marketplaceKind = kind === "plugin";
   const mountsQuery = useSpaceMountsQuery(
     open && space && !marketplaceKind ? space.id : null
   );
@@ -113,8 +113,6 @@ export function SpaceMountsDialog({
     switch (kind) {
       case "agent":
         return catalog.agents;
-      case "connection":
-        return catalog.connections;
       case "module":
         return catalog.modules;
       case "plugin":

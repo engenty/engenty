@@ -4,7 +4,7 @@ import {
   RAIL_TILE_GLYPH_HOVER_CLASSNAME,
   RAIL_TILE_REST_SHADOW_CLASSNAME,
   useAppBarPosition,
-  useCopilotShellOrNull,
+  useCopilotLayoutOrNull,
 } from "@engenty/app-shell";
 import {
   BlobAccents,
@@ -139,10 +139,10 @@ export function CopilotFabTrigger({
   const dockedBox = horizontal
     ? { width: DOCKED_FAB_WIDE_SIZE, height: DOCKED_FAB_SHORT_SIZE }
     : { width: DOCKED_FAB_STRIP_SIZE, height: DOCKED_FAB_SHORT_SIZE };
-  const shell = useCopilotShellOrNull();
+  const shellLayout = useCopilotLayoutOrNull();
   const selectedWhoId =
-    shell?.companionWho.kind === "engenty"
-      ? shell.companionWho.agentId
+    shellLayout?.companionWho.kind === "engenty"
+      ? shellLayout.companionWho.agentId
       : COPILOT_WHO_ID;
   const voiceAllowed = selectedWhoId === COPILOT_WHO_ID;
   const actionItems = SPEED_DIAL_ITEMS.filter(

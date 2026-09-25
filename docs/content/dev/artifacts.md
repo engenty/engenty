@@ -43,10 +43,13 @@ content outward; it is not where the artifact is read from.
 
 ### Scope
 
-An artifact is created **thread-scoped** — it belongs to the chat that produced
-it and appears in that chat's pane tabs. `artifact_store` promotes one to a
-`task`, `project`, or `goal` scope, which moves it out of the chat's tab list
-and into that record's documents.
+Scopes: `thread`, `task`, `project`, `space`, `agent` (`ai.artifact`
+`scope_type`). Where a new artifact lands depends on who creates it: an Engenty
+in a Space stores it on the **Space** so later runs can update it; the Copilot
+keeps it on the **thread** — the chat that produced it, shown in that chat's
+pane tabs. `store_to` on `artifact_store` puts it on a `task`, `project`,
+`space`, or an Engenty (`agent`, scope id = the agent id), which moves it out of
+the chat's tab list and into that record's documents.
 
 ## Types
 

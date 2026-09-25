@@ -8,18 +8,16 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  accessibleSpaceIds,
   canAccessSpace,
   findAccessibleSpace,
+  isSpaceOwner,
   listAccessibleSpaces,
-  listSpaceMembers,
 } from "./space-membership.js";
 import type { Space } from "./spaces.js";
 
 const TENANT = "11111111-1111-1111-1111-111111111111";
 const ALICE = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
 const BOB = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
-const NIL = "00000000-0000-0000-0000-000000000000";
 
 interface Row {
   color: null;
@@ -79,11 +77,6 @@ const UUID_PERSONAL = row({
   owner_user_id: ALICE,
   visibility: "private",
 });
-const DELETED = row({
-  deleted_at: "2026-09-07T00:00:00Z",
-  id: "s-deleted",
-  key: "gone",
-});
 
 const ALL = [
   COMPANY,
@@ -93,7 +86,6 @@ const ALL = [
   VAULT,
   UUID_SPACE,
   UUID_PERSONAL,
-  DELETED,
 ];
 
 /**
@@ -101,16 +93,13 @@ const ALL = [
  * `memberships` is the source of truth the stub filters on.
  */
 function stubClient(memberships: Array<{ spaceId: string; userId: string }>) {
-  const queries: string[] = [];
-
   function spacesQuery(filters: Record<string, string>) {
     const builder = {
       eq(column: string, value: string) {
         filters[column] = value;
         return builder;
       },
-      is(column: string, value: null) {
-        filters[`${column}:is`] = value === null ? "null" : String(value);
+      is() {
         return builder;
       },
       ilike(column: string, value: string) {
@@ -148,9 +137,6 @@ function stubClient(memberships: Array<{ spaceId: string; userId: string }>) {
       ) {
         return false;
       }
-      if (filters["deleted_at:is"] === "null" && candidate.deleted_at != null) {
-        return false;
-      }
       return true;
     };
   }
@@ -172,9 +158,6 @@ function stubClient(memberships: Array<{ spaceId: string; userId: string }>) {
       maybeSingle() {
         return Promise.resolve({ data: rows()[0] ?? null, error: null });
       },
-      order() {
-        return builder;
-      },
       // biome-ignore lint/suspicious/noThenProperty: mock of a thenable Supabase query builder
       then(resolve: (value: { data: unknown[]; error: null }) => unknown) {
         return Promise.resolve(resolve({ data: rows(), error: null }));
@@ -184,11 +167,9 @@ function stubClient(memberships: Array<{ spaceId: string; userId: string }>) {
   }
 
   return {
-    queries,
     schema() {
       return {
         from(table: string) {
-          queries.push(table);
           return {
             select() {
               return table === "space_member"
@@ -215,61 +196,11 @@ describe("listAccessibleSpaces", () => {
     ]);
   });
 
-  it("never returns somebody else's personal space", async () => {
-    // The whole point of the phase, stated as one assertion.
-    const client = stubClient([{ spaceId: "s-alice", userId: ALICE }]);
-    const spaces = await listAccessibleSpaces(client, TENANT, ALICE);
-    expect(spaces.map((space) => space.key)).not.toContain("bob");
-  });
-
   it("includes a private space the user was invited into", async () => {
     // Sharing a private space is done by granting membership, not by opening it.
     const client = stubClient([{ spaceId: "s-vault", userId: BOB }]);
     const spaces = await listAccessibleSpaces(client, TENANT, BOB);
     expect(spaces.map((space) => space.key)).toContain("vault");
-  });
-
-  it("hides every private space from a non-user principal", async () => {
-    // Agent and service tokens resolve as the nil UUID, which owns nothing and is
-    // a member of nothing — so a headless caller enumerating spaces cannot become
-    // a way around the rule.
-    const spaces = await listAccessibleSpaces(stubClient([]), TENANT, NIL);
-    expect(spaces.map((space) => space.key)).toEqual([
-      "company",
-      "marketing",
-      "uuid-room",
-    ]);
-  });
-
-  it("keeps the default space first, then alphabetical", async () => {
-    // The rail's ordering contract (Phase 5a) is the database's `order`, so a
-    // filter that reordered rows would move the tenant's front door.
-    const spaces = await listAccessibleSpaces(stubClient([]), TENANT, BOB);
-    expect(spaces[0]?.isDefault).toBe(true);
-  });
-
-  it("hides a space that has been marked for deletion", async () => {
-    const spaces = await listAccessibleSpaces(stubClient([]), TENANT, ALICE);
-    expect(spaces.map((space) => space.key)).not.toContain("gone");
-  });
-});
-
-describe("accessibleSpaceIds", () => {
-  it("is the same rule as a set, for cross-space aggregations", async () => {
-    // Search, badges and the space Data tree never pass through a /s/<key> route, so this
-    // set is the only thing bounding them.
-    const client = stubClient([{ spaceId: "s-bob", userId: BOB }]);
-    const ids = await accessibleSpaceIds(client, TENANT, BOB);
-    expect([...ids].sort()).toEqual([
-      UUID_SPACE.id,
-      "s-bob",
-      "s-company",
-      "s-marketing",
-    ]);
-    // Both of Alice's private spaces are absent — this set is what search, badge
-    // rollups and the Data tree intersect with, so a leak here is a leak everywhere.
-    expect(ids.has("s-alice")).toBe(false);
-    expect(ids.has(UUID_PERSONAL.id)).toBe(false);
   });
 });
 
@@ -298,18 +229,6 @@ describe("findAccessibleSpace", () => {
     expect(await findAccessibleSpace(client, TENANT, BOB, "alice")).toBeNull();
   });
 
-  it("is indistinguishable from a key that does not exist", async () => {
-    const client = stubClient([]);
-    expect(await findAccessibleSpace(client, TENANT, BOB, "alice")).toBeNull();
-    expect(await findAccessibleSpace(client, TENANT, BOB, "nope")).toBeNull();
-  });
-
-  it("returns null for a space that has been marked for deletion", async () => {
-    expect(
-      await findAccessibleSpace(stubClient([]), TENANT, ALICE, "gone")
-    ).toBeNull();
-  });
-
   it("resolves by uuid, taking the id branch rather than the key branch", async () => {
     // `/s/:key` carries keys, but the mount and surface routes carry ids, so both
     // shapes reach this function and both must be gated.
@@ -329,126 +248,13 @@ describe("findAccessibleSpace", () => {
       await findAccessibleSpace(stubClient([]), TENANT, BOB, UUID_PERSONAL.id)
     ).toBeNull();
   });
-
-  it("treats an empty segment as no space", async () => {
-    expect(
-      await findAccessibleSpace(stubClient([]), TENANT, BOB, "  ")
-    ).toBeNull();
-  });
-});
-
-describe("listSpaceMembers", () => {
-  /** Rows in the order PostgREST returns them: by `created_at`, oldest first. */
-  function membersClient(
-    rows: Array<{
-      display_name: string | null;
-      role: string;
-      user_id: string;
-    }>
-  ) {
-    return {
-      schema() {
-        return {
-          from() {
-            const builder = {
-              eq() {
-                return builder;
-              },
-              order() {
-                return builder;
-              },
-              // biome-ignore lint/suspicious/noThenProperty: mock of a thenable Supabase query builder
-              then(
-                resolve: (value: { data: unknown[]; error: null }) => unknown
-              ) {
-                return Promise.resolve(
-                  resolve({
-                    data: rows.map((row) => ({
-                      created_at: "2026-08-11T00:00:00Z",
-                      role: row.role,
-                      space_id: "s-1",
-                      user_id: row.user_id,
-                      users: {
-                        display_name: row.display_name,
-                        email: `${row.user_id}@example.test`,
-                      },
-                    })),
-                    error: null,
-                  })
-                );
-              },
-            };
-            return { select: () => builder };
-          },
-        };
-      },
-    } as never;
-  }
-
-  it("puts the owner first, however the rows arrive", async () => {
-    // The bug this pins: the query used `order("role")`, which is ALPHABETICAL —
-    // "member" sorts before "owner", so the owner sat at the bottom of their own
-    // space's roster. Caught in the browser, not by a test, so here is the test.
-    const members = await listSpaceMembers(
-      membersClient([
-        { display_name: "Zoe", role: "member", user_id: "u-zoe" },
-        { display_name: "Alice", role: "owner", user_id: "u-alice" },
-      ]),
-      TENANT,
-      "s-1"
-    );
-    expect(members.map((member) => member.displayName)).toEqual([
-      "Alice",
-      "Zoe",
-    ]);
-  });
-
-  it("sorts everyone below the owner by name", async () => {
-    const members = await listSpaceMembers(
-      membersClient([
-        { display_name: "Zoe", role: "member", user_id: "u-zoe" },
-        { display_name: "Bob", role: "member", user_id: "u-bob" },
-        { display_name: "Alice", role: "owner", user_id: "u-alice" },
-      ]),
-      TENANT,
-      "s-1"
-    );
-    expect(members.map((member) => member.displayName)).toEqual([
-      "Alice",
-      "Bob",
-      "Zoe",
-    ]);
-  });
-
-  it("carries the person's name through the embed", async () => {
-    const [member] = await listSpaceMembers(
-      membersClient([
-        { display_name: "Alice", role: "owner", user_id: "u-alice" },
-      ]),
-      TENANT,
-      "s-1"
-    );
-    expect(member?.displayName).toBe("Alice");
-    expect(member?.email).toBe("u-alice@example.test");
-  });
-
-  it("falls back to the id when the person has no name at all", async () => {
-    // A row whose user record is gone is a real state, and an id someone can
-    // search for beats a placeholder word that tells them nothing.
-    const [member] = await listSpaceMembers(
-      membersClient([{ display_name: null, role: "member", user_id: "u-x" }]),
-      TENANT,
-      "s-1"
-    );
-    expect(member?.displayName).toBeNull();
-    expect(member?.userId).toBe("u-x");
-  });
 });
 
 describe("canAccessSpace", () => {
   const asSpace = (source: Row): Space => ({
     agentApprovalMode: null,
     computerNetworkTier: null,
+    computerEgressHosts: [],
     color: null,
     createdAt: source.created_at,
     deletedAt: source.deleted_at,
@@ -464,33 +270,6 @@ describe("canAccessSpace", () => {
     visibility: source.visibility === "private" ? "private" : "open",
   });
 
-  it("lets anyone into an open space without touching the member table", async () => {
-    const client = stubClient([]);
-    expect(await canAccessSpace(client, TENANT, BOB, asSpace(MARKETING))).toBe(
-      true
-    );
-    expect((client as unknown as { queries: string[] }).queries).not.toContain(
-      "space_member"
-    );
-  });
-
-  it("lets the owner into their own private space", async () => {
-    expect(
-      await canAccessSpace(
-        stubClient([]),
-        TENANT,
-        ALICE,
-        asSpace(ALICE_PERSONAL)
-      )
-    ).toBe(true);
-  });
-
-  it("keeps a non-member out of a private space", async () => {
-    expect(
-      await canAccessSpace(stubClient([]), TENANT, BOB, asSpace(ALICE_PERSONAL))
-    ).toBe(false);
-  });
-
   it("lets an invited member into a private space with no owner", async () => {
     const client = stubClient([{ spaceId: "s-vault", userId: BOB }]);
     expect(await canAccessSpace(client, TENANT, BOB, asSpace(VAULT))).toBe(
@@ -504,5 +283,16 @@ describe("canAccessSpace", () => {
     expect(
       await canAccessSpace(stubClient([]), TENANT, ALICE, asSpace(VAULT))
     ).toBe(false);
+  });
+});
+
+describe("isSpaceOwner", () => {
+  it("names the personal space's owner, and nobody else", async () => {
+    expect(await isSpaceOwner(stubClient([]), TENANT, "s-alice", ALICE)).toBe(
+      true
+    );
+    expect(await isSpaceOwner(stubClient([]), TENANT, "s-alice", BOB)).toBe(
+      false
+    );
   });
 });

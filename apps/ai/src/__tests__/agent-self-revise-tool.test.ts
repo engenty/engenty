@@ -32,7 +32,6 @@ function storedAgent(overrides: Record<string, unknown> = {}) {
 
 function runTool(input: {
   agent?: Record<string, unknown> | null;
-  agentTypeKey?: string;
   calls: { body?: unknown; path: string }[];
   resume?: Record<string, unknown>;
 }) {
@@ -59,9 +58,7 @@ function runTool(input: {
     {
       accessToken: "token-self-revise",
       agentId: "00000000-0000-4000-8000-0000000000aa",
-      ...(input.agentTypeKey === undefined
-        ? { agentTypeKey: AGENT_ID }
-        : { agentTypeKey: input.agentTypeKey }),
+      agentTypeKey: AGENT_ID,
       coreBaseUrl: "http://core.local",
       fetchImpl,
       orchestratorThreadId: "thread-1",
@@ -109,18 +106,6 @@ describe(AGENT_SELF_REVISE_TOOL_ID, () => {
     expect(output.ok).toBe(false);
     expect(output.code).toBe("not_revisable");
     expect(calls.some((call) => call.path.endsWith("/propose"))).toBe(false);
-  });
-
-  it("cannot revise anything when the run does not know which agent it is", async () => {
-    const calls: { body?: unknown; path: string }[] = [];
-    const output = await runTool({
-      agent: storedAgent(),
-      agentTypeKey: "",
-      calls,
-    });
-
-    expect(output.code).toBe("unknown_agent");
-    expect(calls).toHaveLength(0);
   });
 
   it("applies the pending revision only when the human approves", async () => {

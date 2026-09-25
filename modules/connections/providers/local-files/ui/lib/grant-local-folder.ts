@@ -27,17 +27,18 @@ export function canGrantLocalFolder(): boolean {
   return isDesktopShell() || isSupported();
 }
 
-export async function grantLocalFolder(options?: {
-  spaceId?: string | null;
+export async function grantLocalFolder(options: {
+  /** The Space the folder connection will belong to. */
+  spaceId: string;
 }): Promise<{ connectionId: string; name: string } | null> {
   const name = isDesktopShell()
-    ? await grantDesktop(options?.spaceId)
-    : await grantBrowser(options?.spaceId);
+    ? await grantDesktop(options.spaceId)
+    : await grantBrowser(options.spaceId);
   return name;
 }
 
 async function grantDesktop(
-  spaceId?: string | null
+  spaceId: string
 ): Promise<{ connectionId: string; name: string } | null> {
   const path = await pickDesktopDirectory();
   if (!path) {
@@ -56,7 +57,7 @@ async function grantDesktop(
 }
 
 async function grantBrowser(
-  spaceId?: string | null
+  spaceId: string
 ): Promise<{ connectionId: string; name: string } | null> {
   const handle = await pickDirectory();
   const { connection_id } = await registerDirectory({

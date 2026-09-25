@@ -117,8 +117,9 @@ describe("normalizeOpenRouterModel", () => {
     const row = normalizeOpenRouterModel(apiModel(), { now: NOW });
     expect(row.available_for_embedding).toBe(false);
     expect(row.available_for_rerank).toBe(false);
-    expect(row.available_for_chat).toBe(true);
-    expect(row.available_for_routing).toBe(true);
+    expect(row.available_for_agent).toBe(true);
+    expect(row.available_for_classification).toBe(false);
+    expect(row.available_for_text).toBe(true);
   });
 
   it("classifies an image-output model as image, not text", () => {

@@ -78,6 +78,7 @@ describe("startScheduler", () => {
     listTenantIds.mockReset();
     listTenantIds.mockResolvedValue(["tenant-1"]);
     errorSpy.mockReset();
+    logSpies.warn.mockReset();
   });
 
   afterEach(() => {
@@ -90,6 +91,22 @@ describe("startScheduler", () => {
     await startScheduler({ mastra });
     expect(startWorkers).toHaveBeenCalledTimes(1);
     expect(resolveSchedulerServiceScope).toHaveBeenCalledTimes(1);
+  });
+
+  it("waits quietly for the first tenant, then comes online", async () => {
+    // A fresh database has no tenant until the first login, and a platform
+    // credential cannot mint without one — that is waiting, not failing.
+    listTenantIds.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+    resolveSchedulerServiceScope.mockResolvedValue({ ok: true, scope });
+    const { mastra, startWorkers } = fakeMastra();
+    await startScheduler({ mastra });
+    expect(resolveSchedulerServiceScope).not.toHaveBeenCalled();
+    expect(logSpies.warn).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(10_000); // still no tenant
+    expect(startWorkers).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(10_000); // first login happened
+    expect(startWorkers).toHaveBeenCalledTimes(1);
   });
 
   it("disables permanently without retrying when the JWT env var is not set", async () => {

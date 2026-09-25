@@ -7,12 +7,12 @@ describe("parseTenantAiSettings", () => {
       parseTenantAiSettings({
         chat_model_id: " openai/fixture-chat ",
         classifier_model_id: "openai/fixture-classifier",
-        coordinator_model_id: "anthropic/fixture-coordinator",
+        fast_text_model_id: "openai/fixture-fast",
       })
     ).toMatchObject({
       chat_model_id: "openai/fixture-chat",
       classifier_model_id: "openai/fixture-classifier",
-      coordinator_model_id: "anthropic/fixture-coordinator",
+      fast_text_model_id: "openai/fixture-fast",
     });
   });
 
@@ -20,33 +20,29 @@ describe("parseTenantAiSettings", () => {
     expect(
       parseTenantAiSettings({
         chat_model_id: "gpt-5.3-chat",
-        coordinator_model_id: "gpt-5.3-chat",
+        fast_text_model_id: "gpt-5.3-chat",
       })
     ).toMatchObject({
       chat_model_id: null,
-      coordinator_model_id: null,
+      fast_text_model_id: null,
     });
   });
 
-  it("accepts routing_model_id and prefers it over coordinator_model_id", () => {
-    expect(
-      parseTenantAiSettings({
-        routing_model_id: "openai/fixture-routing",
-        coordinator_model_id: "anthropic/fixture-coordinator",
-      })
-    ).toMatchObject({
-      coordinator_model_id: "openai/fixture-routing",
-    });
-  });
-
-  it("falls back from routing_model_id to coordinator_model_id", () => {
-    expect(
-      parseTenantAiSettings({
-        coordinator_model_id: "openai/fixture-coordinator",
-      })
-    ).toMatchObject({
+  it("drops the retired per-purpose model fields", () => {
+    const parsed = parseTenantAiSettings({
       coordinator_model_id: "openai/fixture-coordinator",
+      memory_model_id: "openai/fixture-memory",
+      routing_model_id: "openai/fixture-routing",
+      safeguard_model_id: "openai/fixture-safeguard",
     });
+    for (const key of [
+      "coordinator_model_id",
+      "memory_model_id",
+      "routing_model_id",
+      "safeguard_model_id",
+    ]) {
+      expect(parsed).not.toHaveProperty(key);
+    }
   });
 
   it("parses realtime_voice prefs and normalizes an unknown provider to null", () => {

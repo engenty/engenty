@@ -8,11 +8,9 @@ import {
 } from "../lib/digest-markdown.js";
 import type { InboxAttachmentMeta, InboxMessage } from "../schema/types.js";
 import {
-  coerceMessageDigestOutput,
   dominantCategory,
   extractLatestBodyText,
   htmlToPromptMarkdown,
-  parseJsonFromModelText,
 } from "./thread-digest.js";
 
 function makeAttachment(
@@ -43,7 +41,7 @@ function makeMessage(overrides: Partial<InboxMessage> = {}): InboxMessage {
     from_name: "A",
     has_attachments: false,
     id: "msg-1",
-    owner_user_id: null,
+    space_id: "space-1",
     provider_message_id: "prov-1",
     provider_thread_id: null,
     received_at: null,
@@ -260,15 +258,6 @@ describe("isUselessDigestContent / shouldFallbackToExtractedBody", () => {
   });
 });
 
-describe("parseJsonFromModelText", () => {
-  it("parses bare JSON and fenced blocks", () => {
-    expect(parseJsonFromModelText('{"a":1}')).toEqual({ a: 1 });
-    expect(
-      parseJsonFromModelText('Here you go:\n```json\n{"body":"hi"}\n```')
-    ).toEqual({ body: "hi" });
-  });
-});
-
 describe("unescapeDigestEscapes", () => {
   it("is a no-op when there are no escape sequences", () => {
     expect(unescapeDigestEscapes("hello\nworld")).toBe("hello\nworld");
@@ -283,39 +272,5 @@ describe("htmlToPromptMarkdown list items", () => {
     expect(markdown).toBe(
       "- Konzertproduktionen ab 2005 ist zerschossen\n- URL-Punkte"
     );
-  });
-});
-
-describe("coerceMessageDigestOutput", () => {
-  it("accepts the body/classification aliases small models emit", () => {
-    expect(
-      coerceMessageDigestOutput({
-        body: "kannst du mir bitte ein Angebot schicken?",
-        classification: "conversation",
-      })
-    ).toEqual({
-      category: "conversation",
-      content_markdown: "kannst du mir bitte ein Angebot schicken?",
-      keep_attachment_indexes: [],
-    });
-  });
-
-  it("keeps the strict schema shape unchanged", () => {
-    expect(
-      coerceMessageDigestOutput({
-        category: "newsletter",
-        content_markdown: "## Update",
-        keep_attachment_indexes: [0, 2],
-      })
-    ).toEqual({
-      category: "newsletter",
-      content_markdown: "## Update",
-      keep_attachment_indexes: [0, 2],
-    });
-  });
-
-  it("returns null when no body content is present", () => {
-    expect(coerceMessageDigestOutput({ classification: "spam" })).toBeNull();
-    expect(coerceMessageDigestOutput(null)).toBeNull();
   });
 });

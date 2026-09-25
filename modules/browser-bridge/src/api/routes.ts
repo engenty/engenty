@@ -1,5 +1,7 @@
 import type { ConnectionsRepo } from "@engenty/connections-sdk";
+import { canEnterSpace } from "@engenty/connections-sdk";
 import type { PluginServerApi } from "@engenty/plugin-sdk";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import {
   allowedOriginsSchema,
@@ -16,6 +18,9 @@ const CONNECTOR_ID = "browser";
 const linkBody = z.object({
   allowed_origins: allowedOriginsSchema.default([]),
   device_label: z.string().min(1).max(120),
+  /** The Space the browser connection belongs to. Checked in the handler, so
+   * a missing one answers `connections.spaceRequired`. */
+  space_id: z.string().uuid().nullish(),
 });
 
 const heartbeatBody = z.object({
@@ -79,12 +84,14 @@ export function registerBrowserBridgeRoutes(
     /** Tenant-locked repo factories (Phase A) — every route carries ctx.auth,
      * so each call resolves repos on the caller's own tenant handle. */
     getConnectionsRepo: (auth: { tenantId: string }) => ConnectionsRepo;
+    /** Tenant-locked handle for the Space-membership read. */
+    getDb: (auth: { tenantId: string }) => SupabaseClient;
     getRepo: (auth: { tenantId: string }) => BrowserBridgeRepo;
     /** Test override for the claim long-poll cadence. */
     claimPollMs?: number;
   }
 ): void {
-  const { getConnectionsRepo, getRepo } = deps;
+  const { getConnectionsRepo, getDb, getRepo } = deps;
   const claimPollMs = deps.claimPollMs ?? CLAIM_POLL_MS;
 
   async function requireOwnedInstallation(
@@ -100,7 +107,8 @@ export function registerBrowserBridgeRoutes(
   }
 
   // Link a new extension installation: mint the installation id, the
-  // browser-auth-kind connection, and the active bridge session in one shot.
+  // browser-auth-kind connection (owned by the Space the link names), and the
+  // active bridge session in one shot.
   // Called by the WEB APP (which holds the Supabase session); the result plus
   // an access token is handed to the extension via the external-message
   // handshake.
@@ -115,6 +123,20 @@ export function registerBrowserBridgeRoutes(
         return hono.json({ error: "Unauthorized" }, 401);
       }
       const body = ctx.body as z.infer<typeof linkBody>;
+      const spaceId = body.space_id;
+      if (!spaceId) {
+        return hono.json({ error: "connections.spaceRequired" }, 400);
+      }
+      if (
+        !(await canEnterSpace(getDb(ctx.auth), {
+          capabilities: ctx.auth.capabilities,
+          spaceId,
+          tenantId: ctx.auth.tenantId,
+          userId: ctx.auth.principalId,
+        }))
+      ) {
+        return hono.json({ error: "space_not_found" }, 404);
+      }
       const repo = getRepo(ctx.auth);
       const installationId = crypto.randomUUID();
       const idTag = installationId.slice(0, 8);
@@ -123,13 +145,13 @@ export function registerBrowserBridgeRoutes(
       ).upsertConnectionWithTokens({
         accessToken: "",
         authKind: "browser",
+        connectedBy: ctx.auth.principalId,
         connectorId: CONNECTOR_ID,
         expiresAt: null,
         externalAccount: `${body.device_label} · ${idTag}`,
         grantedScopes: [],
-        ownerUserId: ctx.auth.principalId,
         refreshToken: null,
-        sharing: "personal",
+        spaceId,
         tenantId: ctx.auth.tenantId,
       });
       await repo.insertInstallation({
@@ -146,7 +168,11 @@ export function registerBrowserBridgeRoutes(
         userId: ctx.auth.principalId,
       });
       ctx.recordAuditEvent?.({
-        detail: { connection_id: connection.id, connector: CONNECTOR_ID },
+        detail: {
+          connection_id: connection.id,
+          connector: CONNECTOR_ID,
+          space_id: spaceId,
+        },
         type: "connection.connected",
       });
       return hono.json({

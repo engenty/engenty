@@ -375,7 +375,7 @@ describe("kbSettingsSchema", () => {
     const result = kbSettingsSchema.safeParse({});
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.embedding_model).toBe("openai/text-embedding-3-small");
+      expect(result.data).not.toHaveProperty("embedding_model");
       expect(result.data.kb_chunking_by_id).toEqual({});
       expect(result.data.search_vector_min_similarity).toBe(0.45);
       expect(result.data.search_verifier_min_query_terms).toBe(3);
@@ -386,7 +386,6 @@ describe("kbSettingsSchema", () => {
 
   it("accepts custom settings", () => {
     const result = kbSettingsSchema.safeParse({
-      embedding_model: "openai/text-embedding-3-large",
       kb_chunking_by_id: {
         "kb-1": { max_length: 1500, overlap: 0, strategy: "sentence" },
       },

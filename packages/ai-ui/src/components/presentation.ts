@@ -93,7 +93,6 @@ export {
   CopilotDrawer,
   type CopilotPanelMode,
   type CopilotRouteContext,
-  formatCopilotRouteStatusLabel,
 } from "./copilot/drawer/copilot-drawer.js";
 export {
   CopilotDrawerPositionMenu,

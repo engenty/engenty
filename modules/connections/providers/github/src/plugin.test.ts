@@ -14,6 +14,7 @@ function stubContext(fetchImpl: typeof fetch): ConnectorActionContext {
   const connection: ConnectionSummary = {
     auth_kind: "oauth2",
     autonomous_mode: "off",
+    connected_by: null,
     connector_id: "github",
     created_at: new Date(0).toISOString(),
     display_name: null,
@@ -21,9 +22,7 @@ function stubContext(fetchImpl: typeof fetch): ConnectorActionContext {
     external_account: null,
     granted_scopes: ["repo"],
     id: "conn-1",
-    non_owner_max_group: null,
-    owner_user_id: "user-1",
-    sharing: "personal",
+    space_id: "space-1",
     status: "active",
     tenant_id: "tenant-1",
   };

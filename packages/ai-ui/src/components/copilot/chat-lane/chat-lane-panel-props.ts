@@ -15,7 +15,6 @@ export type ChatLanePanelBaseProps = Pick<
   | "contentBodyGutter"
   | "detachLabel"
   | "enableStatusFlap"
-  | "minimalChrome"
   | "onClose"
   | "onPanelModeChange"
   | "panelMode"
@@ -38,8 +37,8 @@ function noop() {}
  * reply that is otherwise off-screen, and a lane always has the transcript right
  * above the composer.
  *
- * Note what is deliberately NOT here: `contextOptions`,
- * `headerVariant` — Talk vs Work vs Window is shared chrome now. The lane
+ * Note what is deliberately NOT here: `headerVariant` — Talk vs Work vs
+ * Window is shared chrome now. The lane
  * still does not own those widgets; the shell / drawer injects `positionMenu`.
  *
  * @param t The `common` namespace translator.
@@ -56,7 +55,6 @@ export function chatLanePanelBaseProps(
     contentBodyGutter: "flush",
     detachLabel: t("copilot.position.window"),
     enableStatusFlap: false,
-    minimalChrome: true,
     onClose: noop,
     onPanelModeChange: noop,
     panelMode: "docked",

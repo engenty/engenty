@@ -199,6 +199,10 @@ export function createWorkflowSelfReviseTools(
             dedupeKey: `flow-graph-proposal:${tenantId}:${existing.id}`,
             spaceId: executionSpaceId(ctx.space) ?? null,
             kind: "workflow_proposed",
+            actor: { id: agentId, kind: "agent" },
+            // The agent's one-line why; the title names the Workflow.
+            body: input.summary,
+            // Opens the owner's manage panel (workflow_id + owner_agent_id).
             metadata: {
               owner_agent_id: agentId,
               version: version.version,
@@ -206,8 +210,12 @@ export function createWorkflowSelfReviseTools(
             },
             priority: "medium",
             source: "workflows",
-            summary: `${agentId} proposed version ${version.version} of its Workflow "${existing.name}": ${input.summary}`,
+            summary: "A Workflow revision is waiting for review",
             tenantId,
+            title: {
+              key: "workflow_revised",
+              params: { name: existing.name, version: version.version },
+            },
           });
 
           if (

@@ -14,7 +14,7 @@ import { MockLanguageModelV3 } from "ai/test";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import {
-  describeWorkspaceToolCall,
+  workspaceApprovalTitle,
   workspaceToolGrantId,
 } from "../../workspace/workspace-tool-guards.js";
 import { AgUiTurnAccumulator } from "../agui-turn-accumulator.js";
@@ -292,7 +292,7 @@ async function viaAccumulator() {
     agent: fixtureAgent(),
     agentId: "accumulator-fixture",
     content: "find items",
-    describeCall: describeWorkspaceToolCall,
+    describeCall: workspaceApprovalTitle,
     grantIdOf: workspaceToolGrantId,
     onAgUiEvent: (e) => acc.observe(e as never),
     resourceId: "resource-1",

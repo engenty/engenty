@@ -1,5 +1,9 @@
 import path from "node:path";
-import { resolveLocalMountBasePath } from "../workspace/local-workspace-paths.js";
+
+import {
+  resolveLocalMountBasePath,
+  resolveSpaceDrivePath,
+} from "../workspace/local-workspace-paths.js";
 import { resolveSandboxStorageRelativePath } from "../workspace/workspace-presets.js";
 import type {
   SandboxRunIdentity,
@@ -9,6 +13,20 @@ import type {
 export function resolveSandboxStorageLayout(
   identity: SandboxRunIdentity
 ): SandboxStorageLayout {
+  const space = identity.spaceId?.trim();
+  if (identity.lifecycle === "space") {
+    if (!space) {
+      throw new Error("sandbox_space_lifecycle_requires_space_binding");
+    }
+    // The space computer's `/sandbox` is the machine's own state, like its
+    // $HOME: a folder of the Space drive, never synced to object storage (the
+    // empty prefix). Results worth keeping go to `/space`.
+    return {
+      fileStorageRelativePath: "",
+      spaceId: space,
+      stagingPath: resolveSpaceDrivePath(identity.tenantId, space, "sandbox"),
+    };
+  }
   const fileStorageRelativePath = resolveSandboxStorageRelativePath(
     identity.lifecycle,
     {
@@ -28,6 +46,18 @@ export function resolveSandboxStorageLayout(
     stagingPath,
     ...(identity.spaceId ? { spaceId: identity.spaceId } : {}),
   };
+}
+
+/**
+ * Host dir bound as a space computer's `$HOME` (`/opt/sandbox`). Read from
+ * the host too — skills and MCP servers an installer wrote there are offered
+ * to the Space without the container having to run.
+ */
+export function resolveSpaceComputerHomePath(
+  tenantId: string,
+  spaceId: string
+): string {
+  return resolveSpaceDrivePath(tenantId, spaceId, "home");
 }
 
 export function resolveSandboxMetaKey(fileStorageRelativePath: string): string {

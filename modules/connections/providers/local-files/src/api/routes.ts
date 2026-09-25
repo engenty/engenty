@@ -1,5 +1,5 @@
 import type { ConnectionsRepo } from "@engenty/connections-sdk";
-import { mountConnectionInSpace } from "@engenty/connections-sdk";
+import { canEnterSpace } from "@engenty/connections-sdk";
 import type { PluginServerApi } from "@engenty/plugin-sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
@@ -12,7 +12,8 @@ const registerDirBody = z.object({
   device_label: z.string().max(120).nullish(),
   directory_name: z.string().min(1).max(200),
   installation_id: z.string().uuid(),
-  /** Mount the new account into this space (CN.4 Flow A). */
+  /** The Space the directory's account belongs to. Checked in the handler,
+   * so a missing one answers `connections.spaceRequired`. */
   space_id: z.string().uuid().nullish(),
 });
 
@@ -71,6 +72,20 @@ export function registerLocalFilesRoutes(
         return hono.json({ error: "Unauthorized" }, 401);
       }
       const body = ctx.body as z.infer<typeof registerDirBody>;
+      const spaceId = body.space_id;
+      if (!spaceId) {
+        return hono.json({ error: "connections.spaceRequired" }, 400);
+      }
+      if (
+        !(await canEnterSpace(dbFor({ tenantId: ctx.auth.tenantId }), {
+          capabilities: ctx.auth.capabilities,
+          spaceId,
+          tenantId: ctx.auth.tenantId,
+          userId: ctx.auth.principalId,
+        }))
+      ) {
+        return hono.json({ error: "space_not_found" }, 404);
+      }
       const existing = await repoFor({
         tenantId: ctx.auth.tenantId,
       }).getInstallation(body.installation_id);
@@ -97,13 +112,13 @@ export function registerLocalFilesRoutes(
       }).upsertConnectionWithTokens({
         accessToken: "",
         authKind: "browser",
+        connectedBy: ctx.auth.principalId,
         connectorId: CONNECTOR_ID,
         expiresAt: null,
         externalAccount: label,
         grantedScopes: [],
-        ownerUserId: ctx.auth.principalId,
         refreshToken: null,
-        sharing: "personal",
+        spaceId,
         tenantId: ctx.auth.tenantId,
       });
       await repoFor({ tenantId: ctx.auth.tenantId }).upsertDirectory({
@@ -112,15 +127,12 @@ export function registerLocalFilesRoutes(
         installation_id: body.installation_id,
         tenant_id: ctx.auth.tenantId,
       });
-      if (body.space_id) {
-        await mountConnectionInSpace(dbFor({ tenantId: ctx.auth.tenantId }), {
-          connectionId: connection.id,
-          spaceId: body.space_id,
-          tenantId: ctx.auth.tenantId,
-        });
-      }
       ctx.recordAuditEvent?.({
-        detail: { connection_id: connection.id, connector: CONNECTOR_ID },
+        detail: {
+          connection_id: connection.id,
+          connector: CONNECTOR_ID,
+          space_id: spaceId,
+        },
         type: "connection.connected",
       });
       return hono.json({ connection_id: connection.id });
@@ -148,7 +160,19 @@ export function registerLocalFilesRoutes(
         connectionId,
         tenantId: ctx.auth.tenantId,
       });
-      if (!connection || connection.owner_user_id !== ctx.auth.principalId) {
+      // Re-granting happens in the browser of someone working in the
+      // account's Space; anyone else gets the same answer as a missing id.
+      if (
+        !(
+          connection &&
+          (await canEnterSpace(dbFor({ tenantId: ctx.auth.tenantId }), {
+            capabilities: ctx.auth.capabilities,
+            spaceId: connection.space_id,
+            tenantId: ctx.auth.tenantId,
+            userId: ctx.auth.principalId,
+          }))
+        )
+      ) {
         return hono.json({ error: "not found" }, 404);
       }
       await connectionsRepoFor({

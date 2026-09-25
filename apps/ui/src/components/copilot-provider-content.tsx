@@ -1,109 +1,64 @@
 // Companion-side host for the copilot. Mounted beside AppLayout via
 // `CopilotShellUiHost`; `CopilotRiverProvider` wraps the layout in App.tsx so
 // the river's page and the companion share one host via `useAgentHost`.
+//
+// This host does not read the live path. Path goes to `CopilotRiverLocationSync`
+// (submit-time) and to `CopilotOpenDrawerLayer` only while the companion is open.
 
+import { openCopilotShell } from "@engenty/ai-ui";
 import {
-  ACTIVE_COPILOT_AGENT_ID,
-  isCopilotRiverPathname,
-  openCopilotShell,
-} from "@engenty/ai-ui";
-import {
-  useAgentUiFrontendTools,
-  useAgentUiStateSnapshot,
-  useCopilotShellOrNull,
+  useCopilotActionsOrNull,
+  useCopilotChromeHidden,
+  useCopilotHostOrNull,
+  useCopilotLayoutOrNull,
 } from "@engenty/app-shell";
 import { useRegisterCopilotFrontendTools } from "@engenty/engenty-copilot/ai/frontend-tools/register";
 import { useTranslation } from "@engenty/i18n/ui";
 import { useQueryClient } from "@engenty/query-client";
-import type { UiCopilotContribution } from "@engenty/ui-plugin-sdk";
 import { useTheme } from "next-themes";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { CopilotDrawerLayer } from "@/components/copilot-drawer-layer";
+import { CopilotClosedDrawerChrome } from "@/components/copilot-drawer-layer";
+import { CopilotOpenDrawerLayer } from "@/components/copilot-open-drawer-layer";
 import { setUserSetting } from "@/lib/api/client";
-import { isModuleHubChatRoute } from "@/lib/module-chat-routes";
 import { workspaceContextOptions } from "@/lib/workspace-context-query";
-import { useUiPluginContributions } from "@/plugins";
 
-// Dev-only console trace for the copilot UI dock-mode / open state, so route
-// transitions (especially onto and off the river's page)
-// are easy to follow alongside `[copilot-layout]` persistence logs.
-function logCopilotUiState(message: string, payload: Record<string, unknown>) {
-  if (process.env.ENV !== "development") {
-    return;
-  }
-  console.log(`[copilot-ui] ${message}`, payload);
-}
-
-function resolveContribution(
-  pathname: string,
-  scope: Record<string, unknown> | undefined,
-  contributions: UiCopilotContribution[]
-): UiCopilotContribution | null {
-  const matchContext = { pathname, scope };
-  for (const c of contributions) {
-    if (c.matches(matchContext)) {
-      return c;
+function CopilotOpenFromQuery({
+  chromeHidden,
+  open,
+  openCopilotShellAction,
+}: {
+  chromeHidden: boolean;
+  open: boolean;
+  openCopilotShellAction: () => void;
+}) {
+  const location = useLocation();
+  useEffect(() => {
+    if (chromeHidden) {
+      return;
     }
-  }
+    const params = new URLSearchParams(location.search);
+    if (params.get("copilot") === "open" && !open) {
+      openCopilotShellAction();
+    }
+  }, [chromeHidden, location.search, open, openCopilotShellAction]);
   return null;
 }
 
-function readStringScopeValue(
-  scope: Record<string, unknown> | undefined,
-  key: string
-): string | undefined {
-  const value = scope?.[key];
-  return typeof value === "string" && value.trim().length > 0
-    ? value
-    : undefined;
-}
-
-// Dev guard: the main copilot lane is locked to `engenty.copilot`; flag scopes /
-// contributions that try to swap agents so we catch leftover Phase-C wiring.
-function useRequestedAgentDevGuard(input: {
-  requestedAgentId: string | undefined;
-  source: "scope" | "contribution" | null;
-}): void {
-  useEffect(() => {
-    if (process.env.ENV !== "development") {
-      return;
-    }
-    const id = input.requestedAgentId?.trim();
-    if (!id || id === ACTIVE_COPILOT_AGENT_ID) {
-      return;
-    }
-    console.warn(
-      `[active-copilot] ignoring requestedAgentId=${id} (source=${input.source ?? "unknown"}); lane is locked to ${ACTIVE_COPILOT_AGENT_ID}`
-    );
-  }, [input.requestedAgentId, input.source]);
-}
-
 export function CopilotProviderContent() {
-  const { i18n, t } = useTranslation("common");
+  const { i18n } = useTranslation("common");
   const { setTheme } = useTheme();
-  const location = useLocation();
-  // Pages that already show a conversation full width: the river's own page
-  // and a module's hub chat. The companion has nothing to add there, so its
-  // chrome hides; the layer itself stays mounted so the blob, Prompt and Voice
-  // keep working from the app bar.
-  const chromeHidden =
-    isCopilotRiverPathname(location.pathname) ||
-    isModuleHubChatRoute(location.pathname);
+  const chromeHidden = useCopilotChromeHidden();
   const queryClient = useQueryClient();
-  const shell = useCopilotShellOrNull();
+  const layout = useCopilotLayoutOrNull();
+  const actions = useCopilotActionsOrNull();
+  const host = useCopilotHostOrNull();
   const [localOpen, setLocalOpen] = useState(false);
 
-  const open = shell?.open ?? localOpen;
-  const setOpen = shell?.setOpen ?? setLocalOpen;
-  const dockMode = shell?.dockMode;
-  const setPreferredDockMode = shell?.setPreferredDockMode;
-  const shellCopilotContext = shell?.copilotContext;
-
-  const { contributions } = useUiPluginContributions({ enabled: true });
-  const currentLanguage = i18n.language?.startsWith("de") ? "de" : "en";
-  const agentUiStateSnapshot = useAgentUiStateSnapshot();
-  const frontendTools = useAgentUiFrontendTools();
+  const open = layout?.open ?? localOpen;
+  const setOpen = actions?.setOpen ?? setLocalOpen;
+  const dockMode = layout?.dockMode;
+  const setPreferredDockMode = actions?.setPreferredDockMode;
 
   const persistAppearance = useCallback(async (key: string, value: unknown) => {
     await setUserSetting(
@@ -126,18 +81,17 @@ export function CopilotProviderContent() {
 
   const openCopilotShellAction = useCallback(() => {
     openCopilotShell({
-      chromeHidden: shell?.chromeHidden,
-      isTalkPage: isCopilotRiverPathname(location.pathname),
-      mergeLayout: shell?.copilotLayout.mergeLayout,
-      preferredDockMode: shell?.preferredDockMode ?? null,
+      chromeHidden,
+      isTalkPage: chromeHidden,
+      mergeLayout: host?.copilotLayout.mergeLayout,
+      preferredDockMode: layout?.preferredDockMode ?? null,
       setOpen,
       setPreferredDockMode,
     });
   }, [
-    location.pathname,
-    shell?.chromeHidden,
-    shell?.copilotLayout.mergeLayout,
-    shell?.preferredDockMode,
+    chromeHidden,
+    host?.copilotLayout.mergeLayout,
+    layout?.preferredDockMode,
     setOpen,
     setPreferredDockMode,
   ]);
@@ -153,115 +107,52 @@ export function CopilotProviderContent() {
     setTheme,
   });
 
-  // Page-supplied copilot route context feeds the active copilot host and drawer contribution resolution.
-  const copilotContext = useMemo(() => {
-    if (!shellCopilotContext) {
-      return {
-        moduleId: "engenty-copilot",
-        pathname: location.pathname,
-        routeKey: "chat",
-        scope: { ui_language: currentLanguage },
-      };
-    }
-    return {
-      ...shellCopilotContext,
-      scope: {
-        ...shellCopilotContext.scope,
-        ui_language: currentLanguage,
-      },
-    };
-  }, [shellCopilotContext, location.pathname, currentLanguage]);
-
-  const contribution = useMemo(
+  const shell = useMemo(
     () =>
-      resolveContribution(
-        location.pathname,
-        copilotContext.scope,
-        contributions.copilotContributions
-      ),
-    [
-      location.pathname,
-      copilotContext.scope,
-      contributions.copilotContributions,
-    ]
-  );
-
-  const onCopilotApplySuccess = useCallback(() => {
-    const handler = contribution?.onApplySuccess;
-    if (!handler) {
-      return;
-    }
-    void handler({
-      queryClient,
-      pathname: location.pathname,
-      scope: (copilotContext.scope ?? {}) as Record<string, unknown>,
-    });
-  }, [
-    contribution?.onApplySuccess,
-    copilotContext.scope,
-    location.pathname,
-    queryClient,
-  ]);
-
-  const launchScope = copilotContext.scope;
-  const scopeRequestedAgentId = readStringScopeValue(
-    launchScope,
-    "copilotRequestedAgentId"
-  );
-  const requestedAgentId =
-    scopeRequestedAgentId ?? contribution?.requestedAgentId;
-  useRequestedAgentDevGuard({
-    requestedAgentId,
-    source: scopeRequestedAgentId
-      ? "scope"
-      : contribution?.requestedAgentId
-        ? "contribution"
+      host
+        ? {
+            copilotDockRef: host.copilotDockRef,
+            copilotLayout: host.copilotLayout,
+            copilotSidebarRef: host.copilotSidebarRef,
+            mainContentReady: host.mainContentReady,
+            mainContentRef: host.mainContentRef,
+            preferredDockMode: layout?.preferredDockMode ?? null,
+          }
         : null,
-  });
-  useEffect(() => {
-    if (chromeHidden) {
-      return;
-    }
-    const params = new URLSearchParams(location.search);
-    if (params.get("copilot") === "open" && !open) {
-      openCopilotShellAction();
-    }
-  }, [chromeHidden, location.search, open, openCopilotShellAction]);
-
-  useEffect(() => {
-    logCopilotUiState("shell snapshot", {
-      chromeHidden,
-      dockMode,
-      open,
-      pathname: location.pathname,
-      preferredDockMode: shell?.preferredDockMode ?? null,
-    });
-  }, [
-    dockMode,
-    chromeHidden,
-    open,
-    location.pathname,
-    shell?.preferredDockMode,
-  ]);
+    [host, layout?.preferredDockMode]
+  );
 
   const copilotLayoutReady =
-    shell?.copilotLayout.layoutHydrated !== false &&
-    (shell?.copilotLayoutApplied ?? true);
+    host?.copilotLayout.layoutHydrated !== false &&
+    (layout?.copilotLayoutApplied ?? true);
   if (!copilotLayoutReady) {
     return null;
   }
 
   return (
-    <CopilotDrawerLayer
-      contribution={contribution}
-      copilotContext={copilotContext}
-      dockMode={dockMode}
-      location={location}
-      onCopilotApplySuccess={onCopilotApplySuccess}
-      open={open}
-      setOpen={setOpen}
-      setPreferredDockMode={setPreferredDockMode}
-      shell={shell}
-    />
+    <>
+      <CopilotOpenFromQuery
+        chromeHidden={chromeHidden}
+        open={open}
+        openCopilotShellAction={openCopilotShellAction}
+      />
+      {open ? (
+        <CopilotOpenDrawerLayer
+          chromeHidden={chromeHidden}
+          dockMode={dockMode}
+          open={open}
+          setOpen={setOpen}
+          setPreferredDockMode={setPreferredDockMode}
+          shell={shell}
+        />
+      ) : (
+        <CopilotClosedDrawerChrome
+          dockMode={dockMode}
+          setOpen={setOpen}
+          setPreferredDockMode={setPreferredDockMode}
+          shell={shell}
+        />
+      )}
+    </>
   );
 }

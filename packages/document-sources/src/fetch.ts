@@ -15,6 +15,7 @@ import type {
   DocumentSourceAdapterDescriptor,
   DocumentSourceIndexEntry,
   DocumentSourceProbeMetadata,
+  DocumentSourceRetrieveContext,
   DocumentSourceRetrievedItem,
   DocumentSourceStoredItem,
 } from "./types.js";
@@ -402,7 +403,8 @@ export function pickRetrievedItemTitle(
 
 export async function retrieveUrlItem(
   source: DocumentSource,
-  entry: DocumentSourceIndexEntry
+  entry: DocumentSourceIndexEntry,
+  context?: DocumentSourceRetrieveContext
 ): Promise<DocumentSourceRetrievedItem> {
   await assertPublicHttpUrl(entry.source_url);
   const strategy = parseHttpIngestStrategyFromSettings(source.settings);
@@ -410,6 +412,7 @@ export async function retrieveUrlItem(
 
   const base: IngestUrlToMarkdownOptions = {
     fetchUserAgent: `${FETCH_UA} (+${process.env.ENGENTY_UI_BASE_URL?.trim() || "engenty"}; document source)`,
+    ...(context?.llmModel ? { llmModel: context.llmModel } : {}),
     maxBytes: RETRIEVE_ITEM_MAX_BYTES,
     timeoutMs: RETRIEVE_ITEM_TIMEOUT_MS,
   };

@@ -50,11 +50,8 @@ export {
 } from "./policy.js";
 export {
   type ConnectionReachSummary,
-  connectionRecordOwnerUserId,
-  connectionVisibleToUser,
   connectorPrefixesForAgent,
   isAccountReachableInRun,
-  shouldMigrateOrgAccountToAllSpaces,
 } from "./reach.js";
 export {
   __resetConnectorRegistryForTests,
@@ -76,14 +73,14 @@ export {
   withAccountParam,
 } from "./runtime.js";
 export {
-  listMountedConnectionAccess,
-  listMountedConnectionIds,
+  canEnterSpace,
   listMountedPluginIds,
-  mountConnectionInSpace,
+  mayUseSpaceInRun,
   mountPluginInSpace,
+  readSpaceAccess,
   resolveSpaceRecordAccounts,
-  resolveVerifiedSpaceOwnerForRun,
-  type SpaceConnectionAccess,
+  type SpaceAccessEntry,
+  type SpaceAccessMap,
 } from "./space-mounts.js";
 export { storageCapabilityActions } from "./storage-capability.js";
 export { decryptToken, encryptToken } from "./token-crypto.js";
@@ -94,7 +91,6 @@ export {
   type ConnectionActionPolicy,
   type ConnectionAutonomousMode,
   type ConnectionPolicyOverride,
-  type ConnectionSharing,
   type ConnectionSummary,
   type ConnectorAction,
   type ConnectorActionContext,

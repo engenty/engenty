@@ -1,3 +1,4 @@
+import { UnconfiguredModelGatewayError } from "@engenty/ai-core";
 import { createLogger } from "@engenty/telemetry";
 import { z } from "zod";
 
@@ -196,7 +197,23 @@ export function handleRouteError(
     return harnessErrorResponse(c, err);
   }
   logger.error(logMessage, { err });
+  if (isUnconfiguredModelGatewayError(err)) {
+    return c.json({ error: "agent_threads.modelGatewayUnconfigured" }, 503);
+  }
   return c.json({ error: fallbackError }, 500);
+}
+
+function isUnconfiguredModelGatewayError(err: unknown): boolean {
+  if (err instanceof UnconfiguredModelGatewayError) {
+    return true;
+  }
+  if (!(err instanceof Error)) {
+    return false;
+  }
+  return (
+    err.name === "UnconfiguredModelGatewayError" ||
+    /model gateway .+ is not configured/i.test(err.message)
+  );
 }
 
 function harnessErrorResponse(

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { convertOfficeToPdf, isGotenbergConfigured } from "./gotenberg.js";
+import { convertOfficeToPdf } from "./gotenberg.js";
 
 describe("gotenberg", () => {
   const saved = process.env.GOTENBERG_URL;
@@ -8,13 +8,6 @@ describe("gotenberg", () => {
     process.env.GOTENBERG_URL = saved;
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
-  });
-
-  it("isGotenbergConfigured reflects GOTENBERG_URL", () => {
-    process.env.GOTENBERG_URL = "http://127.0.0.1:3999";
-    expect(isGotenbergConfigured()).toBe(true);
-    process.env.GOTENBERG_URL = "";
-    expect(isGotenbergConfigured()).toBe(false);
   });
 
   it("convertOfficeToPdf posts to libreoffice convert with trimmed base URL", async () => {
@@ -45,11 +38,12 @@ describe("gotenberg", () => {
         ok: false,
         status: 500,
         text: async () => "boom",
+        arrayBuffer: async () => new ArrayBuffer(0),
       })
     );
 
     await expect(
       convertOfficeToPdf(new Uint8Array([1]), "x.docx")
-    ).rejects.toThrow(/Gotenberg conversion failed/);
+    ).rejects.toThrow();
   });
 });

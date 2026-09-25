@@ -1,13 +1,14 @@
-// The caller's OWN browser (PLAN-user-browser.md): one per person in the
-// tenant, theirs in every space and outside any. Status, start, stop, sign
-// out, the standing consents, and the ticket for one live-view connection.
-// Every route is keyed on the caller server-side; there is no way to
-// address anyone else's browser.
+// A Space's browser (PLAN-space-owned-connections.md): one per Space, shared
+// logins, one window per agent. Status, start, stop, sign out, the Space's
+// standing consents, and the ticket for one live view of one agent's window.
+// Every call names the Space (`space_id`, absent = the viewer's personal
+// Space); the server checks the viewer may enter it.
 import { useMutation, useQuery, useQueryClient } from "@engenty/query-client";
 import {
   getAiServiceBaseUrl,
   requestAiServiceJson,
 } from "../../lib/runtime/ai-service-client.js";
+import type { BrowserTarget } from "./browser-target.js";
 
 export type UserBrowserState = "absent" | "running" | "stopped";
 
@@ -18,59 +19,93 @@ export interface UserBrowserStatus {
 }
 
 export interface UserBrowserGrant {
-  /** Agents may start the caller's browser without asking first. */
+  /** Agents may start the Space's browser without asking first. */
   autostart: boolean;
-  /** Agents may drive the caller's browser while the caller is away. */
+  /** Agents may drive the Space's browser while nobody watches. */
   unattended: boolean;
 }
 
 const BASE = "/ai/sandboxes/browser";
 
-export const USER_BROWSER_QUERY_KEY = ["user-browser"] as const;
-export const USER_BROWSER_GRANT_QUERY_KEY = ["user-browser-grant"] as const;
+type SpaceRef = Pick<BrowserTarget, "spaceId">;
+
+function withSpace(path: string, target: SpaceRef, extra = ""): string {
+  const params = new URLSearchParams();
+  if (target.spaceId) {
+    params.set("space_id", target.spaceId);
+  }
+  const query = params.toString();
+  const sep = query ? "&" : "";
+  const tail = `${query}${extra ? `${sep}${extra}` : ""}`;
+  return tail ? `${path}?${tail}` : path;
+}
+
+export function userBrowserQueryKey(target: SpaceRef) {
+  return ["user-browser", target.spaceId ?? "personal"] as const;
+}
+
+export function userBrowserGrantQueryKey(target: SpaceRef) {
+  return ["user-browser-grant", target.spaceId ?? "personal"] as const;
+}
 
 export function readUserBrowser(
+  target: SpaceRef,
   signal?: AbortSignal
 ): Promise<UserBrowserStatus> {
-  return requestAiServiceJson(BASE, { signal });
+  return requestAiServiceJson(withSpace(BASE, target), { signal });
 }
 
-export function startUserBrowser(): Promise<UserBrowserStatus> {
-  return requestAiServiceJson(BASE, { method: "POST" });
+export function startUserBrowser(target: SpaceRef): Promise<UserBrowserStatus> {
+  return requestAiServiceJson(withSpace(BASE, target), { method: "POST" });
 }
 
-export function stopUserBrowser(): Promise<UserBrowserStatus> {
-  return requestAiServiceJson(`${BASE}/stop`, { method: "POST" });
+export function stopUserBrowser(target: SpaceRef): Promise<UserBrowserStatus> {
+  return requestAiServiceJson(withSpace(`${BASE}/stop`, target), {
+    method: "POST",
+  });
 }
 
-/** Stop the browser and forget every login in it. */
-export function signOutUserBrowser(): Promise<UserBrowserStatus> {
-  return requestAiServiceJson(`${BASE}/sign-out`, { method: "POST" });
+/** Stop the browser and forget every login in it — for the whole Space. */
+export function signOutUserBrowser(
+  target: SpaceRef
+): Promise<UserBrowserStatus> {
+  return requestAiServiceJson(withSpace(`${BASE}/sign-out`, target), {
+    method: "POST",
+  });
 }
 
 export function readUserBrowserGrant(
+  target: SpaceRef,
   signal?: AbortSignal
 ): Promise<UserBrowserGrant> {
-  return requestAiServiceJson(`${BASE}/grant`, { signal });
+  return requestAiServiceJson(withSpace(`${BASE}/grant`, target), { signal });
 }
 
-/** Patch one or both flags; an omitted flag keeps its value. */
+/** Patch one or both flags; an omitted flag keeps its value. Space owners only. */
 export function putUserBrowserGrant(
+  target: SpaceRef,
   patch: Partial<UserBrowserGrant>
 ): Promise<UserBrowserGrant> {
-  return requestAiServiceJson(`${BASE}/grant`, {
+  return requestAiServiceJson(withSpace(`${BASE}/grant`, target), {
     body: JSON.stringify(patch),
     method: "PUT",
   });
 }
 
 /** `ws_url` is path-only; resolve it with {@link resolveUserBrowserWsUrl}. */
-export function mintUserBrowserTicket(): Promise<{
+export function mintUserBrowserTicket(target: BrowserTarget): Promise<{
   sandbox_id: string;
   state: UserBrowserState;
   ws_url: string;
 }> {
-  return requestAiServiceJson(`${BASE}/ticket`, { method: "POST" });
+  return requestAiServiceJson(
+    withSpace(
+      `${BASE}/ticket`,
+      target,
+      `agent_id=${encodeURIComponent(target.agentId)}`
+    ),
+    { method: "POST" }
+  );
 }
 
 export function resolveUserBrowserWsUrl(wsPath: string): string {
@@ -81,45 +116,51 @@ export function resolveUserBrowserWsUrl(wsPath: string): string {
   return `${origin.replace(/^http/, "ws")}${wsPath}`;
 }
 
-/** The browser's state, polled while a surface shows it. */
-export function useUserBrowserStatusQuery(refetchInterval: number | false) {
+/** The Space browser's state, polled while a surface shows it. */
+export function useUserBrowserStatusQuery(
+  target: SpaceRef,
+  refetchInterval: number | false
+) {
   return useQuery({
-    queryFn: ({ signal }) => readUserBrowser(signal),
-    queryKey: USER_BROWSER_QUERY_KEY,
+    queryFn: ({ signal }) => readUserBrowser(target, signal),
+    queryKey: userBrowserQueryKey(target),
     refetchInterval,
   });
 }
 
 /** Start / stop / sign out, each refreshing the status. */
-export function useUserBrowserMutations() {
+export function useUserBrowserMutations(target: SpaceRef) {
   const queryClient = useQueryClient();
   const refresh = () =>
-    queryClient.invalidateQueries({ queryKey: USER_BROWSER_QUERY_KEY });
+    queryClient.invalidateQueries({ queryKey: userBrowserQueryKey(target) });
   const start = useMutation({
-    mutationFn: startUserBrowser,
+    mutationFn: () => startUserBrowser(target),
     onSuccess: refresh,
   });
-  const stop = useMutation({ mutationFn: stopUserBrowser, onSuccess: refresh });
+  const stop = useMutation({
+    mutationFn: () => stopUserBrowser(target),
+    onSuccess: refresh,
+  });
   const signOut = useMutation({
-    mutationFn: signOutUserBrowser,
+    mutationFn: () => signOutUserBrowser(target),
     onSuccess: refresh,
   });
   return { signOut, start, stop };
 }
 
-export function useUserBrowserGrantQuery() {
+export function useUserBrowserGrantQuery(target: SpaceRef) {
   return useQuery({
-    queryFn: ({ signal }) => readUserBrowserGrant(signal),
-    queryKey: USER_BROWSER_GRANT_QUERY_KEY,
+    queryFn: ({ signal }) => readUserBrowserGrant(target, signal),
+    queryKey: userBrowserGrantQueryKey(target),
   });
 }
 
-export function useUserBrowserGrantMutation() {
+export function useUserBrowserGrantMutation(target: SpaceRef) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (patch: Partial<UserBrowserGrant>) =>
-      putUserBrowserGrant(patch),
+      putUserBrowserGrant(target, patch),
     onSuccess: (grant) =>
-      queryClient.setQueryData(USER_BROWSER_GRANT_QUERY_KEY, grant),
+      queryClient.setQueryData(userBrowserGrantQueryKey(target), grant),
   });
 }

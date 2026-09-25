@@ -36,12 +36,12 @@ let localRoot: string;
 beforeEach(() => {
   localRoot = mkdtempSync(join(tmpdir(), "engenty-ws-write-"));
   process.env.ENGENTY_WORKSPACE_FS = "local";
-  process.env.ENGENTY_LOCAL_WORKSPACE_ROOT = localRoot;
+  process.env.ENGENTY_SPACES_DIR = localRoot;
 });
 
 afterEach(() => {
   delete process.env.ENGENTY_WORKSPACE_FS;
-  delete process.env.ENGENTY_LOCAL_WORKSPACE_ROOT;
+  delete process.env.ENGENTY_SPACES_DIR;
   rmSync(localRoot, { force: true, recursive: true });
 });
 

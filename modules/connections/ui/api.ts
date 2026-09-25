@@ -10,7 +10,6 @@ import { requestApiJson } from "@engenty/api-client";
 
 export type ConnectorActionGroup = "read" | "write" | "destructive";
 export type ConnectionPolicy = "allow" | "ask" | "deny";
-export type ConnectionSharing = "personal" | "org";
 export type ConnectionAutonomousMode = "off" | "read_only" | "full";
 export type ConnectionStatus = "active" | "error" | "revoked";
 export type ConnectorAuthKind = "oauth2" | "api_key" | "browser";
@@ -40,9 +39,14 @@ export interface CatalogAction {
   summary: string;
 }
 
+/**
+ * One connected account. It belongs to a Space (`space_id`): every agent and
+ * member of that Space uses it, nobody outside it. `connected_by` is who signed
+ * in — audit only, not ownership.
+ */
 export interface CatalogConnection {
-  all_spaces?: boolean;
   autonomous_mode: ConnectionAutonomousMode;
+  connected_by: string | null;
   connector_id: string;
   created_at: string;
   display_name: string | null;
@@ -50,10 +54,8 @@ export interface CatalogConnection {
   external_account: string | null;
   granted_scopes: string[];
   id: string;
-  non_owner_max_group: ConnectorActionGroup | null;
-  owner_user_id: string | null;
   policies: ConnectionPolicyOverride[];
-  sharing: ConnectionSharing;
+  space_id: string;
   status: ConnectionStatus;
   tenant_id: string;
 }
@@ -102,7 +104,6 @@ export interface ConnectionApprovalRequest {
 }
 
 export interface UpdateConnectionSettingsInput {
-  all_spaces?: boolean;
   autonomous_mode?: ConnectionAutonomousMode;
   connection_id: string;
   display_name?: string | null;
@@ -150,12 +151,15 @@ export async function preferImportedToken(connectorId: string): Promise<{
   );
 }
 
-/** Connect an api_key connector by submitting its credential form. */
+/**
+ * Connect an api_key connector by submitting its credential form. The account
+ * belongs to `space_id` — connecting always happens inside a Space.
+ */
 export async function connectWithCredentials(
   connectorId: string,
   input: {
     credentials: Record<string, string>;
-    sharing: ConnectionSharing;
+    space_id: string;
   }
 ): Promise<{ connection_id: string }> {
   return requestApiJson(`/api/connections/${connectorId}/connect_credentials`, {
@@ -164,10 +168,16 @@ export async function connectWithCredentials(
   });
 }
 
+/** `spaceId`: the accounts of that Space; omitted, the current Space's. */
 export async function getConnectionsCatalog(
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  spaceId?: string | null
 ): Promise<ConnectionsCatalog> {
-  return invokeTool<ConnectionsCatalog>("connections_catalog", {}, signal);
+  return invokeTool<ConnectionsCatalog>(
+    "connections_catalog",
+    spaceId ? { space_id: spaceId } : {},
+    signal
+  );
 }
 
 export async function updateConnectionSettings(
@@ -219,22 +229,13 @@ export async function decideApprovalRequest(
 export async function getConnectUrl(params: {
   connectorId: string;
   redirectTo: string;
-  sharing?: ConnectionSharing;
-  /**
-   * Mount the resulting account into this space on success (CN.4 Flow A), so
-   * "Add account" from inside a space ends with the account usable THERE and
-   * not merely connected somewhere. Omitted from tenant settings, where the
-   * connect belongs to no space.
-   */
-  spaceId?: string | null;
+  /** The Space the new account will belong to. Required. */
+  spaceId: string;
 }): Promise<{ authUrl: string; connectorId: string }> {
   const query = new URLSearchParams({
-    sharing: params.sharing ?? "personal",
     redirect_to: params.redirectTo,
+    space_id: params.spaceId,
   });
-  if (params.spaceId) {
-    query.set("space_id", params.spaceId);
-  }
   return requestApiJson<{ authUrl: string; connectorId: string }>(
     `/api/connections/${params.connectorId}/connect?${query.toString()}`,
     { method: "GET" }

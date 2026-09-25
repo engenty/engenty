@@ -1,4 +1,8 @@
-import { DEFAULT_AI_CHAT_MODEL_ID } from "@engenty/ai-core";
+import {
+  bindingsFromList,
+  ModelRoleNotBoundError,
+  setPlatformBindings,
+} from "@engenty/ai-core";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   observationalMemoryLanguageModel,
@@ -6,16 +10,8 @@ import {
 } from "../observational-memory-model.js";
 
 describe("observationalMemoryLanguageModel", () => {
-  const origMemory = process.env.AI_MEMORY_MODEL;
-  const origRouting = process.env.AI_ROUTING_MODEL;
-  const origCoord = process.env.AI_COORDINATOR_MODEL;
-  const origChat = process.env.AI_CHAT_MODEL;
-
   afterEach(() => {
-    process.env.AI_MEMORY_MODEL = origMemory ?? "";
-    process.env.AI_ROUTING_MODEL = origRouting ?? "";
-    process.env.AI_COORDINATOR_MODEL = origCoord ?? "";
-    process.env.AI_CHAT_MODEL = origChat ?? "";
+    setPlatformBindings(undefined);
   });
 
   it("uses an explicit configured model id", () => {
@@ -24,11 +20,16 @@ describe("observationalMemoryLanguageModel", () => {
     );
   });
 
-  it("falls back to the memory-purpose configured model", () => {
-    process.env.AI_MEMORY_MODEL = "anthropic/claude-sonnet-4";
-    process.env.AI_ROUTING_MODEL = "";
-    process.env.AI_COORDINATOR_MODEL = "";
-    process.env.AI_CHAT_MODEL = "";
+  it("falls back to the fast-text binding", () => {
+    setPlatformBindings(
+      bindingsFromList([
+        {
+          gateway: "vercel",
+          modelId: "anthropic/claude-sonnet-4",
+          role: "fast_text",
+        },
+      ])
+    );
     expect(resolveObservationalMemoryModelId()).toBe(
       "anthropic/claude-sonnet-4"
     );
@@ -37,27 +38,9 @@ describe("observationalMemoryLanguageModel", () => {
     );
   });
 
-  // The regression this purpose exists for: observational memory used to
-  // resolve through `routing`, so a small bound router became the reflector and
-  // truncated every rewrite (2026-08-28, `finishReason: "length"`). A router
-  // pin must no longer reach it.
-  it("ignores the routing tier", () => {
-    process.env.AI_MEMORY_MODEL = "";
-    process.env.AI_ROUTING_MODEL = "openai/gpt-oss-20b";
-    process.env.AI_COORDINATOR_MODEL = "";
-    process.env.AI_CHAT_MODEL = "";
-    expect(resolveObservationalMemoryModelId()).not.toBe("openai/gpt-oss-20b");
-    expect(resolveObservationalMemoryModelId()).toBe(DEFAULT_AI_CHAT_MODEL_ID);
-  });
-
-  it("does not default to google/gemini-2.5-flash", () => {
-    process.env.AI_MEMORY_MODEL = "";
-    process.env.AI_ROUTING_MODEL = "";
-    process.env.AI_COORDINATOR_MODEL = "";
-    process.env.AI_CHAT_MODEL = "";
-    expect(resolveObservationalMemoryModelId()).toBe(DEFAULT_AI_CHAT_MODEL_ID);
-    expect(resolveObservationalMemoryModelId()).not.toBe(
-      "google/gemini-2.5-flash"
+  it("throws when fast_text is unbound, never Mastra's gemini default", () => {
+    expect(() => resolveObservationalMemoryModelId()).toThrow(
+      ModelRoleNotBoundError
     );
   });
 

@@ -13,6 +13,7 @@
 export const RUN_SPECIALIST_PRIMITIVE_ID = "run_specialist";
 export const ENGENTY_TOOL_PRIMITIVE_ID = "engenty_tool";
 export const APPROVAL_GATE_PRIMITIVE_ID = "approval_gate";
+export const PICK_SURFACE_PRIMITIVE_ID = "pick_surface";
 export const APPLY_FIELD_UPDATES_PRIMITIVE_ID = "apply_field_updates";
 export const WAIT_UNTIL_PRIMITIVE_ID = "wait_until";
 // Deliverables and presentation. These carry the SAME ids as the agent tools
@@ -28,6 +29,7 @@ export const GRAPH_ACTION_PRIMITIVE_IDS = [
   RUN_SPECIALIST_PRIMITIVE_ID,
   ENGENTY_TOOL_PRIMITIVE_ID,
   APPROVAL_GATE_PRIMITIVE_ID,
+  PICK_SURFACE_PRIMITIVE_ID,
   APPLY_FIELD_UPDATES_PRIMITIVE_ID,
   WAIT_UNTIL_PRIMITIVE_ID,
   ARTIFACT_WRITE_PRIMITIVE_ID,

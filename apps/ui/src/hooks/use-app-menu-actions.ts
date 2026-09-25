@@ -1,8 +1,8 @@
+import { clearThreadTranscriptStore } from "@engenty/ai-ui";
 import type { AppMenuActions } from "@engenty/app-shell";
 import { getSupabaseAuthClient } from "@engenty/auth-ui";
 import {
   getDeveloperModePreference,
-  isEngentyDevelopmentEnvironment,
   setDeveloperModePreference,
   subscribeDeveloperModePreference,
 } from "@engenty/environment";
@@ -14,7 +14,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { setUserSetting } from "@/lib/api/client";
 import { APPEARANCE_KEYS } from "@/lib/appearance-constants";
-import { workspaceContextOptions } from "@/lib/workspace-context-query";
+import {
+  useWorkspaceContextQuery,
+  workspaceContextOptions,
+} from "@/lib/workspace-context-query";
 
 function invalidateWorkspaceAppearance(queryClient: QueryClient) {
   void queryClient.invalidateQueries({
@@ -35,7 +38,9 @@ export function useAppMenuActions(): AppMenuActions {
   const currentLang = i18n.language?.startsWith("de") ? "de" : "en";
   const currentTheme = (resolvedTheme ?? theme ?? "system") as string;
 
-  const showDeveloperMenu = isEngentyDevelopmentEnvironment();
+  // Developer mode is a superadmin tool — same gate as the user menu toggle.
+  const workspace = useWorkspaceContextQuery(true);
+  const showDeveloperMenu = workspace.data?.isSuperAdmin === true;
   const [developerMode, setDeveloperMode] = useState(
     getDeveloperModePreference
   );
@@ -77,6 +82,8 @@ export function useAppMenuActions(): AppMenuActions {
     // Default scope is "global", which revokes the user's sessions in every
     // browser — only end the session in this one.
     await getSupabaseAuthClient().auth.signOut({ scope: "local" });
+    // Chats this browser kept for fast opening leave with the person.
+    await clearThreadTranscriptStore();
     navigate("/auth/login");
   }, [navigate]);
 

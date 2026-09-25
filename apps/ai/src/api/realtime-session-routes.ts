@@ -37,6 +37,8 @@ export function registerRealtimeSessionRoutes(
   opts: {
     /** Voxtral+ElevenLabs cascade provider; null keeps it 501-unsupported. */
     cascadeProvider?: RealtimeVoiceProvider | null;
+    /** Platform default realtime model ref (the `realtime` role binding). */
+    defaultRealtimeModel: () => Promise<string>;
     openAiApiKey?: () => string | null;
     openAiFetch?: RealtimeClientSecretFetch;
     realtimeVoiceConfig?: RealtimeVoiceConfigResolver | null;
@@ -46,6 +48,7 @@ export function registerRealtimeSessionRoutes(
   const registry = createRealtimeProviderRegistry([
     createOpenAiRealtimeProvider({
       apiKey: opts.openAiApiKey,
+      defaultModel: opts.defaultRealtimeModel,
       fetchImpl: opts.openAiFetch,
     }),
     ...(opts.cascadeProvider ? [opts.cascadeProvider] : []),

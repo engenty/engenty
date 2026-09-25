@@ -3,10 +3,16 @@ import path from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { resolveSandboxCachePaths } from "../../workspace/local-workspace-paths.js";
 import {
   resolveSandboxScopeKey,
   resolveSandboxStorageLayout,
+  resolveSpaceComputerHomePath,
 } from "../sandbox-storage-paths.js";
+import {
+  resolveUserBrowserDownloadsPath,
+  resolveUserBrowserProfilePath,
+} from "../space-browser.js";
 
 const THREAD = "019fefba-1421-7a0a-8d61-dbec4497bf7c";
 
@@ -25,7 +31,7 @@ describe("resolveSandboxStorageLayout", () => {
 
   it("roots a spaced run's scratch under the space", () => {
     const root = path.join(os.tmpdir(), "engenty-layout");
-    vi.stubEnv("ENGENTY_LOCAL_WORKSPACE_ROOT", root);
+    vi.stubEnv("ENGENTY_SPACES_DIR", root);
 
     const layout = resolveSandboxStorageLayout({
       ...baseIdentity,
@@ -52,7 +58,7 @@ describe("resolveSandboxStorageLayout", () => {
 
   it("stays tenant-rooted without a space", () => {
     const root = path.join(os.tmpdir(), "engenty-layout");
-    vi.stubEnv("ENGENTY_LOCAL_WORKSPACE_ROOT", root);
+    vi.stubEnv("ENGENTY_SPACES_DIR", root);
 
     const layout = resolveSandboxStorageLayout(baseIdentity);
 
@@ -68,6 +74,42 @@ describe("resolveSandboxStorageLayout", () => {
       )
     );
     expect(layout.spaceId).toBeUndefined();
+  });
+});
+
+describe("the Space drive", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  // Deleting a Space's one folder must remove everything the host keeps for
+  // it. Ways this fails: a path is rooted per tenant with the space last
+  // (the old browser profile), or under another root; or the computer's
+  // /sandbox is still synced to object storage, so the folder is not the only
+  // copy and a stale upload overwrites it on the next pull.
+  it("holds every host path of a Space, and the computer's /sandbox is not synced", () => {
+    const root = path.join(os.tmpdir(), "engenty-drive");
+    vi.stubEnv("ENGENTY_SPACES_DIR", root);
+    const space = { spaceId: "space-9", tenantId: "tenant-1" };
+    const folder = path.join(root, "tenants", "tenant-1", "spaces", "space-9");
+
+    const layout = resolveSandboxStorageLayout({
+      ...baseIdentity,
+      lifecycle: "space",
+      spaceId: "space-9",
+    });
+    const paths = [
+      layout.stagingPath,
+      resolveSpaceComputerHomePath("tenant-1", "space-9"),
+      resolveUserBrowserProfilePath(space),
+      resolveUserBrowserDownloadsPath(space),
+      ...Object.values(resolveSandboxCachePaths("tenant-1", "space-9")),
+    ];
+    for (const p of paths) {
+      expect(p.startsWith(`${folder}${path.sep}`)).toBe(true);
+    }
+    expect(new Set(paths).size).toBe(paths.length);
+    expect(layout.fileStorageRelativePath).toBe("");
   });
 });
 

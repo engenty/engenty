@@ -24,6 +24,7 @@ import type { AgentDeskAgent } from "@engenty/ai-core/browser";
 import { useTranslation } from "@engenty/i18n/ui";
 import { BlobAvatar, cn, DetailPageHeader } from "@engenty/ui-core";
 import { CornerDownRight, Crown, Users } from "lucide-react";
+import type { ReactNode } from "react";
 import { useOptionalAgentHostByKey } from "../../agent-provider/engenty-agent.js";
 import { AgentFace } from "../../components/agent-face.js";
 import type { ChatKind } from "../../components/copilot/chat-kind-badge.js";
@@ -47,6 +48,8 @@ export interface AgentDeskRelation {
 
 export interface AgentDeskHeaderProps {
   agent: AgentDeskAgent;
+  /** Readers-line padding on the compact band. */
+  bandGutterClassName?: string;
   /** What the open conversation is; absent while no thread is bound. */
   chatKind?: ChatKind | null;
   collapsed: boolean;
@@ -58,8 +61,24 @@ export interface AgentDeskHeaderProps {
   memberCount?: number | null;
   /** Display name of `agent.managed_by_module`, as the sidebar labels it. */
   moduleLabel?: string;
+  /**
+   * An agent-to-agent thread ("A ⇄ B"): its title names both, and the host's
+   * mandate, module and team line say nothing about it.
+   */
+  pairTitle?: string | null;
   relation?: AgentDeskRelation | null;
   spaceName?: string | null;
+  /**
+   * Title row drawn on the band itself. The full-screen desk leaves this
+   * empty so the page topbar can float there; sidebar and window pass their
+   * own controls.
+   */
+  toolbar?: ReactNode;
+  /**
+   * Page topbar overlaps this header. Companion chrome already has its own
+   * bar, so the band is only the readers line and the intro starts higher.
+   */
+  topbarClearance?: boolean;
   /** How far the open conversation is visible; absent while no thread is bound. */
   visibility?: ChatVisibility | null;
 }
@@ -178,11 +197,16 @@ function CompactHeader(props: AgentDeskHeaderProps) {
     // `pl-5` = the transcript's own gutter (`px-3` on the scroller plus
     // `pl-2` on the stack), so the band's info starts on the message edge.
     <ChatVisibilityBand
+      {...(props.bandGutterClassName
+        ? { gutterClassName: props.bandGutterClassName }
+        : {})}
       kind={props.chatKind}
       lastActivityAt={props.lastActivityAt}
       memberCount={props.memberCount}
       name={readersName(props)}
       spaceName={props.spaceName}
+      toolbar={props.toolbar}
+      topbarClearance={props.topbarClearance !== false}
       visibility={props.visibility}
     >
       <StatusDot hostKey={props.hostKey} />
@@ -225,7 +249,15 @@ function VisibilityLine(props: AgentDeskHeaderProps) {
 export function AgentDeskHeader(props: AgentDeskHeaderProps) {
   const { t } = useTranslation("ai-ui");
   const { agent, moduleLabel, relation } = props;
-  const description = agent.description?.trim() ?? "";
+  // The copilot is the platform's own, so its line is UI copy in the
+  // person's language; a hire's description is what its author wrote.
+  const pair = Boolean(props.pairTitle);
+  const description = pair
+    ? ""
+    : agent.role === "copilot"
+      ? t("agentDesk.copilot.description")
+      : (agent.description?.trim() ?? "");
+  const topbarClearance = props.topbarClearance !== false;
 
   if (props.collapsed) {
     return <CompactHeader {...props} />;
@@ -236,7 +268,12 @@ export function AgentDeskHeader(props: AgentDeskHeaderProps) {
     // already sits in the lane (`CHAT_LANE_TRANSCRIPT_CLASS`). Name, mandate
     // and every message below share one left edge — a second centred `max-w`
     // here only pushed the identity off that edge.
-    <div className="relative w-full shrink-0 pt-20 pb-4">
+    <div
+      className={cn(
+        "relative w-full shrink-0 pb-4",
+        topbarClearance ? "pt-20" : "pt-4"
+      )}
+    >
       {/* The engenty hangs in the margin beside the lane, so it does not
           indent the name out of the message column. That margin is the lane
           box (`@container/chat-lane`), not the window: a wide viewport with
@@ -246,7 +283,12 @@ export function AgentDeskHeader(props: AgentDeskHeaderProps) {
           inside the scrollport. Narrower, it stands above the name. */}
       <span
         aria-label={t("agentDesk.engentyLabel", { name: agent.engenty })}
-        className="@min-[54rem]/chat-lane:absolute @min-[54rem]/chat-lane:top-20 @min-[54rem]/chat-lane:-left-[5.5rem] @min-[54rem]/chat-lane:mb-0 mb-2 block"
+        className={cn(
+          "@min-[54rem]/chat-lane:absolute @min-[54rem]/chat-lane:-left-[5.5rem] @min-[54rem]/chat-lane:mb-0 mb-2 block",
+          topbarClearance
+            ? "@min-[54rem]/chat-lane:top-20"
+            : "@min-[54rem]/chat-lane:top-4"
+        )}
         role="img"
       >
         {agent.role === "copilot" ? (
@@ -277,7 +319,7 @@ export function AgentDeskHeader(props: AgentDeskHeaderProps) {
                 {description}
               </p>
             ) : null}
-            {agent.source === "module" && agent.managed_by_module ? (
+            {!pair && agent.source === "module" && agent.managed_by_module ? (
               <div className="flex flex-wrap items-center gap-1.5">
                 <AgentModuleBadge
                   label={moduleLabel}
@@ -285,14 +327,16 @@ export function AgentDeskHeader(props: AgentDeskHeaderProps) {
                 />
               </div>
             ) : null}
-            <RelationLine relation={relation} />
+            {pair ? null : <RelationLine relation={relation} />}
           </div>
         }
         // Never collapsed here, so the clamp only ever clipped: on a phone the
         // chip, the mandate and the standing line run past 8rem.
         descriptionClassName="max-h-none"
         // Wraps rather than truncates — the name owns the whole measure now.
-        title={<span className="break-words">{agent.name}</span>}
+        title={
+          <span className="break-words">{props.pairTitle || agent.name}</span>
+        }
         // No card surface: the identity reads on the page canvas, the same
         // treatment the Agents roster gives its own header.
         variant="canvas"

@@ -159,7 +159,8 @@ export const firecrawlUrlAdapter: DocumentSourceAdapter = {
   probeMetadata: probeHttpMetadata,
   retrieveItem: async (
     source,
-    entry: DocumentSourceIndexEntry
+    entry: DocumentSourceIndexEntry,
+    context
   ): Promise<DocumentSourceRetrievedItem> => {
     await assertPublicHttpUrl(entry.source_url);
     const apiKey = process.env.FIRECRAWL_API_KEY?.trim();
@@ -172,6 +173,7 @@ export const firecrawlUrlAdapter: DocumentSourceAdapter = {
       apiBaseUrl: process.env.FIRECRAWL_API_URL?.trim() || undefined,
       apiKey,
       fetchUserAgent: `${FETCH_UA} (+${process.env.ENGENTY_UI_BASE_URL?.trim() || "engenty"}; document source firecrawl)`,
+      ...(context?.llmModel ? { llmModel: context.llmModel } : {}),
     });
     return {
       ...entry,
