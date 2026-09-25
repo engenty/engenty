@@ -12,8 +12,9 @@ preset and attaches a Mastra `Workspace` per run.
 | Mount | Access | Storage (tenant-relative) | When |
 |-------|--------|---------------------------|------|
 | `/home` | rw | `ai/workspace/users/<user-id>/` | Always |
-| `/shared` | rw | tenant `ai/workspace/commons/` | Non-confined tenant run |
-| `/space` | rw | Space `ai/workspace/commons/` | Space-confined run; replaces `/shared` |
+| `/company/files` | ro | tenant `ai/workspace/commons/` | Always (the company drive) |
+| `/company/spaces/<key>` | ro | each publishing Space's `ai/workspace/commons/public/` | Always |
+| `/space` | rw | Space `ai/workspace/commons/` | Resolved Space; `/space/public` writes ask for approval |
 | `/skills` | ro | `ai/skills/` | Always (`managed` + `custom` discovery) |
 | `/task` | rw | task checkout prefix | Task-bound only |
 | `/project` | rw | work-scope prefix | When containment binding resolves |
@@ -22,8 +23,9 @@ preset and attaches a Mastra `Workspace` per run.
 
 - **Threads:** transcript-only (`ai.thread` / `ai.thread_message`); no per-thread FS root.
 - **Skills discovery:** `/skills/managed`, `/skills/custom` (see `DEFAULT_SKILL_DISCOVERY_PATHS`).
-- **Shared context:** a run receives `/shared` or `/space`, never both. These are
-  working/context files, not the module-record store.
+- **Shared context:** `/space` is the Space's working files; `/company` is the
+  read-only company view. These are working/context files, not the
+  module-record store.
 - **Space Data:** `/data` projects mounted module records. It is never scratch or
   a conversation notebook.
 - **Deliverables:** publish user-facing files to Files and authored output to
@@ -50,8 +52,9 @@ native frontend tools (suspend/resume), `chatThreadSearch`, `web_search`,
 `requestDecision` / `requestFeedback`, artifacts, memory, widgets, etc. — see
 `ENGENTY_COPILOT_TOOL_IDS` in `ai/agents/engenty.copilot/tools.ts`.
 
-**Write policy:** mount-level — `/skills` is read-only; `/home` and whichever of
-`/shared` or `/space` is present are writable; bound work mounts follow their
+**Write policy:** mount-level — `/skills` and `/company` are read-only (the
+company drive changes through `company_files_publish`); `/home` and `/space` are
+writable, `/space/public` with approval; bound work mounts follow their
 containers; `/data` writes invoke module operations and their approval policy;
 sandbox commands may require approval.
 

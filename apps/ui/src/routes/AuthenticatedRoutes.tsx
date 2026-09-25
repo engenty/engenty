@@ -13,6 +13,7 @@ import {
   spaceMirrorPath,
   spacePlacedModuleIds,
 } from "@/lib/space-route-mirrors";
+import { CompanyFilesPage } from "@/pages/CompanyFilesPage";
 import { CopilotDeskPage } from "@/pages/CopilotDeskPage";
 import { DeviceApprovalPage } from "@/pages/DeviceApprovalPage";
 import { adminSettingsRoutes } from "@/routes/admin-settings-routes";
@@ -203,6 +204,7 @@ export function AuthenticatedRoutes({
         <Route element={<CopilotDeskPage />} path={COPILOT_RIVER_PATH} />
         <Route element={<DeviceApprovalPage />} path="/auth/device" />
         <Route element={<NotificationsPage />} path="/notifications" />
+        <Route element={<CompanyFilesPage />} path="/company" />
         {adminSettingsRoutes({
           developerModeEnabled,
           isAdmin,

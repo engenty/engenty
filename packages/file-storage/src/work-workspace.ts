@@ -34,6 +34,29 @@ const TIER_SEGMENT: Record<WorkContainerTier, string> = {
 /** Container-relative commons folder — `/shared` mount bytes stay here. */
 export const COMMONS_STORAGE_PREFIX = "ai/workspace/commons/";
 
+/**
+ * The folder inside a Space's commons that the rest of the company may read —
+ * `/space/public` in a run, `/company/spaces/<key>/` in every other Space.
+ */
+export const SPACE_PUBLIC_FOLDER = "public";
+
+/** Container-relative prefix of a Space's public folder. */
+export const SPACE_PUBLIC_STORAGE_PREFIX = `${COMMONS_STORAGE_PREFIX}${SPACE_PUBLIC_FOLDER}/`;
+
+/**
+ * Full key prefix of the company drive (`/company/files`): the tenant-level
+ * commons, which was `/shared` — same bytes, now read-only in every run and
+ * written only by people holding `core.company_files.manage`.
+ */
+export function companyFilesPrefix(tenantId: string): string {
+  return workWorkspacePrefix(tenantId, null, "global");
+}
+
+/** Full key prefix of a Space's public folder. */
+export function spacePublicPrefix(tenantId: string, spaceId: string): string {
+  return `${workWorkspacePrefix(tenantId, spaceId, "space")}${SPACE_PUBLIC_FOLDER}/`;
+}
+
 function requireId(tier: WorkContainerTier, id: string | undefined): string {
   const trimmed = id?.trim() ?? "";
   if (!trimmed) {

@@ -1,6 +1,7 @@
 import { parseTenantAiSettings, TENANT_AI_CONFIG_KEY } from "@engenty/ai-core";
 import {
   assertTenantScopedStorageKey,
+  companyFilesPrefix,
   createFileStorageService,
   createSupabaseFileStorageProvider,
   type FileStorageService,
@@ -14,12 +15,17 @@ import {
   moduleFolderFromFileStorageKey,
   pathSegmentsAfterFileStorageTenantRoot,
 } from "@engenty/file-storage";
+import {
+  COMPANY_FILES_MANAGE_CAPABILITY,
+  capabilityCovers,
+} from "@engenty/plugin-sdk";
 import { createLogger } from "@engenty/telemetry";
 import { createTenantSettingsRepoSupabase } from "@engenty/tenant-settings";
 import type { OpenAPIHono } from "@hono/zod-openapi";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@supabase/supabase-js";
 import type { Context } from "hono";
+import { findAccessibleSpace } from "../../dal/space-membership.js";
 import { createDatabaseAdapter } from "../../infra/index.js";
 import {
   convertOfficeToPdf,
@@ -45,6 +51,49 @@ import {
 } from "./file-storage-tenant-buckets.js";
 
 const logger = createLogger({ name: "file-storage" });
+
+/**
+ * Why a caller may not touch `key`, or `null` when it may. Every key-addressed
+ * route checks the tenant; a WRITE into the company drive also needs
+ * `core.company_files.manage` — a run's token is a tenant principal like any
+ * other, and without this the read-only `/company` mount would be read-only
+ * only for the tools that chose to honour it.
+ */
+function storageKeyRefusal(
+  auth: { tenantId: string | null },
+  capabilities: readonly string[],
+  key: string,
+  access: "read" | "write"
+): { code: string; message: string } | null {
+  try {
+    assertTenantScopedStorageKey(key, auth.tenantId);
+  } catch (error) {
+    if (error instanceof FileStorageTenantScopeError) {
+      return { code: "storage_key_outside_tenant", message: error.message };
+    }
+    throw error;
+  }
+  if (
+    access === "write" &&
+    auth.tenantId &&
+    key.replace(/^\/+/, "").startsWith(companyFilesPrefix(auth.tenantId)) &&
+    !capabilityCovers([...capabilities], COMPANY_FILES_MANAGE_CAPABILITY)
+  ) {
+    return {
+      code: "company_files_read_only",
+      message: `The company drive is written only with ${COMPANY_FILES_MANAGE_CAPABILITY}.`,
+    };
+  }
+  return null;
+}
+
+// `tenants/<t>/spaces/<space>/ai/workspace/commons/public/…`
+const SPACE_PUBLIC_KEY =
+  /^tenants\/[^/]+\/spaces\/([^/]+)\/ai\/workspace\/commons\/public\//;
+const SPACE_PUBLIC_REFUSAL = {
+  code: "space_public_forbidden",
+  message: "Only the space's people publish from its public folder.",
+};
 
 const DEFAULT_BUCKET = FILE_EXPLORER_DEFAULT_BUCKET;
 
@@ -242,8 +291,55 @@ export function registerFileStorageRoutes(params: {
   app: OpenAPIHono;
   config: Record<string, unknown>;
   getTenantDb?: ((auth: { tenantId: string }) => SupabaseClient) | null;
+  /**
+   * The caller's effective capabilities (base role ∪ assigned roles). Route
+   * auth carries them for an Engenty token but not for a browser session, so
+   * a write the company-drive rule gates asks here.
+   */
+  resolveCapabilities?: (authHeader: string | undefined) => Promise<string[]>;
 }) {
-  const { app, config, getTenantDb } = params;
+  const { app, config, getTenantDb, resolveCapabilities } = params;
+
+  async function capabilitiesOf(
+    c: Context,
+    auth: { capabilities: string[] }
+  ): Promise<string[]> {
+    if (auth.capabilities.length > 0 || !resolveCapabilities) {
+      return auth.capabilities;
+    }
+    return await resolveCapabilities(c.req.header("authorization"));
+  }
+
+  /**
+   * A Space's `public/` folder is written by people who can enter the Space.
+   * Everyone in the company reads it, so a colleague outside the Space
+   * uploading into it would be publishing in that Space's name. Agents and
+   * services pass: an agent's write there already stopped for approval in the
+   * file tool, and the sandbox sync pushes it as the run's principal.
+   */
+  async function spacePublicRefusal(
+    auth: {
+      principalType: string;
+      tenantId: string | null;
+      userId: string | null;
+    },
+    key: string
+  ): Promise<{ code: string; message: string } | null> {
+    const match = SPACE_PUBLIC_KEY.exec(key.replace(/^\/+/, ""));
+    if (!(match?.[1] && auth.principalType === "user" && auth.tenantId)) {
+      return null;
+    }
+    if (!(auth.userId && getTenantDb)) {
+      return SPACE_PUBLIC_REFUSAL;
+    }
+    const space = await findAccessibleSpace(
+      getTenantDb({ tenantId: auth.tenantId }),
+      auth.tenantId,
+      auth.userId,
+      match[1]
+    );
+    return space ? null : SPACE_PUBLIC_REFUSAL;
+  }
 
   let _factory: ReturnType<typeof createFileStorageServiceFactory> | undefined;
   const getFactory = () => {
@@ -570,13 +666,15 @@ export function registerFileStorageRoutes(params: {
       });
     }
 
-    try {
-      assertTenantScopedStorageKey(key, authResult.auth.tenantId);
-    } catch (error) {
-      if (error instanceof FileStorageTenantScopeError) {
-        return jsonApiError(c, 403, { message: error.message });
-      }
-      throw error;
+    const refusal =
+      storageKeyRefusal(
+        authResult.auth,
+        await capabilitiesOf(c, authResult.auth),
+        key,
+        "write"
+      ) ?? (await spacePublicRefusal(authResult.auth, key));
+    if (refusal) {
+      return jsonApiError(c, 403, refusal);
     }
 
     try {
@@ -617,6 +715,10 @@ export function registerFileStorageRoutes(params: {
     const key = c.req.query("key");
     if (!key) {
       return jsonApiError(c, 400, { message: "Missing 'key' query parameter" });
+    }
+    const readRefusal = storageKeyRefusal(authResult.auth, [], key, "read");
+    if (readRefusal) {
+      return jsonApiError(c, 403, readRefusal);
     }
 
     try {
@@ -664,6 +766,17 @@ export function registerFileStorageRoutes(params: {
     const key = c.req.query("key");
     if (!key) {
       return jsonApiError(c, 400, { message: "Missing 'key' query parameter" });
+    }
+
+    const writeRefusal =
+      storageKeyRefusal(
+        authResult.auth,
+        await capabilitiesOf(c, authResult.auth),
+        key,
+        "write"
+      ) ?? (await spacePublicRefusal(authResult.auth, key));
+    if (writeRefusal) {
+      return jsonApiError(c, 403, writeRefusal);
     }
 
     const upsert =
@@ -937,6 +1050,16 @@ export function registerFileStorageRoutes(params: {
         return jsonApiError(c, 403, { message: err.message });
       }
       throw err;
+    }
+    const deleteRefusal =
+      storageKeyRefusal(
+        authResult.auth,
+        await capabilitiesOf(c, authResult.auth),
+        key,
+        "write"
+      ) ?? (await spacePublicRefusal(authResult.auth, key));
+    if (deleteRefusal) {
+      return jsonApiError(c, 403, deleteRefusal);
     }
 
     try {

@@ -2,7 +2,7 @@
 //
 // Both lanes ran without one for a long time, which meant the SAME agent had
 // two different worlds depending on how it was reached: a chat gave it
-// `/home /shared /space /skills /task /routine /project /data` plus a sandbox,
+// `/home /space /company /skills /task /routine /project /data` plus a sandbox,
 // while a dispatched run of the same declaration got a couple of flat storage
 // tools and no way to execute anything. An agent that can write and run a
 // script when a person is watching, and cannot when a schedule fires it, is not
@@ -21,7 +21,10 @@ import type { Workspace } from "@mastra/core/workspace";
 import type { AiRegistry } from "../registry/index.js";
 import type { EngentySandboxProvider } from "../sandbox/sandbox-provider.js";
 import { buildAgentWorkspaceForRun } from "../sessions/agent-workspace-hook.js";
-import type { RunSpaceResolution } from "../sessions/run-space.js";
+import {
+  type RunSpaceResolution,
+  resolvedRunSpace,
+} from "../sessions/run-space.js";
 import type { AiSessionScope } from "../sessions/types.js";
 import { mergeDeclaredWorkspaceMounts } from "../workspace/sandbox-mounts.js";
 import {
@@ -80,6 +83,9 @@ export async function buildHeadlessWorkspace(input: {
     workspaceConfig,
     expandWorkspaceMounts(workspaceConfig)
   );
+  const companySpaces = input.spaceResolution
+    ? resolvedRunSpace(input.spaceResolution)?.surface.companySpaces
+    : undefined;
   const { specs: mountSpecs, dropped } = resolveEngentyMountSpecs(
     declaredMounts,
     {
@@ -93,6 +99,7 @@ export async function buildHeadlessWorkspace(input: {
       ...(input.routineId ? { routineId: input.routineId } : {}),
       ...(input.spaceId ? { spaceId: input.spaceId } : {}),
       ...(input.taskIdentifier ? { taskIdentifier: input.taskIdentifier } : {}),
+      ...(companySpaces ? { companySpaces } : {}),
     }
   );
   // A Space-rooted mount that fell away is the "no access to files" report;

@@ -488,7 +488,7 @@ async function resumeFromSnapshot(
   // Nothing is parked on this lane, so this run owns the sandbox outright:
   // whatever it resolved must be torn down before returning, on EVERY exit
   // (including the no-snapshot bail below) or the container leaks and the
-  // provider's syncOut never persists staged /shared + /home.
+  // provider's syncOut never persists staged /space + /home.
   // Everything the START lane feeds the agent beyond its base config; a
   // reassembled agent has none of it. Best-effort: a degraded continuation beats
   // a stranded interrupt.

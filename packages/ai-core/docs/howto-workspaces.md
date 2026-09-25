@@ -29,13 +29,19 @@ resolved run receives:
 
 | Preset | Mounts |
 |---|---|
-| `assistant` | `/home`, `/skills`; `/shared` or confined `/space`; `/data` only with a resolved Space; `/task`, `/project` only when bound |
+| `assistant` | `/home`, `/skills`; `/company` (ro); `/space` and `/data` only with a resolved Space; `/task`, `/project` only when bound |
 | `staff` | Same, but `/home` belongs to the staff agent rather than the user |
-| `code_execution` | `/skills`, `/sandbox`; `/shared` or `/space`; conditional `/data`, `/task`, `/project`; no `/home` |
+| `code_execution` | `/skills`, `/sandbox`; `/company` (ro); conditional `/space`, `/data`, `/task`, `/project`; no `/home` |
 | `custom` | Only the declared mounts whose required bindings resolve |
 
-Use only mounts present in the run. In particular, never tell a confined run to
-write `/shared`, or an unbound chat to use `/task`.
+`/company` is read-only in every run: `/company/files` is the company drive
+(the tenant commons) and `/company/spaces/<key>/` shows each publishing Space's
+`public/` folder. `/space/public` is a folder inside `/space`, not a mount of
+its own; file-tool writes there ask for approval.
+
+Use only mounts present in the run. In particular, never tell a run to write
+`/company` (the company drive changes only through `company_files_publish`), or
+an unbound chat to use `/task`.
 
 ## 2. Add `workspace` to `AgentConfig`
 
@@ -112,7 +118,7 @@ workspace: {
   preset: "custom",
   mounts: [
     { path: "/home", scope: "agent", source: "home", access: "rw" },
-    { path: "/shared", scope: "tenant", source: "commons", access: "rw" },
+    { path: "/company/files", scope: "tenant", source: "commons", access: "ro" },
     { path: "/skills", scope: "tenant", source: "skills", access: "ro" },
   ],
 },
@@ -122,8 +128,8 @@ Each mount's `source` maps to a file-storage prefix:
 
 | source | Meaning |
 |--------|---------|
-| `commons` (scope `tenant`) | tenant `/shared` context |
-| `commons` (scope `space`) | confined `/space` context |
+| `commons` (scope `tenant`) | the company drive, `/company/files` (read-only) |
+| `commons` (scope `space`) | the Space commons, `/space` |
 | `home` (scope `user`) | user-personal `/home` |
 | `home` (scope `agent`) | staff-agent `/home` |
 | `skills` | read-only `/skills` library |

@@ -52,11 +52,17 @@ export interface SandboxStorageLayout {
   stagingPath: string;
 }
 
-// An extra writable workspace dir (e.g. the tenant-shared `/shared`) that is
+// An extra workspace dir (e.g. the Space's `/space`) that is
 // staged locally, synced to its own storage prefix, and — for the docker
 // provider — bind-mounted into the sandbox at `containerPath` so code can reach
 // it. Distinct from the per-session sandbox layout in `CreateEngentySandboxProviderInput`.
 export interface SandboxExtraMount {
   containerPath: string;
   layout: SandboxStorageLayout;
+  /**
+   * Bound `:ro`. For what the shell may read but only something else may
+   * write: the `/company` copy, and `/space/public`, which file tools write
+   * behind an approval.
+   */
+  readOnly?: boolean;
 }

@@ -7,6 +7,10 @@
 import { USER_BROWSER_DOWNLOADS_MOUNT_PATH } from "../sandbox/space-browser.js";
 import type { EngentyWorkspaceMountSpec } from "../workspace/contracts.js";
 import { isMountBoundIntoSandbox } from "../workspace/loader.js";
+import {
+  isCompanyMountPath,
+  SPACE_MOUNT_PATH,
+} from "../workspace/workspace-presets.js";
 
 export interface ComputeInstructionsInput {
   lifecycle: "run" | "session" | "task" | "space";
@@ -21,9 +25,20 @@ export function buildComputeInstructions(
   input: ComputeInstructionsInput
 ): string {
   const onSpaceComputer = input.lifecycle === "space";
-  const bound = input.mounts
-    .filter((mount) => isMountBoundIntoSandbox(mount, input.lifecycle))
-    .map((mount) => mount.mountPath);
+  const hasCompanyView = input.mounts.some((mount) =>
+    isCompanyMountPath(mount.mountPath)
+  );
+  const bound = [
+    ...input.mounts
+      .filter(
+        (mount) =>
+          !isCompanyMountPath(mount.mountPath) &&
+          isMountBoundIntoSandbox(mount, input.lifecycle)
+      )
+      .map((mount) => mount.mountPath),
+    // One entry, however many Spaces publish.
+    ...(hasCompanyView ? ["/company (read-only)"] : []),
+  ];
   const fileToolsOnly = input.mounts
     .filter((mount) => !isMountBoundIntoSandbox(mount, input.lifecycle))
     .map((mount) => mount.mountPath);
@@ -41,6 +56,7 @@ export function buildComputeInstructions(
     `- Your commands start in /sandbox${
       reach.length > 0 ? ` and also reach ${reach.join(", ")}` : ""
     }.`,
+    ...(hasCompanyView ? [companyLine(input.mounts)] : []),
     ...(fileToolsOnly.length > 0
       ? [
           `- Not on this computer, file tools only: ${fileToolsOnly.join(", ")}. ` +
@@ -70,6 +86,23 @@ export function buildComputeInstructions(
     "- Package caches are warm per Space — a second install of the same " +
       "package is fast.",
   ].join("\n");
+}
+
+/**
+ * Where the company's files are, and the two ways to add to them — both of
+ * which stop for a person, which is why the shell cannot do either.
+ */
+function companyLine(mounts: readonly EngentyWorkspaceMountSpec[]): string {
+  const hasSpace = mounts.some((mount) => mount.mountPath === SPACE_MOUNT_PATH);
+  return (
+    "- /company is read-only: /company/files is the company drive, " +
+    "/company/spaces/<key>/ what each Space published. To add to the drive " +
+    "call company_files_publish (someone allowed to publish approves it)." +
+    (hasSpace
+      ? " To share from this Space, write to /space/public with the file " +
+        "tools — the person approves it; the shell sees it read-only."
+      : "")
+  );
 }
 
 function executionLine(lifecycle: ComputeInstructionsInput["lifecycle"]) {

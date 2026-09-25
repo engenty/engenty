@@ -124,8 +124,12 @@ export {
 } from "./text-preview-mime.js";
 export {
   COMMONS_STORAGE_PREFIX,
+  companyFilesPrefix,
   type ParsedWorkWorkspacePrefix,
   parseWorkWorkspacePrefix,
+  SPACE_PUBLIC_FOLDER,
+  SPACE_PUBLIC_STORAGE_PREFIX,
+  spacePublicPrefix,
   type WorkContainerTier,
   workWorkspacePrefix,
   workWorkspaceRelativePrefix,

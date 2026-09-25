@@ -671,6 +671,9 @@ export function createThreadService(opts: ThreadServiceOptions) {
         ...(taskIdentifier ? { taskIdentifier } : {}),
         ...(projectId ? { projectId } : {}),
         ...(spaceId ? { spaceId } : {}),
+        ...(runSpace?.surface.companySpaces
+          ? { companySpaces: runSpace.surface.companySpaces }
+          : {}),
       });
     // Every drop is named, one line each. A Space-rooted mount that fell away
     // (`/data`, `/space`) is the case people report as "the agent has no
@@ -794,7 +797,7 @@ export function createThreadService(opts: ThreadServiceOptions) {
       threadId: string;
     }): Promise<{
       // The run's root sandbox provider — the caller MUST `destroyRunSandboxes` it
-      // when the run ends (destroy() runs syncOut, persisting staged /shared +
+      // when the run ends (destroy() runs syncOut, persisting staged /space +
       // /home to file storage). Sub-agents are NOT pre-resolved: child-run
       // delegation (Phase 3) resolves each delegated agent's own workspace on
       // demand via `resolveAgentWorkspaceForRun` and owns its teardown.

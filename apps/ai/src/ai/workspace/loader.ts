@@ -1,6 +1,6 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
-
+import { createLogger } from "@engenty/telemetry";
 import {
   LocalFilesystem,
   WORKSPACE_TOOLS,
@@ -9,8 +9,11 @@ import {
   type WorkspaceSandbox,
   type WorkspaceToolsConfig,
 } from "@mastra/core/workspace";
-
 import type { Files } from "files-sdk";
+import {
+  refreshCompanyMirror,
+  resolveCompanyMirrorPath,
+} from "../sandbox/company-mirror.js";
 import { createEngentySandboxProvider } from "../sandbox/sandbox-factory.js";
 import type { EngentySandboxProvider } from "../sandbox/sandbox-provider.js";
 import { resolveSandboxStorageLayout } from "../sandbox/sandbox-storage-paths.js";
@@ -52,12 +55,29 @@ import {
 } from "./workspace-fs-mode.js";
 import {
   COMMONS_STORAGE_PREFIX,
+  COMPANY_MOUNT_PATH,
+  COMPANY_SPACES_MOUNT_PATH,
   HOME_MOUNT_PATH,
+  isCompanyMountPath,
+  SPACE_MOUNT_PATH,
+  SPACE_PUBLIC_MOUNT_PATH,
 } from "./workspace-presets.js";
 import {
   sandboxExecuteApprovalGate,
   workspaceDeleteApprovalGate,
+  workspacePublishApprovalGate,
 } from "./workspace-tool-guards.js";
+
+const logger = createLogger({ name: "ai-workspace-loader" });
+
+// The file tools that write. Each stops for a person when it writes into
+// `/space/public` — see `workspacePublishApprovalGate`.
+const WRITING_FILE_TOOLS = [
+  WORKSPACE_TOOLS.FILESYSTEM.WRITE_FILE,
+  WORKSPACE_TOOLS.FILESYSTEM.EDIT_FILE,
+  WORKSPACE_TOOLS.FILESYSTEM.AST_EDIT,
+  WORKSPACE_TOOLS.FILESYSTEM.MKDIR,
+] as const;
 
 export interface CreateEngentyAgentWorkspaceResult {
   // The single Mastra executor (DockerSandbox) attached to the Workspace; the
@@ -72,10 +92,10 @@ export interface CreateEngentyAgentWorkspaceResult {
 // Writable, durable mounts unified with the sandbox staging mechanism: each is
 // staged to a local dir, bind-mounted into the docker sandbox at its mount path,
 // and synced to its own file-storage prefix at the run edges (syncIn/syncOut).
-// Today these are the shared commons (`/shared`, or `/space` for a confined
-// agent — same relative path, different root) and the agent/user `/home`.
+// Today these are the Space commons (`/space`) and the agent/user `/home`.
 // (`/sandbox` is the sandbox layout itself; the read-only `/skills` mount and
-// the `/task` checkout intentionally stay direct Files-SDK — see below.)
+// the `/task` checkout intentionally stay direct Files-SDK — see below. The
+// read-only `/company` view reaches the shell as one host copy, bound `:ro`.)
 // Where the package caches land inside the container, and the variable each
 // tool reads to find its own. The host owns both halves so a custom sandbox
 // image cannot silently leave the binds inert.
@@ -122,6 +142,10 @@ export function isMountBoundIntoSandbox(
   mount: EngentyWorkspaceMountSpec,
   lifecycle?: SandboxLifecycle
 ): boolean {
+  if (isCompanyMountPath(mount.mountPath)) {
+    // Through the one `/company` copy, read-only — not bound one by one.
+    return true;
+  }
   if (mount.kind === "data") {
     // `/data` on a space computer: see the staging comment below.
     return lifecycle !== "space" && Boolean(mount.spaceId);
@@ -147,7 +171,11 @@ export function buildSyncedWritableMounts(
   const extraMounts: SandboxExtraMount[] = [];
   const stagingByMountPath = new Map<string, string>();
   for (const mount of mounts) {
-    if (mount.kind === "data" || !isMountBoundIntoSandbox(mount, lifecycle)) {
+    if (
+      mount.kind === "data" ||
+      mount.readOnly ||
+      !isMountBoundIntoSandbox(mount, lifecycle)
+    ) {
       continue;
     }
     const stagingPath = resolveLocalMountBasePath(
@@ -251,7 +279,7 @@ function createMountFilesystem(
     sandboxStagingPath &&
     mount.mountPath === (spec.sandboxConfig?.mountPath ?? "/sandbox");
 
-  // Sandbox + the synced writable mounts (`/shared`, `/home`) all back onto a
+  // Sandbox + the synced writable mounts (`/space`, `/home`) all back onto a
   // local staging dir so file tools and executed code (which sees the same dir
   // via bind/cwd) share live state; the sandbox provider syncs those dirs to
   // file storage at the edges.
@@ -322,7 +350,7 @@ export async function createEngentyAgentWorkspace(
     });
     sandboxStagingPath = layout.stagingPath;
 
-    // Writable durable mounts (`/shared`, `/home`) are staged locally so they can
+    // Writable durable mounts (`/space`, `/home`) are staged locally so they can
     // be bound into the sandbox (docker) and synced to their own storage prefix.
     const synced = buildSyncedWritableMounts(
       spec.mounts,
@@ -331,6 +359,49 @@ export async function createEngentyAgentWorkspace(
     );
     stagingByMountPath = synced.stagingByMountPath;
     const extraMounts = synced.extraMounts;
+
+    // `/space/public` is the Space's door to the company: the shell reads it,
+    // only a file tool writes it, and that write asks a person first. Docker
+    // mounts it over the writable `/space` bind, read-only.
+    const spaceStaging = stagingByMountPath.get(SPACE_MOUNT_PATH);
+    if (spaceStaging) {
+      extraMounts.push({
+        containerPath: SPACE_PUBLIC_MOUNT_PATH,
+        layout: {
+          fileStorageRelativePath: "",
+          stagingPath: join(spaceStaging, "public"),
+        },
+        readOnly: true,
+      });
+    }
+
+    // `/company`: one host copy of the company drive and every publishing
+    // Space's `public/`, bound read-only and refreshed below. Empty storage
+    // prefix — the copy is never synced back.
+    const companySpaces = spec.mounts.flatMap((mount) =>
+      mount.mountPath.startsWith(`${COMPANY_SPACES_MOUNT_PATH}/`) &&
+      mount.spaceId
+        ? [
+            {
+              id: mount.spaceId,
+              key: mount.mountPath.slice(COMPANY_SPACES_MOUNT_PATH.length + 1),
+            },
+          ]
+        : []
+    );
+    const hasCompanyView = spec.mounts.some((mount) =>
+      isCompanyMountPath(mount.mountPath)
+    );
+    if (hasCompanyView) {
+      extraMounts.push({
+        containerPath: COMPANY_MOUNT_PATH,
+        layout: {
+          fileStorageRelativePath: "",
+          stagingPath: resolveCompanyMirrorPath(spec.sandboxIdentity.tenantId),
+        },
+        readOnly: true,
+      });
+    }
 
     // `/data` inside the sandbox. A program cannot
     // speak HTTP to the data plane through a bind mount, so the tree is staged
@@ -464,6 +535,20 @@ export async function createEngentyAgentWorkspace(
       : sandboxResult.provider;
     mastraSandbox = sandboxResult.mastraSandbox;
     await sandboxProvider.syncIn();
+    if (hasCompanyView) {
+      // A stale copy is still the company's files; a failed refresh must not
+      // stop the run. File tools read storage directly either way.
+      await refreshCompanyMirror({
+        client: workspaceFsMode === "remote" ? client : null,
+        spaces: companySpaces,
+        tenantId: spec.sandboxIdentity.tenantId,
+      }).catch((error: unknown) => {
+        logger.warn("company_mirror_refresh_failed", {
+          message: error instanceof Error ? error.message : String(error),
+          tenant_id: spec.sandboxIdentity?.tenantId,
+        });
+      });
+    }
   }
 
   // Explicit skill paths win (copilot points discovery at `/tenant-skills`).
@@ -503,7 +588,7 @@ export async function createEngentyAgentWorkspace(
   //
   // DELETE gets the same treatment and did not have it (P1.6): Mastra ships
   // `mastra_workspace_delete` ungated WITH a `recursive` flag, so one call
-  // could empty a prefix of `/shared`. The gate is dynamic — it sees the call's
+  // could empty a prefix of `/space`. The gate is dynamic — it sees the call's
   // args, so the agent tidying a file in its own `/home` is not asked, while
   // anything recursive, shared, or in `/data` is. `files.requireApproval` in
   // the declaration can force the strict answer for every call.
@@ -525,6 +610,14 @@ export async function createEngentyAgentWorkspace(
           ? true
           : workspaceDeleteApprovalGate(WORKSPACE_TOOLS.FILESYSTEM.DELETE),
     },
+    // A write into `/space/public` publishes to the whole company; every
+    // other write stays ungated.
+    ...Object.fromEntries(
+      WRITING_FILE_TOOLS.map((name) => [
+        name,
+        { requireApproval: workspacePublishApprovalGate(name) },
+      ])
+    ),
     // A tool the archetype will never call still ships its JSON Schema on every
     // model call. Mastra's per-tool `enabled` is the supported way off.
     ...Object.fromEntries(
@@ -535,7 +628,7 @@ export async function createEngentyAgentWorkspace(
   const workspace = new Workspace({
     // One shape for every agent: named mounts, no implicit `/` root. An agent
     // sees exactly what its mount table grants it — `/home`, `/skills`,
-    // optionally `/shared`, `/task`, `/sandbox` — and nothing else.
+    // `/space`, `/company`, `/task`, `/sandbox` — and nothing else.
     mounts: mountFilesystems,
     ...(spec.enableSandbox && mastraSandbox ? { sandbox: mastraSandbox } : {}),
     tools: workspaceTools,

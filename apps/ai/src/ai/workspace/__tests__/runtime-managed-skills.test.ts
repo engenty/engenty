@@ -37,7 +37,7 @@ describe("runtime managed skills", () => {
     expect(skills["artifacts-and-downloads"]).toContain("canvas-design");
     expect(skills["artifacts-and-downloads"]).toContain("data:");
     expect(skills["sandbox-code-execution"]).toContain(
-      "A Space-confined run can receive `/space` and does not receive `/shared`."
+      "`/company` is read-only"
     );
     expect(skills["sandbox-code-execution"]).toContain("/data/Files");
     expect(skills["artifacts-and-downloads"]).toContain("/data/Files");

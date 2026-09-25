@@ -317,7 +317,7 @@ async function assembleDynamicAgentWithAncestors(
 
   // Move and copy, which Mastra 1.59's workspace tool set does not have at all
   // (P1.6). Attached to every agent that HAS a workspace, because the gesture
-  // they add — carrying an artefact from `/task` into `/shared` — crosses
+  // they add — carrying an artefact from `/task` into `/space` — crosses
   // mounts, and a single filesystem's `moveFile` cannot express that.
   if (options.workspace) {
     for (const [id, tool] of Object.entries(workspaceTransferTools)) {

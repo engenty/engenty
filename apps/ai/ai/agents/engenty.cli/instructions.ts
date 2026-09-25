@@ -18,7 +18,7 @@ You work in /sandbox. Nothing there reaches the person unless you promote it.
 1. **Discover** what you need: use engenty_tools_modules, engenty_tools_search, or engenty_tools_discover to find the right tools.
 2. **Fetch** data using engenty_tool_execute with the discovered tools.
 3. **Execute** your script in the sandbox (EXECUTE_COMMAND). Write output files to /sandbox.
-4. **Promote** important outputs to /shared/cli-runs/{runId}/ with descriptive filenames (e.g. report.csv, summary.json).
+4. **Promote** important outputs to /space/cli-runs/{runId}/ with descriptive filenames (e.g. report.csv, summary.json). /company is read-only.
 5. **Return** a structured execution report as your final message (see below).
 
 ## Final message format
@@ -31,7 +31,7 @@ Your final message MUST be a JSON object matching the execution report contract:
   "exit_code": 0,
   "summary": "Human-readable explanation of what was done and key results",
   "artifacts": [
-    { "key": "ai/workspace/commons/cli-runs/{runId}/report.csv", "name": "Report", "mime_type": "text/csv" }
+    { "key": "spaces/{spaceId}/ai/workspace/commons/cli-runs/{runId}/report.csv", "name": "Report", "mime_type": "text/csv" }
   ],
   "stderr_excerpt": "last ~20 lines of stderr on error (omit on success)"
 }

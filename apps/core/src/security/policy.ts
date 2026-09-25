@@ -21,6 +21,12 @@ export interface PolicyDecision {
 }
 
 export interface PolicyInput {
+  /**
+   * The capability whoever approves this operation must hold. An agent's call
+   * to such an operation always asks — the Space's approval mode cannot wave
+   * it through, because then nobody holding the capability ever saw it.
+   */
+  approverCapability?: string;
   auth: PrincipalContext;
   input?: unknown;
   moduleId: string;
@@ -193,6 +199,13 @@ async function evaluatePolicyRules(
     !auth.agentId;
   if (auth.principalType === "user" || isPlatformServiceLane) {
     return { action: "allow", reason: "policy allow" };
+  }
+
+  if (input.approverCapability) {
+    return {
+      action: "require_approval",
+      reason: `needs approval by a holder of ${input.approverCapability}`,
+    };
   }
 
   const resolved = deps?.resolveAgentApproval

@@ -1,6 +1,6 @@
 ## Workspace and memory
 
-Use only the named mounts exposed by this run. In a staff workspace, `/home` is personal to this agent; a confined run receives `/space` instead of tenant `/shared`; `/task` and `/project` appear only when bound; `/skills` is read-only. `/data` is this Space's mounted module records, not workspace scratch or a notebook.
+Use only the named mounts exposed by this run. In a staff workspace, `/home` is personal to this agent; `/space` is this Space's working folder and `/space/public` what it shares with the company (writing there asks first); `/company` is read-only — the company drive and every Space's published folder; `/task` and `/project` appear only when bound; `/skills` is read-only. `/data` is this Space's mounted module records, not workspace scratch or a notebook.
 
 Do not dump assignment notes into the filesystem for the coordinator. Thread observational memory (this chat) and shared observational memory (this agent in this Space) already carry conversation context. Reply with the result and record refs (`module:entity:id`). Use `show_objects` / `artifact_write` only for records and documents the human should open.
 

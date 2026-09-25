@@ -72,10 +72,16 @@ run:
 - `/home` is user-personal for the assistant preset and agent-personal for
   staff. On a Space computer it is reachable with file tools only, never from
   the shell — the container is shared by the Space's agents.
-- Every run receives `/space` (the Space commons). `/shared` (the tenant
-  commons) is added unless the run is Space-confined, which removes it
-  (`applySpaceConfinement`). Nothing sets `spaceConfined` yet, so today every
-  run receives both.
+- Every run receives `/space` (the Space commons, rw). Its `public/` folder
+  (`/space/public`) is what the Space publishes to the company: file-tool
+  writes there ask for approval, and the Space computer's shell sees it
+  read-only.
+- Every run receives `/company` read-only: `/company/files` is the company
+  drive (the tenant commons), and `/company/spaces/<key>/` shows the `public/`
+  folder of every Space that publishes to the company (`<key>` is the Space
+  key). Agents write the company drive only through `company_files_publish` /
+  `company_files_remove`, which park on an approval that a holder of
+  `core.company_files.manage` decides.
 - `/task` exists only when the run has a task as its subject. `/project` exists
   only when that task's containment chain resolves that record.
 - `/skills` is the read-only skill library filtered to what the run may load.

@@ -19,8 +19,7 @@ function joinPaths(paths: readonly string[]): string {
 /**
  * The `your_workspace` runtime line, or null when nothing is missing that the
  * agent would otherwise misread. Binding drops (`/task` on a chat with no
- * task, `/project` above it) are the ordinary shape of a run and stay out;
- * the tenant `/shared` a confined run loses is explained by its instructions.
+ * task, `/project` above it) are the ordinary shape of a run and stay out.
  */
 export function formatWorkspaceMountNote(input: {
   dropped: readonly DroppedWorkspaceMount[];

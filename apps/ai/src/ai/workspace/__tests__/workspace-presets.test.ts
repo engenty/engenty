@@ -29,7 +29,7 @@ describe("expandWorkspaceMounts", () => {
     const mounts = expandWorkspaceMounts(config({ preset: "assistant" }));
     expect(mounts.map((m) => m.path)).toEqual([
       "/home",
-      "/shared",
+      "/company/files",
       "/space",
       "/skills",
       "/task",
@@ -42,10 +42,11 @@ describe("expandWorkspaceMounts", () => {
     expect(mounts.some((m) => m.path === "/")).toBe(false);
     const home = mounts.find((m) => m.path === "/home");
     expect(home?.scope).toBe("user");
-    const shared = mounts.find((m) => m.path === "/shared");
-    expect(shared?.scope).toBe("tenant");
-    expect(shared?.access).toBe("rw");
-    expect(shared?.source).toBe("commons");
+    // The company drive is the tenant commons, and no run writes it.
+    const company = mounts.find((m) => m.path === "/company/files");
+    expect(company?.scope).toBe("tenant");
+    expect(company?.access).toBe("ro");
+    expect(company?.source).toBe("commons");
   });
 
   it("expands the staff preset with an agent-scoped home", () => {
@@ -83,7 +84,12 @@ describe("resolveScopeRelativePath", () => {
     ).toBe(`ai/workspace/agents/${ctx.agentId}/`);
     expect(
       resolveScopeRelativePath(
-        { access: "rw", path: "/shared", scope: "tenant", source: "commons" },
+        {
+          access: "ro",
+          path: "/company/files",
+          scope: "tenant",
+          source: "commons",
+        },
         ctx
       )
     ).toBe("ai/workspace/commons/");
@@ -147,12 +153,14 @@ describe("buildEngentyMountSpecs", () => {
     const specs = buildEngentyMountSpecs(mounts, ctx);
     expect(specs.map((s) => s.mountPath)).toEqual([
       "/home",
-      "/shared",
+      "/company/files",
       "/skills",
     ]);
     expect(specs.find((s) => s.mountPath === "/")).toBeUndefined();
     expect(specs.find((s) => s.mountPath === "/home")?.readOnly).toBe(false);
-    expect(specs.find((s) => s.mountPath === "/shared")?.readOnly).toBe(false);
+    expect(specs.find((s) => s.mountPath === "/company/files")?.readOnly).toBe(
+      true
+    );
   });
 
   it("includes the task mount when a task identifier is present (assistant preset)", () => {
@@ -208,7 +216,7 @@ describe("space rooting (PLAN-spaces.md Phase 2)", () => {
 
   it("leaves a tenant-level run completely unchanged", () => {
     const specs = specsFor({});
-    expect(specs.map((m) => m.mountPath)).toContain("/shared");
+    expect(specs.map((m) => m.mountPath)).toContain("/company/files");
     expect(specs.map((m) => m.mountPath)).not.toContain("/space");
     expect(specs.every((m) => m.spaceId === undefined)).toBe(true);
   });
@@ -222,17 +230,14 @@ describe("space rooting (PLAN-spaces.md Phase 2)", () => {
     // The tenant library and the personal desk: NOT inside the space.
     expect(byPath.get("/skills")?.spaceId).toBeUndefined();
     expect(byPath.get("/home")?.spaceId).toBeUndefined();
-    // A space alone does not confine — the tenant commons is still mounted,
-    // alongside (not instead of) the space's own.
-    expect(byPath.get("/shared")?.spaceId).toBeUndefined();
+    // The company drive stays tenant-level, beside the space's own commons.
+    expect(byPath.get("/company/files")?.spaceId).toBeUndefined();
     expect(byPath.get("/space")?.spaceId).toBe(SPACE);
   });
 
   it("drops /space entirely when the run has no space", () => {
-    // Additive, not a rename: with no space there is no second commons, and
-    // `/shared` is untouched.
     const paths = specsFor({}).map((m) => m.mountPath);
-    expect(paths).toContain("/shared");
+    expect(paths).toContain("/company/files");
     expect(paths).not.toContain("/space");
   });
 
@@ -258,24 +263,48 @@ describe("space rooting (PLAN-spaces.md Phase 2)", () => {
     ).toBeUndefined();
   });
 
-  it("gives a CONFINED agent /space in place of /shared", () => {
-    const specs = specsFor({ spaceConfined: true, spaceId: SPACE });
-    const paths = specs.map((m) => m.mountPath);
-    expect(paths).toContain("/space");
-    expect(paths).not.toContain("/shared");
-
-    const space = specs.find((m) => m.mountPath === "/space");
-    // Same relative layout as the tenant commons — only the ROOT differs.
-    expect(space?.fileStorageRelativePath).toBe("ai/workspace/commons/");
-    expect(space?.spaceId).toBe(SPACE);
+  it("shows each publishing Space's public folder under /company/spaces, read-only", () => {
+    const OTHER = "33333333-3333-4333-8333-333333333333";
+    const specs = specsFor({
+      companySpaces: [
+        { id: SPACE, key: "marketing" },
+        { id: OTHER, key: "sales" },
+        // Not a path segment: left out rather than escaped.
+        { id: OTHER, key: "../etc" },
+        // The same key twice would be two mounts on one path.
+        { id: OTHER, key: "marketing" },
+      ],
+      spaceId: SPACE,
+    });
+    const company = specs.filter((m) =>
+      m.mountPath.startsWith("/company/spaces/")
+    );
+    expect(company).toEqual([
+      {
+        fileStorageRelativePath: "ai/workspace/commons/public/",
+        mountPath: "/company/spaces/marketing",
+        readOnly: true,
+        spaceId: SPACE,
+      },
+      {
+        fileStorageRelativePath: "ai/workspace/commons/public/",
+        mountPath: "/company/spaces/sales",
+        readOnly: true,
+        spaceId: OTHER,
+      },
+    ]);
   });
 
-  it("ignores the confinement flag without a space rather than dropping /shared", () => {
-    // Fail-open here is correct: confining to a space we cannot name would
-    // leave the agent with no shared folder at all.
-    const paths = specsFor({ spaceConfined: true }).map((m) => m.mountPath);
-    expect(paths).toContain("/shared");
-    expect(paths).not.toContain("/space");
+  it("gives no /company/spaces to a mount table without the company drive", () => {
+    const specs = buildEngentyMountSpecs(
+      [{ access: "rw", path: "/space", scope: "space", source: "commons" }],
+      {
+        ...runCtx,
+        companySpaces: [{ id: SPACE, key: "marketing" }],
+        spaceId: SPACE,
+      }
+    );
+    expect(specs.map((m) => m.mountPath)).toEqual(["/space"]);
   });
 
   it("roots the sandbox in the space too — a decision, not an oversight", () => {
@@ -340,7 +369,7 @@ describe("the /data mount (PLAN-space-data.md D4)", () => {
       { ...base, spaceId: undefined }
     );
     expect(specs.map((spec) => spec.mountPath)).toEqual(
-      expect.arrayContaining(["/home", "/shared", "/skills"])
+      expect.arrayContaining(["/home", "/company/files", "/skills"])
     );
     expect(specs.some((spec) => spec.mountPath === "/data")).toBe(false);
     expect(dropped).toEqual(
@@ -349,18 +378,6 @@ describe("the /data mount (PLAN-space-data.md D4)", () => {
         { path: "/space", reason: "no_space" },
         { path: "/task", reason: "no_task" },
       ])
-    );
-    // The tenant commons a confined run loses is a drop with its own name.
-    const confined = resolveEngentyMountSpecs(
-      expandWorkspaceMounts(config({ preset: "staff" })),
-      { ...base, spaceConfined: true, spaceId: "space-9" }
-    );
-    expect(confined.dropped).toContainEqual({
-      path: "/shared",
-      reason: "space_confined",
-    });
-    expect(confined.specs.some((spec) => spec.mountPath === "/space")).toBe(
-      true
     );
   });
 

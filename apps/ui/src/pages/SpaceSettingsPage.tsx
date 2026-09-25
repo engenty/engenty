@@ -66,7 +66,10 @@ import { SpaceDangerZone } from "@/components/spaces/SpaceDangerZone";
 import { SpaceMembersCard } from "@/components/spaces/SpaceMembersCard";
 import { SpaceMountsDialog } from "@/components/spaces/SpaceMountsDialog";
 import { spaceAccounts } from "@/components/spaces/space-mount-catalog";
-import type { SpaceMount } from "@/lib/api/spaces-client";
+import {
+  type SpaceMount,
+  spacePublishesToCompany,
+} from "@/lib/api/spaces-client";
 import {
   resolveSpaceAgentKind,
   type SpaceAgentKind,
@@ -403,6 +406,7 @@ export function SpaceSettingsPage() {
     description?: string | null;
     icon?: string | null;
     name?: string;
+    publishToCompany?: boolean | null;
     visibility?: "open" | "private";
   }) => {
     if (!space || mountsQuery.isPending) {
@@ -438,6 +442,9 @@ export function SpaceSettingsPage() {
         ...(patch.computerEgressHosts === undefined
           ? {}
           : { computer_egress_hosts: patch.computerEgressHosts }),
+        ...(patch.publishToCompany === undefined
+          ? {}
+          : { publish_to_company: patch.publishToCompany }),
       },
       {
         onError: () => {
@@ -840,6 +847,37 @@ export function SpaceSettingsPage() {
                   />
                 </div>
               )}
+              {space ? (
+                <div className="flex items-start justify-between gap-4 px-4 py-3">
+                  <div className="min-w-0 space-y-0.5">
+                    <label
+                      className="cursor-pointer font-medium text-foreground text-sm"
+                      htmlFor="space-publish-to-company"
+                    >
+                      {t("spaces.settings.publishTitle")}
+                    </label>
+                    <p
+                      className="text-muted-foreground text-xs"
+                      id="space-publish-to-company-hint"
+                    >
+                      {t("spaces.settings.publishHint", { key: space.key })}{" "}
+                      <Link className="underline" to="/company">
+                        {t("company.openLink")}
+                      </Link>
+                    </p>
+                  </div>
+                  <Switch
+                    aria-describedby="space-publish-to-company-hint"
+                    checked={spacePublishesToCompany(space)}
+                    className="mt-0.5 shrink-0"
+                    disabled={save.isPending || mountsQuery.isPending}
+                    id="space-publish-to-company"
+                    onCheckedChange={(next: boolean) =>
+                      saveFields({ publishToCompany: next })
+                    }
+                  />
+                </div>
+              ) : null}
               <div className="flex items-start justify-between gap-4 px-4 py-3">
                 <div className="min-w-0 space-y-0.5">
                   <label

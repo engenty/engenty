@@ -44,7 +44,7 @@ decide yourself — a blocked task does no work until someone comes back to it.`
 /** Files/outputs guidance attached to every task job (tools are always mounted). */
 const WORKSPACE_GUIDANCE = `## Workspace & outputs
 - Durable deliverables (documents, reports, tables) → \`artifact_write\`; they appear on the task and its project with no extra step.
-- Run context and working files → the workspace file tools (\`mastra_workspace_write_file\`, \`mastra_workspace_read_file\`, \`mastra_workspace_list_files\`). Write under \`/task\` when the run is task-bound, otherwise your own \`/home\`. \`/routine\` and \`/project\` appear only when bound; \`/space\` is the space's shared folder and \`/shared\` the tenant's.
+- Run context and working files → the workspace file tools (\`mastra_workspace_write_file\`, \`mastra_workspace_read_file\`, \`mastra_workspace_list_files\`). Write under \`/task\` when the run is task-bound, otherwise your own \`/home\`. \`/routine\` and \`/project\` appear only when bound; \`/space\` is the space's shared folder; \`/company\` is the company's, read-only.
 - \`/data\` is mounted module records, never workspace scratch or a notebook. User-uploaded files in this Space are at \`/data/Files\` — list that root before concluding there are none. Workspace search does not index \`/data\`.
 - If you have a sandbox, write a script to a file and run it there rather than doing large data work by hand — that is what it is for.
 - Before reporting completion, verify the deliverable actually exists — re-query what you created (record, artifact, file). If the core deliverable could not be produced, report the failure honestly instead of completing.`;

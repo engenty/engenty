@@ -1403,7 +1403,9 @@
         "defaultHint": "The company space is the tenant's front door and cannot be deleted.",
         "defaultBody": "Create another space if you need a separate work area. The company space stays."
       },
-      "descriptionPlaceholder": "What is this space for?"
+      "descriptionPlaceholder": "What is this space for?",
+      "publishTitle": "Share the public folder with the company",
+      "publishHint": "Files in /space/public are readable by every space as /company/spaces/{{key}}. Agents ask before writing there."
     },
     "data": {
       "derived": "Derived",
@@ -1804,5 +1806,20 @@
       "moreFrom": "+{{count}} more from {{name}}",
       "less": "Show less"
     }
+  },
+  "company": {
+    "title": "Company files",
+    "description": "What every space can read. Agents see these folders read-only under /company; the company drive is written by people allowed to publish, and each space's folder by its own people.",
+    "driveTitle": "Company drive",
+    "spacesTitle": "Shared by spaces",
+    "noSpaces": "No space shares a public folder yet.",
+    "empty": "No files yet.",
+    "upload": "Upload",
+    "download": "Download",
+    "delete": "Delete",
+    "uploadFailed": "Could not upload.",
+    "deleteFailed": "Could not delete.",
+    "downloadFailed": "Could not open the file.",
+    "openLink": "Open company files"
   }
 }

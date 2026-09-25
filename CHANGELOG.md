@@ -4,6 +4,10 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.2.20] - 2026-09-25
+- ADDED **[ai]** /company read-only company drive and a public folder per Space
+- DOCS **[engenty-remote]** Staff preset comment names /space and /company
+
 ## [0.2.19] - 2026-09-24
 - ADDED **[ai]** Per-Space egress allowlist — a Space computer reaches the shared registries plus the hosts its Space allows
 - ADDED **[ai]** The computer prompt says the Space computer is the current_space's, so a new $HOME after the conversation moves Spaces reads as expected

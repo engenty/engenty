@@ -1,15 +1,13 @@
 // Regression: a non-sandbox agent (e.g. engenty.copilot, "assistant" preset)
-// must be able to CREATE and OVERWRITE files in its writable mounts — `/shared`
-// (tenant-shared commons) and `/home` (user-scoped) — through the assembled
-// workspace, exactly like the sandbox CLI's syncOut path does.
+// must be able to CREATE and OVERWRITE files in its writable mounts — `/space`
+// (the Space commons) and `/home` (user-scoped) — through the assembled
+// workspace, exactly like the sandbox CLI's syncOut path does. And it must
+// NOT write the company drive (`/company/files`), which every Space reads.
 //
-// History: a report claimed the direct (non-sandbox) `/shared` write failed with
+// History: a report claimed the direct (non-sandbox) commons write failed with
 // "Object not found" while the sandbox path worked. The direct write path is
 // assembled here: loader → createMountFilesystem (non-sandbox branch, no staging)
-// → createWorkspaceMountFilesystem → FilesSDKFilesystem. This test pins that the
-// branch mounts `/shared` + `/home` writable and that create + overwrite + read
-// round-trip succeed, so the path can never silently regress to read-only or a
-// pre-write stat that 404s on the commons prefix.
+// → createWorkspaceMountFilesystem → FilesSDKFilesystem.
 //
 // Runs offline against the local `fs` adapter (`ENGENTY_WORKSPACE_FS=local`),
 // which shares the identical assembly with the remote supabase mount.
@@ -30,6 +28,7 @@ import {
 const TENANT_ID = "tenant-write-1";
 const USER_ID = "user-write-1";
 const AGENT_ID = "engenty.copilot";
+const SPACE_ID = "space-write-1";
 
 let localRoot: string;
 
@@ -48,11 +47,17 @@ afterEach(() => {
 async function buildNonSandboxCopilotWorkspace(): Promise<{
   filesystem: WorkspaceFilesystem;
 }> {
-  // The assistant preset is the copilot's mount table: /home (rw), /shared (rw),
-  // /skills (ro), /task (when bound). No sandbox → mounts back onto Files SDK.
+  // The assistant preset is the copilot's mount table: /home (rw), /space
+  // (rw), /company/files (ro), /skills (ro), /task (when bound). No sandbox →
+  // mounts back onto Files SDK.
   const mounts = buildEngentyMountSpecs(
     expandWorkspaceMounts({ enabled: true, preset: "assistant" }),
-    { agentId: AGENT_ID, tenantId: TENANT_ID, userId: USER_ID }
+    {
+      agentId: AGENT_ID,
+      spaceId: SPACE_ID,
+      tenantId: TENANT_ID,
+      userId: USER_ID,
+    }
   );
 
   const spec = parseEngentyWorkspaceRuntimeSpec({
@@ -71,22 +76,45 @@ async function buildNonSandboxCopilotWorkspace(): Promise<{
   return { filesystem: workspace.filesystem as WorkspaceFilesystem };
 }
 
-describe("non-sandbox workspace writes (/shared, /home)", () => {
-  it("creates, reads back, and overwrites a file in /shared (commons)", async () => {
+describe("non-sandbox workspace writes (/space, /home)", () => {
+  it("creates, reads back, and overwrites a file in /space (commons)", async () => {
     const { filesystem } = await buildNonSandboxCopilotWorkspace();
 
-    await filesystem.writeFile("/shared/test.txt", "dummy content");
+    await filesystem.writeFile("/space/test.txt", "dummy content");
     expect(
-      await filesystem.readFile("/shared/test.txt", { encoding: "utf-8" })
+      await filesystem.readFile("/space/test.txt", { encoding: "utf-8" })
     ).toBe("dummy content");
 
     // Overwrite (the default) must succeed, not trip a pre-write existence probe.
-    await filesystem.writeFile("/shared/test.txt", "updated content");
+    await filesystem.writeFile("/space/test.txt", "updated content");
     expect(
-      await filesystem.readFile("/shared/test.txt", { encoding: "utf-8" })
+      await filesystem.readFile("/space/test.txt", { encoding: "utf-8" })
     ).toBe("updated content");
 
-    // The object lands under the tenant-scoped commons prefix.
+    // The object lands under the Space's commons prefix.
+    expect(
+      existsSync(
+        join(
+          localRoot,
+          "tenants",
+          TENANT_ID,
+          "spaces",
+          SPACE_ID,
+          "ai",
+          "workspace",
+          "commons",
+          "test.txt"
+        )
+      )
+    ).toBe(true);
+  });
+
+  it("refuses a write into the company drive", async () => {
+    const { filesystem } = await buildNonSandboxCopilotWorkspace();
+
+    await expect(
+      filesystem.writeFile("/company/files/test.txt", "published?")
+    ).rejects.toThrow();
     expect(
       existsSync(
         join(
@@ -99,7 +127,7 @@ describe("non-sandbox workspace writes (/shared, /home)", () => {
           "test.txt"
         )
       )
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("creates a file in /home (user-scoped) for a non-sandbox agent", async () => {

@@ -99,7 +99,7 @@ export const runSpecialistStep = createStep({
 
     // Visibility chain from the ONE containment resolver (work-scope/). The
     // task lane exposes it as named mounts: /task, optional /project, then
-    // /space for a Space-bound task or /shared for a global task.
+    // /space for a Space-bound task; /company is read-only for every task.
     const invoke = createScopeModuleOperationInvoker(scope);
     const visibility = await resolveWorkVisibility(
       {

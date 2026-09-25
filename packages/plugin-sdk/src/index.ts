@@ -31,6 +31,11 @@ export {
   registerAutomationHookListener,
 } from "./automation-hooks.js";
 export { capabilityCovers } from "./capability-match.js";
+/**
+ * Writing the company drive (`/company/files`, the tenant-level commons).
+ * Admins hold it through `*`; a custom role can grant it to anyone else.
+ */
+export const COMPANY_FILES_MANAGE_CAPABILITY = "core.company_files.manage";
 export {
   type PluginCapabilityBlockedReason,
   type PluginCapabilityDiagnostic,
@@ -531,6 +536,12 @@ export interface PluginGatewayMethod {
 export type PluginOperationRisk = "low" | "medium" | "high" | "critical";
 
 export interface PluginOperationMeta {
+  /**
+   * The capability a person must hold to decide this operation's approval
+   * request. Without it, anyone in the tenant who sees the request may decide
+   * it. Recorded on the request as `context.approver_capability`.
+   */
+  approverCapability?: string;
   /**
    * Audit persistence override. Default: core classifier (mutations / high risk /
    * denials). `"never"` skips operation.executed for infra noise (heartbeats);

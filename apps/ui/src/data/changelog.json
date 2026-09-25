@@ -1,7 +1,25 @@
 [
   {
+    "version": "v0.2.20",
+    "timestamp": 1790317918,
+    "commits": [
+      {
+        "id": "fc5131b",
+        "message": "staff preset comment names /space and /company",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "9a46417",
+        "message": "/company read-only company drive and a public folder per Space",
+        "group": "Added",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.2.19",
-    "timestamp": 1790291515,
+    "timestamp": 1790291516,
     "commits": [
       {
         "id": "93540e2",

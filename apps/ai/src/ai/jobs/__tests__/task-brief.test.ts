@@ -55,9 +55,7 @@ describe("buildTaskBrief", () => {
     expect(brief).toContain("mastra_workspace_list_files");
     expect(brief).not.toContain("`workspace_list_files`");
     expect(brief).toContain("`/routine` and `/project` appear only when bound");
-    expect(brief).toContain(
-      "`/space` is the space's shared folder and `/shared` the tenant's"
-    );
+    expect(brief).toContain("`/company` is the company's, read-only");
     expect(brief).toContain(
       "`/data` is mounted module records, never workspace scratch"
     );

@@ -72,7 +72,7 @@ export function buildDockerSandboxOptions(params: {
   // Container env beyond the network plan's proxy vars (e.g. package-cache
   // redirects for the bound cache mounts).
   env?: Record<string, string>;
-  // Extra host->container binds (e.g. tenant `/shared`). Sources must exist on
+  // Extra host->container binds (e.g. `/space`, `/company:ro`). Sources must exist on
   // the host at `docker run` time, so we mkdir them here.
   extraMounts?: SandboxExtraMount[];
   image: string;
@@ -90,7 +90,12 @@ export function buildDockerSandboxOptions(params: {
   };
   for (const extra of params.extraMounts ?? []) {
     stageBindSource(extra.layout.stagingPath);
-    volumes[extra.layout.stagingPath] = extra.containerPath;
+    // @mastra/docker writes each bind as `<host>:<container>`, so the mode
+    // rides on the container side. Docker mounts parents before children, so
+    // a `:ro` folder inside a writable bind (`/space/public`) stays read-only.
+    volumes[extra.layout.stagingPath] = extra.readOnly
+      ? `${extra.containerPath}:ro`
+      : extra.containerPath;
   }
   // The machine's $HOME lives on its DRIVE, not in the tmpfs a per-run
   // sandbox gets: dotfiles, venvs and user-installed packages are the
@@ -232,7 +237,7 @@ export function createDockerEngentySandboxProvider(
 export function createDockerEngentySandboxPair(params: {
   client: EngentyCoreFileStorageClient | null;
   env?: Record<string, string>;
-  // Extra writable mounts (e.g. tenant `/shared`) to bind + sync.
+  // Extra mounts (e.g. `/space`) to bind, and sync when they carry a prefix.
   extraMounts?: SandboxExtraMount[];
   image: string;
   input: CreateEngentySandboxProviderInput;

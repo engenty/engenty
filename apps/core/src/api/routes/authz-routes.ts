@@ -110,6 +110,9 @@ export function registerAuthzRoutes(params: {
       for (const cap of entry.operation.requiredCapabilities ?? []) {
         set.add(cap);
       }
+      if (entry.operation.approverCapability) {
+        set.add(entry.operation.approverCapability);
+      }
     }
     for (const { profile } of registry.roleProfiles?.listWithSource() ?? []) {
       for (const cap of profile.capabilities) {

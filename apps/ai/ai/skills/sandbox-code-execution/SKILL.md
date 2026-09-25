@@ -18,9 +18,11 @@ the tree into `/sandbox` to look something up.
 3. Write scripts under `/sandbox/` (for example `count_a.py`).
 4. Run with `mastra_workspace_execute_command` — the user must approve shell commands in the UI.
 5. Register generated files with `artifact_write { title, file: { key } }` (tenant storage keys, not `/sandbox` paths) so the user can preview and download them.
-6. Shared run context depends on the mounts actually present:
-   - A Space-confined run can receive `/space` and does not receive `/shared`.
-   - A non-confined tenant run can receive `/shared`.
+6. Shared run context: `/space` is this Space's working folder (read-write).
+   `/company` is read-only — `/company/files` is the company drive and
+   `/company/spaces/<key>/` what each Space published. Writing to
+   `/space/public` publishes to the whole company and asks the person first;
+   the company drive is written only through `company_files_publish`.
    These mounts hold reusable working context, not module records or the final
    delivery surface. Publish user-facing files to durable Files/storage and
    register them as artifacts. Treat concurrent writes as last-writer-wins and

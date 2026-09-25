@@ -41,6 +41,11 @@ export interface Space {
   name: string;
   /** Set ⇒ somebody's personal space (PLAN-spaces.md Phase P). */
   ownerUserId: string | null;
+  /**
+   * Whether the company reads this space's `public/` folder. Null follows the
+   * visibility — see {@link spacePublishesToCompany}.
+   */
+  publishToCompany: boolean | null;
   purgeAfter: string | null;
   tenantId: string;
   visibility: "open" | "private";
@@ -56,6 +61,16 @@ export interface Space {
  */
 export function isPersonalSpace(space: Space): boolean {
   return space.ownerUserId != null;
+}
+
+/** Same rule as core: an open team space publishes unless turned off. */
+export function spacePublishesToCompany(
+  space: Pick<Space, "ownerUserId" | "publishToCompany" | "visibility">
+): boolean {
+  if (space.publishToCompany !== null) {
+    return space.publishToCompany;
+  }
+  return space.visibility === "open" && space.ownerUserId === null;
 }
 
 export interface SpaceMount {
@@ -258,6 +273,7 @@ export interface SpaceSetupPayload {
   icon?: string | null;
   mounts: SpaceMountPayload[];
   name: string;
+  publish_to_company?: boolean | null;
   visibility?: "open" | "private";
 }
 

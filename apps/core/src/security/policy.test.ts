@@ -141,6 +141,25 @@ describe("evaluatePolicy", () => {
     });
   });
 
+  it("asks for an agent's call that names its approver, even in pass-all", async () => {
+    // Publishing to the company drive: a Space set to wave agents through
+    // must not let one publish without someone who holds the right seeing it.
+    const decision = await evaluatePolicy(
+      {
+        ...highRiskWrite(principal({ principalType: "agent" })),
+        approverCapability: "core.company_files.manage",
+      },
+      undefined,
+      {
+        resolveAgentApproval: async () => ({
+          mode: "pass-all",
+          spaceWriteMounted: true,
+        }),
+      }
+    );
+    expect(decision.action).toBe("require_approval");
+  });
+
   it("pass-all still denies when the token lacks the cap", async () => {
     const decision = await evaluatePolicy(
       highRiskWrite(

@@ -85,6 +85,9 @@ Docker fixes a container's binds when the first run creates it, so a per-run
 source would be whoever came first. The agent's or person's `/home` is therefore
 not bound on a space computer: it stays a direct storage mount, reachable with
 file tools only (`buildSyncedWritableMounts` in `apps/ai/src/ai/workspace/loader.ts`).
+`/company` is bound read-only as one parent folder, so a Space that starts
+publishing shows up without a Reset; a computer created before the `/company`
+and `/space/public` binds existed needs a Reset to get them.
 
 **Commands are serialized per machine.** The machine is shared — concurrent runs
 in the Space hold instances with the same sandbox id, resolving to one container
@@ -108,9 +111,9 @@ It is a directory on the apps/ai host, not Supabase:
 | `browser/profile/` | the browser's `/profile` | cookies and logins |
 | `browser/downloads/` | `/downloads`, `/sandbox/browser-downloads` | what the browser saved |
 | `apps/` | `/sandbox/apps` | the Space's App repositories and databases (app-host) |
-| `ai/…` | — | staged copies of the Space's object-storage mounts |
+| `ai/…` | — | staged copies of the Space's object-storage mounts; a file pulled at run start and missing at push is deleted in storage (`sandbox-sync.ts`) |
 
-**Rule:** work lives in object storage (`/space`, `/shared`, `/home`, …) and
+**Rule:** work lives in object storage (`/space`, `/company`, `/home`, …) and
 records in Postgres (`/data`). The drive holds the computer's own state and may
 be lost — except `apps/`, which has no other copy (`deploy/scripts/backup-spaces.sh`).
 So a space computer's `/sandbox` is **not** synced to storage: results worth
@@ -274,7 +277,9 @@ It runs as uid 1000 (`ENGENTY_SANDBOX_UID`) with `HOME=/opt/sandbox` — *not*
 | Path | Contents |
 | --- | --- |
 | `/sandbox` | the run's scratch (per Space on the machine, per run otherwise) |
-| `/shared`, `/space` | the writable commons — see `packages/ai-core/docs/howto-workspaces.md` |
+| `/space` | the Space commons, writable — see `packages/ai-core/docs/howto-workspaces.md` |
+| `/space/public` | what the Space publishes to the company — bound read-only inside `/space`; file tools write it with approval |
+| `/company` | read-only: `files/` (the company drive) and `spaces/<key>/` (each publishing Space's `public/`) — one host copy per tenant, `<ENGENTY_SPACES_DIR>/tenants/<t>/company/`, refreshed at every run start by `company-mirror.ts`, which also deletes unpublished files and Spaces that stopped publishing. File tools read `/company` straight from object storage |
 | `/home` | the agent's or person's own mount — per-run sandboxes only, never a space computer |
 | `/data` | the Space's module records, staged (below) — per-run sandboxes only, never a space computer |
 | `/cache/{uv,bun,npm}` | per-Space package caches; each tool's cache env var points here |

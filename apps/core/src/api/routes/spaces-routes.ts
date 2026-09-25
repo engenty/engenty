@@ -15,7 +15,9 @@
  */
 
 import {
+  COMPANY_FILES_MANAGE_CAPABILITY,
   COMPUTER_EGRESS_HOSTS_MAX,
+  capabilityCovers,
   type ModuleMountRequires,
   moduleMountDependents,
   moduleMountRequiresFromPlugins,
@@ -72,6 +74,7 @@ import {
   getDefaultSpace,
   getSpaceById,
   getSpaceByKey,
+  listCompanyPublishingSpaces,
   listMarkedDeletedSpaces,
   markSpaceDeleted,
   restoreSpace,
@@ -209,6 +212,8 @@ const spaceSetupBodySchema = z.object({
   /** One line about what this space is for; shown on its home. */
   description: z.string().max(500).nullable().optional(),
   icon: z.string().max(24_000).nullable().optional(),
+  /** Show `public/` to the company; `null` = default for the visibility. */
+  publish_to_company: z.boolean().nullable().optional(),
   /**
    * Re-key the space. Breaks its `/s/<key>/…` links, so the setup dialog never
    * sends it — the initial-setup wizard does, keying the default space off the
@@ -321,6 +326,11 @@ async function addCreatorMemberRow(
 export function registerSpacesRoutes(params: {
   app: OpenAPIHono;
   config: Record<string, unknown>;
+  /**
+   * The caller's effective capabilities (base role ∪ assigned roles); route
+   * auth carries none for a browser session. Used for `can_manage_files`.
+   */
+  resolveCapabilities?: (authHeader: string | undefined) => Promise<string[]>;
   /**
    * Tenant-locked handle (`engenty_server`, NOBYPASSRLS). Preferred over the
    * service client so the tenant wall is the database's problem here too; the
@@ -1323,6 +1333,9 @@ export function registerSpacesRoutes(params: {
         ...(parsed.data.computer_egress_hosts === undefined
           ? {}
           : { computerEgressHosts: parsed.data.computer_egress_hosts }),
+        ...(parsed.data.publish_to_company === undefined
+          ? {}
+          : { publishToCompany: parsed.data.publish_to_company }),
         // A personal space cannot be opened; the database refuses it
         // (`spaces_personal_is_private_check`) rather than this route silently
         // dropping the field, so a client that sends it gets an error and not a
@@ -1546,8 +1559,36 @@ export function registerSpacesRoutes(params: {
             unattended: browserGrant.unattended,
           }
         : null,
+      // The spaces whose `public/` a run sees under `/company/spaces/<key>/`.
+      companySpaces: (
+        await listCompanyPublishingSpaces(db(tenantId), tenantId)
+      ).map(({ id, key }) => ({ id, key })),
       computerEgressHosts: space.computerEgressHosts,
       computerNetworkTier: space.computerNetworkTier,
+    });
+  });
+
+  // The company view for people: which spaces publish a `public/` folder.
+  // Everyone in the tenant reads it — the folders are the company's.
+  app.get("/api/company/spaces", async (c) => {
+    const authResult = await requireAuth(c, config);
+    if ("error" in authResult) {
+      return authResult.error;
+    }
+    const tenantId = authResult.auth.tenantId;
+    if (!tenantId) {
+      return jsonApiError(c, 403, { message: "No tenant" });
+    }
+    return jsonApiSuccess(c, {
+      // Whether this person may write the company drive — the page shows its
+      // upload and delete only then; the storage routes enforce it anyway.
+      can_manage_files: capabilityCovers(
+        authResult.auth.capabilities.length > 0 || !params.resolveCapabilities
+          ? [...authResult.auth.capabilities]
+          : await params.resolveCapabilities(c.req.header("authorization")),
+        COMPANY_FILES_MANAGE_CAPABILITY
+      ),
+      spaces: await listCompanyPublishingSpaces(db(tenantId), tenantId),
     });
   });
 

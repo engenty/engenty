@@ -2,9 +2,9 @@
 // flags (no agent-type branching). Callers expand an `AgentConfig.workspace`
 // declaration into a mount table + flags and pass them here.
 //
-// Agents use named mounts only. Depending on preset, confinement, and bindings,
-// a run may receive `/home`, exactly one of `/shared` or `/space`, `/skills`,
-// `/task`, `/routine`, `/project`, `/data`, and `/sandbox`. There is no `/` root
+// Agents use named mounts only. Depending on preset and bindings, a run may
+// receive `/home`, `/space`, the read-only `/company`, `/skills`, `/task`,
+// `/routine`, `/project`, `/data`, and `/sandbox`. There is no `/` root
 // mount and no unscoped-filesystem shape: an agent sees exactly what its
 // resolved mount table grants. Sandbox staging paths are derived per mount by
 // the loader, not anchored to a spec-level base path.

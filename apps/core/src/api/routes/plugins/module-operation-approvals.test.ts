@@ -112,3 +112,25 @@ describe("approval decision — space-owned connections", () => {
     expect(decide).toHaveBeenCalled();
   });
 });
+
+describe("approval decision — approver capability", () => {
+  it("refuses a person without the capability the request names", async () => {
+    const { app, decide } = createApp({
+      auth: principal(["module.*"]),
+      context: { approver_capability: "core.company_files.manage" },
+    });
+    const res = await decideRequest(app);
+    expect(res.status).toBe(403);
+    expect(decide).not.toHaveBeenCalled();
+  });
+
+  it("lets a holder of the capability decide", async () => {
+    const { app, decide } = createApp({
+      auth: principal(["core.company_files.manage"]),
+      context: { approver_capability: "core.company_files.manage" },
+    });
+    const res = await decideRequest(app);
+    expect(res.status).toBe(200);
+    expect(decide).toHaveBeenCalled();
+  });
+});

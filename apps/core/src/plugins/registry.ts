@@ -327,6 +327,7 @@ export interface PluginRegistry {
         | "requiresApproval"
       >
     > & {
+      approverCapability?: string;
       audit?: PluginOperationMeta["audit"];
       mcpAppResourceUri?: PluginOperationMeta["mcpAppResourceUri"];
       mcpDisposition?: PluginOperationMeta["mcpDisposition"];
@@ -946,6 +947,9 @@ export function createPluginRegistry(params: CreateRegistryParams): {
       idempotent: operation.idempotent ?? false,
       dryRunSupported: operation.dryRunSupported ?? false,
       requiresApproval: operation.requiresApproval ?? false,
+      ...(operation.approverCapability?.trim()
+        ? { approverCapability: operation.approverCapability.trim() }
+        : {}),
       ...(operation.audit ? { audit: operation.audit } : {}),
       ...(isOperationSpacePolicy(operation.spacePolicy)
         ? { spacePolicy: operation.spacePolicy }
@@ -1363,6 +1367,9 @@ export function createPluginRegistry(params: CreateRegistryParams): {
             requiredCapabilities: moduleOp.operation.requiredCapabilities,
             requiresApproval: moduleOp.operation.requiresApproval,
             riskLevel: moduleOp.operation.riskLevel,
+            ...(moduleOp.operation.approverCapability
+              ? { approverCapability: moduleOp.operation.approverCapability }
+              : {}),
           },
           registry,
           policyDeps
@@ -1406,6 +1413,9 @@ export function createPluginRegistry(params: CreateRegistryParams): {
           requiredCapabilities: meta?.requiredCapabilities ?? [],
           requiresApproval: meta?.requiresApproval ?? false,
           riskLevel: meta?.riskLevel ?? "medium",
+          ...(meta?.approverCapability
+            ? { approverCapability: meta.approverCapability }
+            : {}),
         },
         registry,
         policyDeps

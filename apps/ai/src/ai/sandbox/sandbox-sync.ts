@@ -66,11 +66,27 @@ function listLocalFilesRecursive(root: string, prefix = ""): string[] {
 async function uploadLocalTree(params: {
   client: EngentyCoreFileStorageClient;
   localRoot: string;
+  /** What the matching pull brought down; see {@link pushSandboxWorkspaceToStorage}. */
+  pulled?: ReadonlySet<string>;
   spaceId?: string;
   storagePrefix: string;
   tenantId: string;
-}): Promise<void> {
+}): Promise<Set<string>> {
   const files = listLocalFilesRecursive(params.localRoot);
+  const present = new Set(files);
+  for (const relativePath of params.pulled ?? []) {
+    if (present.has(relativePath)) {
+      continue;
+    }
+    const key = syncedObjectKey({
+      relativePath,
+      storagePrefix: params.storagePrefix,
+      tenantId: params.tenantId,
+      ...(params.spaceId ? { spaceId: params.spaceId } : {}),
+    });
+    // Another run on the same computer may have removed it first.
+    await params.client.delete(key).catch(() => undefined);
+  }
   for (const relativePath of files) {
     const bytes = readFileSync(path.join(params.localRoot, relativePath));
     const key = syncedObjectKey({
@@ -81,6 +97,7 @@ async function uploadLocalTree(params: {
     });
     await params.client.upload(key, bytes, { upsert: true });
   }
+  return present;
 }
 
 async function downloadStorageTree(params: {
@@ -89,8 +106,9 @@ async function downloadStorageTree(params: {
   spaceId?: string;
   storagePrefix: string;
   tenantId: string;
-}): Promise<void> {
+}): Promise<Set<string>> {
   mkdirSync(params.localRoot, { recursive: true });
+  const pulled = new Set<string>();
   const prefix = syncedObjectKey({
     relativePath: "",
     storagePrefix: params.storagePrefix,
@@ -113,15 +131,18 @@ async function downloadStorageTree(params: {
     const target = path.join(params.localRoot, relative);
     mkdirSync(path.dirname(target), { recursive: true });
     writeFileSync(target, bytes);
+    pulled.add(relative);
   }
+  return pulled;
 }
 
+/** Pull a layout's files; returns the relative paths it brought down. */
 export async function pullSandboxWorkspaceFromStorage(params: {
   client: EngentyCoreFileStorageClient;
   layout: SandboxStorageLayout;
   tenantId: string;
-}): Promise<void> {
-  await downloadStorageTree({
+}): Promise<Set<string>> {
+  return await downloadStorageTree({
     client: params.client,
     localRoot: params.layout.stagingPath,
     storagePrefix: params.layout.fileStorageRelativePath,
@@ -130,14 +151,22 @@ export async function pullSandboxWorkspaceFromStorage(params: {
   });
 }
 
+/**
+ * Push a layout's files. A file the pull brought down that is gone locally
+ * was deleted during the run, and is deleted in storage too — without that a
+ * deletion lasted only until the next pull, and a file taken out of
+ * `/space/public` stayed published.
+ */
 export async function pushSandboxWorkspaceToStorage(params: {
   client: EngentyCoreFileStorageClient;
   layout: SandboxStorageLayout;
+  pulled?: ReadonlySet<string>;
   tenantId: string;
-}): Promise<void> {
-  await uploadLocalTree({
+}): Promise<Set<string>> {
+  return await uploadLocalTree({
     client: params.client,
     localRoot: params.layout.stagingPath,
+    ...(params.pulled ? { pulled: params.pulled } : {}),
     storagePrefix: params.layout.fileStorageRelativePath,
     tenantId: params.tenantId,
     ...(params.layout.spaceId ? { spaceId: params.layout.spaceId } : {}),

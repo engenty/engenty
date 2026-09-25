@@ -46,6 +46,7 @@ export interface InProcessPolicyDeps extends PolicyDeps {
 }
 
 export interface InProcessCall {
+  approverCapability?: string;
   auth?: PluginAuthContext;
   input?: unknown;
   moduleId: string;
@@ -163,6 +164,9 @@ export async function enforceInProcessPolicy(
       requiresApproval: call.requiresApproval,
       riskLevel: call.riskLevel,
       transport: "in_process",
+      ...(call.approverCapability
+        ? { approverCapability: call.approverCapability }
+        : {}),
       input: call.input,
     },
     registry,

@@ -44,6 +44,7 @@ const COMPANY: Space = {
   agentApprovalMode: null,
   computerNetworkTier: null,
   computerEgressHosts: [],
+  publishToCompany: null,
   color: null,
   createdAt: "2026-08-21T00:00:00.000Z",
   deletedAt: null,

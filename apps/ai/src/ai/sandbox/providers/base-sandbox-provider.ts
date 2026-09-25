@@ -30,7 +30,7 @@ import type {
 
 export interface BaseSandboxProviderParams {
   client: EngentyCoreFileStorageClient | null;
-  // Extra writable layouts to sync alongside the sandbox (e.g. tenant `/shared`).
+  // Extra writable layouts to sync alongside the sandbox (e.g. the Space's `/space`).
   extraLayouts?: SandboxStorageLayout[];
   input: CreateEngentySandboxProviderInput;
   mountPath?: string;
@@ -53,6 +53,8 @@ export abstract class BaseEngentySandboxProvider
   protected readonly sandbox: MastraSandbox;
   protected readonly tenantId: string;
   protected readonly useRemoteStorageSync: boolean;
+  /** Per staging dir: what `syncIn` pulled, so `syncOut` can tell a deletion. */
+  private readonly pulled = new Map<string, Set<string>>();
 
   constructor(params: BaseSandboxProviderParams) {
     this.client = params.client;
@@ -122,11 +124,14 @@ export abstract class BaseEngentySandboxProvider
       return;
     }
     for (const layout of this.syncableLayouts()) {
-      await pullSandboxWorkspaceFromStorage({
-        client,
-        layout,
-        tenantId: this.tenantId,
-      });
+      this.pulled.set(
+        layout.stagingPath,
+        await pullSandboxWorkspaceFromStorage({
+          client,
+          layout,
+          tenantId: this.tenantId,
+        })
+      );
     }
   }
 
@@ -136,11 +141,18 @@ export abstract class BaseEngentySandboxProvider
       return;
     }
     for (const layout of this.syncableLayouts()) {
-      await pushSandboxWorkspaceToStorage({
-        client,
-        layout,
-        tenantId: this.tenantId,
-      });
+      const pulled = this.pulled.get(layout.stagingPath);
+      // What storage now holds from this dir: the base for the next push, so
+      // a file written after a park and deleted after it still goes.
+      this.pulled.set(
+        layout.stagingPath,
+        await pushSandboxWorkspaceToStorage({
+          client,
+          layout,
+          tenantId: this.tenantId,
+          ...(pulled ? { pulled } : {}),
+        })
+      );
     }
   }
 

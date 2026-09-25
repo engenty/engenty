@@ -52,7 +52,7 @@ export const engentyCopilotAgentConfig: AgentConfig = {
   // skill is activated, which happens mid-turn, and anything unlisted stays on.
   toolGating: { bySkill: ENGENTY_COPILOT_SKILL_TOOL_IDS },
   // Personal-assistant desk: per-user `/home` (rw), `/skills` (ro), `/task`
-  // when bound, tenant-shared `/shared` (rw). The sandbox is the computer of
+  // when bound, `/space` (rw) and the read-only `/company`. The sandbox is the computer of
   // the Space the person stands in (`run` + the run's Space, see
   // `resolveRunSandboxLifecycle`), shared with that Space's agents and
   // engenty.cli; `/home` is file tools only there. The sandbox powers Code Mode

@@ -12,6 +12,7 @@ const dal = vi.hoisted(() => ({
   getSpaceByKey: vi.fn(),
   isAuthUserAdmin: vi.fn(async () => false),
   listAccessibleSpaces: vi.fn(),
+  listCompanyPublishingSpaces: vi.fn(async () => []),
   listMarkedDeletedSpaces: vi.fn(),
   listSpaceMounts: vi.fn(),
   markSpaceDeleted: vi.fn(),
@@ -64,6 +65,7 @@ vi.mock("../../dal/spaces.js", async (importOriginal) => {
     createSpace: dal.createSpace,
     getSpaceById: dal.getSpaceById,
     getSpaceByKey: dal.getSpaceByKey,
+    listCompanyPublishingSpaces: dal.listCompanyPublishingSpaces,
     listMarkedDeletedSpaces: dal.listMarkedDeletedSpaces,
     markSpaceDeleted: dal.markSpaceDeleted,
   };
@@ -90,6 +92,7 @@ function space(partial: Partial<Space> & Pick<Space, "id" | "key">): Space {
     agentApprovalMode: null,
     computerNetworkTier: null,
     computerEgressHosts: [],
+    publishToCompany: null,
     color: null,
     createdAt: "2026-08-21T00:00:00.000Z",
     deletedAt: null,

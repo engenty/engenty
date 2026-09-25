@@ -684,6 +684,8 @@ export function createApiApp(params: CreateApiAppParams) {
   registerBrowserGrantRoutes({ app, config, getTenantDb });
   registerSpacesRoutes({
     app,
+    resolveCapabilities: async (authHeader: string | undefined) =>
+      (await authProvider.resolvePrincipal(authHeader))?.capabilities ?? [],
     // Placing an account in a space raises that account's own ceiling, and that
     // write belongs to the connections module — it owns the table and checks
     // ownership. Invoked through the operation pipeline as the calling
@@ -733,7 +735,14 @@ export function createApiApp(params: CreateApiAppParams) {
   });
   registerPlatformSettingsRoutes({ app, config });
   registerLogInspectorRoutes({ app, config });
-  registerFileStorageRoutes({ app, config, getTenantDb });
+  const resolveCapabilities = async (authHeader: string | undefined) =>
+    (await authProvider.resolvePrincipal(authHeader))?.capabilities ?? [];
+  registerFileStorageRoutes({
+    app,
+    config,
+    getTenantDb,
+    resolveCapabilities,
+  });
   registerQueueRoutes({ app, config, registry: params.registry });
   registerDesktopBootstrapRoutes({ app, config });
 

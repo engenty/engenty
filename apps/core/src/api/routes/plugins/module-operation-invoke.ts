@@ -263,6 +263,9 @@ export async function invokeOperation(
       requiresApproval: op.requiresApproval,
       riskLevel: op.riskLevel,
       transport,
+      ...(op.approverCapability
+        ? { approverCapability: op.approverCapability }
+        : {}),
     },
     registry,
     { approvalService, resolveAgentApproval }
@@ -300,6 +303,14 @@ export async function invokeOperation(
   }
   if (decision.action === "require_approval") {
     // evaluatePolicy already spent any covering grant — this is a real ask.
+    // An operation that names who may approve it carries that onto the
+    // request, where the decision route enforces it.
+    const context = {
+      ...(decision.approvalContext ?? {}),
+      ...(op.approverCapability
+        ? { approver_capability: op.approverCapability }
+        : {}),
+    };
     const gate = await fileApprovalRequest({
       approvalService,
       auditLog,
@@ -308,9 +319,7 @@ export async function invokeOperation(
       onRequested: emitApprovalRequested(registry, auth),
       operationId,
       reason: decision.reason,
-      ...(decision.approvalContext
-        ? { context: decision.approvalContext }
-        : {}),
+      ...(Object.keys(context).length > 0 ? { context } : {}),
     });
     throw new InvokeOperationError(
       "Approval required",

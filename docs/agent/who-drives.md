@@ -57,7 +57,7 @@ whose subject is that Task. Completing the run does not complete the Task.
 - **Space** selects the apps, agents, connections, skills, and module data for a
   run. It is a boundary, not a driver.
 - **Workspace** is run-scoped files and context through the mounts actually
-  resolved for that lane: `/home`; `/space`, plus `/shared` unless Space-confined; `/task` only when the
+  resolved for that lane: `/home`; `/space` (rw) and `/company` (ro); `/task` only when the
   run has a Task subject, with `/project` following that Task's containment
   chain; and read-only `/skills`. It is not a queue or module database.
 - **`/data`** exposes mounted module records. It is not scratch space or a

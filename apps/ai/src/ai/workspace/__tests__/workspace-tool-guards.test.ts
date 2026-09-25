@@ -14,6 +14,7 @@ import {
   workspaceApprovalCard,
   workspaceDeleteApprovalGate,
   workspaceDeleteNeedsApproval,
+  workspacePublishApprovalGate,
   workspaceToolGrantId,
 } from "../workspace-tool-guards.js";
 
@@ -27,7 +28,7 @@ describe("what needs a human first", () => {
 
   it("asks on every shared, containment and data mount", () => {
     for (const path of [
-      "/shared/reports/q3.md",
+      "/company/files/reports/q3.md",
       "/space/handbook.md",
       "/project/brief.md",
       "/data/Files/vertrag.pdf",
@@ -157,5 +158,42 @@ describe("running a command in the sandbox", () => {
     expect(
       workspaceToolGrantId(TOOL, { command: "rm -rf *", cwd: "/shared" })
     ).toBe(`workspace:${TOOL}:cd /shared && rm -rf *`);
+  });
+});
+
+describe("writing into /space/public", () => {
+  const gate = workspacePublishApprovalGate("mastra_workspace_write_file");
+
+  it("asks for every spelling of the public folder", () => {
+    // A macOS host folds case, and `..`/`.` resolve before the write lands —
+    // each of these writes the same folder the company reads.
+    for (const path of [
+      "/space/public/price-list.csv",
+      "/space/Public/price-list.csv",
+      "/space/./public/x.md",
+      "/space/tmp/../public/x.md",
+      "space/public/x.md",
+    ]) {
+      expect(gate({ args: { path } })).toBe(true);
+    }
+  });
+
+  it("leaves every other write ungated", () => {
+    for (const path of [
+      "/space/notes.md",
+      "/space/publicity/plan.md",
+      "/home/draft.md",
+      "/sandbox/out.csv",
+    ]) {
+      expect(gate({ args: { path } })).toBe(false);
+    }
+  });
+
+  it("titles the card as publishing", () => {
+    expect(
+      describeWorkspaceToolCall("mastra_workspace_write_file", {
+        path: "/space/public/price-list.csv",
+      }).title
+    ).toBe("Publish to the company");
   });
 });

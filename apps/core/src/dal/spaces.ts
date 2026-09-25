@@ -55,6 +55,11 @@ export interface Space {
    * that happens to have an owner.
    */
   ownerUserId: string | null;
+  /**
+   * Whether the space's `public/` folder is shown to the rest of the company.
+   * `null` follows {@link visibility} — see {@link spacePublishesToCompany}.
+   */
+  publishToCompany: boolean | null;
   /** Instant the background sweep may hard-delete this marked space. */
   purgeAfter: string | null;
   tenantId: string;
@@ -97,6 +102,8 @@ export interface UpdateSpaceInput {
    */
   key?: string;
   name?: string;
+  /** `null` returns the space to the default for its visibility. */
+  publishToCompany?: boolean | null;
   /**
    * Making a space private hides it from everyone without a member row — it does
    * not delete anything, and flipping back to `open` restores it. A personal
@@ -112,7 +119,7 @@ export interface GetSpaceOptions {
 }
 
 const SPACE_COLUMN_LIST =
-  "id, tenant_id, key, name, description, icon, color, is_default, visibility, owner_user_id, agent_approval_mode, computer_network_tier, computer_egress_hosts, created_at, deleted_at, purge_after";
+  "id, tenant_id, key, name, description, icon, color, is_default, visibility, owner_user_id, agent_approval_mode, computer_network_tier, computer_egress_hosts, publish_to_company, created_at, deleted_at, purge_after";
 
 /**
  * A space's egress hosts as stored: each one parsed, duplicates dropped,
@@ -162,6 +169,7 @@ export interface SpaceRow {
   key: string;
   name: string;
   owner_user_id: string | null;
+  publish_to_company?: boolean | null;
   purge_after?: string | null;
   tenant_id: string;
   visibility: string;
@@ -182,6 +190,7 @@ export function mapSpace(row: SpaceRow): Space {
     key: row.key,
     name: row.name,
     ownerUserId: row.owner_user_id,
+    publishToCompany: row.publish_to_company ?? null,
     purgeAfter: row.purge_after ? String(row.purge_after) : null,
     tenantId: row.tenant_id,
     visibility: row.visibility === "private" ? "private" : "open",
@@ -189,6 +198,20 @@ export function mapSpace(row: SpaceRow): Space {
 }
 
 export const SPACE_COLUMNS = SPACE_COLUMN_LIST;
+
+/**
+ * Whether the rest of the company sees this space's `public/` folder. An open
+ * team space does unless its owner turned it off; a private or personal space
+ * does only once someone turned it on — being private is a reason to ask.
+ */
+export function spacePublishesToCompany(
+  space: Pick<Space, "ownerUserId" | "publishToCompany" | "visibility">
+): boolean {
+  if (space.publishToCompany !== null) {
+    return space.publishToCompany;
+  }
+  return space.visibility === "open" && space.ownerUserId === null;
+}
 
 function spacesTable(client: SupabaseClient) {
   return client.schema("core").from("spaces");
@@ -228,6 +251,35 @@ export async function listAllSpacesUnscoped(
     throw result.error;
   }
   return ((result.data ?? []) as SpaceRow[]).map(mapSpace);
+}
+
+/** A space as the rest of the company sees it through its `public/` folder. */
+export interface CompanyPublishingSpace {
+  color: string | null;
+  icon: string | null;
+  id: string;
+  key: string;
+  name: string;
+}
+
+/**
+ * Every space whose `public/` folder the company may read — the list behind
+ * `/company/spaces/<key>/`. Reads the unfiltered list on purpose: a private
+ * space that chose to publish is visible to people who cannot enter it, which
+ * is what publishing means. Only the fields the folder needs leave here.
+ */
+export async function listCompanyPublishingSpaces(
+  client: SupabaseClient,
+  tenantId: string
+): Promise<CompanyPublishingSpace[]> {
+  const spaces = await listAllSpacesUnscoped(client, tenantId);
+  return spaces.filter(spacePublishesToCompany).map((space) => ({
+    color: space.color,
+    icon: space.icon,
+    id: space.id,
+    key: space.key,
+    name: space.name,
+  }));
 }
 
 /** Spaces in the tenant that are marked for deletion and still waiting to purge. */
@@ -416,6 +468,9 @@ export async function updateSpace(
     patch.computer_egress_hosts = normalizeComputerEgressHosts(
       input.computerEgressHosts
     );
+  }
+  if (input.publishToCompany !== undefined) {
+    patch.publish_to_company = input.publishToCompany;
   }
   if (Object.keys(patch).length === 0) {
     const current = await getSpaceById(client, tenantId, spaceId);

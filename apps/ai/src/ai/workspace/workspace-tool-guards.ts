@@ -2,7 +2,7 @@
  * Guards for the destructive workspace tools (PLAN-space-data-agent-crud P1.6/P1.6b).
  *
  * Mastra 1.59 ships `mastra_workspace_delete` **ungated**, and it takes
- * `recursive: boolean` — so an agent can wipe a whole prefix of `/shared` in one
+ * `recursive: boolean` — so an agent can wipe a whole prefix of `/space` in one
  * call, and until now nothing asked. `EXECUTE_COMMAND` already had the answer
  * (`loader.ts`): the per-tool `WorkspaceToolsConfig` carries
  * `{enabled, requireApproval}`, and `requireApproval` accepts a DYNAMIC value
@@ -32,10 +32,17 @@
  * recursive, anything on a shared or space mount, anything in `/data` — asks.
  */
 
+import { posix } from "node:path";
+
 import { WORKSPACE_TOOLS } from "@mastra/core/workspace";
 import type { ToolApprovalSuspendPayload } from "../../../ai/tools/engenty-tools/lib/execute-approval.js";
 import { getEngentyToolsRunContext } from "../../../ai/tools/engenty-tools/lib/run-context.js";
-import { DATA_MOUNT_PATH, SPACE_MOUNT_PATH } from "./workspace-presets.js";
+import {
+  COMPANY_MOUNT_PATH,
+  DATA_MOUNT_PATH,
+  SPACE_MOUNT_PATH,
+  SPACE_PUBLIC_MOUNT_PATH,
+} from "./workspace-presets.js";
 
 /**
  * Mounts an agent may treat as its own desk.
@@ -52,12 +59,13 @@ const OWN_SCRATCH_MOUNTS = ["/home", "/task", "/sandbox"] as const;
 /**
  * Mounts where a delete reaches other people's work.
  *
- * `/shared` is the tenant commons, `/space` the space's, `/project` the
+ * `/company` is the company's (read-only, so a delete there fails anyway),
+ * `/space` the space's, `/project` the
  * containment chain — every one of them is read by principals other than
  * this run. `/data` is worse than shared: a delete there is a module's records.
  */
 const SHARED_MOUNTS = [
-  "/shared",
+  COMPANY_MOUNT_PATH,
   SPACE_MOUNT_PATH,
   "/project",
   DATA_MOUNT_PATH,
@@ -66,6 +74,16 @@ const SHARED_MOUNTS = [
 function pathOf(args: Record<string, unknown>): string {
   const value = args.path ?? args.file_path ?? args.target;
   return typeof value === "string" ? value : "";
+}
+
+/**
+ * The path as the filesystem will resolve it: rooted, `.`/`..` folded, and
+ * lower-cased for comparison — a macOS host's staging dir is case-insensitive,
+ * so `/space/Public` IS `/space/public` there.
+ */
+function comparablePath(raw: string): string {
+  const rooted = raw.startsWith("/") ? raw : `/${raw}`;
+  return posix.normalize(rooted).toLowerCase();
 }
 
 function isUnder(path: string, mount: string): boolean {
@@ -84,7 +102,7 @@ function commandOf(args: Record<string, unknown>): string {
     return "";
   }
   // The working directory is part of what runs: `rm -rf *` in `/task` and in
-  // `/shared` are different requests, so it is part of what is approved.
+  // `/space` are different requests, so it is part of what is approved.
   return cwd ? `cd ${cwd} && ${command}` : command;
 }
 
@@ -92,7 +110,7 @@ function commandOf(args: Record<string, unknown>): string {
  * A grant id that names WHAT was approved, not merely which tool.
  *
  * Path-scoped on purpose: approving one recursive delete of
- * `/shared/old-imports` must not grant every future recursive delete the agent
+ * `/space/old-imports` must not grant every future recursive delete the agent
  * thinks of. A grant is permission for a change, not for a capability.
  *
  * Commands the same way: approving `python3 /task/check_mail.py` allows that
@@ -138,7 +156,7 @@ export function workspaceDeleteNeedsApproval(
  * tool's.
  *
  * An approval card reading `mastra_workspace_delete` tells a person nothing
- * they can decide on. "Delete /shared/imports and everything in it" is the
+ * they can decide on. "Delete /space/imports and everything in it" is the
  * same fact stated so the answer is obvious — and the cascade is named
  * explicitly, because that is the part someone approving in a hurry would
  * otherwise not see. A command is shown as the command itself.
@@ -156,6 +174,9 @@ export function describeWorkspaceToolCall(
     path && isRecursiveDelete(record)
       ? `${path} and everything inside it`
       : path;
+  if (toolName !== DELETE_TOOL && isSpacePublicPath(path)) {
+    return { target: path, title: "Publish to the company" };
+  }
   return { target, title: toolName === DELETE_TOOL ? "Delete" : toolName };
 }
 
@@ -227,6 +248,33 @@ export function workspaceApprovalSuspendPayload(gate: {
 export function workspaceDeleteApprovalGate(toolName: string) {
   return ({ args }: { args: Record<string, unknown> }): boolean => {
     if (!workspaceDeleteNeedsApproval(args)) {
+      return false;
+    }
+    return !isGranted(toolName, args);
+  };
+}
+
+/**
+ * Whether a path is in this Space's `public/` folder — the one the rest of the
+ * company reads as `/company/spaces/<key>/`.
+ */
+export function isSpacePublicPath(path: string): boolean {
+  return path ? isUnder(comparablePath(path), SPACE_PUBLIC_MOUNT_PATH) : false;
+}
+
+/**
+ * The dynamic `requireApproval` for a file write (write, edit, mkdir) — it
+ * asks only inside `/space/public`.
+ *
+ * Writing there publishes to every Space in the company, and from a private
+ * Space that is the one way its files get out. The shell sees the folder
+ * read-only (a `:ro` bind), so a file tool is the only writer, and this is
+ * where it stops for a person. Everywhere else a write stays ungated, as
+ * before. The approval is path-scoped like every workspace grant.
+ */
+export function workspacePublishApprovalGate(toolName: string) {
+  return ({ args }: { args: Record<string, unknown> }): boolean => {
+    if (!isSpacePublicPath(pathOf(args))) {
       return false;
     }
     return !isGranted(toolName, args);

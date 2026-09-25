@@ -8,6 +8,10 @@ import type {
 } from "@engenty/plugin-sdk";
 import type { PluginRegistry } from "../plugins/registry.js";
 import { buildEngentyApiCatalogMethod } from "./methods/api-catalog/catalog-method.js";
+import {
+  buildCompanyFilesPublishMethod,
+  buildCompanyFilesRemoveMethod,
+} from "./methods/company-files/company-files-methods.js";
 import { buildCoreAgentsEnsureMethod } from "./methods/core-agents/ensure-method.js";
 import {
   buildChatThreadIndexHealthMethod,
@@ -57,7 +61,12 @@ function registerCoreMethodIfAbsent(
     idempotent: op.idempotent ?? false,
     dryRunSupported: op.dryRunSupported ?? false,
     requiresApproval: op.requiresApproval ?? false,
-  } as const;
+    ...(op.approverCapability?.trim()
+      ? { approverCapability: op.approverCapability.trim() }
+      : {}),
+    ...(op.audit ? { audit: op.audit } : {}),
+    ...(op.spacePolicy ? { spacePolicy: op.spacePolicy } : {}),
+  };
   registry.moduleOperations.push({
     pluginId: "core",
     operationId,
@@ -104,4 +113,6 @@ export function registerCoreMethods(
   );
   registerCoreMethodIfAbsent(registry, buildChatThreadIndexHealthMethod());
   registerCoreMethodIfAbsent(registry, buildChatThreadSearchMethod());
+  registerCoreMethodIfAbsent(registry, buildCompanyFilesPublishMethod(config));
+  registerCoreMethodIfAbsent(registry, buildCompanyFilesRemoveMethod(config));
 }

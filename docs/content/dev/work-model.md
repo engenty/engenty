@@ -30,7 +30,7 @@ standup".
 | **Run** | One firing of a routine (or a chat turn). Inspectable, with a timeline of tool calls and a result. |
 | **Task** | A work item: title, status, assignee, comments, dependencies. Something someone is meant to do. |
 | **Space** | The mount set — which apps, agents, connections, skills and module operations a run may reach. |
-| **Workspace** | Run-scoped file mounts: `/home`, `/space`, `/shared` (unless Space-confined), `/skills`, and `/task` / `/project` when the run has a Task. Per preset in `apps/ai/src/ai/workspace/workspace-presets.ts`; which of them a command can reach: [agent-computers.md](./agent-computers.md). Not the module database. |
+| **Workspace** | Run-scoped file mounts: `/home`, `/space` (with its `public/` folder), `/company` (read-only), `/skills`, and `/task` / `/project` when the run has a Task. Per preset in `apps/ai/src/ai/workspace/workspace-presets.ts`; which of them a command can reach: [agent-computers.md](./agent-computers.md). Not the module database. |
 | **`/data`** | A projection of *mounted* modules; reads and writes go through those modules' real operations. |
 | **Memory** | Disposable working and observational context. Never the business record. |
 

@@ -255,6 +255,7 @@ describe("canAccessSpace", () => {
     agentApprovalMode: null,
     computerNetworkTier: null,
     computerEgressHosts: [],
+    publishToCompany: null,
     color: null,
     createdAt: source.created_at,
     deletedAt: source.deleted_at,

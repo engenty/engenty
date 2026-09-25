@@ -2,6 +2,16 @@
   "comment": "Files that build a TENANT-rooted storage key (`tenants/<t>/\u2026`), classified. PLAN-spaces.md \u00a71b nests exactly one boundary, so a key written above it is either deliberate (`tenant-level`: the bytes belong to the tenant, above every space) or a recorded finding (`debt`: the owner has space-scoped rows and its bytes have not followed yet). The guard is scripts/check-space-storage-scope.mjs. It reads each owner's migrations for `space_id`, so a `tenant-level` entry whose module later gains a space column becomes an error \u2014 that is the mechanism, not the list.",
   "allow": [
     {
+      "file": "apps/ui/src/lib/api/company-files-client.ts",
+      "kind": "tenant-level",
+      "reason": "The company view: the company drive is the tenant-level commons (`ai/workspace/commons/`, above every space by definition); a Space's public folder is passed in already space-rooted (`spaces/<id>/ai/workspace/commons/public/`), so the tenant root here is only the bucket prefix both hang off."
+    },
+    {
+      "file": "apps/ui/src/pages/CompanyFilesPage.tsx",
+      "kind": "tenant-level",
+      "reason": "The company view: the company drive is the tenant-level commons (`ai/workspace/commons/`, above every space by definition); a Space's public folder is passed in already space-rooted (`spaces/<id>/ai/workspace/commons/public/`), so the tenant root here is only the bucket prefix both hang off."
+    },
+    {
       "file": "apps/core/src/api/routes/file-storage-tenant-buckets.ts",
       "kind": "tenant-level",
       "despiteSpaceScopedOwner": true,

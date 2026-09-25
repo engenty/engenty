@@ -133,6 +133,26 @@ export function registerApprovalRoutes(params: {
           "Only the owners of the connection's space (or a tenant admin) can decide this request.",
       });
     }
+    // An operation may name the capability its approver needs (publishing to
+    // the company drive: `core.company_files.manage`). Seeing the request in
+    // the queue is not holding it.
+    const approverCapability =
+      typeof existing.context?.approver_capability === "string"
+        ? existing.context.approver_capability
+        : null;
+    if (
+      approverCapability &&
+      !capabilityCovers(
+        [...(authResult.auth.capabilities ?? [])],
+        approverCapability
+      )
+    ) {
+      return jsonApiError(c, 403, {
+        code: "approvals.approverCapabilityMissing",
+        details: { capability: approverCapability },
+        message: `Deciding this request needs the ${approverCapability} permission.`,
+      });
+    }
     const decided = await params.approvalService.decide({
       requestId: c.req.param("id"),
       tenantId: authResult.auth.tenantId,

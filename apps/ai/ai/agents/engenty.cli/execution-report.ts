@@ -10,11 +10,11 @@ export const cliExecutionReportSchema = z.object({
   // Human-readable explanation of what was done and key results.
   // The parent copilot relays this directly to the user.
   summary: z.string(),
-  // Files promoted to /shared/cli-runs/{runId}/ (or other tenant storage paths).
+  // Files promoted to /space/cli-runs/{runId}/ (or other tenant storage paths).
   artifacts: z
     .array(
       z.object({
-        key: z.string(), // tenant file-storage relative path under /shared
+        key: z.string(), // tenant file-storage relative path (spaces/<id>/…)
         name: z.string(),
         mime_type: z.string().optional(),
       })

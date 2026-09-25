@@ -95,6 +95,12 @@ export interface EngentySpaceSurface {
    */
   browserGrant?: { autostart?: boolean; unattended: boolean } | null;
   capabilities: string[];
+  /**
+   * Every space in the tenant whose `public/` folder the company reads — a
+   * run sees each as `/company/spaces/<key>/`. Absent from a core that
+   * predates the company view.
+   */
+  companySpaces?: { id: string; key: string }[];
   /** The Space computer's own egress hosts, beyond the proxy's shared list. */
   computerEgressHosts?: string[];
   /**

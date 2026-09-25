@@ -47,7 +47,7 @@ export async function createEngentySandboxProvider(params: {
   client: EngentyCoreFileStorageClient | null;
   // Container env the caller owns (package-cache redirects for its binds).
   env?: Record<string, string>;
-  // Extra writable layouts (e.g. tenant `/shared`) the loader stages locally.
+  // Extra layouts (e.g. the Space's `/space`) the loader stages locally.
   // Docker binds them into the container; all providers sync them.
   extraMounts?: SandboxExtraMount[];
   fileStorageAccess?: { coreBaseUrl: string; accessToken: string } | null;

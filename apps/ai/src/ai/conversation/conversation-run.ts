@@ -212,7 +212,7 @@ export interface StartConversationRunInput {
   // no run row to discover, no event log to replay.
   runStore?: AgentRunStore | null;
   // The run's sandbox providers — torn down when the run ends so the sandbox
-  // syncOut persists the staged /shared + /home dirs to file storage. Without
+  // syncOut persists the staged /space + /home dirs to file storage. Without
   // this the CLI sub-agent's writes never reach durable storage.
   sandboxProvider?: EngentySandboxProvider;
   scope: AiSessionScope;
@@ -991,13 +991,13 @@ export async function startConversationRun(
     abort.cleanup();
     markRunDone(input.runId);
     // Tear down the run's root sandbox — destroy() runs syncOut, persisting staged
-    // /shared + /home to file storage. Delegated child runs own + tear down their
+    // /space + /home to file storage. Delegated child runs own + tear down their
     // own sandboxes (runDelegatedConversation), so this only covers the root.
     //
     // A SUSPENDED run is torn down here too. Nothing reattaches to a live
     // Workspace: a resume rebuilds it and reconnects to the same container by its
     // `engenty-session-<threadId>` label, so keeping the instance alive would
-    // leak a container and skip the syncOut that persists staged /shared + /home.
+    // leak a container and skip the syncOut that persists staged /space + /home.
     // Do not "optimize" this by holding it open — Mastra latches
     // `status = "destroyed"` permanently, so a reattached-then-destroyed
     // Workspace throws SandboxNotReadyError with no container ever created.

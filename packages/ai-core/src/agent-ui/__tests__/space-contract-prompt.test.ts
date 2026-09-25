@@ -77,9 +77,10 @@ describe("SPACE_CONTRACT_PROMPT", () => {
     expect(SPACE_CONTRACT_PROMPT).toContain(
       "use only the named mounts exposed in this run"
     );
-    expect(SPACE_CONTRACT_PROMPT).toContain(
-      "exactly one of `/shared` (tenant context) or `/space`"
-    );
+    // The company view is read-only; the one writable door out of a Space
+    // is its public folder, and writing there asks first.
+    expect(SPACE_CONTRACT_PROMPT).toContain("`/company` is read-only");
+    expect(SPACE_CONTRACT_PROMPT).not.toContain("`/shared`");
     expect(SPACE_CONTRACT_PROMPT).toContain(
       "`/task` and `/project` exist only when those bindings resolve"
     );

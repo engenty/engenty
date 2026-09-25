@@ -1409,7 +1409,9 @@
         "defaultHint": "Der Company-Space ist die Eingangstür des Mandanten und kann nicht gelöscht werden.",
         "defaultBody": "Lege einen weiteren Space an, wenn du einen eigenen Arbeitsbereich brauchst. Der Company-Space bleibt."
       },
-      "descriptionPlaceholder": "Wofür ist dieser Space?"
+      "descriptionPlaceholder": "Wofür ist dieser Space?",
+      "publishTitle": "Öffentlichen Ordner mit der Firma teilen",
+      "publishHint": "Dateien in /space/public kann jeder Bereich als /company/spaces/{{key}} lesen. Agenten fragen, bevor sie dort schreiben."
     },
     "data": {
       "derived": "Abgeleitet",
@@ -1810,5 +1812,20 @@
       "moreFrom": "+{{count}} weitere von {{name}}",
       "less": "Weniger anzeigen"
     }
+  },
+  "company": {
+    "title": "Firmendateien",
+    "description": "Was jeder Bereich lesen kann. Agenten sehen diese Ordner schreibgeschützt unter /company; das Firmenlaufwerk schreiben Personen mit Veröffentlichungsrecht, den Ordner eines Bereichs dessen eigene Leute.",
+    "driveTitle": "Firmenlaufwerk",
+    "spacesTitle": "Von Bereichen geteilt",
+    "noSpaces": "Noch kein Bereich teilt einen öffentlichen Ordner.",
+    "empty": "Noch keine Dateien.",
+    "upload": "Hochladen",
+    "download": "Herunterladen",
+    "delete": "Löschen",
+    "uploadFailed": "Hochladen fehlgeschlagen.",
+    "deleteFailed": "Löschen fehlgeschlagen.",
+    "downloadFailed": "Datei konnte nicht geöffnet werden.",
+    "openLink": "Firmendateien öffnen"
   }
 }

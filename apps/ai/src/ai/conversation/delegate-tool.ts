@@ -75,7 +75,7 @@ export interface DelegationToolDeps {
    */
   parentRunId?: string | null;
   // The PARENT run's thread — the child's workspace + sandbox key off this (so the
-  // child shares the tenant `/shared` and reuses the session-lifecycle sandbox
+  // child shares the Space's `/space` and reuses the session-lifecycle sandbox
   // across delegations, exactly like the prior Agent-level sub-agent). The child's
   // own transcript runs on a separate child thread (for per-delegation drill-in).
   parentThreadId: string;
@@ -292,7 +292,7 @@ export async function runDelegatedSpecialist(
     // enforced via ALS even if this stamp fails.
   });
   // Workspace/sandbox key off the PARENT thread so the child shares the
-  // tenant `/shared` (its outputs land where the parent sees them) and reuses
+  // Space's `/space` (its outputs land where the parent sees them) and reuses
   // the session-lifecycle sandbox — the child thread is only its transcript.
   const result = await startDelegatedRun(deps, {
     ...input,

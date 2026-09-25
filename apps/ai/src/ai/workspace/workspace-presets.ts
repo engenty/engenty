@@ -3,15 +3,18 @@
 //
 // Two archetype presets:
 //   assistant — per-user personal desk (engenty.copilot): `/home` user-scoped
-//               (rw), `/shared` tenant-shared (rw), `/skills` (ro), `/task`
+//               (rw), `/space` (rw), `/company` (ro), `/skills` (ro), `/task`
 //               when bound.
-//   code_execution — sandbox-first: `/shared` tenant-shared (rw), `/skills`
+//   code_execution — sandbox-first: `/space` (rw), `/company` (ro), `/skills`
 //                    (ro), `/sandbox` (rw), optional `/task` when bound.
 //
-// `/shared` (source `commons`) is writable tenant-shared working context. It is
-// not a deliverable store or module database. There
-// is no read-only `/` tenant asset mount; the seeded AGENTS.md/SOUL.md reach the
-// agent via prompt injection (the instruction registry), not a filesystem mount.
+// `/company` is the company as every Space sees it, read-only: `files/` is the
+// company drive (the tenant-level commons, which was the writable `/shared`)
+// and `spaces/<key>/` each publishing Space's `public/` folder. Nothing in a
+// run writes it; the drive is published to through `company_files_publish`
+// and a Space's folder through `/space/public`. There is no read-only `/`
+// tenant asset mount; the seeded AGENTS.md/SOUL.md reach the agent via prompt
+// injection (the instruction registry), not a filesystem mount.
 //
 // `scope` resolves to a CONTAINER-relative file-storage prefix (no
 // `tenants/<tid>/` and no `spaces/<sid>/` — the FileStorageFilesystem adds the
@@ -25,6 +28,8 @@ import type {
 } from "@engenty/ai-core";
 import {
   COMMONS_STORAGE_PREFIX,
+  SPACE_PUBLIC_FOLDER,
+  SPACE_PUBLIC_STORAGE_PREFIX,
   workWorkspaceRelativePrefix,
 } from "@engenty/file-storage";
 
@@ -43,6 +48,12 @@ export const HOME_MOUNT_PATH = "/home";
 
 export interface WorkspaceScopeContext {
   agentId: string;
+  /**
+   * The spaces whose `public/` folder the company reads, from the run's space
+   * surface. Each becomes `/company/spaces/<key>/`, read-only. Absent (no
+   * space resolved) leaves `/company/files` alone.
+   */
+  companySpaces?: readonly { id: string; key: string }[];
   /** Containment chain around the bound task (resolveWorkVisibility). */
   projectId?: string;
   /**
@@ -53,18 +64,6 @@ export interface WorkspaceScopeContext {
   routineId?: string;
   runId?: string;
   sandboxLifecycle?: "run" | "session" | "task" | "space";
-  /**
-   * Whether this agent is ACTIVATED IN the space rather than merely running
-   * inside one. That is the narrowing switch: a confined agent gets `/space`
-   * and loses `/shared`, so it cannot reach the tenant commons at all.
-   *
-   * Deliberately separate from {@link spaceId}: every run resolves a space
-   * (the tenant default at minimum), and treating that as confinement would
-   * strand the tenant commons for every agent overnight. The flag is set from
-   * the space's agent mount (PLAN-spaces.md Phase 3); until those exist it is
-   * off and behaviour is unchanged.
-   */
-  spaceConfined?: boolean;
   /**
    * The space this run happens in, from `resolveWorkVisibility`. Roots the work
    * containers and the space commons. Present for nearly every run once a
@@ -81,12 +80,36 @@ export interface WorkspaceScopeContext {
 export const SPACE_MOUNT_PATH = "/space";
 
 /**
+ * The part of `/space` the rest of the company reads. Not a mount of its own —
+ * Mastra refuses nested mounts — but a folder inside `/space` that the
+ * sandbox binds read-only and file tools write only with approval.
+ */
+export const SPACE_PUBLIC_MOUNT_PATH = `${SPACE_MOUNT_PATH}/${SPACE_PUBLIC_FOLDER}`;
+
+/** The company, as every Space sees it. Read-only in every run. */
+export const COMPANY_MOUNT_PATH = "/company";
+/** The company drive: the tenant-level commons (was `/shared`). */
+export const COMPANY_FILES_MOUNT_PATH = `${COMPANY_MOUNT_PATH}/files`;
+/** Parent of each publishing Space's `public/` folder, by Space key. */
+export const COMPANY_SPACES_MOUNT_PATH = `${COMPANY_MOUNT_PATH}/spaces`;
+
+const COMPANY_FILES_MOUNT: AgentWorkspaceMount = {
+  access: "ro",
+  path: COMPANY_FILES_MOUNT_PATH,
+  scope: "tenant",
+  source: "commons",
+};
+
+// A Space key as it may appear in a path: the URL slug rule. A key outside it
+// is left out of `/company/spaces` rather than escaped into something odd.
+const SPACE_KEY_PATH_SEGMENT = /^[a-z0-9][a-z0-9-]{0,62}$/;
+
+/**
  * The space's own commons, alongside the tenant's.
  *
- * Additive rather than a rename of `/shared`: the two are different folders
- * with different audiences, and an agent that remembers "I saved it to
- * /shared" must not mean different bytes depending on how it was activated.
- * Drops itself when the run has no space (`resolveScopeRelativePath`).
+ * Its `public/` folder is what the rest of the company reads as
+ * `/company/spaces/<key>/`. Drops itself when the run has no space
+ * (`resolveScopeRelativePath`).
  */
 const SPACE_COMMONS_MOUNT: AgentWorkspaceMount = {
   access: "rw",
@@ -146,7 +169,7 @@ const CONTAINMENT_MOUNTS: AgentWorkspaceMount[] = [
 // Preset mount tables. Order matters for skill discovery readability only.
 const ASSISTANT_MOUNTS: AgentWorkspaceMount[] = [
   { access: "rw", path: HOME_MOUNT_PATH, scope: "user", source: "home" },
-  { access: "rw", path: "/shared", scope: "tenant", source: "commons" },
+  COMPANY_FILES_MOUNT,
   SPACE_COMMONS_MOUNT,
   { access: "ro", path: "/skills", scope: "tenant", source: "skills" },
   {
@@ -163,7 +186,7 @@ const ASSISTANT_MOUNTS: AgentWorkspaceMount[] = [
 const STAFF_MOUNTS: AgentWorkspaceMount[] = [
   // Staff agents are company resources: `/home` is agent-scoped scratch.
   { access: "rw", path: HOME_MOUNT_PATH, scope: "agent", source: "home" },
-  { access: "rw", path: "/shared", scope: "tenant", source: "commons" },
+  COMPANY_FILES_MOUNT,
   SPACE_COMMONS_MOUNT,
   { access: "ro", path: "/skills", scope: "tenant", source: "skills" },
   {
@@ -178,7 +201,7 @@ const STAFF_MOUNTS: AgentWorkspaceMount[] = [
 ];
 
 const CODE_EXECUTION_MOUNTS: AgentWorkspaceMount[] = [
-  { access: "rw", path: "/shared", scope: "tenant", source: "commons" },
+  COMPANY_FILES_MOUNT,
   SPACE_COMMONS_MOUNT,
   { access: "ro", path: "/skills", scope: "tenant", source: "skills" },
   { access: "rw", path: "/sandbox", scope: "sandbox", source: "sandbox" },
@@ -372,26 +395,6 @@ export function resolveMountSpaceId(
   }
 }
 
-/**
- * Confinement REMOVES the tenant `/shared`; it does not rename it.
- *
- * Every preset already carries `/space`, so a confined agent keeps the space
- * commons it was going to get and simply loses the tenant one. Nothing is
- * re-rooted: a path means the same bytes for every agent, however it was
- * activated, which is what makes a transcript readable.
- */
-function applySpaceConfinement(
-  mounts: AgentWorkspaceMount[],
-  ctx: WorkspaceScopeContext
-): AgentWorkspaceMount[] {
-  if (!(ctx.spaceConfined && ctx.spaceId?.trim())) {
-    return mounts;
-  }
-  return mounts.filter(
-    (mount) => !(mount.source === "commons" && mount.scope === "tenant")
-  );
-}
-
 /** Why a declared mount is not in this run's workspace. */
 export type DroppedWorkspaceMountReason =
   /** The mount is rooted in the Space and the run has none (unresolved, or global). */
@@ -402,8 +405,6 @@ export type DroppedWorkspaceMountReason =
   | "no_project"
   /** `/routine` outside a routine fire. */
   | "no_routine"
-  /** The tenant `/shared` a Space-confined run deliberately loses. */
-  | "space_confined"
   /** A scope the resolver does not know. */
   | "unsupported";
 
@@ -447,13 +448,7 @@ export function resolveEngentyMountSpecs(
 ): { dropped: DroppedWorkspaceMount[]; specs: EngentyWorkspaceMountSpec[] } {
   const specs: EngentyWorkspaceMountSpec[] = [];
   const dropped: DroppedWorkspaceMount[] = [];
-  const confined = applySpaceConfinement(mounts, ctx);
   for (const mount of mounts) {
-    if (!confined.includes(mount)) {
-      dropped.push({ path: mount.path, reason: "space_confined" });
-    }
-  }
-  for (const mount of confined) {
     const fileStorageRelativePath = resolveScopeRelativePath(mount, ctx);
     if (!fileStorageRelativePath) {
       dropped.push({ path: mount.path, reason: droppedMountReason(mount) });
@@ -468,7 +463,47 @@ export function resolveEngentyMountSpecs(
       ...(spaceId ? { spaceId } : {}),
     });
   }
+  if (specs.some((spec) => spec.mountPath === COMPANY_FILES_MOUNT_PATH)) {
+    specs.push(...companySpaceMountSpecs(ctx.companySpaces ?? []));
+  }
   return { dropped, specs };
+}
+
+/**
+ * `/company/spaces/<key>/` for every publishing Space: that Space's `public/`
+ * folder, read-only. They come with `/company/files` — an agent that has the
+ * company view has all of it.
+ */
+export function companySpaceMountSpecs(
+  spaces: readonly { id: string; key: string }[]
+): EngentyWorkspaceMountSpec[] {
+  const seen = new Set<string>();
+  const specs: EngentyWorkspaceMountSpec[] = [];
+  for (const space of spaces) {
+    const key = space.key.trim().toLowerCase();
+    if (
+      !(SPACE_KEY_PATH_SEGMENT.test(key) && space.id.trim()) ||
+      seen.has(key)
+    ) {
+      continue;
+    }
+    seen.add(key);
+    specs.push({
+      fileStorageRelativePath: SPACE_PUBLIC_STORAGE_PREFIX,
+      mountPath: `${COMPANY_SPACES_MOUNT_PATH}/${key}`,
+      readOnly: true,
+      spaceId: space.id.trim(),
+    });
+  }
+  return specs;
+}
+
+/** Whether a mount is part of the read-only `/company` view. */
+export function isCompanyMountPath(mountPath: string): boolean {
+  return (
+    mountPath === COMPANY_MOUNT_PATH ||
+    mountPath.startsWith(`${COMPANY_MOUNT_PATH}/`)
+  );
 }
 
 // The specs alone — for callers that have no one to tell about drops.
