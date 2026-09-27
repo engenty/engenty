@@ -38,6 +38,7 @@ import { SpaceHomeHireEmptyCard } from "@/components/space-home/SpaceHomeHireEmp
 import { SpaceHomeModules } from "@/components/space-home/SpaceHomeModules";
 import { SpaceHomeQuietLine } from "@/components/space-home/SpaceHomeQuietLine";
 import { SpaceHomeSectionHeading } from "@/components/space-home/SpaceHomeSectionHeading";
+import { SpaceHomeSkills } from "@/components/space-home/SpaceHomeSkills";
 import { SpaceHomeTopbarActions } from "@/components/space-home/SpaceHomeTopbarActions";
 import { SpaceHomeWorkflows } from "@/components/space-home/SpaceHomeWorkflows";
 import type { SpaceHomeCard as SpaceHomeCardModel } from "@/lib/space-home-cards";
@@ -290,6 +291,7 @@ export function SpaceWorkHome() {
               <SpaceHomeFiles spaceId={space.id} spaceKey={space.key} />
               <SpaceHomeModules spaceId={space.id} spaceKey={space.key} />
               <SpaceHomeExtensions spaceId={space.id} spaceKey={space.key} />
+              <SpaceHomeSkills space={space} />
             </aside>
           </div>
         </div>

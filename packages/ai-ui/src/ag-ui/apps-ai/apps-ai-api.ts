@@ -143,11 +143,20 @@ export interface ChatCommandCatalogEntry {
 export async function getAppsAiChatCommands(
   serviceBaseUrl: string,
   agentId?: string | null,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  /** The Space the agent answers in — narrows commands to the tools it holds there. */
+  spaceId?: string | null
 ): Promise<ChatCommandCatalogEntry[]> {
   let url = `${normalizeAppsAiServiceBaseUrl(serviceBaseUrl)}${APPS_AI_BASE_PATH}/v1/chat-commands`;
+  const params = new URLSearchParams();
   if (agentId) {
-    url = `${url}?${new URLSearchParams({ agent_id: agentId }).toString()}`;
+    params.set("agent_id", agentId);
+  }
+  if (spaceId) {
+    params.set("space_id", spaceId);
+  }
+  if (params.size > 0) {
+    url = `${url}?${params.toString()}`;
   }
   const headers = await appsAiRequestHeaders();
   const res = await fetch(url, { headers, signal });

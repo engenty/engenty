@@ -1493,5 +1493,8 @@
     "draft": "Draft",
     "archived": "Archived",
     "published": "Published"
+  },
+  "chatCommands": {
+    "ask": "Search the knowledge base and answer from it"
   }
 }

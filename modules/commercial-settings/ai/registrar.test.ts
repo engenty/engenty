@@ -41,7 +41,7 @@ describe("commercialSettingsAiRegistration", () => {
     ]);
     expect(
       registration.chat_commands?.map((item) => item.command).sort()
-    ).toEqual(["review-commercial", "seed-chart"]);
+    ).toEqual(["commercial:review", "commercial:seed-chart"]);
   });
 
   it("tells the charts skill never to use class 4 for Austrian expenses", () => {

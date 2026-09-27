@@ -12,6 +12,7 @@ import { useArtifactsListQuery } from "../../../artifacts/artifacts-api.js";
 import { useAgentMemoryQuery } from "../../../features/agent-desk/use-agent-memory.js";
 import { AGENT_HOME_MOUNT } from "../../../features/agents-workspace/use-agent-workspace-tab.js";
 import { useWorkspaceTreeQuery } from "../../../lib/admin/agent-workspace-queries.js";
+import { useAiSkillCatalogQuery } from "../../../lib/admin/ai-runtime-queries.js";
 import { useAgentEffectiveCapabilitiesQuery } from "../../../lib/admin/effective-capabilities-api.js";
 
 /** How many of each an agent's card lists before it stops being a card. */
@@ -26,7 +27,12 @@ export interface AgentOwnedContext {
   enabled: boolean;
   files: { name: string; path: string; updatedAt: string | null }[];
   memory: { excerpt: string | null; hasMore: boolean } | null;
-  skills: { id: string; source: AgentSkillSource }[];
+  /**
+   * The tenant's own skills this agent can use — never the platform's or a
+   * module's, which every engenty of that kind carries and a person did not
+   * choose.
+   */
+  skills: { id: string; label: string; source: AgentSkillSource }[];
   spaceId: string | null;
 }
 
@@ -106,6 +112,7 @@ export function useAgentOwnedContext(hostKey: string): AgentOwnedContext {
     enabled: enabled && Boolean(spaceId),
     spaceId: spaceId ?? "",
   });
+  const catalog = useAiSkillCatalogQuery(enabled);
   const home = useWorkspaceTreeQuery(agentId ?? "", AGENT_HOME_MOUNT);
   const artefacts = useArtifactsListQuery("agent", agentId);
 
@@ -113,13 +120,20 @@ export function useAgentOwnedContext(hostKey: string): AgentOwnedContext {
     if (!(enabled && agentId)) {
       return EMPTY;
     }
+    const custom = new Map<string, string>();
+    for (const entry of catalog.data?.skills ?? []) {
+      if (entry.tier === "custom") {
+        custom.set(entry.name, entry.title?.trim() || entry.name);
+      }
+    }
     const skills: AgentOwnedContext["skills"] = [];
     const seen = new Set<string>();
     const push = (ids: readonly string[] | null, source: AgentSkillSource) => {
       for (const id of ids ?? []) {
-        if (!seen.has(id)) {
+        const label = custom.get(id);
+        if (label && !seen.has(id)) {
           seen.add(id);
-          skills.push({ id, source });
+          skills.push({ id, label, source });
         }
       }
     };
@@ -159,6 +173,7 @@ export function useAgentOwnedContext(hostKey: string): AgentOwnedContext {
     agentId,
     artefacts.data,
     capabilities.data,
+    catalog.data,
     enabled,
     home.data,
     memory.data,

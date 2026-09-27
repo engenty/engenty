@@ -34,6 +34,7 @@ const commandFileFrontmatterSchema = z.object({
   label_key: z.string().optional(),
   module_id: z.string().optional(),
   order: z.number().optional(),
+  required_tools: z.array(z.string()).optional(),
 });
 
 function listCommandMarkdownFiles(commandsDir: string): string[] {
@@ -66,7 +67,7 @@ export function loadChatCommandDefinitionsFromDirectory(input: {
     const command = front.command.trim().toLowerCase();
     if (!isValidChatCommandToken(command)) {
       throw new Error(
-        `loadChatCommandDefinitions(${input.moduleId}): "${front.command}" is not a valid slash token (lowercase ASCII letters, digits, dashes)`
+        `loadChatCommandDefinitions(${input.moduleId}): "${front.command}" is not a valid slash token (lowercase ASCII letters, digits, dashes; optionally "prefix:name")`
       );
     }
     if (seen.has(command)) {
@@ -99,6 +100,7 @@ export function loadChatCommandDefinitionsFromDirectory(input: {
       label_key: front.label_key,
       module_id: front.module_id ?? input.moduleId,
       order: front.order,
+      ...(front.required_tools ? { required_tools: front.required_tools } : {}),
       ...(front.kind === "prompt" ? { template } : {}),
     });
   }

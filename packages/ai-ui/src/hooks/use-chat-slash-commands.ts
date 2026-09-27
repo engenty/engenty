@@ -76,6 +76,8 @@ export function useChatSlashCommands(input: {
   builtins?: ChatSlashCommand[];
   /** Dispatch for `ui`-kind module contributions declaring a `frontendTool`. */
   runFrontendTool?: (toolName: string, argsText: string) => void;
+  /** The Space the agent answers in; commands needing a tool it lacks there hide. */
+  spaceId?: string | null;
   /**
    * Skills to offer as `/skill-name` rows. Omitted lists every tenant skill;
    * a specialist passes the ones it carries.
@@ -86,12 +88,13 @@ export function useChatSlashCommands(input: {
   const { t, i18n } = useTranslation("ai-ui");
   const serviceBaseUrl = resolveEngentyAiServiceBaseUrl() ?? "";
   const agentId = input.agentId?.trim() || null;
+  const spaceId = input.spaceId?.trim() || null;
 
   const catalogQuery = useQuery({
     enabled: Boolean(serviceBaseUrl),
     queryFn: ({ signal }) =>
-      getAppsAiChatCommands(serviceBaseUrl, agentId, signal),
-    queryKey: [...CHAT_COMMANDS_QUERY_KEY, agentId ?? "*"],
+      getAppsAiChatCommands(serviceBaseUrl, agentId, signal, spaceId),
+    queryKey: [...CHAT_COMMANDS_QUERY_KEY, agentId ?? "*", spaceId ?? "*"],
     staleTime: 5 * 60 * 1000,
   });
 

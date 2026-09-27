@@ -515,5 +515,8 @@
     "root": {
       "offers": "offers"
     }
+  },
+  "chatCommands": {
+    "create": "Walk through a new offer step by step — customer, scope, draft, confirm"
   }
 }

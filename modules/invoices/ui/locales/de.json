@@ -152,5 +152,8 @@
       "invoices": "Rechnungen",
       "overdue": "{{count}} überfällig"
     }
+  },
+  "chatCommands": {
+    "create": "Eine neue Rechnung für einen Kontakt entwerfen"
   }
 }

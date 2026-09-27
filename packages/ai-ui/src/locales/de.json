@@ -413,7 +413,18 @@
     },
     "brand": "engenty",
     "commands": {
-      "help": "Alle Befehle anzeigen"
+      "agent": "Den Arbeitsplatz eines anderen Agenten in diesem Space öffnen (auch /engenty, /bot)",
+      "context": "Anzeigen, was der Agent in diesem Chat sieht",
+      "copilot": "Deinen Copilot öffnen oder ihm die dahinter getippte Nachricht schicken",
+      "effort": "Festlegen, wie gründlich die nächsten Antworten nachdenken",
+      "help": "Alle Befehle anzeigen",
+      "learn": "Was in diesem Gespräch funktioniert hat, als Skill festhalten",
+      "remember": "Eine Notiz im Gedächtnis dieses Agenten ablegen",
+      "runs": "Läufe dieses Agenten anzeigen",
+      "schedule": "Eine Routine einrichten, die von selbst läuft",
+      "settings": "Einstellungen dieses Agenten öffnen: Anweisungen, Gedächtnis, Verbindungen",
+      "status": "Wo dieses Gespräch gerade steht",
+      "usage": "Tokens und Kosten dieses Chats anzeigen"
     },
     "composerPlaceholder": "Nachricht an {{name}}…",
     "connectors": "Verbindungen",
@@ -2424,5 +2435,10 @@
       "wroteFile": "Schreibt eine Datei",
       "wroteNamed": "Schreibt {{name}}"
     }
+  },
+  "skillInspect": {
+    "tools": "Werkzeuge",
+    "loadFailed": "Der Skill konnte nicht geladen werden.",
+    "empty": "Dieser Skill hat keine Anleitung."
   }
 }

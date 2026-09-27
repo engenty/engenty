@@ -12,7 +12,7 @@ const COMMANDS: ChatSlashCommand[] = [
   { command: "help", group: "Core", kind: "ui" },
   { command: "clear", group: "Core", kind: "ui" },
   {
-    command: "create-offer",
+    command: "offers:create",
     group: "offers",
     kind: "workflow",
     label: "Create offer",
@@ -53,21 +53,22 @@ describe("parseLeadingSlashCommand", () => {
 
   it("does not prefix-match", () => {
     expect(parseLeadingSlashCommand("/create", COMMANDS)).toBeNull();
+    expect(parseLeadingSlashCommand("/offers", COMMANDS)).toBeNull();
     expect(
-      parseLeadingSlashCommand("/create-offer for acme", COMMANDS)?.command
+      parseLeadingSlashCommand("/offers:create for acme", COMMANDS)?.command
         .command
-    ).toBe("create-offer");
+    ).toBe("offers:create");
   });
 });
 
 describe("filterSlashCommands", () => {
   it("matches command tokens and labels (label filter-only)", () => {
     expect(filterSlashCommands(COMMANDS, "cre").map((c) => c.command)).toEqual([
-      "create-offer",
+      "offers:create",
     ]);
     expect(
       filterSlashCommands(COMMANDS, "offer").map((c) => c.command)
-    ).toEqual(["create-offer"]);
+    ).toEqual(["offers:create"]);
     expect(filterSlashCommands(COMMANDS, "").length).toBe(COMMANDS.length);
   });
 
@@ -151,7 +152,7 @@ describe("routeSlashSubmit", () => {
 
   it("keeps a chat-surface workflow command a message", () => {
     expect(
-      routeSlashSubmit("/create-offer", COMMANDS, { canPressWizard: true })
+      routeSlashSubmit("/offers:create", COMMANDS, { canPressWizard: true })
     ).toEqual({ kind: "message" });
   });
 
@@ -159,5 +160,29 @@ describe("routeSlashSubmit", () => {
     expect(
       routeSlashSubmit("/help", COMMANDS, { canPressWizard: true }).kind
     ).toBe("ui");
+  });
+});
+
+describe("command aliases", () => {
+  const agent: ChatSlashCommand = {
+    aliases: ["engenty", "bot"],
+    command: "agent",
+    group: "Core",
+    kind: "ui",
+  };
+
+  it("runs the command when an alias is typed", () => {
+    expect(
+      parseLeadingSlashCommand("/bot sales", [...COMMANDS, agent])
+    ).toEqual({ argsText: "sales", command: agent });
+    expect(
+      parseLeadingSlashCommand("/Engenty", [...COMMANDS, agent])?.command
+    ).toBe(agent);
+  });
+
+  it("finds the command by an alias in the menu, listed once", () => {
+    expect(
+      filterSlashCommands([...COMMANDS, agent], "bot").map((c) => c.command)
+    ).toEqual(["agent"]);
   });
 });

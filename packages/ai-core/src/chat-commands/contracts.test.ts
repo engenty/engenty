@@ -16,18 +16,20 @@ const COMMANDS: ChatCommandDefinition[] = [
   },
   {
     workflow_id: "offers-create-and-edit",
-    command: "create-offer",
-    id: "offers.create-offer",
+    command: "offers:create",
+    id: "offers.offers:create",
     kind: "workflow",
     module_id: "offers",
   },
 ];
 
 describe("isValidChatCommandToken", () => {
-  it("accepts lowercase ascii tokens with dashes", () => {
+  it("accepts lowercase ascii tokens with dashes, optionally module-prefixed", () => {
     expect(isValidChatCommandToken("kb")).toBe(true);
     expect(isValidChatCommandToken("create-offer")).toBe(true);
     expect(isValidChatCommandToken("log2")).toBe(true);
+    expect(isValidChatCommandToken("offers:create")).toBe(true);
+    expect(isValidChatCommandToken("commercial:seed-chart")).toBe(true);
   });
 
   it("rejects uppercase, leading dash, spaces, unicode", () => {
@@ -36,6 +38,13 @@ describe("isValidChatCommandToken", () => {
     expect(isValidChatCommandToken("k b")).toBe(false);
     expect(isValidChatCommandToken("übersicht")).toBe(false);
     expect(isValidChatCommandToken("")).toBe(false);
+  });
+
+  it("allows one prefix, and neither part empty", () => {
+    expect(isValidChatCommandToken("a:b:c")).toBe(false);
+    expect(isValidChatCommandToken(":kb")).toBe(false);
+    expect(isValidChatCommandToken("kb:")).toBe(false);
+    expect(isValidChatCommandToken("kb:-ask")).toBe(false);
   });
 });
 
@@ -65,10 +74,10 @@ describe("expandChatCommand", () => {
   });
 
   it("builds a directive for action commands naming the action id", () => {
-    const match = parseLeadingChatCommand("/create-offer for acme", COMMANDS);
+    const match = parseLeadingChatCommand("/offers:create for acme", COMMANDS);
     expect(match).not.toBeNull();
     const expanded = expandChatCommand(match!);
-    expect(expanded).toContain('"/create-offer"');
+    expect(expanded).toContain('"/offers:create"');
     expect(expanded).toContain("offers-create-and-edit");
     expect(expanded).toContain("for acme");
   });

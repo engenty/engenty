@@ -297,7 +297,10 @@ export interface UiChatCommandArg {
  */
 export interface UiChatCommandContribution {
   args?: UiChatCommandArg[];
-  /** Canonical ASCII token the user types after "/", e.g. "create-offer". */
+  /**
+   * Canonical ASCII token the user types after "/", e.g. "offers:create" — a
+   * module's own commands carry its short prefix; general ones need none.
+   */
   command: string;
   description?: string;
   descriptionKey?: string;

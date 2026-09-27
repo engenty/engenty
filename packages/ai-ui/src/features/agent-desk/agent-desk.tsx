@@ -37,6 +37,7 @@ import {
   ThreadChapterCard,
   ThreadChaptersMenu,
 } from "../../copilot/thread-chapters.js";
+import { spaceAgentDeskPath } from "../agent-form/hire-spaces.js";
 import { AgentDeskActions } from "./agent-desk-actions.js";
 import { AgentDeskChat } from "./agent-desk-chat.js";
 import {
@@ -199,6 +200,15 @@ export function AgentDesk(props: {
   };
   const canManage = Boolean(
     feedQuery.data && canManageAgents && canManageAgent(feedQuery.data.agent)
+  );
+  // `/agent <name>` in the composer: the same move as the Space switcher.
+  const agentSwitch = useMemo(
+    () => ({
+      agents: rosterAgents.filter((candidate) => candidate.id !== agentId),
+      open: (nextAgentId: string) =>
+        navigate(spaceAgentDeskPath(spaceKey, nextAgentId)),
+    }),
+    [agentId, navigate, rosterAgents, spaceKey]
   );
   const actions = feedQuery.data ? (
     <AgentDeskActions
@@ -429,10 +439,12 @@ export function AgentDesk(props: {
               agentScope={agent.agentScope}
               agentSkills={agent.skills}
               agentStarters={agent.starters}
+              agentSwitch={agentSwitch}
               composerLeadingControl={composerLeadingControl}
               {...(composerPlaceholder ? { composerPlaceholder } : {})}
               contextPane={false}
               mentionRefSearch={mentionRefSearch}
+              onOpenPanel={openPanel}
               onPendingConsumed={consumePendingSubmit}
               onThreadCreated={(createdThreadId) => {
                 if (resolvePendingHostMessage(hostKey, location.state)) {

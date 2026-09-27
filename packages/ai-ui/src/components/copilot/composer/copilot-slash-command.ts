@@ -8,9 +8,19 @@ import { rankRecordsLexically } from "@engenty/search-index";
 export type ChatSlashCommandKind = "prompt" | "workflow" | "skill" | "ui";
 
 export interface ChatSlashCommand {
+  /**
+   * kind=ui only — whether `run` can act on the text typed after the token.
+   * False keeps the draft (and runs nothing) so a mistyped name can be fixed.
+   */
+  accepts?: (argsText: string) => boolean;
+  /**
+   * Other tokens that run this command (`/bot` for `/agent`). The menu lists
+   * the command once, under `command`; typing an alias finds and runs it.
+   */
+  aliases?: readonly string[];
   /** Hint rendered after the command in the menu, e.g. "<contact>". */
   argsHint?: string;
-  /** What the user types after "/" — canonical ASCII token, e.g. "create-offer". */
+  /** What the user types after "/" — canonical ASCII token, e.g. "offers:create". */
   command: string;
   description?: string;
   /** Menu group heading (module display name; built-ins group under "Core"). */
@@ -83,7 +93,8 @@ export function isWizardSlashCommand(
   );
 }
 
-const COMMAND_TOKEN_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
+/** `name` or `prefix:name` — same rule as ai-core's `isValidChatCommandToken`. */
+const COMMAND_TOKEN_PATTERN = /^[a-z0-9][a-z0-9-]*(?::[a-z0-9][a-z0-9-]*)?$/;
 
 /** True when `command` is a valid canonical slash token. */
 export function isValidSlashCommandToken(command: string): boolean {
@@ -134,7 +145,11 @@ export function parseLeadingSlashCommand(
   if (!token) {
     return null;
   }
-  const command = commands.find((c) => c.command.toLowerCase() === token);
+  const command = commands.find(
+    (c) =>
+      c.command.toLowerCase() === token ||
+      (c.aliases ?? []).some((alias) => alias.toLowerCase() === token)
+  );
   if (!command) {
     return null;
   }
@@ -158,7 +173,9 @@ export function filterSlashCommands(
   return rankRecordsLexically(commands, trimmed, (command) => ({
     description: command.description ?? "",
     id: command.command,
-    name: command.label ?? command.command,
+    name: [command.label ?? command.command, ...(command.aliases ?? [])].join(
+      " "
+    ),
   }));
 }
 

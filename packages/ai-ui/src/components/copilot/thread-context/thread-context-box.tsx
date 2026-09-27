@@ -83,7 +83,7 @@ export function ThreadContextBox({
         ),
         icon: Sparkles,
         key: skill.id,
-        label: skill.id,
+        label: skill.label,
       })),
       label: t("threadContext.skills"),
     },

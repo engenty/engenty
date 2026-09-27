@@ -1493,5 +1493,8 @@
     "draft": "Entwurf",
     "archived": "Archiviert",
     "published": "Veröffentlicht"
+  },
+  "chatCommands": {
+    "ask": "In der Wissensdatenbank suchen und daraus antworten"
   }
 }

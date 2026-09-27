@@ -1,11 +1,11 @@
 /**
- * The home's right column, below Modules: plugins, accounts, and skills
- * this space actually uses. Connect opens one modal — the same marketplace
- * a space settings card uses, plus the skill mounts.
+ * The home's right column, below Modules: plugins and accounts this space
+ * actually uses (its skills have their own box, SpaceHomeSkills). Connect
+ * opens one modal — the same marketplace a space settings card uses.
  */
 import { useTranslation } from "@engenty/i18n/ui";
 import { Collapsible, CollapsibleContent } from "@engenty/ui-core";
-import { Plug, Sparkles } from "lucide-react";
+import { Plug } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { spaceAccounts } from "@/components/spaces/space-mount-catalog";
@@ -19,17 +19,18 @@ import { spaceSettingsPath } from "@/lib/space-routes";
 import {
   useSpaceConnectorCatalogQuery,
   useSpaceMountsQuery,
-  useSpaceSkillCatalogQuery,
 } from "@/lib/spaces-queries";
 import {
   SPACE_SECTION_OPEN_KEYS,
   useSpaceSectionOpen,
 } from "@/lib/use-space-section-open";
-import {
-  type SpaceConnectTab,
-  SpaceHomeConnectDialog,
-} from "./SpaceHomeConnectDialog";
+import { SpaceHomeConnectDialog } from "./SpaceHomeConnectDialog";
 import { SpaceHomeSectionHeading } from "./SpaceHomeSectionHeading";
+import {
+  SPACE_HOME_ROW_CLASSNAME,
+  SPACE_HOME_ROW_GLYPH_CLASSNAME,
+  SPACE_HOME_ROW_ICON_CLASSNAME,
+} from "./space-home-row";
 
 export function SpaceHomeExtensions({
   spaceId,
@@ -40,14 +41,12 @@ export function SpaceHomeExtensions({
 }) {
   const { t } = useTranslation("common");
   const [connectOpen, setConnectOpen] = useState(false);
-  const [connectTab, setConnectTab] = useState<SpaceConnectTab>("plugins");
   const [open, setOpen] = useSpaceSectionOpen(
     SPACE_SECTION_OPEN_KEYS.homeExtensions,
     spaceKey
   );
   const mountsQuery = useSpaceMountsQuery(open ? spaceId : null);
   const connectorsQuery = useSpaceConnectorCatalogQuery();
-  const skillsQuery = useSpaceSkillCatalogQuery();
   const accounts = useMemo(
     () => spaceAccounts(connectorsQuery.data ?? [], spaceId),
     [connectorsQuery.data, spaceId]
@@ -62,30 +61,19 @@ export function SpaceHomeExtensions({
     }
     return names;
   }, [connectorsQuery.data, mountsQuery.data]);
-  const skillNames = useMemo(() => {
-    const names = new Map<string, string>();
-    for (const skill of skillsQuery.data ?? []) {
-      names.set(skill.name, skill.title?.trim() || skill.name);
-    }
-    return names;
-  }, [skillsQuery.data]);
   const rows = useMemo(
     () =>
       selectSpaceHomeExtensionRows(mountsQuery.data ?? [], accounts, {
         plugins: pluginNames,
-        skills: skillNames,
       }),
-    [accounts, mountsQuery.data, pluginNames, skillNames]
+    [accounts, mountsQuery.data, pluginNames]
   );
   const shown = rows.slice(0, SPACE_HOME_EXTENSIONS_SHOWN);
   const addLabel = t("spaces.home.extensions.add", {
     defaultValue: "Connect",
   });
 
-  const openConnect = (tab: SpaceConnectTab) => {
-    setConnectTab(tab);
-    setConnectOpen(true);
-  };
+  const openConnect = () => setConnectOpen(true);
 
   return (
     <Collapsible
@@ -95,10 +83,7 @@ export function SpaceHomeExtensions({
     >
       <SpaceHomeSectionHeading
         action={
-          <SpaceSectionAddButton
-            aria-label={addLabel}
-            onClick={() => openConnect("plugins")}
-          />
+          <SpaceSectionAddButton aria-label={addLabel} onClick={openConnect} />
         }
         onOpenChange={setOpen}
         open={open}
@@ -108,7 +93,7 @@ export function SpaceHomeExtensions({
       <CollapsibleContent>
         <div className="ui-card-raised flex flex-col rounded-[14px] px-1.5 py-1">
           {rows.length === 0 ? (
-            <p className="px-2 py-2 text-[12.5px] text-muted-foreground">
+            <p className="px-2 py-2 text-muted-foreground text-sm">
               {t("spaces.home.extensions.empty", {
                 defaultValue: "Nothing is connected in this space yet.",
               })}
@@ -116,26 +101,18 @@ export function SpaceHomeExtensions({
           ) : (
             shown.map((row) => (
               <button
-                className="flex items-start gap-2.5 rounded-[10px] px-2 py-2 text-left hover:bg-accent/60"
+                className={SPACE_HOME_ROW_CLASSNAME}
                 key={`${row.kind}:${row.id}`}
-                onClick={() =>
-                  openConnect(row.kind === "skill" ? "skills" : "plugins")
-                }
+                onClick={openConnect}
                 type="button"
               >
-                <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-[7px] bg-muted text-muted-foreground">
-                  {row.kind === "skill" ? (
-                    <Sparkles className="size-3.5" />
-                  ) : (
-                    <Plug className="size-3.5" />
-                  )}
+                <span aria-hidden className={SPACE_HOME_ROW_ICON_CLASSNAME}>
+                  <Plug className={SPACE_HOME_ROW_GLYPH_CLASSNAME} />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate font-medium text-[13px]">
-                    {row.label}
-                  </span>
+                  <span className="block truncate">{row.label}</span>
                   {row.connectorName && row.connectorName !== row.label ? (
-                    <span className="mt-0.5 block truncate text-[11.5px] text-muted-foreground">
+                    <span className="block truncate text-muted-foreground text-xs">
                       {row.connectorName}
                     </span>
                   ) : null}
@@ -145,7 +122,7 @@ export function SpaceHomeExtensions({
           )}
           <button
             className="px-2 py-2 text-left font-medium text-[12px] text-primary hover:underline"
-            onClick={() => openConnect("plugins")}
+            onClick={openConnect}
             type="button"
           >
             {t("spaces.home.extensions.connect", { defaultValue: "Connect" })}
@@ -161,7 +138,7 @@ export function SpaceHomeExtensions({
         </div>
       </CollapsibleContent>
       <SpaceHomeConnectDialog
-        initialTab={connectTab}
+        initialTab="plugins"
         onOpenChange={setConnectOpen}
         open={connectOpen}
         spaceId={spaceId}

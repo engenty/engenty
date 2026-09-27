@@ -1,7 +1,43 @@
 [
   {
+    "version": "v0.2.23",
+    "timestamp": 1790499040,
+    "commits": [
+      {
+        "id": "ce726c6",
+        "message": "module-prefixed slash commands, /status, /copilot and agent aliases",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "052357e",
+        "message": "desk slash commands for effort, agent, room and learn",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "9fc92dd",
+        "message": "desk slash commands for settings, runs, context, usage, schedule and remember",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "78d4f6d",
+        "message": "list only the tenant's own skills in a chat's context box",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "41dfa70",
+        "message": "a Skills box on the space home, grouped by origin",
+        "group": "Added",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.2.22",
-    "timestamp": 1790376583,
+    "timestamp": 1790376590,
     "commits": [
       {
         "id": "128b1f5",

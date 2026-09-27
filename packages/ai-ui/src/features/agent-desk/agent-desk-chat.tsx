@@ -10,8 +10,10 @@ import { EngentyAgent } from "../../agent-provider/index.js";
 import type { MentionRefSearch } from "../../components/copilot/composer/use-copilot-composer-mention.js";
 import { PendingHostMessageSubmit } from "../../copilot/pending-host-message-submit.js";
 import { AgentDeskChatPanel } from "./agent-desk-chat-panel.js";
+import type { AgentDeskPanel } from "./agent-desk-drawer.js";
 import { AgentDeskRosterRefresh } from "./agent-desk-roster-refresh.js";
 import { agentDeskHostKey } from "./agent-desk-url.js";
+import type { AgentDeskSlashAgentSwitch } from "./use-agent-desk-slash-commands.js";
 import { useAgentDeskThread } from "./use-agent-desk-thread.js";
 
 export function AgentDeskChat(props: {
@@ -43,6 +45,10 @@ export function AgentDeskChat(props: {
   hostKey?: string;
   /** `@` candidates — the Space's people and other agents, as references. */
   mentionRefSearch?: MentionRefSearch;
+  /** The desk's Settings / Runs pane — `/settings` and `/runs`; a room has none. */
+  onOpenPanel?: (panel: AgentDeskPanel) => void;
+  /** The Space's other agents and how to open one's desk — `/agent`. */
+  agentSwitch?: AgentDeskSlashAgentSwitch;
   onPendingConsumed?: () => void;
   onThreadCreated: (threadId: string) => void;
   /** The top of the transcript scrolled out of, or back into, view. */
@@ -110,6 +116,8 @@ export function AgentDeskChat(props: {
         isLoadingMessages={deskThread.isLoadingMessages}
         mentionRefSearch={props.mentionRefSearch}
         olderMessages={deskThread.olderMessages}
+        {...(props.onOpenPanel ? { onOpenPanel: props.onOpenPanel } : {})}
+        {...(props.agentSwitch ? { agentSwitch: props.agentSwitch } : {})}
         onTranscriptTopVisibility={props.onTranscriptTopVisibility}
         openInterruptFromSession={deskThread.openInterruptFromSession}
         {...(props.scrollHeader === undefined

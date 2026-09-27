@@ -11,6 +11,7 @@ export const SPACE_SECTION_OPEN_KEYS = {
   homeExtensions: "engenty.space.home.extensions-section.open",
   homeFiles: "engenty.space.home.files-section.open",
   homeModules: "engenty.space.home.modules-section.open",
+  homeSkills: "engenty.space.home.skills-section.open",
   members: "engenty.space.members-section.open",
   modules: "engenty.space.modules-section.open",
 } as const;

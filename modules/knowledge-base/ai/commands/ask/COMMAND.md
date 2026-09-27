@@ -1,11 +1,12 @@
 ---
-command: kb
+command: kb:ask
 kind: prompt
 label: Knowledge base
 description: Search the knowledge base and answer from it
+description_key: kb:chatCommands.ask
 ---
 
-The user invoked /kb with this question: {input}
+The user invoked /kb:ask with this question: {input}
 
 Search the knowledge base for relevant articles first (use the knowledge-base
 search tools), then answer strictly from what you find. Cite the articles you

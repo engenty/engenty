@@ -16,7 +16,7 @@ const account = (
 });
 
 describe("selectSpaceHomeExtensionRows", () => {
-  it("lists the space's accounts, plugins, and skills — not modules", () => {
+  it("lists the space's accounts and plugins — not modules or skills", () => {
     const rows = selectSpaceHomeExtensionRows(
       [
         { resourceKey: "mod-tasks", resourceType: "module" },
@@ -24,21 +24,10 @@ describe("selectSpaceHomeExtensionRows", () => {
         { resourceKey: "google-gmail", resourceType: "plugin" },
       ],
       [account()],
-      {
-        plugins: new Map([["google-gmail", "Gmail"]]),
-        skills: new Map([["skill-custom", "Triage"]]),
-      }
+      { plugins: new Map([["google-gmail", "Gmail"]]) }
     );
-    expect(rows.map((row) => row.label)).toEqual([
-      "Gmail",
-      "me@example.com",
-      "Triage",
-    ]);
-    expect(rows.map((row) => row.kind)).toEqual([
-      "plugin",
-      "connection",
-      "skill",
-    ]);
+    expect(rows.map((row) => row.label)).toEqual(["Gmail", "me@example.com"]);
+    expect(rows.map((row) => row.kind)).toEqual(["plugin", "connection"]);
   });
 
   it("sorts by the label a person reads", () => {

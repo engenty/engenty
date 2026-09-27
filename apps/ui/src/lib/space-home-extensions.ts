@@ -1,6 +1,7 @@
 /**
  * The home's Erweiterungen list: the Space's own ACCOUNTS (labelled by the
- * mailbox, not the provider), plus its plugin and skill mounts.
+ * mailbox, not the provider), plus its plugin mounts. Skills have a box of
+ * their own (space-home-skills).
  */
 import type { SpaceMount } from "@/lib/api/spaces-client";
 
@@ -14,7 +15,7 @@ export interface SpaceHomeExtensionAccount {
   label: string;
 }
 
-export type SpaceHomeExtensionKind = "connection" | "plugin" | "skill";
+export type SpaceHomeExtensionKind = "connection" | "plugin";
 
 export interface SpaceHomeExtensionRow {
   connectorId: string | null;
@@ -27,10 +28,7 @@ export interface SpaceHomeExtensionRow {
 export function selectSpaceHomeExtensionRows(
   mounts: readonly Pick<SpaceMount, "resourceKey" | "resourceType">[],
   accounts: readonly SpaceHomeExtensionAccount[],
-  names: {
-    plugins?: ReadonlyMap<string, string>;
-    skills?: ReadonlyMap<string, string>;
-  } = {}
+  names: { plugins?: ReadonlyMap<string, string> } = {}
 ): SpaceHomeExtensionRow[] {
   const rows: SpaceHomeExtensionRow[] = accounts.map((account) => ({
     connectorId: account.connectorId,
@@ -47,14 +45,6 @@ export function selectSpaceHomeExtensionRows(
         id: mount.resourceKey,
         kind: "plugin",
         label: names.plugins?.get(mount.resourceKey) ?? mount.resourceKey,
-      });
-    } else if (mount.resourceType === "skill") {
-      rows.push({
-        connectorId: null,
-        connectorName: null,
-        id: mount.resourceKey,
-        kind: "skill",
-        label: names.skills?.get(mount.resourceKey) ?? mount.resourceKey,
       });
     }
   }

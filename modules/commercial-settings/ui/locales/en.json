@@ -61,5 +61,9 @@
     "addStandardCategoriesNone": "No preset package for this region",
     "categoryHintPlaceholder": "AI hint (optional)",
     "noCategoriesYet": "No categories defined yet. Add one to get started."
+  },
+  "chatCommands": {
+    "review": "Compare stored commercial defaults to the region chart pack",
+    "seed-chart": "Merge a regional chart pack into expense categories and tax rates"
   }
 }

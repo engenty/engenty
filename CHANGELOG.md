@@ -4,6 +4,13 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.2.23] - 2026-09-27
+- ADDED **[ai-ui]** Module-prefixed slash commands, /status, /copilot and agent aliases
+- ADDED **[ai-ui]** Desk slash commands for effort, agent, room and learn
+- ADDED **[ai-ui]** Desk slash commands for settings, runs, context, usage, schedule and remember
+- ADDED **[ai-ui]** List only the tenant's own skills in a chat's context box
+- ADDED **[ui]** A Skills box on the space home, grouped by origin
+
 ## [0.2.22] - 2026-09-25
 - ADDED **[ai-ui]** Run wizards full screen on the space's band
 - ADDED **[ai]** An approval step a person can read

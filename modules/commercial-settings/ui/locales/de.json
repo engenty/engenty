@@ -61,5 +61,9 @@
     "addStandardCategoriesNone": "Kein Preset für diese Region verfügbar",
     "categoryHintPlaceholder": "KI-Hinweis (optional)",
     "noCategoriesYet": "Noch keine Kategorien definiert. Fügen Sie eine hinzu."
+  },
+  "chatCommands": {
+    "review": "Gespeicherte kaufmännische Vorgaben mit dem Kontenrahmen der Region vergleichen",
+    "seed-chart": "Kontenrahmen einer Region in Ausgabenkategorien und Steuersätze übernehmen"
   }
 }

@@ -17,14 +17,63 @@ import type { SkillStorage } from "./skills/skill-storage.js";
 // Core built-ins (prompt kind — `ui` built-ins live client-side). Core wins
 // token collisions against module commands.
 const CORE_CHAT_COMMANDS: ChatCommandDefinition[] = [
+  // A report on where things stand — it compacts nothing (chapters do that).
   {
-    command: "summarize",
-    description: "Summarize this conversation so far",
-    id: "core.summarize",
+    command: "status",
+    description: "Where this conversation stands",
+    description_key: "ai-ui:agentDesk.commands.status",
+    id: "core.status",
     kind: "prompt",
     module_id: "core",
     template:
-      "The user invoked /summarize. Produce a concise summary of this conversation so far: key facts, decisions, and open follow-ups, as a short bullet list. {input}",
+      "The user invoked /status. Report where this conversation stands: key facts, decisions, and open follow-ups, as a short bullet list. {input}",
+  },
+  // The same ask the desk's "Add routine" item pre-fills. The copilot and
+  // every hired agent hold `routines_create`; an interface agent does not.
+  {
+    args: [{ name: "task", required: true, type: "string" }],
+    command: "schedule",
+    description: "Set up a routine that runs on its own",
+    description_key: "ai-ui:agentDesk.commands.schedule",
+    id: "core.schedule",
+    kind: "prompt",
+    module_id: "core",
+    required_tools: ["routines_create"],
+    template: [
+      "The user invoked /schedule to set up a routine: {input}",
+      "Create it with the routines_create tool. If the text does not say when it should run or what it should deliver, ask for that first; with no text at all, ask what the routine should do and when.",
+    ].join("\n"),
+  },
+  // `memory_note` writes the agent's MEMORY.md — every agent with a memory
+  // audience has it (memory/agent-memory.ts).
+  {
+    args: [{ name: "note", required: true, type: "string" }],
+    command: "remember",
+    description: "Keep a note in this agent's memory",
+    description_key: "ai-ui:agentDesk.commands.remember",
+    id: "core.remember",
+    kind: "prompt",
+    module_id: "core",
+    template: [
+      "The user invoked /remember: {input}",
+      "Keep this with the memory_note tool as one short line in the user's words, then confirm in one sentence. With no text after the command, ask what to remember.",
+    ].join("\n"),
+  },
+  // `skill_propose` is the copilot's and a Space's top-level agent's; the
+  // proposal waits for a person to enable it.
+  {
+    args: [{ name: "focus", required: false, type: "string" }],
+    command: "learn",
+    description: "Turn what worked in this conversation into a skill",
+    description_key: "ai-ui:agentDesk.commands.learn",
+    id: "core.learn",
+    kind: "prompt",
+    module_id: "core",
+    required_tools: ["skill_propose"],
+    template: [
+      "The user invoked /learn to turn this conversation into a reusable skill. Focus, if given: {input}",
+      "Take the steps that worked here, write them as a skill with a clear name, when to use it and the steps, and propose it with the skill_propose tool. If the conversation holds no repeatable procedure yet, say so instead of proposing one.",
+    ].join("\n"),
   },
 ];
 
@@ -155,6 +204,23 @@ export function filterChatCommandsForAgent(
     }
     return Boolean(agentId && command.agent_ids.includes(agentId));
   });
+}
+
+/**
+ * Catalog narrowed to the commands the agent can carry out: one with
+ * `required_tools` shows only when the agent holds every one of them. A null
+ * tool set (the agent's tools could not be resolved) keeps everything.
+ */
+export function filterChatCommandsForTools(
+  commands: readonly ChatCommandDefinition[],
+  toolIds: ReadonlySet<string> | null
+): ChatCommandDefinition[] {
+  if (!toolIds) {
+    return [...commands];
+  }
+  return commands.filter((command) =>
+    (command.required_tools ?? []).every((id) => toolIds.has(id))
+  );
 }
 
 export interface ChatTurnReferenceItem {

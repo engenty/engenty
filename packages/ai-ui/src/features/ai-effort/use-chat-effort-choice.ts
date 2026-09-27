@@ -1,6 +1,7 @@
 import type { AiEffortChoice } from "@engenty/ai-core/browser";
-import { resolveEffortChoice, useEffortGrant } from "@engenty/ai-ui";
-import { useCallback, useState } from "react";
+import { useCallback, useState, useSyncExternalStore } from "react";
+import { AI_EFFORT_CHOICES, resolveEffortChoice } from "./effort-choices.js";
+import { useEffortGrant } from "./use-effort-grant.js";
 
 const EFFORT_STORAGE_KEY = "engenty.copilot.effort";
 const EXPERT_STORAGE_KEY = "engenty.copilot.effort.expert";
@@ -29,13 +30,37 @@ function writeStored(key: string, value: string): void {
   }
 }
 
-function isChoice(value: string | null): value is AiEffortChoice {
-  return (
-    value === "auto" ||
-    value === "low" ||
-    value === "medium" ||
-    value === "high"
-  );
+export function isEffortChoice(value: string | null): value is AiEffortChoice {
+  return (AI_EFFORT_CHOICES as readonly (string | null)[]).includes(value);
+}
+
+// One pick for the whole page: every lane's effort pill and `/effort` read and
+// write the same value, so a change in one shows in all of them at once.
+let storedEffort: AiEffortChoice | null = null;
+const effortListeners = new Set<() => void>();
+
+function readEffort(): AiEffortChoice {
+  if (storedEffort === null) {
+    const raw = readStored(EFFORT_STORAGE_KEY);
+    storedEffort = isEffortChoice(raw) ? raw : "auto";
+  }
+  return storedEffort;
+}
+
+function subscribeEffort(listener: () => void): () => void {
+  effortListeners.add(listener);
+  return () => {
+    effortListeners.delete(listener);
+  };
+}
+
+/** Sets the person's effort pick — the composer pill's `onChange` and `/effort`. */
+export function setChatEffortChoice(choice: AiEffortChoice): void {
+  storedEffort = choice;
+  writeStored(EFFORT_STORAGE_KEY, choice);
+  for (const listener of effortListeners) {
+    listener();
+  }
 }
 
 /**
@@ -48,18 +73,14 @@ function isChoice(value: string | null): value is AiEffortChoice {
  */
 export function useChatEffortChoice() {
   const { allowedEfforts } = useEffortGrant();
-  const [stored, setStored] = useState<AiEffortChoice>(() => {
-    const raw = readStored(EFFORT_STORAGE_KEY);
-    return isChoice(raw) ? raw : "auto";
-  });
+  const stored = useSyncExternalStore(
+    subscribeEffort,
+    readEffort,
+    () => "auto" as const
+  );
   const [expertModels, setExpertModels] = useState(
     () => readStored(EXPERT_STORAGE_KEY) === "true"
   );
-
-  const setEffort = useCallback((choice: AiEffortChoice) => {
-    setStored(choice);
-    writeStored(EFFORT_STORAGE_KEY, choice);
-  }, []);
 
   const toggleExpertModels = useCallback(() => {
     setExpertModels((previous) => {
@@ -72,7 +93,7 @@ export function useChatEffortChoice() {
     allowedEfforts,
     effort: resolveEffortChoice(stored, allowedEfforts),
     expertModels,
-    setEffort,
+    setEffort: setChatEffortChoice,
     toggleExpertModels,
   };
 }

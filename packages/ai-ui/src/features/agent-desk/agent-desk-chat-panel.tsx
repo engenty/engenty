@@ -23,7 +23,6 @@ import {
 } from "../../components/copilot/chat-lane/index.js";
 import type { StarterPromptItem } from "../../components/copilot/composer/copilot-composer.js";
 import type { PressWizardCommandRequest } from "../../components/copilot/composer/copilot-composer-section.js";
-import type { ChatSlashCommand } from "../../components/copilot/composer/copilot-slash-command.js";
 import type { MentionRefSearch } from "../../components/copilot/composer/use-copilot-composer-mention.js";
 import { CopilotDrawerPositionMenu } from "../../components/copilot/drawer/copilot-drawer-position-menu.js";
 import { normalizeCopilotPositionMenuValue } from "../../components/copilot/drawer/copilot-drawer-utils.js";
@@ -34,7 +33,6 @@ import { ChatDeskAgentProvider } from "../../components/copilot/transcript/chat-
 import { formatCopilotThreadCopyText } from "../../components/copilot/transcript/copilot-thread-copy.js";
 import { TranscriptLoadOlder } from "../../components/copilot/transcript/transcript-load-older.js";
 import { registerCopilotComposerDraftSetter } from "../../copilot/copilot-composer-draft-intent.js";
-import { useChatSlashCommands } from "../../hooks/use-chat-slash-commands.js";
 import { isThreadWritableByViewer } from "../../threads/thread-write-access.js";
 import { TEMPORARY_ENGENTY_THREAD_ID_PREFIX } from "../../threads/use-engenty-threads.js";
 import { useBrowserWorkOpensPane } from "../browser/browser-work-opens-pane.js";
@@ -47,12 +45,17 @@ import {
   useCancelRunMutation,
   useResumeRunMutation,
 } from "../workflow-canvas/workflow-queries.js";
+import type { AgentDeskPanel } from "./agent-desk-drawer.js";
 import {
   agentDeskEmptyStarters,
   mergeAgentDeskStarters,
 } from "./agent-desk-empty-starters.js";
 import { AgentDeskRunActivity } from "./agent-desk-run-activity.js";
 import { TranscriptTopSentinel } from "./transcript-top-sentinel.js";
+import {
+  type AgentDeskSlashAgentSwitch,
+  useAgentDeskSlashCommands,
+} from "./use-agent-desk-slash-commands.js";
 
 /**
  * The identity block's top: its topbar clearance (`pt-20`), the name and the
@@ -176,6 +179,13 @@ export function AgentDeskChatPanel(props: {
   composerFocusToken?: number;
   /** After a sandbox command is approved — the page it came from refreshes. */
   onSandboxApproved?: () => void;
+  /**
+   * Opens the desk's Settings or Runs pane — `/settings` and `/runs`. Only a
+   * desk frame hosts that pane; the drawer and a room leave this unset.
+   */
+  onOpenPanel?: (panel: AgentDeskPanel) => void;
+  /** The Space's other agents and how to open one's desk — `/agent`. */
+  agentSwitch?: AgentDeskSlashAgentSwitch;
   /** Null on the copilot's desk outside a space: no wizards, no run feed. */
   spaceId: string | null;
   /** The surface's own openers, in place of the agent's (a module's copilot contribution). */
@@ -196,25 +206,18 @@ export function AgentDeskChatPanel(props: {
   useBrowserWorkOpensPane(host.events);
   const shell = useCopilotShellOrNull();
   const locale = i18n.language || "en";
-  const slashBuiltins = useMemo<ChatSlashCommand[]>(
-    () => [
-      {
-        command: "help",
-        description: t("agentDesk.commands.help"),
-        group: "Core",
-        kind: "ui",
-      },
-    ],
-    [t]
-  );
   const skillIds = useMemo(
     () => props.agentSkills.map((skill) => skill.id),
     [props.agentSkills]
   );
-  const slashCommands = useChatSlashCommands({
+  const { dialogs: slashDialogs, slashCommands } = useAgentDeskSlashCommands({
     agentId: props.agentId,
-    builtins: slashBuiltins,
+    agentScope: props.agentScope ?? null,
+    ...(props.agentSwitch ? { agentSwitch: props.agentSwitch } : {}),
+    ...(props.onOpenPanel ? { onOpenPanel: props.onOpenPanel } : {}),
     skillIds,
+    spaceId: props.spaceId,
+    threadId: host.threadId,
   });
   const catalogueStarters = useMemo(
     () => agentDeskEmptyStarters(tc, { starters: props.agentStarters }),
@@ -632,6 +635,7 @@ export function AgentDeskChatPanel(props: {
       >
         <CopilotPanelContent {...panelProps} {...definedChrome} />
       </ChatDeskAgentProvider>
+      {slashDialogs}
     </div>
   );
   // The desk lays the context card out as its own column beside header AND

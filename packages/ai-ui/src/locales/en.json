@@ -413,7 +413,18 @@
     },
     "brand": "engenty",
     "commands": {
-      "help": "Browse all commands"
+      "agent": "Open another agent's desk in this Space (also /engenty, /bot)",
+      "context": "Show what the agent sees in this chat",
+      "copilot": "Open your copilot, or send it the message you type after this",
+      "effort": "Set how much thinking the next turns get",
+      "help": "Browse all commands",
+      "learn": "Turn what worked in this conversation into a skill",
+      "remember": "Keep a note in this agent's memory",
+      "runs": "Show this agent's runs",
+      "schedule": "Set up a routine that runs on its own",
+      "settings": "Open this agent's settings: instructions, memory, connections",
+      "status": "Where this conversation stands",
+      "usage": "Show tokens and cost of this chat"
     },
     "composerPlaceholder": "Message {{name}}…",
     "connectors": "Connections",
@@ -2424,5 +2435,10 @@
       "wroteFile": "Writing a file",
       "wroteNamed": "Writing {{name}}"
     }
+  },
+  "skillInspect": {
+    "tools": "Tools",
+    "loadFailed": "The skill could not be loaded.",
+    "empty": "This skill has no playbook text."
   }
 }

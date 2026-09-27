@@ -49,8 +49,8 @@ it. Disciplines and units are catalog data and change without a prompt.
 
 The Commercial Settings Engenty can also merge a region pack into your lists
 (adding missing categories and backfilling empty accounts, without overwriting
-numbers you already set). Ask it to seed Austria EKR, or use `/seed-chart` and
-`/review-commercial` in chat.
+numbers you already set). Ask it to seed Austria EKR, or use
+`/commercial:seed-chart` and `/commercial:review` in chat.
 
 If you have this page open while the copilot edits it, the values update in
 front of you.

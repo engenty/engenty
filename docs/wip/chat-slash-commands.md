@@ -49,7 +49,7 @@ today; chat commands should *later* be exposable there, but that is explicitly a
 interface ChatCommandContribution {
   id: string;                     // unique within plugin, kebab-case
   pluginId: string;               // stamped by the registrar
-  command: string;                // what the user types: "summarize", "create-offer"
+  command: string;                // what the user types: "status", "offers:create"
   kind: "prompt" | "action" | "ui";
   labelKey?: string;              // i18n, e.g. "offers:commands.createOffer"
   descriptionKey?: string;
@@ -116,17 +116,30 @@ optional garnish (icon, richer arg labels). Collisions: exact `command` string i
 catalog; resolver dedupes deterministically (core built-ins win, then plugin order) with a
 diagnostics warning — no silent shadowing.
 
-### 3.3 Built-in core commands (v1 set)
+### 3.3 Built-in core commands (as shipped)
 
 | Command | Kind | Effect |
 | --- | --- | --- |
 | `/help` | ui | Opens the command menu in "browse all" mode with descriptions |
-| `/agent <name>` | ui | Same as leading `@agent` — sets `requestedAgentId` (alias for discoverability) |
-| `/clear` (or `/new`) | ui | Starts a new thread (existing new-thread action) |
-| `/summarize` | prompt | "Summarize this conversation so far …" (core copilot module) |
+| `/settings`, `/runs` | ui | The desk's Settings / Runs pane (desk frames only) |
+| `/context`, `/usage` | ui | Prompt breakdown / token usage dialog for the bound thread |
+| `/effort <level>` | ui | Sets the composer's effort pick |
+| `/agent <name>` (`/engenty`, `/bot`) | ui | Another agent's desk in the Space (Space desks) |
+| `/copilot [message]` | ui | Opens the copilot; with text, sends it there (every desk but the copilot's) |
+| `/status` | prompt | Where the conversation stands — a report, it compacts nothing |
+| `/schedule`, `/remember`, `/learn` | prompt | The agent uses `routines_create` / `memory_note` / `skill_propose` |
 
-Module examples to ship with phase 2 as proof: `offers: /create-offer <ref:contact>`,
-`time-tracking (pro): /log-time <string>`, `knowledge-base: /kb <string>` (search + answer).
+No `/new` or `/compact`: a desk is one continuous conversation, and chapters
+(not a command) keep its context bounded.
+
+### 3.4 Naming module commands
+
+A module's own commands carry its short prefix: `offers:create`,
+`invoices:create`, `kb:ask`, `commercial:review`. The menu then reads by
+module and two modules can both have a `create`. This is a convention, not a
+rule: a module may contribute a general command without a prefix when it is
+not about that module's records. The token grammar is `name` or
+`prefix:name` (lowercase ASCII, digits, dashes; `isValidChatCommandToken`).
 
 ## 4. @-mentions — from single-namespace to typed references
 

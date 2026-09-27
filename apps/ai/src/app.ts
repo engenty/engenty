@@ -59,6 +59,7 @@ import {
   createWorkflowStoreFromEnv,
 } from "./ai/index.js";
 import { createRealtimeVoiceConfigResolverFromEnv } from "./ai/realtime-voice-config.js";
+import { resolveAgentRuntimeToolIds } from "./ai/registry/effective-capabilities.js";
 import { setRunEventPubSub } from "./ai/sessions/run-event-bus.js";
 import { resolveRuntimeModelConfig } from "./ai/sessions/runtime-model-config.js";
 import {
@@ -865,6 +866,17 @@ export async function createApp(options: CreateAppOptions = {}) {
   });
   registerChatCommandRoutes(app, {
     moduleLoader: moduleCapabilityLoader,
+    resolveAgentToolIds: ({ agentId, scope, spaceId }) =>
+      resolveAgentRuntimeToolIds({
+        agentId,
+        registry: createDefaultAiRegistry({
+          databaseStore: registryStore,
+          moduleLoader: moduleCapabilityLoader,
+          tenantId: scope.tenantId,
+        }),
+        scope,
+        spaceId,
+      }),
     scopeResolver,
   });
   registerCatalogRankRoutes(app, { scopeResolver });

@@ -19,8 +19,10 @@ import { isToolVisibleInSpace } from "../../../ai/tools/engenty-tools/lib/space-
 import { nativeModuleToolMeta } from "../native-module-tool-meta.js";
 import {
   type RunSpaceResolution,
+  resolveRunSpaceById,
   toolsSpaceFromResolution,
 } from "../sessions/run-space.js";
+import type { AiSessionScope } from "../sessions/types.js";
 import type { AgentConfig, AiRegistry } from "./types.js";
 
 /** The presentation set every root specialist gets at assembly. */
@@ -166,4 +168,38 @@ export async function resolveEffectiveCapabilities(input: {
     },
     top_level: topLevel,
   };
+}
+
+/**
+ * The tool ids the agent runs with — every layer, less what the Space hides.
+ * Null when the registry does not know the agent. Chat commands read it to
+ * offer only what the agent can carry out (`required_tools`).
+ */
+export async function resolveAgentRuntimeToolIds(input: {
+  agentId: string;
+  registry: Pick<AiRegistry, "getAgentConfig" | "getTool">;
+  scope: AiSessionScope;
+  spaceId: string | null;
+}): Promise<ReadonlySet<string> | null> {
+  const config = await input.registry.getAgentConfig(input.agentId);
+  if (!config) {
+    return null;
+  }
+  const spaceResolution = input.spaceId
+    ? await resolveRunSpaceById({ scope: input.scope, spaceId: input.spaceId })
+    : null;
+  const capabilities = await resolveEffectiveCapabilities({
+    config,
+    registry: input.registry,
+    spaceId: input.spaceId,
+    spaceResolution,
+  });
+  const hidden = new Set(capabilities.tools.space_hidden ?? []);
+  return new Set(
+    [
+      ...capabilities.tools.default,
+      ...capabilities.tools.agent,
+      ...capabilities.tools.attached,
+    ].filter((id) => !hidden.has(id))
+  );
 }

@@ -3,6 +3,7 @@ import {
   ENGENTY_COPILOT_HOST_KEY,
   useAgentHost,
   useAgentHostConfig,
+  useChatEffortChoice,
   useDeveloperModeEnabled,
   useEffortLastResolved,
   useEffortModelBindings,
@@ -11,7 +12,6 @@ import {
 } from "@engenty/ai-ui";
 import { useTranslation } from "@engenty/i18n/ui";
 import { DropdownMenuCheckboxItem } from "@engenty/ui-core";
-import { useChatEffortChoice } from "../../hooks/chat/use-chat-effort-choice.js";
 import { CopilotModelChooserControl } from "./copilot-model-chooser-control.js";
 
 /**

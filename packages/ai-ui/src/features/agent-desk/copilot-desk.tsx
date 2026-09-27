@@ -348,6 +348,7 @@ export function CopilotDesk(props: {
               mentionAgentCandidates={mentionAgentCandidates}
               mentionRefSearch={props.mentionRefSearch}
               olderMessages={deskThread.olderMessages}
+              onOpenPanel={openPanel}
               onTranscriptTopVisibility={onTranscriptTopVisibility}
               openInterruptFromSession={deskThread.openInterruptFromSession}
               realtimeVoice={realtimeVoice}

@@ -20,6 +20,9 @@ vi.mock("../../../features/agent-desk/use-agent-memory.js", () => ({
 vi.mock("../../../lib/admin/agent-workspace-queries.js", () => ({
   useWorkspaceTreeQuery: () => ({ data: undefined }),
 }));
+vi.mock("../../../lib/admin/ai-runtime-queries.js", () => ({
+  useAiSkillCatalogQuery: () => ({ data: undefined }),
+}));
 
 describe("ThreadContextPane", () => {
   afterEach(() => {

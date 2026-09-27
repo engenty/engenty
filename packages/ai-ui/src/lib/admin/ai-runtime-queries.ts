@@ -318,8 +318,8 @@ export function useDeleteAllAdminAiThreadsMutation() {
   });
 }
 
-export function useAiSkillCatalogQuery() {
-  return useQuery(aiSkillCatalogOptions);
+export function useAiSkillCatalogQuery(enabled = true) {
+  return useQuery({ ...aiSkillCatalogOptions, enabled });
 }
 
 export function useAiSkillsQuery() {

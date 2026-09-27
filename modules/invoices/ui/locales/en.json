@@ -152,5 +152,8 @@
       "invoices": "invoices",
       "overdue": "{{count}} overdue"
     }
+  },
+  "chatCommands": {
+    "create": "Draft a new invoice for a contact"
   }
 }

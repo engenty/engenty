@@ -1300,6 +1300,14 @@
         "skillsSave": "Skills speichern",
         "skillsSaving": "Speichern…"
       },
+      "skills": {
+        "title": "Skills",
+        "empty": "Dieser Space nutzt noch keine Skills.",
+        "add": "Skills hinzufügen",
+        "addToSpace": "Zu diesem Space hinzufügen",
+        "engenty": "Engenty",
+        "tenant": "Mandant"
+      },
       "files": {
         "title": "Dateien",
         "drop": "Dateien hier ablegen",

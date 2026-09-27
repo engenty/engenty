@@ -1,11 +1,12 @@
 ---
-command: review-commercial
+command: commercial:review
 kind: prompt
 label: Review commercial settings
 description: Compare stored commercial defaults to the region chart pack
+description_key: commercial-settings:chatCommands.review
 ---
 
-The user invoked /review-commercial with this extra context: {input}
+The user invoked /commercial:review with this extra context: {input}
 
 Review tenant commercial settings against the matching region pack. Load the
 stored row first, resolve the region from default_locale unless the user named

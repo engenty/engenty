@@ -315,6 +315,9 @@ export function CopilotComposerSection({
       });
       // Leading slash command of kind `ui` executes client-side — no message.
       if (slashRoute.kind === "ui") {
+        if (slashRoute.command.accepts?.(slashRoute.argsText) === false) {
+          return;
+        }
         slash.clearSlashOnSubmit();
         setDraft("");
         if (slashRoute.command.run) {

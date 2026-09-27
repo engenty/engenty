@@ -1294,6 +1294,14 @@
         "skillsSave": "Save skills",
         "skillsSaving": "Saving…"
       },
+      "skills": {
+        "title": "Skills",
+        "empty": "This space uses no skills yet.",
+        "add": "Add skills",
+        "addToSpace": "Add to this space",
+        "engenty": "Engenty",
+        "tenant": "Tenant"
+      },
       "files": {
         "title": "Files",
         "drop": "Drop files here",

@@ -22,6 +22,11 @@ import {
   useSpaceSectionOpen,
 } from "@/lib/use-space-section-open";
 import { SpaceHomeSectionHeading } from "./SpaceHomeSectionHeading";
+import {
+  SPACE_HOME_ROW_CLASSNAME,
+  SPACE_HOME_ROW_DOCK_ICON_CLASSNAME,
+  SPACE_HOME_ROW_ICON_CLASSNAME,
+} from "./space-home-row";
 
 export function SpaceHomeModules({
   spaceId,
@@ -62,7 +67,7 @@ export function SpaceHomeModules({
       <CollapsibleContent>
         <div className="ui-card-raised flex flex-col rounded-[14px] px-1.5 py-1">
           {modules.length === 0 ? (
-            <p className="px-2 py-2 text-[12.5px] text-muted-foreground">
+            <p className="px-2 py-2 text-muted-foreground text-sm">
               {t("spaces.apps.empty", {
                 defaultValue: "No module is mounted in this space yet.",
               })}
@@ -72,14 +77,14 @@ export function SpaceHomeModules({
               const Icon = module.icon ?? Boxes;
               return (
                 <Link
-                  className="flex items-center gap-2.5 rounded-[10px] px-2 py-2 hover:bg-accent/60"
+                  className={SPACE_HOME_ROW_CLASSNAME}
                   key={module.id}
                   to={spaceModulePath(spaceKey, module.id)}
                 >
-                  <span className="flex size-6 shrink-0 items-center justify-center rounded-[7px] bg-muted text-muted-foreground">
-                    <Icon className="size-3.5" />
+                  <span aria-hidden className={SPACE_HOME_ROW_ICON_CLASSNAME}>
+                    <Icon className={SPACE_HOME_ROW_DOCK_ICON_CLASSNAME} />
                   </span>
-                  <span className="min-w-0 flex-1 truncate font-medium text-[13px]">
+                  <span className="min-w-0 flex-1 truncate">
                     {module.label}
                   </span>
                 </Link>

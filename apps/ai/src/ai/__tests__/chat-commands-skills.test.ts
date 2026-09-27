@@ -1,7 +1,9 @@
+import type { ChatCommandDefinition } from "@engenty/ai-core";
 import { describe, expect, it, vi } from "vitest";
 import {
   buildChatTurnContextEntries,
   expandChatSkillSelection,
+  filterChatCommandsForTools,
   parseLeadingSlashToken,
 } from "../chat-commands.js";
 import type { SkillStorage } from "../skills/skill-storage.js";
@@ -84,7 +86,7 @@ describe("buildChatTurnContextEntries skill selection", () => {
 
     const entries = await buildChatTurnContextEntries({
       agentId: "engenty.copilot",
-      prompt: "/summarize the thread",
+      prompt: "/status the thread",
       refs: [],
       skillStorage,
     });
@@ -167,5 +169,42 @@ describe("buildChatTurnContextEntries mentioned agents", () => {
     expect(entries[0]?.value).not.toContain("contacts:contact");
     expect(entries[1]?.value).toContain("contacts:contact:contact-1");
     expect(entries[1]?.value).not.toContain("inbox.overview");
+  });
+});
+
+describe("filterChatCommandsForTools", () => {
+  const command = (
+    token: string,
+    required_tools?: string[]
+  ): ChatCommandDefinition => ({
+    command: token,
+    id: `test.${token}`,
+    kind: "prompt",
+    module_id: "test",
+    template: "{input}",
+    ...(required_tools ? { required_tools } : {}),
+  });
+  const catalog = [
+    command("summarize"),
+    command("learn", ["skill_propose"]),
+    command("both", ["routines_create", "skill_propose"]),
+  ];
+
+  it("offers a command only when the agent holds every tool it needs", () => {
+    const tokens = filterChatCommandsForTools(
+      catalog,
+      new Set(["routines_create"])
+    ).map((entry) => entry.command);
+    expect(tokens).toEqual(["summarize"]);
+    expect(
+      filterChatCommandsForTools(
+        catalog,
+        new Set(["routines_create", "skill_propose"])
+      ).map((entry) => entry.command)
+    ).toEqual(["summarize", "learn", "both"]);
+  });
+
+  it("keeps the whole catalog when the agent's tools are unknown", () => {
+    expect(filterChatCommandsForTools(catalog, null)).toHaveLength(3);
   });
 });

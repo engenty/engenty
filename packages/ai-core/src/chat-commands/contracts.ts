@@ -20,7 +20,10 @@ export interface ChatCommandDefinition {
   /** Restrict the command to these agent ids (empty/absent = all agents). */
   agent_ids?: string[];
   args?: ChatCommandArg[];
-  /** Canonical ASCII token typed after "/", unique per catalog. */
+  /**
+   * Canonical ASCII token typed after "/", unique per catalog. A module's own
+   * commands use its short prefix (`offers:create`); general ones need none.
+   */
   command: string;
   description?: string;
   /** i18n key resolved client-side against the module's namespace. */
@@ -31,6 +34,11 @@ export interface ChatCommandDefinition {
   label_key?: string;
   module_id: string;
   order?: number;
+  /**
+   * Tools the agent must hold for the command to be offered (all of them).
+   * Absent = offered to every agent the command is scoped to.
+   */
+  required_tools?: string[];
   /**
    * kind=workflow — how the run is experienced. `wizard`: the client presses
    * the workflow itself (no agent turn) and the run opens step by step;
@@ -88,7 +96,13 @@ export function chatCommandArgsToWorkflowInput(input: {
   return result;
 }
 
-const COMMAND_TOKEN_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
+/**
+ * `name` or `prefix:name`, each part lowercase ASCII letters, digits and
+ * dashes. A module's own commands should carry its short prefix
+ * (`offers:create`, `kb:ask`) so the menu reads by module; a command that is
+ * general rather than about the module's records may go without one.
+ */
+const COMMAND_TOKEN_PATTERN = /^[a-z0-9][a-z0-9-]*(?::[a-z0-9][a-z0-9-]*)?$/;
 
 export function isValidChatCommandToken(command: string): boolean {
   return COMMAND_TOKEN_PATTERN.test(command);

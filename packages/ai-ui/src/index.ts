@@ -473,6 +473,10 @@ export { useWorkspaceNavData } from "./features/agents-workspace/use-workspace-n
 export { useEffortLastResolved } from "./features/ai-effort/effort-resolved-flash.js";
 // Grant lookup is Tier 2: it reads the tenant usage policy over the admin HTTP
 // client, which the embed entry deliberately does not pull in.
+export {
+  setChatEffortChoice,
+  useChatEffortChoice,
+} from "./features/ai-effort/use-chat-effort-choice.js";
 export { useEffortGrant } from "./features/ai-effort/use-effort-grant.js";
 export { useEffortModelBindings } from "./features/ai-effort/use-effort-model-bindings.js";
 export { useEffortResolvedFeedback } from "./features/ai-effort/use-effort-resolved-feedback.js";
@@ -504,6 +508,10 @@ export {
   UserBrowserView,
 } from "./features/browser/user-browser-view.js";
 export { SkillProposalsCard } from "./features/skill-proposals/skill-proposals-card.js";
+export {
+  SkillInspectDialog,
+  type SkillInspectDialogProps,
+} from "./features/skills/skill-inspect-dialog.js";
 export {
   organizeSpaceChats,
   SPACE_CHAT_KIND_ORDER,
