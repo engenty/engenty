@@ -70,7 +70,7 @@ function asRecord(value: unknown): Record<string, unknown> {
     : {};
 }
 
-function readInput(part: ToolPartLike): Record<string, unknown> {
+export function readToolInput(part: ToolPartLike): Record<string, unknown> {
   if (typeof part.input === "string") {
     try {
       return asRecord(JSON.parse(part.input));
@@ -102,7 +102,7 @@ export function resolveToolClip(part: ToolPartLike): ToolClip | null {
   if (output.ok === false) {
     return null;
   }
-  return resolver({ input: readInput(part), output });
+  return resolver({ input: readToolInput(part), output });
 }
 
 function text(value: unknown): string {

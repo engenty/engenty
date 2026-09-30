@@ -4,6 +4,11 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.2.30] - 2026-09-30
+- ADDED **[ai]** Ask only for destructive or outbound sandbox commands, Jev decides the unclear middle
+- ADDED **[ai-ui]** Plain-language status and work summary for person mode
+- FIXED **[ai]** Skip the sandbox command approval gate under pass-all
+
 ## [0.2.29] - 2026-09-30
 - FIXED **[ai]** Skip system jobs whose module is not installed; drop is-task-complete chunks
 - FIXED **[deploy]** Start the Rivet engine in the app-host image

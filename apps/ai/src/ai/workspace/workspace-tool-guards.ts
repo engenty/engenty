@@ -37,6 +37,8 @@ import { posix } from "node:path";
 import { WORKSPACE_TOOLS } from "@mastra/core/workspace";
 import type { ToolApprovalSuspendPayload } from "../../../ai/tools/engenty-tools/lib/execute-approval.js";
 import { getEngentyToolsRunContext } from "../../../ai/tools/engenty-tools/lib/run-context.js";
+import { jevSaysCommandSafe } from "./sandbox-command-jev.js";
+import { classifySandboxCommand } from "./sandbox-command-risk.js";
 import {
   COMPANY_MOUNT_PATH,
   DATA_MOUNT_PATH,
@@ -284,15 +286,30 @@ export function workspacePublishApprovalGate(toolName: string) {
 /**
  * The dynamic `requireApproval` for running a command in the sandbox.
  *
- * A STATIC `true` was unusable headless in the one place it matters most: a
- * routine fire would gate, park for a human, and — because the static answer
- * cannot see the grant that human wrote — gate again on the very next fire,
- * forever. Reading the grants makes an approval mean something: the first call
- * asks, the approval is recorded (on the agent, the run's subject, or the
- * routine), and the next call of the SAME command runs. A different command
- * asks again — see {@link workspaceToolGrantId}.
+ * Asks only for what outlives the disposable container — a destructive
+ * command on shared files, or one that reaches the outside world (see
+ * {@link classifySandboxCommand}); the unclear middle goes to Jev, failing
+ * closed. Everything else runs, so an agent that
+ * writes a new one-liner each turn is not asked each turn.
+ *
+ * A grant still lets an asked command through: the first call asks, the
+ * approval is recorded (on the agent, the run's subject, or the routine), and
+ * the next call of the SAME command runs — see {@link workspaceToolGrantId}.
+ * Reading the grants matters headless: a static `true` would park a routine
+ * fire for a human and gate again on the next fire, forever.
  */
 export function sandboxExecuteApprovalGate(toolName: string) {
-  return ({ args }: { args: Record<string, unknown> }): boolean =>
-    !isGranted(toolName, args);
+  return async ({
+    args,
+  }: {
+    args: Record<string, unknown>;
+  }): Promise<boolean> => {
+    const verdict = classifySandboxCommand(args);
+    if (verdict === "allow" || isGranted(toolName, args)) {
+      return false;
+    }
+    // `review`: touches shared files without being plainly a read. Jev decides,
+    // and anything short of a confident "safe" asks a person.
+    return verdict === "ask" || !(await jevSaysCommandSafe(args));
+  };
 }

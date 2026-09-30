@@ -46,6 +46,7 @@ import {
   shouldShowCopilotThinkingShimmer,
 } from "./copilot-thinking-shimmer";
 import { MentionInlineText } from "./mention-inline-text.js";
+import { personStepStatusLabel } from "./person-steps.js";
 import {
   layoutTranscriptRows,
   type TranscriptMessage,
@@ -408,7 +409,8 @@ export const CopilotTranscript = memo(function CopilotTranscript({
             agentName={lastAssistantMessage?.authorName}
             label={
               toolDetail === "person"
-                ? (runningStepLabel(lastAssistantMessage?.parts) ??
+                ? (personStepStatusLabel(lastAssistantMessage?.parts, t) ??
+                  runningStepLabel(lastAssistantMessage?.parts) ??
                   (messageHasActiveToolParts(lastAssistantMessage?.parts)
                     ? workingLabel
                     : thinkingLabel))

@@ -2549,5 +2549,63 @@
     "hintSlash": "Command menu",
     "hintMention": "Reference agents, people, records",
     "close": "Close"
+  },
+  "personStep": {
+    "running": {
+      "fetch": "Fetching {{target}}",
+      "fetchBare": "Fetching a web page",
+      "browse": "Opening {{target}}",
+      "browseBare": "Opening a web page",
+      "search": "Searching the web: {{target}}",
+      "searchBare": "Searching the web",
+      "read": "Reading {{target}}",
+      "readBare": "Reading files",
+      "write": "Writing {{target}}",
+      "writeBare": "Writing a file",
+      "run": "Running a script",
+      "runBare": "Running a script",
+      "look": "Reading the web page",
+      "lookBare": "Reading the web page",
+      "act": "Working the web page: {{target}}",
+      "actBare": "Working the web page"
+    },
+    "done": {
+      "fetch": "Fetched {{target}}",
+      "fetchBare": "Fetched a web page",
+      "browse": "Opened {{target}}",
+      "browseBare": "Opened a web page",
+      "search": "Searched the web: {{target}}",
+      "searchBare": "Searched the web",
+      "read": "Read {{target}}",
+      "readBare": "Read files",
+      "write": "Wrote {{target}}",
+      "writeBare": "Wrote a file",
+      "run": "Ran a script",
+      "runBare": "Ran a script",
+      "look": "Read the web page",
+      "lookBare": "Read the web page",
+      "act": "Worked the web page: {{target}}",
+      "actBare": "Worked the web page"
+    },
+    "summary": {
+      "fetch_one": "{{count}} page fetched",
+      "fetch_other": "{{count}} pages fetched",
+      "browse_one": "{{count}} page opened",
+      "browse_other": "{{count}} pages opened",
+      "search_one": "{{count}} web search",
+      "search_other": "{{count}} web searches",
+      "read_one": "{{count}} file read",
+      "read_other": "{{count}} files read",
+      "write_one": "{{count}} file written",
+      "write_other": "{{count}} files written",
+      "run_one": "{{count}} script run",
+      "run_other": "{{count}} scripts run",
+      "other_one": "{{count}} other step",
+      "other_other": "{{count}} other steps",
+      "look_one": "{{count}} page read",
+      "look_other": "{{count}} pages read",
+      "act_one": "{{count}} browser action",
+      "act_other": "{{count}} browser actions"
+    }
   }
 }

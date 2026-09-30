@@ -1,7 +1,31 @@
 [
   {
+    "version": "v0.2.30",
+    "timestamp": 1790782399,
+    "commits": [
+      {
+        "id": "91412f6",
+        "message": "ask only for destructive or outbound sandbox commands, Jev decides the unclear middle",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "407682c",
+        "message": "plain-language status and work summary for person mode",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "73d082f",
+        "message": "skip the sandbox command approval gate under pass-all",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.2.29",
-    "timestamp": 1790775697,
+    "timestamp": 1790775703,
     "commits": [
       {
         "id": "4e80ed0",

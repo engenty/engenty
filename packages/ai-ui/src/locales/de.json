@@ -2549,5 +2549,63 @@
     "hintSlash": "Befehlsmenü",
     "hintMention": "Agenten, Personen, Einträge erwähnen",
     "close": "Schließen"
+  },
+  "personStep": {
+    "running": {
+      "fetch": "Ruft {{target}} ab",
+      "fetchBare": "Ruft eine Webseite ab",
+      "browse": "Öffnet {{target}}",
+      "browseBare": "Öffnet eine Webseite",
+      "search": "Durchsucht das Web: {{target}}",
+      "searchBare": "Durchsucht das Web",
+      "read": "Liest {{target}}",
+      "readBare": "Liest Dateien",
+      "write": "Schreibt {{target}}",
+      "writeBare": "Schreibt eine Datei",
+      "run": "Führt ein Skript aus",
+      "runBare": "Führt ein Skript aus",
+      "look": "Liest die Webseite",
+      "lookBare": "Liest die Webseite",
+      "act": "Bedient die Webseite: {{target}}",
+      "actBare": "Bedient die Webseite"
+    },
+    "done": {
+      "fetch": "{{target}} abgerufen",
+      "fetchBare": "Webseite abgerufen",
+      "browse": "{{target}} geöffnet",
+      "browseBare": "Webseite geöffnet",
+      "search": "Web durchsucht: {{target}}",
+      "searchBare": "Web durchsucht",
+      "read": "{{target}} gelesen",
+      "readBare": "Dateien gelesen",
+      "write": "{{target}} geschrieben",
+      "writeBare": "Datei geschrieben",
+      "run": "Skript ausgeführt",
+      "runBare": "Skript ausgeführt",
+      "look": "Webseite gelesen",
+      "lookBare": "Webseite gelesen",
+      "act": "Webseite bedient: {{target}}",
+      "actBare": "Webseite bedient"
+    },
+    "summary": {
+      "fetch_one": "{{count}} Seite abgerufen",
+      "fetch_other": "{{count}} Seiten abgerufen",
+      "browse_one": "{{count}} Seite geöffnet",
+      "browse_other": "{{count}} Seiten geöffnet",
+      "search_one": "{{count}} Websuche",
+      "search_other": "{{count}} Websuchen",
+      "read_one": "{{count}} Datei gelesen",
+      "read_other": "{{count}} Dateien gelesen",
+      "write_one": "{{count}} Datei geschrieben",
+      "write_other": "{{count}} Dateien geschrieben",
+      "run_one": "{{count}} Skript ausgeführt",
+      "run_other": "{{count}} Skripte ausgeführt",
+      "other_one": "{{count}} weiterer Schritt",
+      "other_other": "{{count}} weitere Schritte",
+      "look_one": "{{count}} Seite gelesen",
+      "look_other": "{{count}} Seiten gelesen",
+      "act_one": "{{count}} Aktion im Browser",
+      "act_other": "{{count}} Aktionen im Browser"
+    }
   }
 }

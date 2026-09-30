@@ -1,0 +1,58 @@
+name: Setup workspace
+description: pnpm + node, turbo cache, dependencies, enabled plugins and generated artifacts
+
+inputs:
+  turbo-api:
+    description: TURBO_API repo variable (empty when no remote cache is configured)
+    default: ""
+  turbo-token:
+    description: TURBO_TOKEN secret
+    default: ""
+  turbo-team:
+    description: TURBO_TEAM repo variable
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v4
+      with:
+        version: 10.23.0
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 24.14.0
+        cache: pnpm
+
+    # Optional remote turbo cache: active only when both the TURBO_API repo
+    # variable and the TURBO_TOKEN secret are set (docs/content/dev/ci-pipeline.md).
+    - name: Enable remote turbo cache (if configured)
+      if: ${{ inputs.turbo-api != '' && inputs.turbo-token != '' }}
+      shell: bash
+      run: |
+        {
+          echo "TURBO_API=${{ inputs.turbo-api }}"
+          echo "TURBO_TOKEN=${{ inputs.turbo-token }}"
+          echo "TURBO_TEAM=${{ inputs.turbo-team || 'team_engenty' }}"
+        } >> "$GITHUB_ENV"
+
+    # The `build` job saves this key right after Build; typecheck and test
+    # restore it so their `^build` dependencies are cache hits, not rebuilds.
+    - name: Restore turbo cache
+      uses: actions/cache/restore@v4
+      with:
+        path: .turbo/cache
+        key: turbo-${{ runner.os }}-${{ github.sha }}
+        restore-keys: turbo-${{ runner.os }}-
+
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile
+
+    - name: Enable workspace plugins
+      shell: bash
+      run: pnpm engenty plugins install --all
+
+    - name: Generate derived local artifacts
+      shell: bash
+      run: pnpm engenty generate

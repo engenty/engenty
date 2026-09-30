@@ -58,7 +58,9 @@ import {
   type ToolPartLike,
 } from "./copilot-message-parts";
 import { MentionInlineText } from "./mention-inline-text.js";
+import { describePersonStep, type PersonStep } from "./person-steps.js";
 import { PersonThoughtDisclosure } from "./person-turn-status.js";
+import { PersonWorkSummary } from "./person-work-summary.js";
 import { ToolClipRows } from "./tool-clip-rows.js";
 import { resolveToolClip } from "./tool-clips.js";
 import { useTurnStartedAt } from "./turn-started-at.js";
@@ -675,6 +677,21 @@ export function CopilotMessageContent({
     const clip = kind.kind === "tool" ? resolveToolClip(kind.part) : null;
     return clip ? [{ clip, key: `${msg.id}-clip-${index}` }] : [];
   });
+  // A person reads the finished work as one counted line; a step with a clip
+  // is already drawn as that clip.
+  const personSteps: PersonStep[] =
+    toolDetail === "person" && !isCurrentlyStreaming
+      ? toolThoughtParts.flatMap(({ kind }) => {
+          if (kind.kind !== "tool" && kind.kind !== "web_search") {
+            return [];
+          }
+          if (kind.kind === "tool" && resolveToolClip(kind.part)) {
+            return [];
+          }
+          const step = describePersonStep(kind.part, kind.toolName);
+          return step ? [step] : [];
+        })
+      : [];
   const reasoningText = thoughtParts
     .flatMap(({ kind }) =>
       kind.kind === "reasoning" && kind.part.text?.trim()
@@ -754,6 +771,7 @@ export function CopilotMessageContent({
         <PersonThoughtDisclosure text={reasoningText} />
       ) : null}
       <ToolClipRows clips={clips} />
+      <PersonWorkSummary steps={personSteps} />
 
       {preTextCardParts.map(({ index, part, toolName }) =>
         renderToolCallCardRow({

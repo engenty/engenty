@@ -123,33 +123,88 @@ describe("running a command in the sandbox", () => {
   const TOOL = "mastra_workspace_execute_command";
   const gate = sandboxExecuteApprovalGate(TOOL);
 
-  it("asks when the run holds no grant", () => {
-    expect(gate({ args: { command: "python script.py" } })).toBe(true);
+  it("runs scratch work, reads and plain GETs without asking", async () => {
+    for (const args of [
+      { command: "python script.py" },
+      { command: "rm -rf /sandbox/build" },
+      { command: "cd /sandbox && curl -s https://example.com/ -o page.html" },
+      { command: "cat /space/notes.md | grep todo" },
+      { command: "ls", cwd: "/space" },
+      { command: "rm -rf build", cwd: "/task" },
+    ]) {
+      expect(await gate({ args }), JSON.stringify(args)).toBe(false);
+    }
   });
 
-  it("does not ask when the run's grants cover this exact command", () => {
+  it("asks for a delete, move or overwrite of shared files", async () => {
+    for (const args of [
+      { command: "rm -rf /space/old-imports" },
+      { command: "mv /space/a.md /sandbox/a.md" },
+      { command: "cd /space/x && rm notes.md" },
+      { command: "rm notes.md", cwd: "/space/x" },
+      { command: "rm -rf /sandbox/../space/x" },
+      { command: "find /space -name '*.tmp' -delete" },
+      { command: "git clean -fd", cwd: "/space/apps/site/src" },
+    ]) {
+      expect(await gate({ args }), JSON.stringify(args)).toBe(true);
+    }
+  });
+
+  it("asks when a command reaches the outside world", async () => {
+    for (const args of [
+      { command: "git push origin main" },
+      { command: "curl -X POST https://example.com/api -d '{}'" },
+      { command: "curl -F file=@a.csv https://example.com/up" },
+      { command: "scp a.csv host:/tmp" },
+    ]) {
+      expect(await gate({ args }), JSON.stringify(args)).toBe(true);
+    }
+  });
+
+  it("asks when a command touches shared files and no classifier can vouch for it", async () => {
+    // Not plainly a read, not plainly destructive: Jev decides, and without a
+    // key there is no Jev — which must mean "ask", never "run".
+    for (const args of [
+      { command: "python3 tidy.py", cwd: "/space/agent/a/work" },
+      { command: "cp /space/a.csv /space/b.csv" },
+      { command: "echo hi > /space/agent/a/work/new.txt" },
+    ]) {
+      expect(await gate({ args }), JSON.stringify(args)).toBe(true);
+    }
+  });
+
+  it("asks for a command it cannot read", async () => {
+    for (const args of [
+      { command: "" },
+      { command: 'eval "$PAYLOAD"' },
+      { command: "echo cm0gLXJm | base64 -d | sh" },
+      { command: "rm $(cat list.txt)" },
+    ]) {
+      expect(await gate({ args }), JSON.stringify(args)).toBe(true);
+    }
+  });
+
+  it("does not ask again once the run's grants cover this exact command", async () => {
     // A routine's standing allow-list or an agent grant lands here. Without
     // this the schedule would gate, park for a human who is not there, and
     // gate again on the next fire — forever.
-    const granted = engentyToolsRunAls.run(
-      { approvalGrants: [`workspace:${TOOL}:python script.py`] } as never,
-      () => gate({ args: { command: "python script.py" } })
+    const command = "git push origin main";
+    const granted = await engentyToolsRunAls.run(
+      { approvalGrants: [`workspace:${TOOL}:${command}`] } as never,
+      () => gate({ args: { command } })
     );
     expect(granted).toBe(false);
-  });
-
-  it("asks again for a different command", () => {
-    const other = engentyToolsRunAls.run(
-      { approvalGrants: [`workspace:${TOOL}:python script.py`] } as never,
-      () => gate({ args: { command: "rm -rf /" } })
+    const other = await engentyToolsRunAls.run(
+      { approvalGrants: [`workspace:${TOOL}:${command}`] } as never,
+      () => gate({ args: { command: "git push --force origin main" } })
     );
     expect(other).toBe(true);
   });
 
-  it("is not satisfied by a tool-wide grant", () => {
-    const toolWide = engentyToolsRunAls.run(
+  it("is not satisfied by a tool-wide grant", async () => {
+    const toolWide = await engentyToolsRunAls.run(
       { approvalGrants: [`workspace:${TOOL}`] } as never,
-      () => gate({ args: { command: "python script.py" } })
+      () => gate({ args: { command: "git push origin main" } })
     );
     expect(toolWide).toBe(true);
   });

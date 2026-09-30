@@ -14,6 +14,10 @@ import { createLogger } from "@engenty/telemetry";
 import type { Workspace } from "@mastra/core/workspace";
 import { resolveCoreAgentId } from "../agent-identity.js";
 import { getEngentyCoreBaseUrlFromEnv } from "../core-http-client.js";
+import {
+  resolveEffectiveAgentApprovalMode,
+  taskCompletionPolicyDepsFromEnv,
+} from "../jobs/task-completion-policy.js";
 import { createDefaultModuleCapabilityLoader } from "../module-capability-loader.js";
 import { resolveSpaceComputerNetworkTier } from "../sandbox/sandbox-env.js";
 import type { EngentySandboxProvider } from "../sandbox/sandbox-provider.js";
@@ -206,6 +210,25 @@ export async function buildAgentWorkspaceForRun(input: {
     spaceResolution: input.spaceResolution,
   });
 
+  // `pass-all` is the trust dial's "never ask": the command gate reads the
+  // same resolved mode as core's operation gate instead of only saved grants.
+  // Any other mode (or an unreadable layer) keeps the declared gate.
+  const declaredSandboxRequireApproval =
+    input.workspaceConfig.sandbox?.requireApproval ?? true;
+  const approvalDeps = sandboxEnabled
+    ? taskCompletionPolicyDepsFromEnv()
+    : null;
+  const sandboxRequireApproval =
+    declaredSandboxRequireApproval &&
+    !(
+      approvalDeps &&
+      (await resolveEffectiveAgentApprovalMode(approvalDeps, {
+        agentTypeKey: input.agentId,
+        spaceId: sandboxSpaceId ?? null,
+        tenantId: input.scope.tenantId,
+      })) === "pass-all"
+    );
+
   // Only the `/data` mount forwards agent identity to core, and resolving it
   // can mint a principal — so it is looked up when that mount is in the table
   // and skipped otherwise.
@@ -259,8 +282,7 @@ export async function buildAgentWorkspaceForRun(input: {
                 : {}),
           }
         : undefined,
-      sandboxRequireApproval:
-        input.workspaceConfig.sandbox?.requireApproval ?? true,
+      sandboxRequireApproval,
       scope: input.scope,
       ...(skillDiscoveryPaths.length > 0 ? { skillDiscoveryPaths } : {}),
     })

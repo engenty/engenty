@@ -5,10 +5,12 @@ description: How the verify pipeline stays fast as the repo grows — per-packag
 
 # CI pipeline
 
-CI is a single `verify` job (`.github/workflows/ci.yml`) that runs on every
-push and PR to `main`: install → generated artifacts → config checks → build →
-typecheck → lint (changed files) → test. Deploys are **not** part of CI — only
-a `v*` tag builds and deploys images.
+CI (`.github/workflows/ci.yml`) runs on every push and PR to `main` as five
+jobs. `build` runs first and saves the turbo cache; `typecheck` and `test`
+restore it and run side by side (both depend on the workspace build); `checks`
+(config guards, lint of changed files) needs no build and runs in parallel from
+the start. `verify` waits for all four — it is the one check to require or wait
+for. Deploys are **not** part of CI — only a `v*` tag builds and deploys images.
 
 The pipeline is built around one idea: **every expensive step goes through
 turbo, so unchanged packages are cache hits**. A change to one module rebuilds
