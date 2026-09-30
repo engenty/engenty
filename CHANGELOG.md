@@ -4,6 +4,11 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.2.29] - 2026-09-30
+- FIXED **[ai]** Skip system jobs whose module is not installed; drop is-task-complete chunks
+- FIXED **[deploy]** Start the Rivet engine in the app-host image
+- FIXED **[deploy]** Ship the runtime skills folder in the ai image
+
 ## [0.2.28] - 2026-09-30
 - ADDED **[projects]** Notes page list as the Notes tab's doc sidebar; link field finds the project's pages
 - ADDED **[projects]** Notes as pages with the KB page editor; settings sidebar only on the planning tabs

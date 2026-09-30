@@ -1,7 +1,31 @@
 [
   {
+    "version": "v0.2.29",
+    "timestamp": 1790775697,
+    "commits": [
+      {
+        "id": "4e80ed0",
+        "message": "skip system jobs whose module is not installed; drop is-task-complete chunks",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "2e34d44",
+        "message": "start the Rivet engine in the app-host image",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "e63f49e",
+        "message": "ship the runtime skills folder in the ai image",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.2.28",
-    "timestamp": 1790769250,
+    "timestamp": 1790769253,
     "commits": [
       {
         "id": "0a87d83",

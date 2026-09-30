@@ -96,6 +96,9 @@ COPY --from=deps /app/apps/ai/node_modules ./apps/ai/node_modules
 COPY --from=build /app/packages ./packages
 COPY --from=build /app/modules ./modules
 COPY --from=build /app/apps/ai/dist ./apps/ai/dist
+# Platform playbooks are read from disk at runtime (resolveRuntimeSkillsDir looks
+# for ../ai/skills next to dist) — without them every run's workspace fails.
+COPY --from=build /app/apps/ai/ai/skills ./apps/ai/ai/skills
 
 # Root package.json changes every release (the version bump), so it MUST land
 # BELOW the multi-gigabyte node_modules copies above. A changed layer forces

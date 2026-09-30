@@ -23,6 +23,8 @@
 //     not recognise (its processor warns "Unrecognized stream chunk type").
 //   - **`tool-call-approval`** — the pause a `requireApproval` gate opens, restated
 //     as the `tool-call-suspended` upstream does have a case for.
+//   - **`is-task-complete`** — Mastra's completion-check event; upstream does not
+//     recognise it and only logs a warning per turn, so it is dropped here.
 //   - **the `tripwire` chunk** — a processor block ends the loop with no reply;
 //     upstream drops the chunk, so the harness could not tell it from success.
 //   - **run guards** — `modelSettings.timeout` and the empty-reply completion
@@ -203,6 +205,13 @@ export function interceptMastraStream(
         // rewritten rather than merely read (see approvalAsSuspension).
         const observed = (async function* () {
           for await (const chunk of source) {
+            // Mastra's completion-check event: nothing here reads it and
+            // upstream only logs "Unrecognized stream chunk type" for it.
+            if (
+              (chunk as { type?: string } | null)?.type === "is-task-complete"
+            ) {
+              continue;
+            }
             errorChunk ??= errorFromChunk(chunk);
             tripwireChunk ??= tripwireFromChunk(chunk);
             activeDelegation = readSubAgentProgress(

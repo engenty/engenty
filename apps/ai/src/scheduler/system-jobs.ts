@@ -9,6 +9,7 @@ import {
 } from "@engenty/ag-ui-bridge";
 import { createLogger } from "@engenty/telemetry";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { EngentyCoreHttpError } from "../ai/core-http-client.js";
 
 const logger = createLogger({ name: "system-jobs" });
 
@@ -63,6 +64,33 @@ async function cleanupExpiredInterrupts(ctx: {
     cleaned += 1;
   }
   return `cleared ${cleaned} expired interrupt(s)`;
+}
+
+/**
+ * A module job on a deployment where its module is not installed (stage
+ * filter) or not enabled for the tenant is not a failure — core answers 404
+ * "Unknown module operation" / 403 "Capability unavailable". Skip quietly
+ * instead of raising a warning on every fire.
+ */
+async function skipWhenModuleUnavailable(
+  run: () => Promise<string>
+): Promise<string> {
+  try {
+    return await run();
+  } catch (err) {
+    if (err instanceof EngentyCoreHttpError) {
+      if (
+        err.status === 404 &&
+        err.message.startsWith("Unknown module operation")
+      ) {
+        return "skipped: module not installed";
+      }
+      if (err.status === 403 && err.message === "Capability unavailable") {
+        return "skipped: module not enabled for this tenant";
+      }
+    }
+    throw err;
+  }
 }
 
 /**
@@ -270,13 +298,13 @@ export function listSystemJobs(): SystemJob[] {
       id: "inbox-sync",
       name: "Inbox mail sync",
       schedule: "*/5 * * * *",
-      execute: runInboxSync,
+      execute: (ctx) => skipWhenModuleUnavailable(() => runInboxSync(ctx)),
     },
     {
       id: "calendar-sync",
       name: "Time-tracking calendar sync",
       schedule: "*/15 * * * *",
-      execute: runCalendarSync,
+      execute: (ctx) => skipWhenModuleUnavailable(() => runCalendarSync(ctx)),
     },
     {
       id: "graph-wake",

@@ -143,6 +143,9 @@ ENV ENGENTY_APP_HOST_PORT=8795
 # RivetKit keeps its durable engine store under $HOME/.rivetkit. Point HOME at
 # the mounted volume, or every restart drops all deployed app releases.
 ENV HOME=/data
+# Outside dev RivetKit does not spawn its local engine on its own: without this
+# the registry logs `endpoint_not_configured` and no Apps run.
+ENV RIVET_RUN_ENGINE=1
 # uid 1000 is the space computer's `sandbox` user. Both containers write the
 # same App directories on /opt/engenty/spaces (source and /data), so they must
 # be the same uid — files one creates the other must edit. Existing volumes
