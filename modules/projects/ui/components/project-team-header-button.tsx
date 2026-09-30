@@ -87,14 +87,18 @@ export function ProjectTeamHeaderButton({
           </Button>
         )}
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-96 p-4">
+      {/* Solid, not the floating glass; the sidebar's section inside. */}
+      <PopoverContent
+        align="end"
+        className="w-96 bg-background p-4 backdrop-blur-none"
+      >
         <ProjectTeamMembersSection
           catalog={catalog}
-          className="mt-0"
           defaultExpanded
           onProjectUpdated={onProjectUpdated}
           projectId={projectId}
           projectTeamMembers={projectTeamMembers}
+          variant="sidebar"
         />
       </PopoverContent>
     </Popover>

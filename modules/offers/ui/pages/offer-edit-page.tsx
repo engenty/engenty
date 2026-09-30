@@ -34,6 +34,7 @@ import {
   Card,
   CardContent,
   cn,
+  DOC_SIDEBAR_WIDTH_TRANSITION_CLASS,
   DocSidebarLayout,
   DocSidebarToggle,
   DropdownMenu,
@@ -841,7 +842,10 @@ export function OfferEditPage(props?: {
       ) : null}
 
       <OfferDraftToolbar
-        contentClassName={contentMaxWidthClass}
+        contentClassName={cn(
+          DOC_SIDEBAR_WIDTH_TRANSITION_CLASS,
+          contentMaxWidthClass
+        )}
         downloadingPdf={downloadingPdf}
         end={
           <DocSidebarToggle

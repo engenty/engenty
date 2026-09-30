@@ -23,6 +23,7 @@ import {
   Card,
   CardContent,
   cn,
+  DOC_SIDEBAR_WIDTH_TRANSITION_CLASS,
   DocSidebarLayout,
   DocSidebarToggle,
   DropdownMenu,
@@ -480,6 +481,7 @@ export function InvoiceEditPage(props?: {
           <div
             className={cn(
               "mx-auto flex w-full items-center justify-end px-page",
+              DOC_SIDEBAR_WIDTH_TRANSITION_CLASS,
               contentMaxWidthClass
             )}
           >

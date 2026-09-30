@@ -4,6 +4,13 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.2.31] - 2026-09-30
+- ADDED **[ui]** Space title edits inline, add-cover beside the title, team popover and image covers in the space header
+- ADDED **[files]** Space cover media routes for upload, Unsplash and AI images
+- ADDED **[ui-core]** One width transition for doc sidebar layouts, so headers and toolbars move with the sidebar
+- FIXED **[projects]** Team popover uses the sidebar heading, no glass
+- FIXED **[covers]** Cover dialog keeps one height across tabs
+
 ## [0.2.30] - 2026-09-30
 - ADDED **[ai]** Ask only for destructive or outbound sandbox commands, Jev decides the unclear middle
 - ADDED **[ai-ui]** Plain-language status and work summary for person mode

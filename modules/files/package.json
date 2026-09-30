@@ -39,6 +39,7 @@
     "@engenty/app-shell": "workspace:*",
     "@engenty/connections-local-files": "workspace:*",
     "@engenty/connections-sdk": "workspace:*",
+    "@engenty/covers": "workspace:*",
     "@engenty/file-storage": "workspace:*",
     "@engenty/i18n": "workspace:*",
     "@engenty/import": "workspace:*",

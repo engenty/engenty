@@ -16,6 +16,7 @@ import {
 } from "./api/file-manager-routes.js";
 import { registerFileShortcutsRoutes } from "./api/file-shortcuts-routes.js";
 import { registerFileSourcesRoutes } from "./api/file-sources-routes.js";
+import { registerSpaceCoverRoutes } from "./api/space-cover-routes.js";
 import { registerSpaceFileOperations } from "./api/space-file-operations.js";
 import {
   createFileManagerStores,
@@ -187,6 +188,8 @@ const registerFilesPlugin: EngentyPluginFactory = (engenty) => {
   // exist. Registering the adapter grants nothing on its own: the root appears
   // only where the space has mounted `files` (mount = grant).
   registerSpaceFileOperations(server, source);
+  // The space home's cover images (upload, Unsplash, AI) — in the space's storage.
+  registerSpaceCoverRoutes(server, getDb);
   server.registerSpaceDataAdapter?.(createFilesSpaceDataAdapter());
 };
 

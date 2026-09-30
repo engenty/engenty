@@ -1,7 +1,43 @@
 [
   {
+    "version": "v0.2.31",
+    "timestamp": 1790783884,
+    "commits": [
+      {
+        "id": "12aa40c",
+        "message": "team popover uses the sidebar heading, no glass",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "180c10b",
+        "message": "space title edits inline, add-cover beside the title, team popover and image covers in the space header",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "68726f9",
+        "message": "space cover media routes for upload, Unsplash and AI images",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "bb434bf",
+        "message": "cover dialog keeps one height across tabs",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "c5a8b41",
+        "message": "one width transition for doc sidebar layouts, so headers and toolbars move with the sidebar",
+        "group": "Added",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.2.30",
-    "timestamp": 1790782399,
+    "timestamp": 1790782402,
     "commits": [
       {
         "id": "91412f6",

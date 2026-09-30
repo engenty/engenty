@@ -18,6 +18,7 @@ import { useTranslation } from "@engenty/i18n/ui";
 import { useSpaceAttention } from "@engenty/notifications-ui";
 import {
   cn,
+  DOC_SIDEBAR_WIDTH_TRANSITION_CLASS,
   DocSidebarLayout,
   uiPageScrollClassName,
   useDocSidebar,
@@ -81,6 +82,7 @@ export function SpaceWorkHome() {
   // row (and the header over it) widens so the cards keep their measure.
   const rowClassName = cn(
     "mx-auto w-full px-page",
+    DOC_SIDEBAR_WIDTH_TRANSITION_CLASS,
     sidebar.mode === "inline" && sidebar.open ? "max-w-6xl" : "max-w-4xl"
   );
   const spacesQuery = useSpacesQuery();

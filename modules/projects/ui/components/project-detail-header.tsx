@@ -5,7 +5,13 @@ import {
   createCoverMediaHttpAdapter,
 } from "@engenty/covers/ui";
 import { useTranslation } from "@engenty/i18n/ui";
-import { Button, cn, DetailPageHeader, EditableText } from "@engenty/ui-core";
+import {
+  Button,
+  cn,
+  DetailPageHeader,
+  DOC_SIDEBAR_WIDTH_TRANSITION_CLASS,
+  EditableText,
+} from "@engenty/ui-core";
 import { ImageIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { ProjectListItem, ProjectTeamMemberRow } from "../api.js";
@@ -177,6 +183,7 @@ export function ProjectDetailHeader({
           className={cn(
             // Same column and top clearance as `DetailPageHeader` canvas.
             "mx-auto flex w-full flex-col px-2 pt-14 pb-2 sm:px-4 md:px-5 md:pb-3",
+            DOC_SIDEBAR_WIDTH_TRANSITION_CLASS,
             wide ? "max-w-6xl" : "max-w-5xl"
           )}
         >
@@ -233,6 +240,7 @@ export function ProjectDetailHeader({
       <DetailPageHeader
         belowStrip={tabs}
         className="group/header"
+        containerClassName={DOC_SIDEBAR_WIDTH_TRANSITION_CLASS}
         description={subtitleLine}
         eyebrow={clientLine}
         maxWidth={wide ? "6xl" : "5xl"}

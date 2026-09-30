@@ -305,10 +305,10 @@ export function updateSpaceSetup(spaceId: string, payload: SpaceSetupPayload) {
   });
 }
 
-/** The home header's own fields: description and cover (`null` clears). */
+/** The home header's own fields: name, description and cover (`null` clears). */
 export function updateSpaceDetails(
   spaceId: string,
-  payload: { cover?: Cover | null; description?: string | null }
+  payload: { cover?: Cover | null; description?: string | null; name?: string }
 ) {
   return request<{ space: Space }>(
     `/api/spaces/${encodeURIComponent(spaceId)}/details`,

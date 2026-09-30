@@ -37,6 +37,15 @@ export const DOC_SIDEBAR_GAP_PX = 32;
  */
 export const DOC_SIDEBAR_INLINE_MIN_WIDTH_PX = 800;
 
+/**
+ * The sidebar's open/close timing. Anything whose width follows the sidebar —
+ * the layout's own row, a page header or toolbar switching `max-w-*` with it —
+ * takes this class, so everything moves together instead of snapping while
+ * the column slides.
+ */
+export const DOC_SIDEBAR_WIDTH_TRANSITION_CLASS =
+  "transition-[max-width] duration-300 ease-in-out motion-reduce:transition-none";
+
 export interface DocSidebarLayoutProps {
   children: ReactNode;
   /**
@@ -150,7 +159,13 @@ export function DocSidebarLayout({
 
   return (
     <div className="w-full" ref={measureRef}>
-      <div className={cn("mx-auto flex w-full", className)}>
+      <div
+        className={cn(
+          "mx-auto flex w-full",
+          DOC_SIDEBAR_WIDTH_TRANSITION_CLASS,
+          className
+        )}
+      >
         <div className="min-w-0 flex-1">{children}</div>
         {mode === "inline" ? (
           // Collapsible inline column: min width with a little room to grow

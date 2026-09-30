@@ -1620,6 +1620,9 @@ importers:
       '@engenty/connections-sdk':
         specifier: workspace:*
         version: link:../../packages/connections-sdk
+      '@engenty/covers':
+        specifier: workspace:*
+        version: link:../../packages/covers
       '@engenty/file-storage':
         specifier: workspace:*
         version: link:../../packages/file-storage

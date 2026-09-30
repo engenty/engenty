@@ -207,6 +207,7 @@ const createSpaceBodySchema = z.object({
 const spaceDetailsBodySchema = z.object({
   cover: coverSchema.nullable().optional(),
   description: z.string().max(500).nullable().optional(),
+  name: z.string().min(1).max(200).optional(),
 });
 
 const spaceSetupBodySchema = z.object({
@@ -1438,8 +1439,8 @@ export function registerSpacesRoutes(params: {
   });
 
   /**
-   * The home header's own fields — the description under the title and the
-   * cover behind it — without resending the whole setup (`PUT /setup` needs
+   * The home header's own fields — the name, the description under it and
+   * the cover behind them — without resending the whole setup (`PUT /setup` needs
    * every mount). Same access as setup.
    */
   app.patch("/api/spaces/:spaceId/details", async (c) => {
@@ -1472,6 +1473,7 @@ export function registerSpacesRoutes(params: {
         ...(parsed.data.description === undefined
           ? {}
           : { description: parsed.data.description }),
+        ...(parsed.data.name === undefined ? {} : { name: parsed.data.name }),
       });
       return jsonApiSuccess(c, { space });
     } catch (error) {

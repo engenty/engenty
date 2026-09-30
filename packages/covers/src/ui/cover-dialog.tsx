@@ -274,7 +274,10 @@ export function CoverDialog({
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="flex max-h-[min(90vh,720px)] max-w-lg flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
+      {/* One fixed height for every tab: switching Farbe / Verlauf / Bild
+          (and the image sub-tabs) must not resize the dialog. The body
+          scrolls inside it instead. */}
+      <DialogContent className="flex h-[min(90vh,560px)] max-w-lg flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
         <DialogHeader className="border-border-soft border-b px-4 py-3 text-left">
           <DialogTitle className="text-base">
             {t("covers.cover_dialog_title")}
