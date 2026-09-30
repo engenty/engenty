@@ -1,22 +1,17 @@
 import { useTranslation } from "@engenty/i18n/ui";
 import {
   Button,
-  CardSection,
   DatePicker,
   Input,
-  Label,
-  SidePanel,
-  SidePanelContent,
-  SidePanelHeader,
-  SidePanelTitle,
+  SettingsCard,
+  SettingsCardSeparator,
+  SettingsSection,
   Switch,
 } from "@engenty/ui-core";
 import { Copy, ExternalLink, RefreshCw } from "lucide-react";
-import { useEffect, useState } from "react";
-import {
-  ProjectClientPicker,
-  type ProjectClientSelection,
-} from "./project-client-picker.js";
+import { type ReactNode, useEffect, useState } from "react";
+import { ProjectClientSettingsSection } from "./project-client-settings-section.js";
+import type { ProjectClientSelection } from "./project-client-topline.js";
 
 export interface ProjectSettingsValues {
   client_id: string | null;
@@ -32,46 +27,52 @@ interface ProjectSettingsPanelProps {
   clientId: string | null;
   clientName: string | null;
   endDate: string | null;
-  onClose: () => void;
   /** Called on every change — the panel has no Save button. */
   onSave: (values: ProjectSettingsValues) => void | Promise<void>;
-  open: boolean;
   portalEnabled: boolean;
   portalPassword: string | null;
   projectId: string;
   startDate: string | null;
+  /** The team section (with the team module), after the client. */
+  team?: ReactNode;
   timeplanEnabled: boolean;
 }
 
-interface SettingToggleRowProps {
-  checked: boolean;
-  hint: string;
+/** Label left, control right — the offer sidebar's row. */
+function SettingRow({
+  children,
+  label,
+}: {
+  children: ReactNode;
   label: string;
-  onCheckedChange: (checked: boolean) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+      <span className="shrink-0 text-muted-foreground text-sm">{label}</span>
+      <div className="w-full min-w-0 sm:max-w-xs">{children}</div>
+    </div>
+  );
 }
 
-/**
- * Toggle row: switch sits on the label's line, the hint runs full width
- * underneath it. In a side panel the settings 8/4 grid squeezes the hint into
- * a narrow column and leaves the switch floating away from its label.
- */
-function SettingToggleRow({
+/** Title and hint on the left, the switch on the right. */
+function SettingSwitchRow({
   checked,
   hint,
   label,
   onCheckedChange,
-}: SettingToggleRowProps) {
+}: {
+  checked: boolean;
+  hint?: string;
+  label: string;
+  onCheckedChange: (checked: boolean) => void;
+}) {
   return (
-    <div className="py-2">
-      <div className="flex items-center justify-between gap-4">
-        <div className="min-w-0 font-medium text-foreground text-sm leading-none">
-          {label}
-        </div>
-        <Switch checked={checked} onCheckedChange={onCheckedChange} />
+    <div className="flex items-center justify-between gap-4 p-4">
+      <div className="min-w-0">
+        <p className="font-semibold text-sm">{label}</p>
+        {hint ? <p className="text-muted-foreground text-sm">{hint}</p> : null}
       </div>
-      <p className="mt-1.5 text-muted-foreground text-sm leading-snug">
-        {hint}
-      </p>
+      <Switch checked={checked} onCheckedChange={onCheckedChange} />
     </div>
   );
 }
@@ -81,24 +82,25 @@ const PASSWORD_CHARS =
 const PASSWORD_LENGTH = 12;
 
 /**
- * Everything that is configured per project rather than per view: time planning
- * (the switch that separates a full project from a lean project room) and the
- * client portal. Grouped into card sections per the settings-form-section rule.
+ * The project's settings for the detail page's doc sidebar (`DocSidebarLayout`
+ * — inline column when wide, overlay sheet when narrow, as on an offer draft):
+ * client and team, time planning (the switch that separates a full project
+ * from a lean project room) and the client portal. Card sections per the
+ * settings-form-section rule.
  *
  * Every change saves on its own (the password field on blur), so closing the
- * panel never throws work away.
+ * sidebar never throws work away.
  */
 export function ProjectSettingsPanel({
   clientId: initialClientId,
   clientName: initialClientName,
   endDate: initialEndDate,
-  onClose,
   onSave,
-  open,
   portalEnabled: initialPortalEnabled,
   portalPassword: initialPassword,
   projectId,
   startDate: initialStartDate,
+  team,
   timeplanEnabled: initialTimeplanEnabled,
 }: ProjectSettingsPanelProps) {
   const { t } = useTranslation("projects");
@@ -186,180 +188,151 @@ export function ProjectSettingsPanel({
   };
 
   return (
-    <SidePanel onOpenChange={onClose} open={open}>
-      <SidePanelContent>
-        <SidePanelHeader>
-          <SidePanelTitle>{t("detail.projectSettings.title")}</SidePanelTitle>
-        </SidePanelHeader>
+    <div className="flex flex-col gap-5">
+      <ProjectClientSettingsSection
+        clientId={client.client_id}
+        clientName={client.client_name}
+        onChange={(next) => {
+          setClient(next);
+          save({ client: next });
+        }}
+      />
 
-        <div className="flex flex-1 flex-col gap-6 overflow-y-auto px-6 pt-2 pb-6">
-          <CardSection
-            description={t("detail.projectSettings.clientSectionDescription")}
-            title={t("detail.projectSettings.clientSection")}
-          >
-            <ProjectClientPicker
-              clientId={client.client_id}
-              clientName={client.client_name}
-              onChange={(next) => {
-                setClient(next);
-                save({ client: next });
+      {team}
+
+      {/* The section's switch is the setting; its card exists only while on. */}
+      <SettingsSection
+        action={
+          <Switch
+            aria-label={t("detail.projectSettings.timeplanSection")}
+            checked={timeplanEnabled}
+            onCheckedChange={(next) => {
+              setTimeplanEnabled(next);
+              save({ timeplanEnabled: next });
+            }}
+          />
+        }
+        description={t("detail.projectSettings.timeplanSectionDescription")}
+        title={t("detail.projectSettings.timeplanSection")}
+      >
+        {timeplanEnabled ? (
+          <SettingsCard>
+            <SettingRow label={t("detail.projectSettings.startDate")}>
+              <DatePicker
+                className="w-full"
+                onChange={(next) => {
+                  setStartDate(next ?? "");
+                  save({ startDate: next ?? "" });
+                }}
+                value={startDate || null}
+              />
+            </SettingRow>
+            <SettingsCardSeparator />
+            <SettingRow label={t("detail.projectSettings.endDate")}>
+              <DatePicker
+                className="w-full"
+                onChange={(next) => {
+                  setEndDate(next ?? "");
+                  save({ endDate: next ?? "" });
+                }}
+                value={endDate || null}
+              />
+            </SettingRow>
+          </SettingsCard>
+        ) : null}
+      </SettingsSection>
+
+      <SettingsSection
+        action={
+          <Switch
+            aria-label={t("detail.portal.enablePortal")}
+            checked={portalEnabled}
+            onCheckedChange={(next) => {
+              setPortalEnabled(next);
+              save({ portalEnabled: next });
+            }}
+          />
+        }
+        description={t("detail.projectSettings.portalSectionDescription")}
+        title={t("detail.projectSettings.portalSection")}
+      >
+        {portalEnabled ? (
+          <SettingsCard>
+            <SettingSwitchRow
+              checked={passwordProtected}
+              hint={t("detail.portal.passwordProtectedHint", {
+                defaultValue: "Require a password to access the portal",
+              })}
+              label={t("detail.portal.passwordProtected", {
+                defaultValue: "Password protected",
+              })}
+              onCheckedChange={(next) => {
+                setPasswordProtected(next);
+                save({ passwordProtected: next });
               }}
             />
-          </CardSection>
-
-          {/* The section title *is* the setting - its switch turns the whole
-              block on, so there is no separate "Enable …" row, and the card
-              only exists while there is something to configure. */}
-          <CardSection>
-            <CardSection.Header
-              action={
-                <Switch
-                  checked={timeplanEnabled}
-                  onCheckedChange={(next) => {
-                    setTimeplanEnabled(next);
-                    save({ timeplanEnabled: next });
-                  }}
-                />
-              }
-              description={t(
-                "detail.projectSettings.timeplanSectionDescription"
-              )}
-              title={t("detail.projectSettings.timeplanSection")}
-            />
-            {timeplanEnabled && (
-              <CardSection.Body variant="compact">
-                {/* Stacked, not side by side: the side panel is narrow and a
-                    formatted date ("August 27th, 2026") does not fit a half
-                    column. */}
-                <div className="grid grid-cols-1 gap-3">
-                  <div>
-                    {/* DatePicker renders a popover trigger, not an input —
-                        label by proximity rather than a dangling `htmlFor`. */}
-                    <Label>{t("detail.projectSettings.startDate")}</Label>
-                    <DatePicker
-                      className="mt-1 w-full"
-                      onChange={(next) => {
-                        setStartDate(next ?? "");
-                        save({ startDate: next ?? "" });
-                      }}
-                      value={startDate || null}
-                    />
-                  </div>
-                  <div>
-                    <Label>{t("detail.projectSettings.endDate")}</Label>
-                    <DatePicker
-                      className="mt-1 w-full"
-                      onChange={(next) => {
-                        setEndDate(next ?? "");
-                        save({ endDate: next ?? "" });
-                      }}
-                      value={endDate || null}
-                    />
-                  </div>
-                </div>
-              </CardSection.Body>
-            )}
-          </CardSection>
-
-          <CardSection>
-            <CardSection.Header
-              action={
-                <Switch
-                  checked={portalEnabled}
-                  onCheckedChange={(next) => {
-                    setPortalEnabled(next);
-                    save({ portalEnabled: next });
-                  }}
-                />
-              }
-              description={t("detail.projectSettings.portalSectionDescription")}
-              title={t("detail.projectSettings.portalSection")}
-            />
-            {portalEnabled && (
-              <CardSection.Body
-                className="space-y-0 divide-y divide-border"
-                variant="compact"
-              >
-                <SettingToggleRow
-                  checked={passwordProtected}
-                  hint={t("detail.portal.passwordProtectedHint", {
-                    defaultValue: "Require a password to access the portal",
-                  })}
-                  label={t("detail.portal.passwordProtected", {
-                    defaultValue: "Password protected",
-                  })}
-                  onCheckedChange={(next) => {
-                    setPasswordProtected(next);
-                    save({ passwordProtected: next });
-                  }}
-                />
-
-                {passwordProtected && (
-                  <div className="space-y-2 pt-3">
-                    <Label htmlFor="portal-password">
-                      {t("detail.portal.password")}
-                    </Label>
-                    <div className="flex gap-2">
-                      <Input
-                        id="portal-password"
-                        onBlur={() => {
-                          if (password !== (initialPassword || "")) {
-                            save({});
-                          }
-                        }}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder={t("detail.portal.enterPassword")}
-                        type="text"
-                        value={password}
-                      />
-                      <Button
-                        onClick={() => copyToClipboard(password)}
-                        size="icon"
-                        variant="outline"
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        onClick={generatePassword}
-                        size="icon"
-                        variant="outline"
-                      >
-                        <RefreshCw className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <p className="text-muted-foreground text-xs">
-                      {t("detail.portal.passwordHint")}
-                    </p>
-                  </div>
-                )}
-
-                <div className="space-y-2 pt-3">
-                  <Label htmlFor="portal-url">
-                    {t("detail.portal.portalUrl")}
-                  </Label>
+            {passwordProtected ? (
+              <>
+                <SettingsCardSeparator />
+                <SettingRow label={t("detail.portal.password")}>
                   <div className="flex gap-2">
-                    <Input id="portal-url" readOnly value={portalUrl} />
+                    <Input
+                      aria-label={t("detail.portal.password")}
+                      onBlur={() => {
+                        if (password !== (initialPassword || "")) {
+                          save({});
+                        }
+                      }}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder={t("detail.portal.enterPassword")}
+                      type="text"
+                      value={password}
+                    />
                     <Button
-                      onClick={() => copyToClipboard(portalUrl)}
+                      onClick={() => copyToClipboard(password)}
                       size="icon"
                       variant="outline"
                     >
                       <Copy className="h-4 w-4" />
                     </Button>
                     <Button
-                      onClick={() => window.open(portalUrl, "_blank")}
+                      onClick={generatePassword}
                       size="icon"
                       variant="outline"
                     >
-                      <ExternalLink className="h-4 w-4" />
+                      <RefreshCw className="h-4 w-4" />
                     </Button>
                   </div>
-                </div>
-              </CardSection.Body>
-            )}
-          </CardSection>
-        </div>
-      </SidePanelContent>
-    </SidePanel>
+                </SettingRow>
+              </>
+            ) : null}
+            <SettingsCardSeparator />
+            <SettingRow label={t("detail.portal.portalUrl")}>
+              <div className="flex gap-2">
+                <Input
+                  aria-label={t("detail.portal.portalUrl")}
+                  readOnly
+                  value={portalUrl}
+                />
+                <Button
+                  onClick={() => copyToClipboard(portalUrl)}
+                  size="icon"
+                  variant="outline"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+                <Button
+                  onClick={() => window.open(portalUrl, "_blank")}
+                  size="icon"
+                  variant="outline"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                </Button>
+              </div>
+            </SettingRow>
+          </SettingsCard>
+        ) : null}
+      </SettingsSection>
+    </div>
   );
 }

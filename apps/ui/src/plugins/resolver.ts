@@ -875,6 +875,13 @@ export async function resolveUiPlugins(params: {
       kind: "live binding",
     }
   );
+  const moduleSidebars = removeStaleOwnedContributions(
+    filtered.moduleSidebars ?? [],
+    {
+      ...cleanupParams,
+      kind: "module sidebar",
+    }
+  );
   const backgroundComponents = removeStaleOwnedContributions(
     filtered.backgroundComponents ?? [],
     {
@@ -960,6 +967,7 @@ export async function resolveUiPlugins(params: {
       developmentPanels: developmentPanelsNormalized.items,
       i18nNamespaces: i18nNamespacesNormalized.items,
       liveBindings,
+      moduleSidebars,
       navigationPrefetch: navigationPrefetchNormalized.items,
       settingsItems: settingsItemsWithCategory,
       spaceSections: spaceSectionsNormalized.items,

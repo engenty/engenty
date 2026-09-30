@@ -31,7 +31,7 @@ pnpm dev
 
 Open [http://localhost:5173](http://localhost:5173). First visit is
 `/initial_setup`: it checks the installation, then creates the administrator,
-the team, a model provider connection, the first space and your personal space.
+the team, a model provider connection and the first space.
 
 ## Production
 

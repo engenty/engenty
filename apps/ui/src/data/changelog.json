@@ -1,7 +1,163 @@
 [
   {
+    "version": "v0.2.27",
+    "timestamp": 1790762687,
+    "commits": [
+      {
+        "id": "d878420",
+        "message": "the OAuth popup landing never boots the app; it reports, closes, or says it can be closed",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "5cf037e",
+        "message": "report the OAuth popup result before the app boots, also when the provider cuts the opener link",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
+    "version": "v0.2.26",
+    "timestamp": 1790760443,
+    "commits": [
+      {
+        "id": "1267dae",
+        "message": "header with client, team, star and subtitle; settings sidebar; project KV store",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "a4a2076",
+        "message": "top-right slot on the cover band",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "8760734",
+        "message": "doc sidebar settings blocks, section actions, centred resize handle",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "f21dc92",
+        "message": "keep the remembered-notes dialog within its width",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "56f83c2",
+        "message": "share the platform bindings snapshot across module copies",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "edcf5f4",
+        "message": "address the person as du in the My connections hint",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "eab429a",
+        "message": "one dialog and one connector detail for every level — My connections, Space extensions, the Organisation catalog",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "f44ea44",
+        "message": "move the settings panel into the package so connectors can show their credentials in place",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "c5506e2",
+        "message": "one exported path for connection pages; agents name the credentials pages",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "1574ef0",
+        "message": "link connected accounts through the shared connections path",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "d556277",
+        "message": "drop the Work Horse Harness tagline from login and About",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
+    "version": "v0.2.25",
+    "timestamp": 1790754702,
+    "commits": [
+      {
+        "id": "60ef94c",
+        "message": "leave agents the registry does not list off the Space roster",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "0945937",
+        "message": "ship the docker CLI in the ai image so the Space browser and sandboxes start",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "924588f",
+        "message": "closed modules use Space accounts and membership access only",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "0ec5e3a",
+        "message": "personal connections follow the Copilot into any Space; drop the personal Space",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "838c561",
+        "message": "plan personal connections and drop the personal Space",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "7a710a7",
+        "message": "give Connections its own README section, move Contacts to Commercial, one Engenty casing",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "e2b958b",
+        "message": "ship the egress and browser proxies as release images",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "94f311f",
+        "message": "open the module's agents on a desk that keeps the contacts sidebar",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "1152548",
+        "message": "open a hand-off that starts a turn below the user's message",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "de395eb",
+        "message": "the Files root reads Dateien in the pane breadcrumbs",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.2.24",
-    "timestamp": 1790745770,
+    "timestamp": 1790745773,
     "commits": [
       {
         "id": "a98e548",

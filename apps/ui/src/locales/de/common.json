@@ -41,7 +41,7 @@
     "settings": "Einstellungen",
     "setup": "Setup",
     "setupPlatform": "Plattform-Einstellungen",
-    "setupConnectors": "Externe Connectors",
+    "setupConnections": "Verbindungen",
     "mastraStudio": "Mastra Studio",
     "manage": "Manage",
     "apps": "Apps"
@@ -144,7 +144,7 @@
     "pluginsDescription": "Plugins für die Installation aktivieren und konfigurieren.",
     "rolesDescription": "Rollen, Capabilities und Zuweisungen.",
     "auditLogsDescription": "Tenant-Ereignisse, Policy-Entscheidungen und Operationen prüfen.",
-    "connectorsDescription": "Externe Connectors importieren und verwalten.",
+    "connectorsDescription": "Welche Dienste diese Organisation anbietet, ihre OAuth-Clients und importierte Connectors.",
     "studioDescription": "Mastra Studio mit dieser Engenty-Sitzung verbinden."
   },
   "plugins": {
@@ -471,10 +471,9 @@
     },
     "connections": {
       "title": "Verbindungen",
-      "overviewDescription": "Externe Konten für Agenten und Module verknüpfen.",
-      "linkedOverview": "{{count}} verbunden",
-      "emptyOverview": "Noch keine Konten verknüpft",
-      "errorsOverview": "{{count}} benötigen Aufmerksamkeit"
+      "overviewDescription": "Die Dienste dieser Organisation und ihre Zugangsdaten.",
+      "linkedOverview": "{{count}} Konten in {{services}} Diensten",
+      "emptyOverview": "Noch keine Konten verbunden"
     },
     "aiModels": {
       "menuLabel": "KI-Modelle"
@@ -780,7 +779,6 @@
     "version": "Version {{version}}",
     "tenant": "Mandant",
     "plan": "Plan",
-    "tagline": "Your Work Horse Harness",
     "taglineLead": "Teams & Agenten arbeiten zusammen",
     "taglineAside": "Seite an Seite mit deinen Apps",
     "changelog": "CHANGELOG",
@@ -884,7 +882,6 @@
   "spaces": {
     "title": "Spaces",
     "group": {
-      "personal": "Persönlich",
       "shared": "Geteilt"
     },
     "agents": {
@@ -976,7 +973,6 @@
       "empty": "Noch niemand hier.",
       "owner": "Eigentümer",
       "you": "Du",
-      "personalNote": "Dies ist dein persönlicher, privater Space.",
       "removeConfirmTitle": "{{name}} aus diesem Space entfernen?",
       "removeConfirmDescription": "Der Zugriff auf diesen Space geht verloren — auf seine Arbeit, seine Daten und seine Chats. Nichts davon wird gelöscht, und eine Administratorin kann die Person wieder hinzufügen.",
       "removeConfirmAction": "Entfernen"
@@ -1308,11 +1304,6 @@
         "add": "Verbinden",
         "connect": "Verbinden",
         "all": "Alle",
-        "dialogTitle": "Erweiterungen",
-        "back": "Zurück",
-        "dialogDescription": "Verbindungen und Skills für diesen Space.",
-        "tabPlugins": "Verbindungen",
-        "tabSkills": "Skills",
         "skillsHint": "Pakete sind Gruppen von Playbooks. Ein Paket öffnen, um einzelne Skills zu wählen.",
         "skillsCount": "{{count}} Skills",
         "skillsCountOne": "{{count}} Skill",
@@ -1371,7 +1362,6 @@
       }
     },
     "notFound": "Dieser Space ist nicht verfügbar.",
-    "personalBadge": "Dein persönlicher Space",
     "manageAction": "Spaces verwalten",
     "switcherAriaLabel": "Space wechseln",
     "settings": {
@@ -1381,8 +1371,6 @@
       "saveFailed": "Speichern nicht möglich. Bitte erneut versuchen.",
       "chooseSkills": "Skills auswählen",
       "chooseConnections": "Verbindungen auswählen",
-      "choosePlugins": "Plugins auswählen",
-      "needsAuth": "Authentifizierung nötig",
       "generalTitle": "Allgemein",
       "generalHint": "Wie sich dieser Space für das übrige Team verhält.",
       "securityTitle": "Sicherheit",
@@ -1443,7 +1431,10 @@
       "publishTitle": "Öffentlichen Ordner mit der Organisation teilen",
       "publishHint": "Dateien in /space/public kann jeder Bereich als /company/spaces/{{key}} lesen. Agenten fragen, bevor sie dort schreiben.",
       "memoryTitle": "Gedächtnis",
-      "memoryHint": "Was jeder Engenty in diesem Space bei jedem Schritt erfährt: wie es gerade ist, und die gemerkten Fakten. Agenten halten es aktuell; jedes Mitglied kann es ändern."
+      "memoryHint": "Was jeder Engenty in diesem Space bei jedem Schritt erfährt: wie es gerade ist, und die gemerkten Fakten. Agenten halten es aktuell; jedes Mitglied kann es ändern.",
+      "extensionsHint": "Konten dieses Space — alle Mitglieder und Engenties hier nutzen sie — und Plugins, denen noch ein Konto fehlt. Jedes Mitglied kann ein Konto verbinden; Owner verwalten sie.",
+      "connectedBy": "verbunden von {{name}}",
+      "connectAccount": "Konto verbinden"
     },
     "data": {
       "derived": "Abgeleitet",

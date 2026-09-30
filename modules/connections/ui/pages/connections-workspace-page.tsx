@@ -11,6 +11,7 @@ import {
   useWorkspaceNavData,
 } from "@engenty/ai-ui";
 import { useTranslation } from "@engenty/i18n/ui";
+import { CONNECTIONS_CATALOG_PATH } from "@engenty/plugin-sdk";
 import {
   Badge,
   Button,
@@ -36,23 +37,20 @@ import type {
   ConnectionsCatalog,
 } from "../api.js";
 import { StatusBadge } from "../components/connection-panel.js";
-import { PluginMarketplaceDialog } from "../components/marketplace/plugin-marketplace-dialog.js";
+import { ConnectorIcon } from "../components/connector-icon.js";
+import { ExtensionsDialog } from "../components/marketplace/extensions-dialog.js";
 import { NewConnectionButton } from "../components/new-connection-button.js";
+import { useConnectResultToast } from "../hooks/use-connect-result-toast.js";
 import { useConnectionSpacesQuery } from "../hooks/use-connection-space.js";
 import { useConnectionsWorkspaceAgentUiSlice } from "../hooks/use-connections-agent-ui-slice.js";
 import { useConnectionsCatalogQuery } from "../queries.js";
-import {
-  CONNECTIONS_SETTINGS_PATH,
-  ConnectorIcon,
-  useConnectResultToast,
-} from "./connections-settings-page.js";
 
 /**
  * Old /admin/connections URL → the Setup connections page, not the
  * /admin/engenty workspace (a superadmin debugging area).
  */
 export function LegacyConnectionsAdminRedirect() {
-  return <Navigate replace to={CONNECTIONS_SETTINGS_PATH} />;
+  return <Navigate replace to={CONNECTIONS_CATALOG_PATH} />;
 }
 
 export function ConnectionsWorkspacePage() {
@@ -118,9 +116,10 @@ export function ConnectionsWorkspacePage() {
       ) : (
         <ConnectionsTable rows={rows} />
       )}
-      <PluginMarketplaceDialog
+      <ExtensionsDialog
         onOpenChange={setMarketplaceOpen}
         open={marketplaceOpen}
+        owner="me"
       />
     </EngentyCanvasPageChrome>
   );
@@ -146,8 +145,10 @@ function ConnectionsTable({ rows }: { rows: ConnectionRow[] }) {
   const { t } = useTranslation("connections");
   const navigate = useNavigate();
   const spacesQuery = useConnectionSpacesQuery();
-  const spaceName = (spaceId: string) =>
-    spacesQuery.data?.find((space) => space.id === spaceId)?.name ?? null;
+  const spaceName = (spaceId: string | null) =>
+    spaceId
+      ? (spacesQuery.data?.find((space) => space.id === spaceId)?.name ?? null)
+      : t("admin.personalAccount");
   return (
     <Card className="space-y-0 overflow-x-auto" variant="settings">
       <Table>
@@ -167,7 +168,9 @@ function ConnectionsTable({ rows }: { rows: ConnectionRow[] }) {
               key={connection.id}
               onClick={() =>
                 navigate(
-                  `${buildConnectionDetailPath(connector.id)}?space=${encodeURIComponent(connection.space_id)}`
+                  connection.space_id
+                    ? `${buildConnectionDetailPath(connector.id)}?space=${encodeURIComponent(connection.space_id)}`
+                    : buildConnectionDetailPath(connector.id)
                 )
               }
             >

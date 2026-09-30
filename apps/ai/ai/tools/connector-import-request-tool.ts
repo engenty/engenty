@@ -36,7 +36,7 @@ export const CONNECTOR_IMPORT_REQUEST_TOOL_ID = "connector_import_request";
 export const CONNECTOR_IMPORT_SUBJECT = "connector_import";
 
 /** Where an admin imports a connector by URL. */
-const CONNECTOR_IMPORT_ROUTE = "/setup/connectors";
+const CONNECTOR_IMPORT_ROUTE = "/setup/connections";
 
 /** The grant an approval of this import writes — one per server URL. */
 function hostOf(url: string): string {

@@ -11,13 +11,6 @@
  */
 import { type SpaceSelection, toggleSelection } from "./space-setup-selection";
 
-export const FILE_CONNECTOR_IDS = new Set([
-  "google-drive",
-  "local-files",
-  "microsoft-onedrive",
-  "s3",
-]);
-
 const MODULE_SKILL_PREFIXES: Record<string, readonly string[]> = {
   contacts: ["contacts"],
   files: ["files"],

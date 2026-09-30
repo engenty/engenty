@@ -76,9 +76,6 @@ export function AboutDialog({
             </DialogDescription>
             <div className="space-y-0.5">
               <p className="text-muted-foreground text-sm">
-                {t("about.tagline")}
-              </p>
-              <p className="text-muted-foreground text-sm">
                 {t("about.taglineLead")}
               </p>
               <p className="text-muted-foreground text-xs">

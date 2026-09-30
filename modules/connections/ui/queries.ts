@@ -14,6 +14,7 @@ import {
   decideApprovalRequest,
   disconnectConnection,
   getConnectionsCatalog,
+  getConnectionsUsage,
   listApprovalRequests,
   setConnectionPolicy,
   updateConnectionSettings,
@@ -21,24 +22,38 @@ import {
 
 export const connectionsKeys = {
   all: ["connections"] as const,
-  catalog: (spaceId?: string | null) =>
-    spaceId
-      ? ([...connectionsKeys.all, "catalog", spaceId] as const)
-      : ([...connectionsKeys.all, "catalog"] as const),
+  catalog: (target?: string | null) =>
+    target === undefined
+      ? ([...connectionsKeys.all, "catalog"] as const)
+      : ([...connectionsKeys.all, "catalog", target ?? "me"] as const),
   approvals: (status: ApprovalStatus) =>
     [...connectionsKeys.all, "approvals", status] as const,
+  usage: () => [...connectionsKeys.all, "usage"] as const,
 };
 
-/** `spaceId`: that Space's accounts; omitted, the current Space's. */
-export function connectionsCatalogOptions(spaceId?: string | null) {
-  return queryOptions({
-    queryKey: connectionsKeys.catalog(spaceId),
-    queryFn: ({ signal }) => getConnectionsCatalog(signal, spaceId),
+/** Accounts per connector across the Organisation — counts only (admin). */
+export function useConnectionsUsageQuery(enabled = true) {
+  return useQuery({
+    enabled,
+    queryFn: ({ signal }) => getConnectionsUsage(signal),
+    queryKey: connectionsKeys.usage(),
+    staleTime: 30_000,
   });
 }
 
-export function useConnectionsCatalogQuery(spaceId?: string | null) {
-  return useQuery(connectionsCatalogOptions(spaceId));
+/**
+ * `target`: that Space's accounts (id), the viewer's own (null); omitted, the
+ * current Space's.
+ */
+export function connectionsCatalogOptions(target?: string | null) {
+  return queryOptions({
+    queryKey: connectionsKeys.catalog(target),
+    queryFn: ({ signal }) => getConnectionsCatalog(signal, target),
+  });
+}
+
+export function useConnectionsCatalogQuery(target?: string | null) {
+  return useQuery(connectionsCatalogOptions(target));
 }
 
 export function connectionApprovalsOptions(status: ApprovalStatus = "pending") {

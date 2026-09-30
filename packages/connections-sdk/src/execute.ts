@@ -11,7 +11,7 @@ import type { ClientEnvResolver } from "./oauth2.js";
 import { refreshAccessToken } from "./oauth2.js";
 import type { ConnectionPolicyPrincipal } from "./policy.js";
 import { resolveConnectionActionPolicy } from "./policy.js";
-import { isAccountReachableInRun } from "./reach.js";
+import { type ConnectionReach, isAccountReachableInRun } from "./reach.js";
 import type { ConnectionsRepo } from "./repo.js";
 import type {
   ApprovalRequestRecord,
@@ -39,6 +39,13 @@ export interface ExecuteConnectorActionParams {
     request: ApprovalRequestRecord
   ) => Promise<void> | void;
   principal: ConnectionPolicyPrincipal;
+  /**
+   * Whose accounts the call reaches: its verified Space and the person whose
+   * own accounts it may use. Candidates are those accounts; an empty reach
+   * means no candidate. Direct `connectionId` addressing (module consumers) is
+   * not narrowed here; those operations carry their own space policy.
+   */
+  reach?: ConnectionReach;
   recordAuditEvent?: (event: {
     detail: Record<string, unknown>;
     type: string;
@@ -46,13 +53,6 @@ export interface ExecuteConnectorActionParams {
   repo: ConnectionsRepo;
   /** Tenant/platform-aware client-credential resolver for OAuth token refresh. */
   resolveEnv?: ClientEnvResolver;
-  /**
-   * The run's Space (`x-engenty-space-id`). Candidates are the accounts this
-   * Space owns; no Space means no candidate. Direct `connectionId` addressing
-   * (module consumers) is not narrowed here; those operations carry their own
-   * space policy.
-   */
-  spaceId?: string | null;
   taskId?: string | null;
   tenantId: string;
 }
@@ -213,21 +213,21 @@ async function resolveTargetConnection(
     }
     return connection;
   }
-  const spaceId = params.spaceId?.trim();
-  if (!spaceId) {
+  const reach = params.reach ?? { personalUserId: null, spaceId: null };
+  if (!(reach.spaceId?.trim() || reach.personalUserId?.trim())) {
     throw new ConnectionsActionError(
       "connection_not_in_space",
-      `${connector.name} accounts belong to a space; this call names none`,
+      `${connector.name} accounts belong to a space or to a person; this call reaches neither`,
       { connector_id: connector.id }
     );
   }
   const candidates = (
     await repo.listCandidateConnections({
       connectorId: connector.id,
-      spaceId,
+      reach,
       tenantId: params.tenantId,
     })
-  ).filter((c) => isAccountReachableInRun({ connection: c, spaceId }));
+  ).filter((c) => isAccountReachableInRun({ connection: c, reach }));
   const selection = selectConnectionForAccount({
     account: params.account ?? null,
     candidates,

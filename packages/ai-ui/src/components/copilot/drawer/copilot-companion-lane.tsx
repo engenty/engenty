@@ -133,7 +133,8 @@ export function CopilotCompanionLane(props: {
         bodyOnly: true,
         browserPanel:
           props.isFloatingStyle || !browserPanelOpen ? null : (
-            // The copilot's window in the personal Space's browser.
+            // The drawer stands in no Space, so the panel says there is no
+            // browser here.
             <BrowserTargetProvider value={{ agentId: agent.id, spaceId: null }}>
               <CopilotBrowserPanel />
             </BrowserTargetProvider>

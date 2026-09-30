@@ -59,9 +59,6 @@ describeIfDb("spaces against the database", () => {
   const otherTenantId = randomUUID();
   const alice = randomUUID();
   const bob = randomUUID();
-  // In the tenant but holding no role, so no personal space: owning a space is
-  // then limited only by the constraint under test.
-  const outsider = randomUUID();
   const otherTenantUser = randomUUID();
   let companyId = "";
 
@@ -82,16 +79,6 @@ describeIfDb("spaces against the database", () => {
       .single();
     expect(error).toBeNull();
     return data?.id as string;
-  }
-
-  async function personalSpaceOf(userId: string) {
-    const { data } = await core()
-      .from("spaces")
-      .select("id, visibility, owner_user_id")
-      .eq("tenant_id", tenantId)
-      .eq("owner_user_id", userId)
-      .maybeSingle();
-    return data;
   }
 
   beforeAll(async () => {
@@ -123,7 +110,6 @@ describeIfDb("spaces against the database", () => {
       expect(role.error).toBeNull();
     }
     for (const [id, tenant, name] of [
-      [outsider, tenantId, "outsider"],
       [otherTenantUser, otherTenantId, "other"],
     ] as const) {
       const user = await core()
@@ -194,31 +180,37 @@ describeIfDb("spaces against the database", () => {
     });
   });
 
-  describe("personal spaces", () => {
-    it("gives a person joining the tenant a private space of their own and a seat in Company", async () => {
-      const personal = await personalSpaceOf(alice);
-      expect(personal?.visibility).toBe("private");
-
+  describe("joining and leaving", () => {
+    it("seats a person joining the tenant in Company and makes no space for them", async () => {
       const { data: seats } = await core()
         .from("space_member")
         .select("space_id")
         .eq("user_id", alice);
-      const seatIds = (seats ?? []).map((row) => row.space_id);
-      expect(seatIds).toContain(companyId);
-      expect(seatIds).not.toContain(personal?.id);
+      expect((seats ?? []).map((row) => row.space_id)).toEqual([companyId]);
+      const { data: privateSpaces } = await core()
+        .from("spaces")
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .eq("visibility", "private");
+      expect(privateSpaces).toEqual([]);
     });
 
-    it("refuses a member on somebody's personal space", async () => {
-      const personal = await personalSpaceOf(alice);
-      const { error } = await core().from("space_member").insert({
-        space_id: personal?.id,
-        tenant_id: tenantId,
-        user_id: bob,
+    it("lets a private space take a member", async () => {
+      const spaceId = await createSpace({
+        key: "private-work",
+        name: "Private work",
+        visibility: "private",
       });
-      expect(error).not.toBeNull();
+      const { error } = await core().from("space_member").insert({
+        role: "owner",
+        space_id: spaceId,
+        tenant_id: tenantId,
+        user_id: alice,
+      });
+      expect(error).toBeNull();
     });
 
-    it("keeps a leaving person's personal space, ownerless, and drops their seats", async () => {
+    it("drops a leaving person's seats", async () => {
       const leaver = randomUUID();
       await core()
         .from("users")
@@ -230,7 +222,6 @@ describeIfDb("spaces against the database", () => {
       await core()
         .from("user_tenant_roles")
         .insert({ role: "member", tenant_id: tenantId, user_id: leaver });
-      const personal = await personalSpaceOf(leaver);
 
       await core()
         .from("user_tenant_roles")
@@ -238,12 +229,6 @@ describeIfDb("spaces against the database", () => {
         .eq("tenant_id", tenantId)
         .eq("user_id", leaver);
 
-      const { data: kept } = await core()
-        .from("spaces")
-        .select("owner_user_id")
-        .eq("id", personal?.id as string)
-        .single();
-      expect(kept?.owner_user_id).toBeNull();
       const { data: seats } = await core()
         .from("space_member")
         .select("space_id")
@@ -264,23 +249,6 @@ describeIfDb("spaces against the database", () => {
         .eq("id", spaceId)
         .single();
       expect(data?.visibility).toBe("open");
-    });
-
-    it("refuses an owned space that is not private, and an owned default space", async () => {
-      const ownedOpen = await core().from("spaces").insert({
-        key: "owned-open",
-        name: "x",
-        owner_user_id: outsider,
-        tenant_id: tenantId,
-        visibility: "open",
-      });
-      expect(ownedOpen.error).not.toBeNull();
-
-      const ownedDefault = await core()
-        .from("spaces")
-        .update({ owner_user_id: outsider, visibility: "private" })
-        .eq("id", companyId);
-      expect(ownedDefault.error).not.toBeNull();
     });
 
     it("refuses a deletion mark without a purge date", async () => {
@@ -304,7 +272,7 @@ describeIfDb("spaces against the database", () => {
   });
 
   describe("browser lane", () => {
-    it("shows a person open spaces, their own personal space and private spaces they sit in — nothing else", async () => {
+    it("shows a person open spaces and private spaces they sit in — nothing else", async () => {
       const open = await createSpace({ key: "rls-open", name: "Open" });
       const invited = await createSpace({
         key: "rls-invited",
@@ -330,8 +298,6 @@ describeIfDb("spaces against the database", () => {
           purge_after: new Date(Date.now() + 86_400_000).toISOString(),
         })
         .eq("id", marked);
-      const own = (await personalSpaceOf(alice))?.id;
-      const bobs = (await personalSpaceOf(bob))?.id;
 
       const { data, error } = await asUser(alice)
         .schema("core")
@@ -342,10 +308,9 @@ describeIfDb("spaces against the database", () => {
       const visible = (data ?? []).map((row) => row.id);
 
       expect(visible).toEqual(
-        expect.arrayContaining([companyId, open, invited, own])
+        expect.arrayContaining([companyId, open, invited])
       );
       expect(visible).not.toContain(closed);
-      expect(visible).not.toContain(bobs);
       expect(visible).not.toContain(marked);
     });
 

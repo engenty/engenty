@@ -1,5 +1,5 @@
 // The "screen" beside the chat (PLAN-user-browser.md §2.6): the agent's
-// window in its Space's browser (the copilot's: the personal Space's) — its
+// window in its Space's browser (the copilot's: the Space it is opened in) — its
 // state, a Start when there is none, and the live view with takeover when it
 // runs. Opened from
 // the monitor button in the copilot header (card), or hosted inside the
@@ -43,6 +43,22 @@ export function CopilotBrowserPanel({
   // In the pane the view's own toolbar carries Stop; the state row is for
   // the card, and for the pane while there is nothing to show yet.
   const viewOwnsToolbar = variant === "pane" && running;
+
+  if (!target.spaceId) {
+    return (
+      <section
+        aria-label={t("browser.panel.title")}
+        className={
+          variant === "pane" ? "px-3 py-2" : "rounded-lg border bg-muted/30 p-2"
+        }
+        data-copilot-browser-panel
+      >
+        <p className="text-muted-foreground text-sm">
+          {t("browser.panel.noSpace")}
+        </p>
+      </section>
+    );
+  }
 
   return (
     <section

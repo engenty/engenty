@@ -4,6 +4,35 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.2.27] - 2026-09-30
+- FIXED **[connections]** The OAuth popup landing never boots the app; it reports, closes, or says it can be closed
+- FIXED **[connections]** Report the OAuth popup result before the app boots, also when the provider cuts the opener link
+
+## [0.2.26] - 2026-09-30
+- ADDED **[projects]** Header with client, team, star and subtitle; settings sidebar; project KV store
+- ADDED **[covers]** Top-right slot on the cover band
+- ADDED **[ui-core]** Doc sidebar settings blocks, section actions, centred resize handle
+- ADDED **[connections]** One dialog and one connector detail for every level — My connections, Space extensions, the Organisation catalog
+- CHANGED **[platform-settings]** Move the settings panel into the package so connectors can show their credentials in place
+- CHANGED **[connections]** One exported path for connection pages; agents name the credentials pages
+- FIXED **[ai-ui]** Keep the remembered-notes dialog within its width
+- FIXED **[ai-core]** Share the platform bindings snapshot across module copies
+- FIXED **[connections]** Address the person as du in the My connections hint
+- FIXED **[inbox]** Link connected accounts through the shared connections path
+- FIXED **[auth-ui]** Drop the Work Horse Harness tagline from login and About
+
+## [0.2.25] - 2026-09-30
+- ADDED **[connections]** Closed modules use Space accounts and membership access only
+- ADDED **[connections]** Personal connections follow the Copilot into any Space; drop the personal Space
+- ADDED **[contacts]** Open the module's agents on a desk that keeps the contacts sidebar
+- DOCS **[global]** Plan personal connections and drop the personal Space
+- DOCS **[global]** Give Connections its own README section, move Contacts to Commercial, one Engenty casing
+- FIXED **[ui]** Leave agents the registry does not list off the Space roster
+- FIXED **[deploy]** Ship the docker CLI in the ai image so the Space browser and sandboxes start
+- FIXED **[deploy]** Ship the egress and browser proxies as release images
+- FIXED **[ai-ui]** Open a hand-off that starts a turn below the user's message
+- FIXED **[ui]** The Files root reads Dateien in the pane breadcrumbs
+
 ## [0.2.24] - 2026-09-30
 - ADDED **[knowledge-base]** Sidebar search below the nav and tabs, with the module's Engentys
 - ADDED **[contacts]** Sidebar filters and add menu next to the search

@@ -1,30 +1,28 @@
 /**
- * The home's right column, below Modules: plugins and accounts this space
- * actually uses (its skills have their own box, SpaceHomeSkills). Connect
- * opens one modal — the same marketplace a space settings card uses.
+ * The home's right column, below Modules: the accounts and plugins this space
+ * uses (its skills have their own box, SpaceHomeSkills). A row opens that
+ * connector in the Erweiterungen dialog — the same one Space settings opens.
  */
+import { connectionsCatalogOptions } from "@engenty/connections/ui/queries";
 import { useTranslation } from "@engenty/i18n/ui";
-import { Collapsible, CollapsibleContent } from "@engenty/ui-core";
+import { useQuery } from "@engenty/query-client";
+import { Collapsible, CollapsibleContent, cn } from "@engenty/ui-core";
 import { Plug } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { spaceAccounts } from "@/components/spaces/space-mount-catalog";
-import { pluginsFromConnectors } from "@/components/spaces/space-plugin-catalog";
 import { SpaceSectionAddButton } from "@/components/spaces/space-section-heading";
 import {
   SPACE_HOME_EXTENSIONS_SHOWN,
   selectSpaceHomeExtensionRows,
+  spaceExtensionAccounts,
 } from "@/lib/space-home-extensions";
 import { spaceSettingsPath } from "@/lib/space-routes";
-import {
-  useSpaceConnectorCatalogQuery,
-  useSpaceMountsQuery,
-} from "@/lib/spaces-queries";
+import { useSpaceMountsQuery } from "@/lib/spaces-queries";
 import {
   SPACE_SECTION_OPEN_KEYS,
   useSpaceSectionOpen,
 } from "@/lib/use-space-section-open";
-import { SpaceHomeConnectDialog } from "./SpaceHomeConnectDialog";
+import { SpaceExtensionsDialog } from "./SpaceExtensionsDialog";
 import { SpaceHomeSectionHeading } from "./SpaceHomeSectionHeading";
 import {
   SPACE_HOME_ROW_CLASSNAME,
@@ -40,40 +38,39 @@ export function SpaceHomeExtensions({
   spaceKey: string;
 }) {
   const { t } = useTranslation("common");
-  const [connectOpen, setConnectOpen] = useState(false);
+  const { t: tc } = useTranslation("connections");
+  // Open, and on which connector (null = the list).
+  const [dialog, setDialog] = useState<{ detailsId: string | null } | null>(
+    null
+  );
   const [open, setOpen] = useSpaceSectionOpen(
     SPACE_SECTION_OPEN_KEYS.homeExtensions,
     spaceKey
   );
   const mountsQuery = useSpaceMountsQuery(open ? spaceId : null);
-  const connectorsQuery = useSpaceConnectorCatalogQuery();
-  const accounts = useMemo(
-    () => spaceAccounts(connectorsQuery.data ?? [], spaceId),
-    [connectorsQuery.data, spaceId]
-  );
-  const pluginNames = useMemo(() => {
-    const names = new Map<string, string>();
-    for (const plugin of pluginsFromConnectors(
-      connectorsQuery.data ?? [],
-      mountsQuery.data ?? []
-    )) {
-      names.set(plugin.id, plugin.name);
-    }
-    return names;
-  }, [connectorsQuery.data, mountsQuery.data]);
-  const rows = useMemo(
-    () =>
-      selectSpaceHomeExtensionRows(mountsQuery.data ?? [], accounts, {
-        plugins: pluginNames,
-      }),
-    [accounts, mountsQuery.data, pluginNames]
-  );
+  const catalogQuery = useQuery({
+    ...connectionsCatalogOptions(spaceId),
+    enabled: open,
+  });
+  const rows = useMemo(() => {
+    const connectors = catalogQuery.data?.connectors ?? [];
+    return selectSpaceHomeExtensionRows(
+      mountsQuery.data ?? [],
+      spaceExtensionAccounts(connectors, spaceId),
+      {
+        plugins: new Map(
+          connectors.map((connector) => [connector.id, connector.name])
+        ),
+      }
+    );
+  }, [catalogQuery.data, mountsQuery.data, spaceId]);
   const shown = rows.slice(0, SPACE_HOME_EXTENSIONS_SHOWN);
   const addLabel = t("spaces.home.extensions.add", {
     defaultValue: "Connect",
   });
 
-  const openConnect = () => setConnectOpen(true);
+  const openConnect = (detailsId: string | null = null) =>
+    setDialog({ detailsId });
 
   return (
     <Collapsible
@@ -83,7 +80,10 @@ export function SpaceHomeExtensions({
     >
       <SpaceHomeSectionHeading
         action={
-          <SpaceSectionAddButton aria-label={addLabel} onClick={openConnect} />
+          <SpaceSectionAddButton
+            aria-label={addLabel}
+            onClick={() => openConnect()}
+          />
         }
         onOpenChange={setOpen}
         open={open}
@@ -99,30 +99,46 @@ export function SpaceHomeExtensions({
               })}
             </p>
           ) : (
-            shown.map((row) => (
-              <button
-                className={SPACE_HOME_ROW_CLASSNAME}
-                key={`${row.kind}:${row.id}`}
-                onClick={openConnect}
-                type="button"
-              >
-                <span aria-hidden className={SPACE_HOME_ROW_ICON_CLASSNAME}>
-                  <Plug className={SPACE_HOME_ROW_GLYPH_CLASSNAME} />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate">{row.label}</span>
-                  {row.connectorName && row.connectorName !== row.label ? (
-                    <span className="block truncate text-muted-foreground text-xs">
-                      {row.connectorName}
-                    </span>
-                  ) : null}
-                </span>
-              </button>
-            ))
+            shown.map((row) => {
+              const attention = row.status !== "active";
+              return (
+                <button
+                  className={SPACE_HOME_ROW_CLASSNAME}
+                  key={`${row.kind}:${row.id}`}
+                  onClick={() => openConnect(row.connectorId)}
+                  type="button"
+                >
+                  <span aria-hidden className={SPACE_HOME_ROW_ICON_CLASSNAME}>
+                    <Plug className={SPACE_HOME_ROW_GLYPH_CLASSNAME} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate">{row.label}</span>
+                    {attention ? (
+                      <span
+                        className={cn(
+                          "block truncate text-xs",
+                          row.status === "pending"
+                            ? "text-amber-600 dark:text-amber-500"
+                            : "text-destructive"
+                        )}
+                      >
+                        {row.status === "pending"
+                          ? tc("marketplace.needsAuth")
+                          : tc(`status.${row.status}`)}
+                      </span>
+                    ) : row.connectorName && row.connectorName !== row.label ? (
+                      <span className="block truncate text-muted-foreground text-xs">
+                        {row.connectorName}
+                      </span>
+                    ) : null}
+                  </span>
+                </button>
+              );
+            })
           )}
           <button
             className="px-2 py-2 text-left font-medium text-[12px] text-primary hover:underline"
-            onClick={openConnect}
+            onClick={() => openConnect()}
             type="button"
           >
             {t("spaces.home.extensions.connect", { defaultValue: "Connect" })}
@@ -130,17 +146,21 @@ export function SpaceHomeExtensions({
           {rows.length > SPACE_HOME_EXTENSIONS_SHOWN ? (
             <Link
               className="px-2 py-2 font-medium text-[12px] text-primary hover:underline"
-              to={spaceSettingsPath(spaceKey)}
+              to={`${spaceSettingsPath(spaceKey)}#extensions`}
             >
               {t("spaces.home.extensions.all", { defaultValue: "All" })}
             </Link>
           ) : null}
         </div>
       </CollapsibleContent>
-      <SpaceHomeConnectDialog
-        initialTab="plugins"
-        onOpenChange={setConnectOpen}
-        open={connectOpen}
+      <SpaceExtensionsDialog
+        initialDetailsId={dialog?.detailsId ?? null}
+        onOpenChange={(next) => {
+          if (!next) {
+            setDialog(null);
+          }
+        }}
+        open={dialog != null}
         spaceId={spaceId}
       />
     </Collapsible>

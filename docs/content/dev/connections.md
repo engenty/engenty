@@ -109,8 +109,8 @@ flowchart TD
    only narrows what the Space offers. Empty = every plugin enabled on the
    Space. It never adds an account.
 
-   The copilot always runs out of the caller's personal Space (`/s/me`), so
-   its accounts are the personal Space's wherever it is opened — see
+   A person's own accounts (`owner_user_id`) are outside every Space: they
+   serve that person and their Copilot in any Space, and nothing else — see
    [Connectors in a Space, on an agent, and on the copilot river](#connectors-in-a-space-on-an-agent-and-on-the-copilot-river).
 
 2. **Action policy** — `allow | ask | deny` per action, resolved in
@@ -123,19 +123,25 @@ flowchart TD
 3. **Run context** — per connection `autonomous_mode: off | read_only | full`
    clamps what agent/service principals may do when no user is present.
 
-**Connecting** requires a Space: OAuth (`GET /api/connections/:connectorId/connect?space_id=…`),
-API-key (`connect_credentials`) and local-files connects all take the Space
-(the UI sends the active one, `/s/me` when none), check the caller may enter
-it, and stamp it on the row. One account per
-`(tenant_id, space_id, connector_id, external_account)`; the same mailbox
-may be connected in two Spaces as two rows.
+**Connecting** names an owner: OAuth (`GET /api/connections/:connectorId/connect?space_id=…`
+or `?owner=me`), API-key (`connect_credentials`), local-files and the browser
+extension all take a Space (checked: the caller may enter it) or `owner=me`
+(the caller's own account; a person only), and stamp it on the row
+(`resolveConnectOwner`). One account per
+`(tenant_id, space_id, connector_id, external_account)` or
+`(tenant_id, owner_user_id, connector_id, external_account)`; the same
+mailbox may be connected in two Spaces, or as someone's own, as separate rows.
 
 **Managing** a connection (settings, policy matrix, disconnect) and deciding
-its approvals: owners of its Space — the personal Space's owner, or a
-`space_member` with role `owner` — and tenant admins (`core.users.manage`).
+its approvals: owners of its Space (a `space_member` with role `owner`) and
+tenant admins (`core.users.manage`); a personal account, its owner only.
 
-RLS for authenticated members: accounts of Spaces they can enter (owner or
-`space_member`). Encrypted token columns stay off the authenticated grant.
+RLS for authenticated members: accounts of Spaces they are a member of, and
+their own. Encrypted token columns stay off the authenticated grant.
+
+**Modules never see a personal account.** The module client
+(`createConnectionsModuleClient`) lists and addresses Space accounts only, so
+inbox, calendar sync, file sources and the Slack bridge cannot sync from one.
 
 ### Where each axis is enforced
 
@@ -289,8 +295,10 @@ override → a platform setting → the environment variable (see
 [Platform settings](/docs/setup/platform-settings)). This lets a tenant bring their
 own OAuth app from the UI without redeploying. The catalog's per-connector
 `configured` flag reflects whether client credentials resolve at any layer;
-`hasOAuth2ClientCredentials()` computes it and the UI shows "Needs setup" when
-false. The imported-connectors (`external`) provider still supplies its own
+`hasOAuth2ClientCredentials()` computes it. When false, an admin adds the
+tenant override in place (the connector's credentials form — the same store as
+Setup → Integration keys, filtered to the connector's env `feature`), and a
+member asks the admins (`connections_request_setup`). The imported-connectors (`external`) provider still supplies its own
 `resolveClientCredentials` and takes precedence over both.
 
 Note for Slack-style providers: user scopes ride in `extraAuthParams`
@@ -377,7 +385,8 @@ another's. Builtins stay `id` with no tenant prefix.
 
 The catalog a tenant sees is **builtins ∪ that tenant's imports**. An import
 is sticky across spaces of that tenant; it is not enabled on a space until
-someone enables the plugin there or connects an account in it. `/setup/connectors` is the admin
+someone enables the plugin there or connects an account in it. The imported
+connectors' table on Setup → Connections (`/setup/connections`) is the admin
 console over the tenant import API, not a platform-wide catalog.
 
 What an import produces is an ordinary connector — so agent tools, Space
@@ -430,14 +439,27 @@ refusing alone would waste a turn. See the
 Spaces runtime contract (`docs/agent/spaces-runtime.md`).
 
 **Copilot (the river).** `engenty.copilot` is one private conversation per
-person (`POST /ai/threads/dm` with no `space_id`). Its run always resolves to
-the caller's personal Space (`resolveRunSpace` in
-`apps/ai/src/ai/sessions/run-space.ts`): connections are the personal
-Space's wherever the copilot is opened; its computer and browser are the Space
-the person stands in. **Where the person
-is standing** (`route_context`) only stamps the turn (river chapters); it
-does not select accounts. A person without a personal Space gets an
-`unresolved` run, never a tenant-wide one.
+person (`POST /ai/threads/dm` with no `space_id`). Its run resolves to the
+Space the person stands in (`resolveRunSpace` in
+`apps/ai/src/ai/sessions/run-space.ts`): that Space's apps, accounts,
+computer and browser — plus the person's own accounts, which follow the
+Copilot everywhere. Outside every Space the run is `global`: the person's own
+accounts only, no computer, no browser. Core recognises the Copilot by the
+`x-engenty-agent-id` of its `core.agents` row (`resolvePersonalReach`); a Space
+engenty in the same chat forwards its own id and never reaches a personal
+account.
+
+**Where accounts are managed.** One dialog (`ExtensionsDialog`, owner = a
+Space or `"me"`) and one connector detail (`ConnectorSheet`) serve every level:
+
+| Level | Page | Opens |
+| --- | --- | --- |
+| Person | Settings → My connections (`/settings/connections`), the Copilot pane menu, the chat connect card | the dialog for `"me"` |
+| Space | the Space home Extensions box, Space settings → Extensions | the dialog for that Space (any member connects; owners and tenant admins manage; tenant admins enable plugins) |
+| Organisation | Setup → Connections (`/setup/connections`, tenant admin) | the connector with its credentials form and account counts |
+
+The paths are exported from `@engenty/plugin-sdk` (`MY_CONNECTIONS_PATH`,
+`CONNECTIONS_CATALOG_PATH`); link through them, not a copy.
 
 **Records follow the account.** Inbox mail, calendar sync, connected drives
 in Files and retrieval documents from those sources carry or resolve the
@@ -457,6 +479,8 @@ retrieval): visible to that Space's members and agents, nobody else.
 | `connections_disconnect` | Delete a connection (tokens destroyed) |
 | `connections_approvals_list` / `connections_approvals_decide` | Autonomous approval queue, filtered to Spaces the caller owns (tenant admins: all) |
 | `connections_granted_operations` | Durably-allowed operation ids, merged into chat approval grants |
+| `connections_usage` | Per connector: how many Spaces and persons hold an account — counts only (tenant admins) |
+| `connections_request_setup` | A person asks the tenant admins to add a connector's OAuth client (one notification per admin) |
 
 ## Gotchas
 

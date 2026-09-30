@@ -1,30 +1,18 @@
-// Connect from an agent's settings pane: plugins (accounts, MCP) and skills
-// in one modal. Plugins are the shared marketplace panel for the agent's
-// Space — the agent uses that Space's accounts, and connecting lands there;
-// skills bind on a custom engenty and can be installed from skills.sh first.
+// Connect from an agent's settings pane: the connections module's one
+// dialog, for the agent's Space — the agent uses that Space's accounts, and
+// connecting lands there (the Copilot: the person's own). The Skills tab
+// binds skills on a custom engenty, installable from skills.sh first.
 
 import type { AgentDeskAgent } from "@engenty/ai-core/browser";
 import { useTranslation } from "@engenty/i18n/ui";
-import {
-  Button,
-  cn,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@engenty/ui-core";
-import { ArrowLeft } from "lucide-react";
+import { Button } from "@engenty/ui-core";
 import { useEffect, useMemo, useState } from "react";
 import {
   useAiSkillsQuery,
   useUpdateCustomAgentMutation,
 } from "../../lib/admin/ai-runtime-queries.js";
-import { AgentConnectionsPanel } from "../agents-workspace/agent-connections-panel.js";
 import { AgentSkillPackages } from "./agent-skill-packages.js";
+import { ExtensionsDialogSlot } from "./extensions-dialog-slot.js";
 
 export type AgentConnectTab = "plugins" | "skills";
 
@@ -44,108 +32,35 @@ export function AgentConnectDialog({
   initialTab: AgentConnectTab;
   onOpenChange: (open: boolean) => void;
   open: boolean;
-  /**
-   * The Space whose accounts the agent uses. Null = the viewer's personal
-   * Space — always so for the Copilot.
-   */
+  /** The Space whose accounts the agent uses; null = the viewer's own. */
   spaceId: string | null;
 }) {
   const { t } = useTranslation("ai-ui");
-  const [tab, setTab] = useState<AgentConnectTab>(initialTab);
-  const [detailsId, setDetailsId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!open) {
-      setDetailsId(null);
-      return;
-    }
-    setTab(initialTab);
-    setDetailsId(initialDetailsId);
-  }, [initialDetailsId, initialTab, open]);
-
   return (
-    <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent
-        className={cn(
-          "grid h-[min(85vh,42rem)] grid-rows-[auto_minmax(0,1fr)] sm:max-w-3xl",
-          detailsId && "gap-3"
-        )}
-      >
-        <DialogHeader>
-          {detailsId ? (
-            <Button
-              aria-label={t("agentDesk.manage.connectBack")}
-              className="-ml-2"
-              onClick={() => setDetailsId(null)}
-              size="icon-sm"
-              type="button"
-              variant="ghost"
-            >
-              <ArrowLeft />
-            </Button>
-          ) : null}
-          <DialogTitle className={detailsId ? "sr-only" : undefined}>
-            {t("agentDesk.manage.connectTitle")}
-          </DialogTitle>
-        </DialogHeader>
-        <Tabs
-          className="flex h-full min-h-0 flex-col"
-          onValueChange={(value) => setTab(value as AgentConnectTab)}
-          value={tab}
-        >
-          {detailsId ? null : (
-            <TabsList className="w-full">
-              <TabsTrigger className="flex-1" value="plugins">
-                {t("agentDesk.manage.connectPlugins")}
-              </TabsTrigger>
-              <TabsTrigger className="flex-1" value="skills">
-                {t("agentDesk.skills")}
-              </TabsTrigger>
-            </TabsList>
-          )}
-          <TabsContent
-            className={cn(
-              "min-h-0 flex-1 overflow-y-auto pr-1",
-              detailsId ? "mt-0" : "mt-3"
-            )}
-            value="plugins"
-          >
-            {open && tab === "plugins" ? (
-              <AgentConnectionsPanel
-                // Only a custom agent's preferred-plugin list is editable.
-                agentId={canEditSkills ? agent.id : null}
-                detailsId={detailsId}
-                onDetailsIdChange={setDetailsId}
-                spaceId={spaceId}
-              />
-            ) : null}
-          </TabsContent>
-          <TabsContent
-            className={cn(
-              "min-h-0 flex-1 overflow-y-auto pr-1",
-              detailsId ? "mt-0" : "mt-3"
-            )}
-            value="skills"
-          >
-            {open && tab === "skills" ? (
-              canEditSkills ? (
-                <AgentSkillsEditor
-                  agentId={agent.id}
-                  detailsId={tab === "skills" ? detailsId : null}
-                  onDetailsIdChange={setDetailsId}
-                  onSaved={() => onOpenChange(false)}
-                  skillIds={agent.skills.map((chip) => chip.id)}
-                />
-              ) : (
-                <p className="text-muted-foreground text-sm">
-                  {t("agentDesk.manage.connectSkillsReadOnly")}
-                </p>
-              )
-            ) : null}
-          </TabsContent>
-        </Tabs>
-      </DialogContent>
-    </Dialog>
+    <ExtensionsDialogSlot
+      // Only a custom agent's preferred-plugin list is editable.
+      agentId={canEditSkills ? agent.id : null}
+      initialDetailsId={initialDetailsId}
+      initialTab={initialTab}
+      onOpenChange={onOpenChange}
+      open={open}
+      owner={spaceId ? { spaceId } : "me"}
+      renderSkills={({ detailsId, onClose, setDetailsId }) =>
+        canEditSkills ? (
+          <AgentSkillsEditor
+            agentId={agent.id}
+            detailsId={detailsId}
+            onDetailsIdChange={setDetailsId}
+            onSaved={onClose}
+            skillIds={agent.skills.map((chip) => chip.id)}
+          />
+        ) : (
+          <p className="text-muted-foreground text-sm">
+            {t("agentDesk.manage.connectSkillsReadOnly")}
+          </p>
+        )
+      }
+    />
   );
 }
 

@@ -4,7 +4,6 @@ import {
   useAgentsWorkspaceShellNav,
   useWorkspaceNavData,
 } from "@engenty/ai-ui";
-import { useSettingsSecondaryShellNav } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
   Button,
@@ -21,34 +20,27 @@ import { Fragment, useMemo } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ConnectButton } from "../components/connect-button.js";
 import { ConnectionPanel } from "../components/connection-panel.js";
-import {
-  useCanManageSpaceConnections,
-  useConnectSpaceId,
-} from "../hooks/use-connection-space.js";
+import { ConnectorIcon } from "../components/connector-icon.js";
+import { useConnectResultToast } from "../hooks/use-connect-result-toast.js";
+import { useCanManageSpaceConnections } from "../hooks/use-connection-space.js";
 import { useConnectionsConnectorDetailAgentUiSlice } from "../hooks/use-connections-agent-ui-slice.js";
 import { connectionsInSpace } from "../lib/connection-space.js";
 import { useConnectionsCatalogQuery } from "../queries.js";
-import {
-  CONNECTIONS_SETTINGS_PATH,
-  ConnectorIcon,
-  useConnectResultToast,
-} from "./connections-settings-page.js";
 
 /**
- * Connector detail body, shared by the settings-context and workspace-context
- * pages. `basePath` is the list this detail belongs to (`/settings/connections`
- * or `/admin/engenty/connections`); it drives the empty-state back link and
- * the OAuth callback redirect so a reconnect returns to the same context.
+ * Connector detail in the Engenty workspace (superadmin debugging). `basePath`
+ * drives the empty-state back link and the OAuth callback redirect so a
+ * reconnect returns here.
  */
 function ConnectorDetailBody({ basePath }: { basePath: string }) {
   const { t } = useTranslation("connections");
   const { connectorId } = useParams<{ connectorId: string }>();
   const navigate = useNavigate();
-  const { data, isLoading } = useConnectionsCatalogQuery();
-  // The Space whose accounts these are: `?space=` or the personal Space.
+  // Whose accounts these are: `?space=`, else the viewer's own.
   const [searchParams] = useSearchParams();
   const explicitSpaceId = searchParams.get("space")?.trim() || null;
-  const spaceId = useConnectSpaceId(explicitSpaceId);
+  const spaceId = explicitSpaceId;
+  const { data, isLoading } = useConnectionsCatalogQuery(spaceId);
   // Space owners (and tenant admins) change settings, policies, disconnect.
   const editable = useCanManageSpaceConnections(spaceId);
 
@@ -146,35 +138,6 @@ function ConnectorDetailBody({ basePath }: { basePath: string }) {
       </div>
     </section>
   );
-}
-
-/** Detail reached from Settings → Connections (settings sidebar). */
-export function ConnectorDetailPage() {
-  const { t } = useTranslation("connections");
-  const { connectorId } = useParams<{ connectorId: string }>();
-  const { data } = useConnectionsCatalogQuery();
-  const connector = data?.connectors.find((c) => c.id === connectorId) ?? null;
-  const { moduleRootCrumb, secondaryNavHeaderSlot } =
-    useSettingsSecondaryShellNav(t("breadcrumb.settings"));
-
-  useConnectionsConnectorDetailAgentUiSlice({ connector, connectorId });
-
-  const breadcrumbs = useMemo<PageBreadcrumb[]>(
-    () => [
-      ...(moduleRootCrumb ? [moduleRootCrumb] : []),
-      { label: t("breadcrumb.connections"), to: CONNECTIONS_SETTINGS_PATH },
-      { label: connector?.name ?? connectorId ?? "" },
-    ],
-    [moduleRootCrumb, t, connector?.name, connectorId]
-  );
-
-  usePageConfig({
-    breadcrumbs,
-    contentStackBackground: "paper",
-    secondaryNavHeaderSlot,
-  });
-
-  return <ConnectorDetailBody basePath={CONNECTIONS_SETTINGS_PATH} />;
 }
 
 /** Detail reached from the Engenty workspace (workspace sidebar). */

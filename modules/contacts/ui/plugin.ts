@@ -23,6 +23,7 @@ import { SpaceDataContactsRootTab } from "./components/space-data-contacts-root-
 import { contactsLiveBinding } from "./contacts-live-binding.js";
 import { CONTACTS_SETTINGS_PATH } from "./contacts-paths.js";
 import { contactsCopilotContribution } from "./copilot-contribution.js";
+import { useContactsModuleSecondaryShellNav } from "./hooks/use-contacts-module-secondary-shell-nav.js";
 import {
   ContactDetailPage,
   ContactEditPage,
@@ -63,6 +64,11 @@ const SPACE_DATA_CONTACTS_ROOT_SURFACE = "spaces.data.folder:contacts.root";
 
 export default function plugin(engenty: EngentyPluginContext) {
   engenty.UI.registerLiveBinding(contactsLiveBinding);
+  // The same sidebar on the module's agent desks as on its own pages.
+  engenty.UI.registerModuleSidebar({
+    moduleId: "contacts",
+    useSidebar: useContactsModuleSecondaryShellNav,
+  });
   registerContactsToolCallUi();
   registerContactsObjectWidget();
 

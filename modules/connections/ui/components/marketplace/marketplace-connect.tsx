@@ -1,15 +1,17 @@
 import { useTranslation } from "@engenty/i18n/ui";
+import { connectionsCatalogPath } from "@engenty/plugin-sdk";
 import { Button } from "@engenty/ui-core";
 import { useWorkspaceContext } from "@engenty/ui-plugin-sdk";
 import { Plus } from "lucide-react";
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import type { ConnectorCredentialField } from "../../api.js";
 import { preferImportedToken } from "../../api.js";
 import { getConnectorConnectButton } from "../../extensions.js";
 import { ConnectButton } from "../connect-button.js";
 import { ConnectCredentialsDialog } from "../connect-credentials-dialog.js";
+import { NeedsCredentialsAffordance } from "../credentials-sheet.js";
 import {
   isTenantImportedPlugin,
   type MarketplacePlugin,
@@ -53,7 +55,7 @@ export function MarketplaceConnect({
     try {
       const result = await preferImportedToken(plugin.id);
       if (!result.switched) {
-        navigate("/settings/integration-keys");
+        navigate(connectionsCatalogPath(plugin.id));
         return;
       }
       setTokenFields(result.fields);
@@ -110,16 +112,7 @@ export function MarketplaceConnect({
     if (addRow) {
       return null;
     }
-    if (!isAdmin) {
-      return (
-        <p className="text-muted-foreground text-xs">
-          {t("catalog.needsSetupMember", {
-            defaultValue: "Ask an admin to set this up",
-          })}
-        </p>
-      );
-    }
-    if (isTenantImportedPlugin(plugin)) {
+    if (isAdmin && isTenantImportedPlugin(plugin)) {
       return (
         <Button
           disabled={switching}
@@ -132,13 +125,7 @@ export function MarketplaceConnect({
         </Button>
       );
     }
-    return (
-      <Button asChild size="sm" type="button" variant="outline">
-        <Link to="/settings/integration-keys">
-          {t("catalog.needsSetupAdmin", { defaultValue: "Set up →" })}
-        </Link>
-      </Button>
-    );
+    return <NeedsCredentialsAffordance connector={plugin} />;
   }
   if (plugin.auth_kind === "api_key") {
     return (

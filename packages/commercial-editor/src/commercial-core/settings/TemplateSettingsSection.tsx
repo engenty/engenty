@@ -5,14 +5,12 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SettingsCard,
+  SettingsCardSeparator,
+  SettingsSection,
 } from "@engenty/ui-core";
 import { FileText } from "lucide-react";
 import type { TaxRate } from "../../types";
-import {
-  SettingsCard,
-  SettingsCardSeparator,
-} from "../shared/settings/SettingsCard";
-import { SettingsSection } from "../shared/settings/SettingsSection";
 import { PhaseDisplaySettingsCard } from "./PhaseDisplaySettingsCard";
 
 interface Template {

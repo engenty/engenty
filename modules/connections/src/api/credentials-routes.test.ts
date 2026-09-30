@@ -38,7 +38,7 @@ function setup() {
   return { connect, onConnected, upsertConnectionWithTokens };
 }
 
-describe("API-key connect — the account belongs to a Space", () => {
+describe("API-key connect — the account belongs to a Space or the caller", () => {
   beforeEach(() => {
     __resetConnectorRegistryForTests();
     registerConnectorDefinition({
@@ -60,10 +60,10 @@ describe("API-key connect — the account belongs to a Space", () => {
     __resetConnectorRegistryForTests();
   });
 
-  it("requires space_id", async () => {
+  it("requires an owner: a Space, or the caller", async () => {
     const { connect, upsertConnectionWithTokens } = setup();
     expect(await connect({ credentials: { token: "x" } })).toEqual({
-      data: { error: "connections.spaceRequired" },
+      data: { error: "connections.ownerRequired" },
       status: 400,
     });
     expect(upsertConnectionWithTokens).not.toHaveBeenCalled();
@@ -84,7 +84,7 @@ describe("API-key connect — the account belongs to a Space", () => {
       expect.objectContaining({
         connectedBy: "u-member",
         externalAccount: "acme",
-        spaceId: SPACE,
+        owner: { spaceId: SPACE },
         tenantId: TENANT,
       })
     );
@@ -93,5 +93,17 @@ describe("API-key connect — the account belongs to a Space", () => {
       spaceId: SPACE,
       tenantId: TENANT,
     });
+  });
+
+  it("connects a personal account for the caller, and tells no Space", async () => {
+    const { connect, onConnected, upsertConnectionWithTokens } = setup();
+    await connect({ credentials: { token: "x" }, owner: "me" });
+    expect(upsertConnectionWithTokens).toHaveBeenCalledWith(
+      expect.objectContaining({
+        connectedBy: "u-member",
+        owner: { userId: "u-member" },
+      })
+    );
+    expect(onConnected).not.toHaveBeenCalled();
   });
 });

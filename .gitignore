@@ -37,6 +37,9 @@ coverage/
 # Logs
 logs/
 
+# Core runtime state (plugins enabled/disabled at runtime)
+apps/core/data/
+
 # Local dev slot registry (worktree portless)
 .engenty/
 

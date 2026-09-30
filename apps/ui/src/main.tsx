@@ -1,3 +1,4 @@
+import { reportConnectPopupResult } from "@engenty/connections/ui/connect-popup";
 import { initUiI18n } from "@engenty/i18n/ui";
 import { EngentyQueryProvider } from "@engenty/query-client";
 import { NuqsAdapter } from "nuqs/adapters/react-router/v7";
@@ -13,6 +14,11 @@ import { installInteractionDiagnostics } from "./lib/interaction-diagnostics";
 import "./index.css";
 
 async function bootstrap() {
+  // The OAuth connect popup's landing page reports the result and closes; the
+  // app never boots there.
+  if (reportConnectPopupResult()) {
+    return;
+  }
   installInteractionDiagnostics();
   installDesktopShellListeners();
   // Desktop shell: apply the stored server config before anything reads env.

@@ -18,8 +18,14 @@ export {
   createConnectionsModuleClientFromRepo,
   type ModuleCallActionParams,
   type ModulePullStreamParams,
+  type SpaceConnectionSummary,
 } from "./client.js";
 export { createConnectorClientEnv } from "./client-env-resolver.js";
+export {
+  type ConnectOwnerResult,
+  flowSpaceId,
+  resolveConnectOwner,
+} from "./connect-owner.js";
 export {
   ConnectionsActionError,
   type ConnectionsActionErrorCode,
@@ -43,12 +49,18 @@ export {
   resolveOAuth2Env,
 } from "./oauth2.js";
 export {
+  COPILOT_AGENT_NAME,
+  type PersonalReachAuth,
+  resolvePersonalReach,
+} from "./personal-reach.js";
+export {
   type ConnectionPolicyPrincipal,
   grantedOperationIds,
   type ResolvedConnectionPolicy,
   resolveConnectionActionPolicy,
 } from "./policy.js";
 export {
+  type ConnectionReach,
   type ConnectionReachSummary,
   connectorPrefixesForAgent,
   isAccountReachableInRun,
@@ -62,6 +74,7 @@ export {
   resolveConnectorOperation,
 } from "./registry.js";
 export {
+  type ConnectionOwner,
   type ConnectionsRepo,
   createConnectionsRepo,
   type PendingOAuthFlow,

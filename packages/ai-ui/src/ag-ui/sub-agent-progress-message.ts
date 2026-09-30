@@ -130,15 +130,50 @@ function findMessageCarryingToolCall(
   return null;
 }
 
-/** The in-flight assistant message — where the buffered tool events will land. */
-function lastAssistantMessageId(messages: readonly Message[]): string | null {
+/**
+ * The in-flight assistant message — where the buffered tool events will land.
+ * Only one after the newest user message counts: an earlier one is the last
+ * turn's reply, and opening the row there puts it above the user's message.
+ */
+function inFlightAssistantMessageId(
+  messages: readonly Message[]
+): string | null {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index];
+    if (message?.role === "user") {
+      return null;
+    }
     if (message?.role === "assistant") {
       return message.id ?? null;
     }
   }
   return null;
+}
+
+function placeholderId(toolCallId: string): string {
+  return `assistant-tool-${toolCallId}`;
+}
+
+/**
+ * A hand-off opened before its run streamed a message sits under a stand-in
+ * id: the harness names it by the tool call id, or we fall back to
+ * `assistant-tool-<id>`. When the buffered TOOL_CALL_START names the real
+ * message, that stand-in becomes it, so the row is not drawn twice.
+ */
+export function adoptSubAgentPlaceholder(
+  messages: readonly Message[],
+  toolCallId: string | null,
+  messageId: string
+): Message[] {
+  if (!toolCallId || messages.some((message) => message.id === messageId)) {
+    return [...messages];
+  }
+  const standIns = new Set([toolCallId, placeholderId(toolCallId)]);
+  return messages.map((message) =>
+    message.role === "assistant" && standIns.has(message.id)
+      ? ({ ...message, id: messageId } as Message)
+      : message
+  );
 }
 
 function openingPart(input: {
@@ -177,7 +212,7 @@ export function appendSubAgentProgressToAgUiMessages(
   const namedId =
     explicit && messages.some((message) => message.id === explicit)
       ? explicit
-      : lastAssistantMessageId(messages);
+      : inFlightAssistantMessageId(messages);
   const opening =
     carrierId || !(agentId && toolName)
       ? null
@@ -187,6 +222,21 @@ export function appendSubAgentProgressToAgUiMessages(
           toolCallId: input.toolCallId,
           toolName,
         });
+  if (opening && !carrierId && !namedId) {
+    // The run has not streamed a message of its own yet: open one below the
+    // user's message. The buffered tool call adopts it when it lands.
+    return [
+      ...messages,
+      writeTranscriptParts(
+        {
+          content: "",
+          id: explicit || placeholderId(input.toolCallId),
+          role: "assistant",
+        } as Message,
+        [opening]
+      ),
+    ];
+  }
   const targetId = carrierId ?? (opening ? namedId : null);
   if (!targetId) {
     return [...messages];

@@ -85,8 +85,7 @@ machinery applies (`workspacePublishApprovalGate` in
 - Every Space has `public/`. A Space's folder appears under
   `/company/spaces/` only when it publishes (`core.spaces.publish_to_company`;
   Space settings → "Share the public folder with the company"). NULL means the
-  default by visibility: on for open team Spaces, **off for private and
-  personal Spaces**.
+  default by visibility: on for open Spaces, **off for private Spaces**.
 - Turning it off removes the Space's folder from every mirror on the next run.
 - `spaceConfined` is deleted: `/company` is read-only, so reading it cannot
   leak, and a Space that publishes nothing exposes nothing.
@@ -179,5 +178,5 @@ strings in `apps/ai` (engenty.cli instructions, `workspace-mount-note.ts`,
 ## Open decisions
 
 - Default for "Publish to company" on open Spaces (proposed: on).
-- Whether a person's personal Space may publish at all (proposed: yes, off by
+- Whether a private one-member Space may publish at all (proposed: yes, off by
   default — macOS `~/Public`).

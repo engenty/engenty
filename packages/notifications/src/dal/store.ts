@@ -706,23 +706,13 @@ export function createNotificationsStore(source: NotificationsDbSource) {
       return ((data ?? [])[0] as NotificationStream | undefined) ?? null;
     },
 
-    /** The space's owner column or an `owner` membership row. */
+    /** An `owner` membership row. */
     async isSpaceOwner(input: {
       spaceId: string;
       tenantId: string;
       userId: string;
     }): Promise<boolean> {
       const db = source.forTenant(input.tenantId).schema(SCHEMA);
-      const { data: owned } = await db
-        .from("spaces")
-        .select("id")
-        .eq("tenant_id", input.tenantId)
-        .eq("id", input.spaceId)
-        .eq("owner_user_id", input.userId)
-        .limit(1);
-      if ((owned ?? []).length > 0) {
-        return true;
-      }
       const { data: member } = await db
         .from("space_member")
         .select("user_id")

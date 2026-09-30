@@ -1,15 +1,14 @@
 /**
  * The home header's right slot — same width as Module/Extensions below, not a
- * card. A shared space names who is in it and whether the rest of the team may
- * walk in; a personal one only says it is private (member rows are forbidden).
+ * card. It names who is in the space and whether the rest of the team may
+ * walk in.
  */
 import { useTranslation } from "@engenty/i18n/ui";
 import { AvatarStack, type AvatarStackProfile } from "@engenty/ui-core";
-import { Lock } from "lucide-react";
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { memberLabel } from "@/components/spaces/space-roster";
-import { isPersonalSpace, type Space } from "@/lib/api/spaces-client";
+import type { Space } from "@/lib/api/spaces-client";
 import {
   SPACE_SETTINGS_PEOPLE_HASH,
   spaceSettingsPath,
@@ -18,8 +17,7 @@ import { useSpaceMembersQuery } from "@/lib/spaces-queries";
 
 export function SpaceHomeAudience({ space }: { space: Space }) {
   const { t } = useTranslation("common");
-  const personal = isPersonalSpace(space);
-  const membersQuery = useSpaceMembersQuery(personal ? null : space.id);
+  const membersQuery = useSpaceMembersQuery(space.id);
   const profiles = useMemo<AvatarStackProfile[]>(
     () =>
       (membersQuery.data ?? []).map((member) => ({
@@ -28,19 +26,6 @@ export function SpaceHomeAudience({ space }: { space: Space }) {
       })),
     [membersQuery.data]
   );
-
-  if (personal) {
-    return (
-      <p className="flex items-start gap-2 text-[13px] text-muted-foreground leading-relaxed">
-        <Lock aria-hidden className="mt-0.5 size-3.5 shrink-0" />
-        <span>
-          {t("spaces.members.personalNote", {
-            defaultValue: "This is your personal, private space.",
-          })}
-        </span>
-      </p>
-    );
-  }
 
   const restricted = space.visibility === "private";
 

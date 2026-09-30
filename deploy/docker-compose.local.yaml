@@ -46,6 +46,7 @@ services:
       - ${ENGENTY_SPACES_HOST_DIR}:/opt/engenty/spaces
 
   engenty-egress-proxy:
+    platform: linux/amd64
     volumes:
       - ${ENGENTY_SPACES_HOST_DIR}/egress:/etc/engenty-egress/spaces:ro
 
@@ -76,4 +77,7 @@ services:
     platform: linux/amd64
 
   engenty-browser:
+    platform: linux/amd64
+
+  engenty-browser-proxy:
     platform: linux/amd64

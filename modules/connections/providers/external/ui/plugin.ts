@@ -1,16 +1,19 @@
+import { registerCatalogSection } from "@engenty/connections/ui/extensions";
 import type { EngentyPluginContext } from "@engenty/ui-plugin-sdk";
+import { ImportedConnectorsCatalogSection } from "./pages/imported-connectors-section.js";
 import {
-  EXTERNAL_IMPORT_PATH,
-  ExternalImportPage,
+  LegacyConnectorsRedirect,
   SETUP_ROOT_PATH,
-} from "./pages/external-import-page.js";
-import { SetupIndexRedirect } from "./setup-redirects.js";
+  SetupIndexRedirect,
+} from "./setup-redirects.js";
 
 /**
- * UI for the external-connectors list at `/setup/connectors` (tenant admin).
+ * The imported connectors' table on Setup → Connections (tenant admin).
  * Search and paste-URL import live in the plugin marketplace.
  */
 export default function plugin(engenty: EngentyPluginContext) {
+  registerCatalogSection(ImportedConnectorsCatalogSection);
+
   engenty.UI.registerRoute({
     id: "setup_index",
     path: SETUP_ROOT_PATH,
@@ -21,8 +24,8 @@ export default function plugin(engenty: EngentyPluginContext) {
 
   engenty.UI.registerRoute({
     id: "external_connectors_import",
-    path: EXTERNAL_IMPORT_PATH,
-    component: ExternalImportPage,
+    path: `${SETUP_ROOT_PATH}/connectors`,
+    component: LegacyConnectorsRedirect,
     order: 906,
     requiresAdmin: true,
   });

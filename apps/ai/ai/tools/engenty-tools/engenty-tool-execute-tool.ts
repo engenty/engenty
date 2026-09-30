@@ -294,13 +294,7 @@ export async function executeEngentyTool(
         );
       }
     }
-    callSpaceId = callSpaceIdFor(
-      {
-        operationId: entry.tool.toolId,
-        ...(entry.moduleId ? { moduleId: entry.moduleId } : {}),
-      },
-      getEngentyToolsRunContext().space
-    );
+    callSpaceId = callSpaceIdFor(getEngentyToolsRunContext().space);
     const data = await client.client.invokeTool(
       entry.tool.toolId,
       resolvedInput,

@@ -3,7 +3,7 @@
  *
  * Reuses the admin agent form with this space locked — no picker, and save
  * mounts here then opens the desk. Who can hire is who can already open the
- * agent mount picker (tenant admin, or the owner of a personal space).
+ * agent mount picker (a tenant admin).
  */
 import { AgentFormPage } from "@engenty/ai-ui";
 import { useWorkspaceContext } from "@engenty/ui-plugin-sdk";
@@ -21,7 +21,6 @@ export function SpaceAgentHirePage() {
     [spaceKey, spacesQuery.data]
   );
   const canManage = Boolean(isTenantAdmin || isSuperAdmin);
-  const canHire = canManage || Boolean(space?.ownerUserId);
 
   if (spacesQuery.isPending) {
     return null;
@@ -29,7 +28,7 @@ export function SpaceAgentHirePage() {
   if (!space) {
     return <Navigate replace to={spaceRootPath(spaceKey)} />;
   }
-  if (!canHire) {
+  if (!canManage) {
     return <Navigate replace to={spaceRootPath(spaceKey)} />;
   }
 

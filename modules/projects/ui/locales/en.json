@@ -90,11 +90,16 @@
       "heading": "Client",
       "viewInContacts": "View in contacts",
       "change": "Change client",
-      "addLink": "Link a client"
+      "addLink": "Link a client",
+      "save": "Save"
     },
     "edit": "Edit",
     "editTitle": "Edit title",
     "editTitleLabel": "Title",
+    "subtitle": {
+      "add": "Add subtitle…",
+      "label": "Subtitle"
+    },
     "settings": "Settings",
     "tabs": {
       "planning": "Overview",
@@ -250,13 +255,15 @@
     "projectSettings": {
       "title": "Project settings",
       "timeplanSection": "Time planning",
-      "timeplanSectionDescription": "Phases, dates and the Gantt view. Without a time plan the project stays a lean room for notes, files and tasks.",
+      "timeplanSectionDescription": "Phases, dates and the Gantt view.",
       "startDate": "Start date",
       "endDate": "End date",
       "portalSection": "Client portal",
-      "portalSectionDescription": "Public access for this project's clients: view tasks and submit requests.",
+      "portalSectionDescription": "Clients see tasks and send requests.",
       "clientSection": "Client",
-      "clientSectionDescription": "The contact or organisation this project runs for."
+      "clientSectionDescription": "The contact or organisation this project runs for.",
+      "teamSection": "Team",
+      "teamSectionDescription": "Who works on this project."
     },
     "saveFailed": "Could not save the project.",
     "quickAdd": {
@@ -418,8 +425,8 @@
   },
   "pins": {
     "section": "Projects",
-    "pin": "Pin to space",
-    "unpin": "Unpin from space"
+    "pin": "Add to favorites",
+    "unpin": "Remove from favorites"
   },
   "cover": {
     "openTasks_one": "{{count}} open task",

@@ -76,12 +76,12 @@ export function registerWorkspaceSearchRoutes(
     // Space containment (PLAN-spaces.md Phase P4). This is the surface where a
     // private space leaks most quietly: it never passes through a `/s/<key>`
     // route, so neither `requireSpaceAccess` nor the module-route gate is in the
-    // path, and a KB article in someone's personal space would otherwise come
+    // path, and a KB article in someone's private space would otherwise come
     // back to whoever types its title.
     //
     // Computed here from the authenticated principal and never read from the
     // body. A non-user principal resolves the OPEN spaces only, via the nil UUID
-    // (which owns nothing and is a member of nothing).
+    // (which is a member of nothing).
     let spaceIds: string[];
     try {
       spaceIds = [

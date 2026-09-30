@@ -15,29 +15,32 @@ or workspace you signed in with. Built-in services are always listed. Extra
 services imported for your organization appear in every space of that
 organization; they are not turned on in a space until someone adds them there.
 
-## Accounts belong to a space
+## Accounts belong to a space, or to you
 
-Every account belongs to one space — the one it was connected in. Every member
-and every specialist of that space may use it; nobody outside the space can.
-Who signed in is recorded, but that gives them no extra rights.
+Every account belongs either to one space — the one it was connected in — or
+to you.
 
-- You connect an account **inside a space** (the space you are in; your
-  personal space `/s/me` when you are in none). A space can enable the
-  *service* before anyone authenticates; connecting then adds the account.
-- To use the same mailbox in a second space, connect it there too.
+- A **space's account** is used by every member and every specialist of that
+  space; nobody outside the space can. Who signed in is recorded, but that
+  gives them no extra rights. A space can enable the *service* before anyone
+  authenticates; connecting then adds the account. To use the same mailbox in
+  a second space, connect it there too.
+- **Your own account** (your mail, your calendar, your browser extension) is
+  used by you and your copilot, in any space. Specialists never use it, and
+  nothing is synced from it into a space — your copilot reads it when you ask.
 - A specialist can be limited to some of the services its space offers. It
   cannot use an account of another space.
-- Your **personal space** (`/s/me`) is private: its accounts are yours alone.
 
-Find a space's accounts at **Settings → Connections** while you are in that
-space, or in the space's setup.
+Find your own accounts at **Settings → Connections**. A space's accounts are in
+the space's setup.
 
 ## The copilot
 
-The copilot is one private conversation that follows you. It always works out
-of your personal space: its accounts, its computer and its browser are those
-of `/s/me`, wherever you open it. The space you are standing in only marks
-where the conversation happened.
+The copilot is one private conversation that follows you. In a space it works
+with that space's apps, accounts, computer and browser — plus your own
+accounts, wherever you are. Outside every space it has your own accounts, but
+no computer and no browser. So "read my mail and draft an offer in the client
+space" works: the mail stays yours, only the offer lands in the space.
 
 ## Controlling what agents may do
 

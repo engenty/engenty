@@ -12,7 +12,6 @@ import { useState } from "react";
 import { toast } from "sonner";
 import type { CatalogConnector } from "../api.js";
 import { getConnectUrl } from "../api.js";
-import { useConnectSpaceId } from "../hooks/use-connection-space.js";
 
 /**
  * "+ New connection" page action: pick a connector and jump straight into
@@ -25,23 +24,19 @@ export function NewConnectionButton({
 }: {
   connectors: Pick<CatalogConnector, "icon" | "id" | "name">[];
   redirectTo: string;
-  /** The Space the new account belongs to; absent = personal Space. */
+  /** The Space the new account belongs to; absent = the viewer's own. */
   spaceId?: string | null;
 }) {
   const { t } = useTranslation("connections");
   const [connecting, setConnecting] = useState(false);
-  const targetSpaceId = useConnectSpaceId(spaceId);
 
   const connect = async (connectorId: string) => {
-    if (!targetSpaceId) {
-      return;
-    }
     setConnecting(true);
     try {
       const { authUrl } = await getConnectUrl({
         connectorId,
         redirectTo,
-        spaceId: targetSpaceId,
+        target: spaceId,
       });
       window.location.assign(authUrl);
     } catch (error) {
@@ -59,7 +54,7 @@ export function NewConnectionButton({
       <DropdownMenuTrigger asChild>
         <Button
           className="gap-1.5"
-          disabled={connecting || !targetSpaceId || connectors.length === 0}
+          disabled={connecting || connectors.length === 0}
           size="sm"
           type="button"
         >

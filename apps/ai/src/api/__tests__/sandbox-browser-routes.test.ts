@@ -25,17 +25,11 @@ vi.mock("../../ai/sandbox/space-browser.js", async (importOriginal) => ({
   stopUserBrowser: vi.fn(),
 }));
 
-const resolvePersonalSpaceId = vi.fn(async () => PERSONAL_SPACE);
-vi.mock("../../ai/sessions/run-space.js", () => ({
-  resolvePersonalSpaceId: () => resolvePersonalSpaceId(),
-}));
-
 import { verifyBrowserTicket } from "../browser/browser-tickets.js";
 import { registerSandboxRoutes } from "../sandbox-routes.js";
 
 const TENANT = "00000000-0000-4000-8000-00000000000a";
 const USER = "00000000-0000-4000-8000-00000000000c";
-const PERSONAL_SPACE = "00000000-0000-4000-8000-0000000000b1";
 const SPACE = "00000000-0000-4000-8000-0000000000b2";
 const FOREIGN_SPACE = "00000000-0000-4000-8000-0000000000b3";
 
@@ -91,14 +85,11 @@ describe("Space browser routes", () => {
     expect(readUserBrowserStatus).not.toHaveBeenCalled();
   });
 
-  it("falls back to the caller's personal Space without space_id", async () => {
+  it("has no browser outside a Space", async () => {
     const response = await request(build(), "/ai/sandboxes/browser");
-    expect(response.status).toBe(200);
-    expect(getSpaceSurface).toHaveBeenCalledWith(PERSONAL_SPACE);
-    expect(readUserBrowserStatus).toHaveBeenCalledWith({
-      spaceId: PERSONAL_SPACE,
-      tenantId: TENANT,
-    });
+    expect(response.status).toBe(400);
+    expect(getSpaceSurface).not.toHaveBeenCalled();
+    expect(readUserBrowserStatus).not.toHaveBeenCalled();
   });
 
   it("rejects a malformed space_id", async () => {

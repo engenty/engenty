@@ -1,9 +1,5 @@
 import {
   PhaseDisplaySettingsCard,
-  SettingsCard,
-  SettingsCardSeparator,
-  SettingsInfoCard,
-  SettingsSection,
   type TaxRate,
 } from "@engenty/commercial-editor";
 import { useTranslation } from "@engenty/i18n/ui";
@@ -20,6 +16,10 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SettingsCard,
+  SettingsCardSeparator,
+  SettingsInfoCard,
+  SettingsSection,
   Switch,
 } from "@engenty/ui-core";
 import { FolderInput } from "lucide-react";

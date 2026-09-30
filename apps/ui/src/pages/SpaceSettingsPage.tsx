@@ -50,15 +50,7 @@ import {
   usePageConfig,
   useWorkspaceContext,
 } from "@engenty/ui-plugin-sdk";
-import {
-  Boxes,
-  ChevronRight,
-  Pencil,
-  Plug,
-  Plus,
-  Settings2,
-  Terminal,
-} from "lucide-react";
+import { Boxes, ChevronRight, Pencil, Settings2, Terminal } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -66,9 +58,9 @@ import { SettingsOverviewIcon } from "@/components/settings";
 import { SpaceAppearanceDialog } from "@/components/spaces/SpaceAppearanceDialog";
 import type { SpaceAppearanceValue } from "@/components/spaces/SpaceAppearanceFields";
 import { SpaceDangerZone } from "@/components/spaces/SpaceDangerZone";
+import { SpaceExtensionsSection } from "@/components/spaces/SpaceExtensionsSection";
 import { SpaceMembersCard } from "@/components/spaces/SpaceMembersCard";
 import { SpaceMountsDialog } from "@/components/spaces/SpaceMountsDialog";
-import { spaceAccounts } from "@/components/spaces/space-mount-catalog";
 import {
   type SpaceMount,
   spacePublishesToCompany,
@@ -84,7 +76,6 @@ import {
 import {
   useSaveSpaceSetupMutation,
   useSpaceAgentCatalogQuery,
-  useSpaceConnectorCatalogQuery,
   useSpaceMountsQuery,
   useSpaceSetupCatalogQuery,
   useSpaceSkillCatalogQuery,
@@ -190,18 +181,11 @@ function MountCard({
   onConfigure,
   rows,
   sections,
-  secondaryAction,
 }: {
   action: string;
   isPending: boolean;
   onConfigure: (() => void) | null;
   rows?: MountRow[];
-  /**
-   * A second footer entry, for the case the picker cannot serve: choosing from
-   * what exists is one job, bringing something new into existence is another.
-   * Only Connections has one today — "Add account" (CN.4 Flow A).
-   */
-  secondaryAction?: { label: string; to: string } | null;
   /** Grouped rows. Wins over `rows`; see {@link MountSection}. */
   sections?: MountSection[];
 }) {
@@ -310,15 +294,6 @@ function MountCard({
           {action}
         </button>
       ) : null}
-      {onConfigure && secondaryAction ? (
-        <Link
-          className="flex w-full items-center justify-center gap-2 border-border border-t px-4 py-3 font-semibold text-primary text-xs transition-colors hover:bg-primary/5"
-          to={secondaryAction.to}
-        >
-          <Plus className="size-3" />
-          {secondaryAction.label}
-        </Link>
-      ) : null}
     </div>
   );
 }
@@ -348,23 +323,16 @@ export function SpaceSettingsPage() {
   const catalogQuery = useSpaceSetupCatalogQuery();
   const agentsQuery = useSpaceAgentCatalogQuery();
   const skillsQuery = useSpaceSkillCatalogQuery();
-  const connectorsQuery = useSpaceConnectorCatalogQuery();
   const { modules } = useSpaceModules(spaceId);
   const save = useSaveSpaceSetupMutation();
 
   const canManage = Boolean(isTenantAdmin || isSuperAdmin);
-  // A personal space is a special TYPE of space: it belongs to one person and
-  // has no members, ever (enforced by `core.forbid_personal_space_member`).
-  const isPersonal = space?.ownerUserId != null;
-  // Its own owner may configure it — admins deliberately cannot see private
-  // spaces, so an admin-only rule would leave personal spaces unconfigurable.
-  const canEdit = canManage || isPersonal;
 
   useEffect(() => {
     if (location.hash !== `#${SPACE_SETTINGS_PEOPLE_HASH}`) {
       return;
     }
-    if (isPersonal || !spaceId) {
+    if (!spaceId) {
       return;
     }
     const frame = requestAnimationFrame(() => {
@@ -373,7 +341,7 @@ export function SpaceSettingsPage() {
         ?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
     return () => cancelAnimationFrame(frame);
-  }, [isPersonal, location.hash, spaceId]);
+  }, [location.hash, spaceId]);
 
   const mounts: readonly SpaceMount[] = useMemo(
     () => mountsQuery.data ?? [],
@@ -431,9 +399,7 @@ export function SpaceSettingsPage() {
         })),
         name: patch.name ?? space.name,
         spaceId: space.id,
-        // Omitted for a personal space rather than sent: it is always private
-        // and the database refuses to open it.
-        ...(isPersonal || patch.visibility === undefined
+        ...(patch.visibility === undefined
           ? {}
           : { visibility: patch.visibility }),
         ...(patch.agentApprovalMode === undefined
@@ -527,12 +493,6 @@ export function SpaceSettingsPage() {
     }
     return map;
   }, [skillsQuery.data]);
-
-  // The accounts this Space owns — every agent and member here uses them.
-  const accounts = useMemo(
-    () => (spaceId ? spaceAccounts(connectorsQuery.data ?? [], spaceId) : []),
-    [connectorsQuery.data, spaceId]
-  );
 
   const moduleRows: MountRow[] = useMemo(
     () =>
@@ -641,39 +601,6 @@ export function SpaceSettingsPage() {
     [mounts, skillMeta]
   );
 
-  const pluginRows: MountRow[] = useMemo(() => {
-    const connectorNames = new Map(
-      (connectorsQuery.data ?? []).map((connector) => [
-        connector.id,
-        connector.title ?? connector.name ?? connector.id,
-      ])
-    );
-    const connectedConnectorIds = new Set(
-      accounts.map((account) => account.connectorId)
-    );
-    const accountRows: MountRow[] = accounts.map((account) => ({
-      description: account.connectorName,
-      icon: Plug as UiIconComponent,
-      id: `connection:${account.id}`,
-      label: account.label,
-    }));
-    const pending = mounts
-      .filter(
-        (mount) =>
-          mount.resourceType === "plugin" &&
-          !connectedConnectorIds.has(mount.resourceKey)
-      )
-      .map((mount) => ({
-        description: t("spaces.settings.needsAuth"),
-        icon: Plug as UiIconComponent,
-        id: `plugin:${mount.resourceKey}`,
-        label: connectorNames.get(mount.resourceKey) ?? mount.resourceKey,
-      }));
-    return [...accountRows, ...pending].sort((left, right) =>
-      left.label.localeCompare(right.label)
-    );
-  }, [accounts, connectorsQuery.data, mounts, t]);
-
   // No `secondaryNavHeaderSlot` and no Setup crumb: this page is INSIDE the
   // space, so the column keeps the space's own switcher and Work/Data/Plan tabs.
   // The space crumb is a route fact (App.tsx), so only this page's leaf is added.
@@ -699,7 +626,7 @@ export function SpaceSettingsPage() {
   // Null where the viewer may not edit, which is also how MountCard decides
   // whether to render a footer at all.
   const editKind = (kind: SpaceResourceKind) =>
-    canEdit ? () => setEditingKind(kind) : null;
+    canManage ? () => setEditingKind(kind) : null;
 
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col overflow-auto bg-muted/20">
@@ -734,7 +661,7 @@ export function SpaceSettingsPage() {
                 >
                   <SpaceIconFace icon={space?.icon} name={space?.name ?? "?"} />
                 </span>
-                {canEdit ? (
+                {canManage ? (
                   <button
                     // Revealed on hover but always focusable: a control only a
                     // pointer can find is one keyboard users do not have.
@@ -753,7 +680,7 @@ export function SpaceSettingsPage() {
                 <EditableText
                   as="h1"
                   className="px-4 py-1 font-bold text-3xl text-foreground tracking-[-0.03em] sm:text-4xl"
-                  disabled={!canEdit}
+                  disabled={!canManage}
                   onSave={(next: string) => {
                     const name = next.trim();
                     if (name && name !== space?.name) {
@@ -770,7 +697,7 @@ export function SpaceSettingsPage() {
                 <EditableText
                   as="p"
                   className="mt-1 max-w-xl px-4 py-1 text-center text-[14px] text-muted-foreground"
-                  disabled={!canEdit}
+                  disabled={!canManage}
                   onSave={(next: string) => {
                     const description = next.trim();
                     if (description !== (space?.description ?? "")) {
@@ -785,11 +712,9 @@ export function SpaceSettingsPage() {
                 />
                 <p className="mt-1 font-medium text-[13px] text-muted-foreground/60 tracking-tight">
                   /s/{space?.key}
-                  {isPersonal
-                    ? ` · ${t("spaces.personalBadge")}`
-                    : space?.visibility === "private"
-                      ? ` · ${t("spaces.setup.privateLabel", { defaultValue: "Private space" })}`
-                      : ""}
+                  {space?.visibility === "private"
+                    ? ` · ${t("spaces.setup.privateLabel", { defaultValue: "Private space" })}`
+                    : ""}
                 </p>
               </div>
             </>
@@ -802,7 +727,7 @@ export function SpaceSettingsPage() {
               without a human, and how far off the machine its computer may
               reach. The space's name and appearance are edited in the header
               above, so this card is security and nothing else. */}
-          {canEdit ? (
+          {canManage ? (
             <SettingsFormSection
               cardVariant="flush"
               description={t("spaces.settings.securityHint")}
@@ -812,44 +737,43 @@ export function SpaceSettingsPage() {
                   — what this is, then what it is set to — and every other
                   control on this page (the access chips, the row chevrons)
                   already sits on the right edge. */}
-              {isPersonal ? null : (
-                <div className="flex items-start justify-between gap-4 px-4 py-3">
-                  <div className="min-w-0 space-y-0.5">
-                    <label
-                      className="cursor-pointer font-medium text-foreground text-sm"
-                      htmlFor="space-visibility"
-                    >
-                      {t("spaces.setup.privateLabel", {
-                        defaultValue: "Private space",
-                      })}
-                    </label>
-                    <p
-                      className="text-muted-foreground text-xs"
-                      id="space-visibility-hint"
-                    >
-                      {space?.visibility === "private"
-                        ? t("spaces.setup.privateHint", {
-                            defaultValue:
-                              "Only members can open this space. Nothing is deleted — turning this off makes it visible to the whole team again.",
-                          })
-                        : t("spaces.setup.openHint", {
-                            defaultValue:
-                              "Everyone in the team can open this space.",
-                          })}
-                    </p>
-                  </div>
-                  <Switch
-                    aria-describedby="space-visibility-hint"
-                    checked={space?.visibility === "private"}
-                    className="mt-0.5 shrink-0"
-                    disabled={save.isPending || mountsQuery.isPending}
-                    id="space-visibility"
-                    onCheckedChange={(next: boolean) =>
-                      saveFields({ visibility: next ? "private" : "open" })
-                    }
-                  />
+              <div className="flex items-start justify-between gap-4 px-4 py-3">
+                <div className="min-w-0 space-y-0.5">
+                  <label
+                    className="cursor-pointer font-medium text-foreground text-sm"
+                    htmlFor="space-visibility"
+                  >
+                    {t("spaces.setup.privateLabel", {
+                      defaultValue: "Private space",
+                    })}
+                  </label>
+                  <p
+                    className="text-muted-foreground text-xs"
+                    id="space-visibility-hint"
+                  >
+                    {space?.visibility === "private"
+                      ? t("spaces.setup.privateHint", {
+                          defaultValue:
+                            "Only members can open this space. Nothing is deleted — turning this off makes it visible to the whole team again.",
+                        })
+                      : t("spaces.setup.openHint", {
+                          defaultValue:
+                            "Everyone in the team can open this space.",
+                        })}
+                  </p>
                 </div>
-              )}
+                <Switch
+                  aria-describedby="space-visibility-hint"
+                  checked={space?.visibility === "private"}
+                  className="mt-0.5 shrink-0"
+                  disabled={save.isPending || mountsQuery.isPending}
+                  id="space-visibility"
+                  onCheckedChange={(next: boolean) =>
+                    saveFields({ visibility: next ? "private" : "open" })
+                  }
+                />
+              </div>
+
               {space ? (
                 <div className="flex items-start justify-between gap-4 px-4 py-3">
                   <div className="min-w-0 space-y-0.5">
@@ -993,11 +917,7 @@ export function SpaceSettingsPage() {
             </SettingsFormSection>
           ) : null}
 
-          {/* Personal spaces have no roster at all — `owner_user_id` IS their
-              access grant, and the database refuses a member row on one. A
-              section that could only ever say "nobody here" is worse than
-              none. */}
-          {isPersonal || !spaceId ? null : (
+          {spaceId ? (
             <div className="scroll-mt-6" id={SPACE_SETTINGS_PEOPLE_HASH}>
               <SettingsFormSection
                 cardVariant="flush"
@@ -1016,7 +936,7 @@ export function SpaceSettingsPage() {
                 <SpaceMembersCard canManage={canManage} spaceId={spaceId} />
               </SettingsFormSection>
             </div>
-          )}
+          ) : null}
 
           {/* One card per mount kind, each with its own editor. Skills and
               connections had shared a card; splitting them means every card's
@@ -1051,7 +971,7 @@ export function SpaceSettingsPage() {
           {/* The Computer card: every Engenty that executes code does so on
               this space's shared computer. Live state (running containers,
               Stop, Reset) stays in the admin Computers view. */}
-          {canEdit && spaceId ? (
+          {canManage && spaceId ? (
             <SettingsFormSection
               cardVariant="flush"
               description={t("spaces.settings.computeHint")}
@@ -1101,20 +1021,9 @@ export function SpaceSettingsPage() {
             />
           ) : null}
 
-          <SettingsFormSection
-            cardVariant="flush"
-            description={t("spaces.setup.pluginsHint")}
-            title={t("spaces.setup.pluginsTitle")}
-          >
-            <MountCard
-              action={t("spaces.settings.choosePlugins")}
-              isPending={mountsQuery.isPending}
-              onConfigure={editKind("plugin")}
-              rows={pluginRows}
-            />
-          </SettingsFormSection>
+          {spaceId ? <SpaceExtensionsSection spaceId={spaceId} /> : null}
 
-          {canManage && space && !isPersonal ? (
+          {canManage && space ? (
             <SpaceDangerZone
               onDeleted={() => {
                 navigate("/settings/spaces", { replace: true });
@@ -1125,7 +1034,7 @@ export function SpaceSettingsPage() {
         </div>
       </div>
 
-      {canEdit ? (
+      {canManage ? (
         <>
           <SpaceAppearanceDialog
             name={space?.name ?? ""}

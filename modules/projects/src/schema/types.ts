@@ -52,6 +52,8 @@ export interface Project {
    */
   space_id: string;
   start_date: string | null;
+  /** One line under the title in the project header; null = none. */
+  subtitle?: string | null;
   tenant_id: string;
   /**
    * Whether this project plans time (phases, dates, Gantt). `false` runs the

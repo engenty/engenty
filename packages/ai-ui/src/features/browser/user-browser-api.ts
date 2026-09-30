@@ -1,8 +1,8 @@
 // A Space's browser (PLAN-space-owned-connections.md): one per Space, shared
 // logins, one window per agent. Status, start, stop, sign out, the Space's
 // standing consents, and the ticket for one live view of one agent's window.
-// Every call names the Space (`space_id`, absent = the viewer's personal
-// Space); the server checks the viewer may enter it.
+// Every call names the Space (`space_id`); the server checks the viewer may
+// enter it. With no Space there is no browser, and nothing is asked.
 import { useMutation, useQuery, useQueryClient } from "@engenty/query-client";
 import {
   getAiServiceBaseUrl,
@@ -41,11 +41,11 @@ function withSpace(path: string, target: SpaceRef, extra = ""): string {
 }
 
 export function userBrowserQueryKey(target: SpaceRef) {
-  return ["user-browser", target.spaceId ?? "personal"] as const;
+  return ["user-browser", target.spaceId ?? "none"] as const;
 }
 
 export function userBrowserGrantQueryKey(target: SpaceRef) {
-  return ["user-browser-grant", target.spaceId ?? "personal"] as const;
+  return ["user-browser-grant", target.spaceId ?? "none"] as const;
 }
 
 export function readUserBrowser(
@@ -137,6 +137,7 @@ export function useUserBrowserStatusQuery(
   refetchInterval: number | false
 ) {
   return useQuery({
+    enabled: Boolean(target.spaceId),
     queryFn: ({ signal }) => readUserBrowser(target, signal),
     queryKey: userBrowserQueryKey(target),
     refetchInterval,
@@ -165,6 +166,7 @@ export function useUserBrowserMutations(target: SpaceRef) {
 
 export function useUserBrowserGrantQuery(target: SpaceRef) {
   return useQuery({
+    enabled: Boolean(target.spaceId),
     queryFn: ({ signal }) => readUserBrowserGrant(target, signal),
     queryKey: userBrowserGrantQueryKey(target),
   });

@@ -94,8 +94,8 @@ import { requireAuth, requireSuperAdmin } from "./authz.js";
  * The subject a space-access check runs as.
  *
  * A non-user principal (agent token, service token) has no membership rows, and
- * the nil UUID is guaranteed to own nothing and be a member of nothing — so it
- * resolves exactly the OPEN spaces and never a personal one. Using a real
+ * the nil UUID is guaranteed to be a member of nothing — so it resolves
+ * exactly the OPEN spaces and never a private one. Using a real
  * sentinel rather than a `null` branch keeps one code path: there is no version
  * of this that accidentally skips the filter for a headless caller.
  *
@@ -308,10 +308,8 @@ export interface SpaceMountSetupResult {
  * later going private, which is the case where the creator would otherwise be
  * locked out of their own space.
  *
- * A personal space never reaches here (it is created by a database trigger, and
- * `core.forbid_personal_space_member` refuses member rows on one). A failed
- * write is logged rather than fatal — the space exists and is usable while it
- * is open, and losing the create over a roster row would be worse.
+ * A failed write is logged rather than fatal — the space exists and is usable
+ * while it is open, and losing the create over a roster row would be worse.
  */
 async function addCreatorMemberRow(
   client: SupabaseClient,
@@ -413,12 +411,12 @@ export function registerSpacesRoutes(params: {
    * never a user (PLAN-spaces.md Phase P2).
    *
    * **A space the caller may not enter is 404, never 403.** 403 would confirm the
-   * space exists; personal spaces are named after people, so that alone leaks who
-   * works here and that they have something at that key. "Not found" is the same
-   * answer a made-up key gets, which is the point.
+   * space exists; private spaces are often named after a person or a client, so
+   * that alone leaks what is being worked on. "Not found" is the same answer a
+   * made-up key gets, which is the point.
    *
    * A non-user principal (agent, service token) has no membership to check. It
-   * gets open spaces only — never somebody's personal one — so a headless caller
+   * gets open spaces only — never a private one — so a headless caller
    * enumerating spaces cannot become a way around this.
    */
   async function requireSpaceAccess(
@@ -542,19 +540,10 @@ export function registerSpacesRoutes(params: {
   }
 
   /**
-   * The gate for editing an EXISTING space's setup: its own owner, or a tenant
-   * admin.
-   *
-   * Adding the owner is not a loosening of the admin rule, it is the admin rule
-   * applied to a case it did not anticipate. Setup is admin-only because mounting
-   * issues capability grants, so a member could otherwise hand an agent write
-   * access to everyone's data. Inside a personal space that argument has no
-   * subject: the space's entire contents belong to the one person doing the
-   * mounting, and they may already read all of it.
-   *
-   * Without this, personal spaces would be permanently unconfigurable — admins
-   * cannot see them (they are private and admins get no bypass), so the admin-only
-   * rule alone leaves nobody at all able to edit one.
+   * The gate for editing an EXISTING space's setup: a tenant admin who can
+   * enter the space. Setup is admin-only because mounting issues capability
+   * grants, so a member could otherwise hand an agent write access to
+   * everyone's data.
    */
   async function requireSpaceSetupAccess(
     c: RouteContext,
@@ -564,9 +553,6 @@ export function registerSpacesRoutes(params: {
   ): Promise<{ error: Response } | { space: Space }> {
     const access = await requireSpaceAccess(c, tenantId, auth, idOrKey);
     if ("error" in access) {
-      return access;
-    }
-    if (access.space.ownerUserId && access.space.ownerUserId === auth.userId) {
       return access;
     }
     const adminResult = await requireTenantAdmin(c);
@@ -1114,7 +1100,7 @@ export function registerSpacesRoutes(params: {
     }
     // Membership-filtered for EVERYONE, superadmins included: the rail is where
     // you work, not an admin console, and a platform superadmin has no business
-    // seeing every colleague's personal space just by opening the app. The
+    // seeing every colleague's private space just by opening the app. The
     // unfiltered reader (`listAllSpacesUnscoped`) is for the superadmin console,
     // where looking is the explicit purpose.
     //
@@ -1196,8 +1182,7 @@ export function registerSpacesRoutes(params: {
    *
    * Scoped to the CALLER's accessible spaces, not the subject's. A profile page
    * that listed every room someone is in would tell the reader which private
-   * spaces exist and who is in them — the one thing Phase P is for. Personal
-   * spaces cannot appear at all: they have no member rows.
+   * spaces exist and who is in them — the one thing Phase P is for.
    */
   app.get("/api/spaces/memberships", async (c) => {
     const authResult = await requireAuth(c, config);
@@ -1426,10 +1411,6 @@ export function registerSpacesRoutes(params: {
         ...(parsed.data.publish_to_company === undefined
           ? {}
           : { publishToCompany: parsed.data.publish_to_company }),
-        // A personal space cannot be opened; the database refuses it
-        // (`spaces_personal_is_private_check`) rather than this route silently
-        // dropping the field, so a client that sends it gets an error and not a
-        // false success.
         ...(parsed.data.visibility === undefined
           ? {}
           : { visibility: parsed.data.visibility }),
@@ -2040,12 +2021,8 @@ export function registerSpacesRoutes(params: {
   });
 
   /**
-   * Invite someone into a space — including a personal one.
-   *
-   * This is how a private space is shared: by naming a person, never by opening
-   * it to the tenant (`spaces_personal_is_private_check` forbids the latter for
-   * personal spaces outright). Same gate as setup, for the same reason — inside
-   * your own space you are the only one whose data is at stake.
+   * Invite someone into a space. This is how a private space is shared: by
+   * naming a person, without opening it to the tenant. Same gate as setup.
    */
   app.put("/api/spaces/:spaceId/members/:userId", async (c) => {
     const authResult = await requireAuth(c, config);
@@ -2116,9 +2093,6 @@ export function registerSpacesRoutes(params: {
       );
       return jsonApiSuccess(c, { removed: true });
     } catch (error) {
-      // core.protect_space_owner_member() refuses to un-member the owner of a
-      // personal space. Surfacing the database's refusal rather than pre-checking
-      // it keeps one rule in one place.
       return jsonApiError(c, 400, {
         message:
           error instanceof Error ? error.message : "member_remove_failed",
@@ -2127,10 +2101,10 @@ export function registerSpacesRoutes(params: {
   });
 
   /**
-   * Claim a personal space whose owner has left the tenant.
+   * Claim a private space whose last member has left the tenant.
    *
    * The `root` escape hatch, and deliberately shaped like one: superadmin only,
-   * it refuses any space that still has an owner, and it writes an audit event
+   * it refuses any space that is open or still has a member, and it writes an audit event
    * before returning. An orphaned space is otherwise unreachable by design —
    * someone leaving must not publish their notes to the company — so the way in
    * is an action with a name on it, not a quiet clause in a policy.
@@ -2167,7 +2141,7 @@ export function registerSpacesRoutes(params: {
         code: message,
         message:
           message === "space_not_orphaned"
-            ? "This space still has an owner. Only an orphaned space can be claimed."
+            ? "This space is open or still has a member. Only an orphaned private space can be claimed."
             : message,
       });
     }
@@ -2229,12 +2203,6 @@ export function registerSpacesRoutes(params: {
         return jsonApiError(c, 403, {
           code: message,
           message: "The company space cannot be deleted.",
-        });
-      }
-      if (message === "space_is_personal") {
-        return jsonApiError(c, 403, {
-          code: message,
-          message: "A personal space cannot be deleted.",
         });
       }
       return jsonApiError(c, 400, { code: message, message });

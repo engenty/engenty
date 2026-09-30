@@ -7,11 +7,11 @@
  * handle, whose JWT subject is the nil UUID — Postgres can tell which TENANT is
  * asking and cannot tell which USER. So a membership rule believed to be
  * "enforced by RLS" on a server path is enforced by nothing, and the predicates
- * below are the only thing standing between one person's personal space and
- * everybody else.
+ * below are the only thing standing between one private space and everybody
+ * else.
  *
- * The access rule, stated once: **you may enter a space iff it is open, or you
- * own it, or you have a member row.** It is spelled out twice on purpose — here
+ * The access rule, stated once: **you may enter a space iff it is open or you
+ * have a member row.** It is spelled out twice on purpose — here
  * in SQL-over-PostgREST for the server lane, and in the RLS policy for the
  * browser lane — and `spaces.integration.test.ts` (the RLS policy, on a real
  * database) plus the tests beside this file keep the two saying the same thing.
@@ -147,12 +147,7 @@ export async function listAccessibleSpaces(
     throw result.error;
   }
   return ((result.data ?? []) as SpaceRow[])
-    .filter(
-      (row) =>
-        row.visibility !== "private" ||
-        row.owner_user_id === userId ||
-        memberIds.has(row.id)
-    )
+    .filter((row) => row.visibility !== "private" || memberIds.has(row.id))
     .map(mapSpace);
 }
 
@@ -179,9 +174,9 @@ export async function accessibleSpaceIds(
  * Resolve a space by id or key **for this user**, or null if they may not enter
  * it — with no way to tell "not yours" apart from "does not exist".
  *
- * That conflation is the point: a 403 on someone else's personal space confirms
- * the space is real, which for a space named after a person leaks that the
- * person exists and that they have something there. Callers turn null into 404.
+ * That conflation is the point: a 403 on someone else's private space confirms
+ * the space is real, which for a space named after a person or a client leaks
+ * that it exists. Callers turn null into 404.
  */
 export async function findAccessibleSpace(
   client: SupabaseClient,
@@ -221,9 +216,6 @@ export async function canAccessSpace(
   if (space.visibility !== "private") {
     return true;
   }
-  if (space.ownerUserId === userId) {
-    return true;
-  }
   const result = await memberTable(client)
     .select("user_id")
     .eq("tenant_id", tenantId)
@@ -237,9 +229,8 @@ export async function canAccessSpace(
 }
 
 /**
- * Whether this person owns the space: the personal space's owner, or an
- * `owner` member row on a shared one. Owners decide what the space's
- * connections may do (PLAN-space-owned-connections.md).
+ * Whether this person owns the space: an `owner` member row. Owners decide
+ * what the space's connections may do (PLAN-space-owned-connections.md).
  */
 export async function isSpaceOwner(
   client: SupabaseClient,
@@ -247,23 +238,6 @@ export async function isSpaceOwner(
   spaceId: string,
   userId: string
 ): Promise<boolean> {
-  const space = await spacesTable(client)
-    .select("owner_user_id")
-    .eq("tenant_id", tenantId)
-    .eq("id", spaceId)
-    .maybeSingle();
-  if (space.error) {
-    throw space.error;
-  }
-  if (!space.data) {
-    return false;
-  }
-  // A personal space has exactly one owner and no member rows.
-  const personalOwner = (space.data as { owner_user_id: string | null })
-    .owner_user_id;
-  if (personalOwner) {
-    return personalOwner === userId;
-  }
   const member = await memberTable(client)
     .select("user_id")
     .eq("tenant_id", tenantId)
@@ -286,10 +260,9 @@ export async function isSpaceOwner(
  * viewer cannot enter must not appear, or a colleague's profile page becomes a
  * directory of private rooms the reader has no access to.
  *
- * Personal spaces never appear, and not by filtering: they hold no member rows
- * at all (`core.forbid_personal_space_member`), so there is nothing here to
- * exclude. That is the property that makes this endpoint safe to put on a
- * profile page — it can only ever list shared rooms.
+ * A private space appears only when the viewer is a member of it too, so the
+ * endpoint is safe on a profile page: it never names a room the reader cannot
+ * enter.
  */
 export async function listSpacesForUser(
   client: SupabaseClient,
@@ -357,13 +330,7 @@ export async function addSpaceMember(
   return mapMember(result.data as SpaceMemberRow);
 }
 
-/**
- * Remove a member from a SHARED space.
- *
- * Personal spaces never reach here: they have no member rows at all
- * (`core.forbid_personal_space_member`), because a personal space's access is
- * `owner_user_id` and nothing else.
- */
+/** Remove a member from a space. */
 export async function removeSpaceMember(
   client: SupabaseClient,
   tenantId: string,
@@ -381,14 +348,15 @@ export async function removeSpaceMember(
 }
 
 /**
- * Take ownership of a personal space whose owner has left the tenant.
+ * Take ownership of a private space nobody is a member of any more — its last
+ * member left the tenant.
  *
- * The deliberate `root` escape hatch: an orphaned personal space is unreachable
- * by anyone (private, no members, no owner), which is correct — a colleague's
- * departure must not quietly publish their notes. Someone eventually needs what
- * is in there, so an admin may claim it, LOUDLY. The caller is responsible for
- * the audit event; this refuses to touch a space that still has an owner, so
- * "claim" can never become a way to take a live one.
+ * The deliberate `root` escape hatch: an orphaned private space is unreachable
+ * by anyone, which is correct — a colleague's departure must not quietly
+ * publish their notes. Someone eventually needs what is in there, so an admin
+ * may claim it, LOUDLY. The caller is responsible for the audit event; this
+ * refuses a space that is open or still has a member, so "claim" can never
+ * become a way into a live one.
  */
 export async function claimOrphanedSpace(
   client: SupabaseClient,
@@ -396,20 +364,27 @@ export async function claimOrphanedSpace(
   spaceId: string,
   newOwnerUserId: string
 ): Promise<Space> {
-  const result = await spacesTable(client)
-    .update({ owner_user_id: newOwnerUserId })
+  const space = await spacesTable(client)
+    .select(SPACE_COLUMNS)
     .eq("tenant_id", tenantId)
     .eq("id", spaceId)
-    .is("owner_user_id", null)
+    .eq("visibility", "private")
     .is("deleted_at", null)
-    .select(SPACE_COLUMNS)
     .maybeSingle();
-  if (result.error) {
-    throw result.error;
+  if (space.error) {
+    throw space.error;
   }
-  if (!result.data) {
+  const members = await memberTable(client)
+    .select("user_id")
+    .eq("tenant_id", tenantId)
+    .eq("space_id", spaceId)
+    .limit(1);
+  if (members.error) {
+    throw members.error;
+  }
+  if (!space.data || (members.data ?? []).length > 0) {
     throw new Error("space_not_orphaned");
   }
   await addSpaceMember(client, tenantId, spaceId, newOwnerUserId, "owner");
-  return mapSpace(result.data as SpaceRow);
+  return mapSpace(space.data as SpaceRow);
 }

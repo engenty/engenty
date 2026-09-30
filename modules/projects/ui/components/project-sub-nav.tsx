@@ -1,5 +1,5 @@
 import { useTranslation } from "@engenty/i18n/ui";
-import { Button, TabsList, TabsTrigger } from "@engenty/ui-core";
+import { Button, cn, TabsList, TabsTrigger } from "@engenty/ui-core";
 import { Plus } from "lucide-react";
 import type { ProjectTabMeta } from "../hooks/use-project-tabs.js";
 
@@ -11,16 +11,22 @@ import type { ProjectTabMeta } from "../hooks/use-project-tabs.js";
 export function ProjectSubNav({
   visibleTabs,
   onConfigureClick,
+  onCover = false,
 }: {
   visibleTabs: ProjectTabMeta[];
   onConfigureClick: () => void;
+  /** On a cover: the band sets the text colour (dark or white), not the theme. */
+  onCover?: boolean;
 }) {
   const { t } = useTranslation("projects");
 
   const trailing = (
     <Button
       aria-label={t("detail.tabs.configure")}
-      className="ml-1 h-8 w-8"
+      className={cn(
+        "ml-1 h-8 w-8",
+        onCover && "text-inherit hover:bg-current/15 hover:text-inherit"
+      )}
       onClick={onConfigureClick}
       size="icon"
       variant="ghost"
@@ -31,12 +37,23 @@ export function ProjectSubNav({
 
   return (
     <TabsList
-      className="-mb-px h-auto w-fit border-0 bg-transparent p-0"
+      className={cn(
+        "h-auto w-fit border-0 bg-transparent p-0",
+        onCover ? "text-inherit" : "-mb-px"
+      )}
       trailing={trailing}
       variant="line"
     >
       {visibleTabs.map((tab) => (
-        <TabsTrigger key={tab.id} value={tab.id}>
+        <TabsTrigger
+          className={
+            onCover
+              ? "text-inherit! opacity-75 hover:opacity-100 data-active:text-inherit! data-active:opacity-100"
+              : undefined
+          }
+          key={tab.id}
+          value={tab.id}
+        >
           {tab.label ?? (tab.labelKey ? t(tab.labelKey) : tab.id)}
         </TabsTrigger>
       ))}

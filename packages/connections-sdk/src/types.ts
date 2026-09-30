@@ -376,8 +376,9 @@ export interface ConnectorDefinition {
 
 /**
  * Connection row as exposed to module code and the UI — tokens never leave the
- * DAL. A connection belongs to ONE Space: every agent and member of that Space
- * uses it, nobody outside it does (PLAN-space-owned-connections.md).
+ * DAL. A connection belongs to ONE Space (every agent and member of it uses the
+ * account) or to ONE person (that person and their Copilot use it, in any
+ * Space) — PLAN-personal-connections.md.
  */
 export interface ConnectionSummary {
   auth_kind: ConnectorAuthKind;
@@ -395,8 +396,10 @@ export interface ConnectionSummary {
   external_account: string | null;
   granted_scopes: string[];
   id: string;
-  /** The Space that owns this account. */
-  space_id: string;
+  /** The person who owns this account; null for a Space account. */
+  owner_user_id: string | null;
+  /** The Space that owns this account; null for a personal account. */
+  space_id: string | null;
   status: "active" | "error" | "revoked";
   tenant_id: string;
 }

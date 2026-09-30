@@ -48,9 +48,6 @@ const TEMPLATES = [
   "blue-green.env.example",
 ];
 
-/** Directories the compose files bind-mount, copied verbatim. */
-const TEMPLATE_DIRS = ["egress-proxy", "browser-proxy"];
-
 /**
  * Pure transform: the package.json the release publishes with. Exported for
  * tests. Workspace deps vanish because `dist/bin.js` bundles them; only the
@@ -229,15 +226,6 @@ export function stage(root, { version }) {
       path.join(templateDir, name),
       publicImageNames(fs.readFileSync(path.join(root, "deploy", name), "utf8"))
     );
-  }
-  // The compose bind-mounts these by relative path, so an install that has only
-  // the yaml files fails at container start with "not a directory" — Docker
-  // creates a directory where a config file was expected. Both the managed
-  // install and `engenty deploy` on a server need them next to the compose.
-  for (const dir of TEMPLATE_DIRS) {
-    fs.cpSync(path.join(root, "deploy", dir), path.join(templateDir, dir), {
-      recursive: true,
-    });
   }
 
   // `engenty start` materializes a managed install's supabase/config.toml from

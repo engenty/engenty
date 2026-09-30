@@ -31,6 +31,12 @@ export {
   registerAutomationHookListener,
 } from "./automation-hooks.js";
 export { capabilityCovers } from "./capability-match.js";
+export {
+  CONNECTIONS_CATALOG_PATH,
+  connectionsCatalogPath,
+  MY_CONNECTIONS_PATH,
+  myConnectionsPath,
+} from "./connection-paths.js";
 /**
  * Writing the company drive (`/company/files`, the tenant-level commons).
  * Admins hold it through `*`; a custom role can grant it to anyone else.
@@ -407,6 +413,11 @@ export interface PluginAuthContext {
    * it belong in operation policies, which see the same value.
    */
   agentId?: string;
+  /**
+   * Set when the call arrived through the engenty Apps proxy: a user token
+   * with no interactive turn behind it. See {@link PluginCallOrigin}.
+   */
+  callOrigin?: PluginCallOrigin;
   /**
    * The principal's effective capability strings. Populated by the core HTTP
    * operation host from the resolved principal so module handlers can make

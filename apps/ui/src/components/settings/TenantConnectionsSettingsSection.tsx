@@ -1,89 +1,39 @@
-import { requestApiJson } from "@engenty/api-client";
+import { useConnectionsUsageQuery } from "@engenty/connections/ui/queries";
 import { useTranslation } from "@engenty/i18n/ui";
-import { useQuery } from "@engenty/query-client";
+import { CONNECTIONS_CATALOG_PATH } from "@engenty/plugin-sdk";
 import { SettingsFormSection, Skeleton } from "@engenty/ui-core";
 import { BlocksIcon, ChevronRightIcon } from "lucide-react";
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { SettingsOverviewIcon } from "./SettingsOverviewIcon";
 
-const CONNECTIONS_SETTINGS_PATH = "/settings/connections";
-
-interface CatalogConnection {
-  id: string;
-  status: "active" | "error" | "revoked";
-}
-
-interface CatalogConnector {
-  connections: CatalogConnection[];
-  id: string;
-  name: string;
-}
-
-interface ConnectionsCatalog {
-  connectors: CatalogConnector[];
-}
-
-/** Same key as `@engenty/connections` `useConnectionsCatalogQuery`. */
-function useConnectionsCatalogOverviewQuery() {
-  return useQuery({
-    queryKey: ["connections", "catalog"],
-    queryFn: ({ signal }) =>
-      requestApiJson<ConnectionsCatalog>(
-        "/api/tools/connections_catalog/invoke",
-        {
-          body: { input: {} },
-          method: "POST",
-          signal,
-        }
-      ),
-    staleTime: 30_000,
-  });
-}
-
+/**
+ * The Organisation's connections at a glance — how many accounts its Spaces
+ * and people hold (counts only) — linking to Setup → Connections.
+ */
 export function TenantConnectionsSettingsSection() {
   const { t } = useTranslation("common");
-  const catalogQuery = useConnectionsCatalogOverviewQuery();
+  const usageQuery = useConnectionsUsageQuery();
 
   const summary = useMemo(() => {
-    const connectors = catalogQuery.data?.connectors ?? [];
-    const linked = connectors.filter((c) => c.connections.length > 0);
-    const connectionCount = linked.reduce(
-      (sum, c) => sum + c.connections.length,
-      0
-    );
-    const errorCount = linked.reduce(
-      (sum, c) =>
-        sum + c.connections.filter((conn) => conn.status === "error").length,
-      0
-    );
-    const names = linked.slice(0, 3).map((c) => c.name);
+    const usage = usageQuery.data?.usage ?? [];
     return {
-      connectionCount,
-      errorCount,
-      names,
-      serviceCount: linked.length,
+      accounts: usage.reduce((sum, row) => sum + row.account_count, 0),
+      services: usage.filter((row) => row.account_count > 0).length,
     };
-  }, [catalogQuery.data]);
+  }, [usageQuery.data]);
 
   const description = (() => {
-    if (catalogQuery.isLoading && !catalogQuery.data) {
+    if (usageQuery.isPending) {
       return null;
     }
-    if (summary.connectionCount === 0) {
+    if (summary.accounts === 0) {
       return t("settings.connections.emptyOverview");
     }
-    const namesPart =
-      summary.names.length > 0 ? ` · ${summary.names.join(", ")}` : "";
-    const base = t("settings.connections.linkedOverview", {
-      count: summary.connectionCount,
+    return t("settings.connections.linkedOverview", {
+      count: summary.accounts,
+      services: summary.services,
     });
-    if (summary.errorCount > 0) {
-      return `${base}${namesPart} · ${t("settings.connections.errorsOverview", {
-        count: summary.errorCount,
-      })}`;
-    }
-    return `${base}${namesPart}`;
   })();
 
   return (
@@ -94,7 +44,7 @@ export function TenantConnectionsSettingsSection() {
     >
       <Link
         className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/30"
-        to={CONNECTIONS_SETTINGS_PATH}
+        to={CONNECTIONS_CATALOG_PATH}
       >
         <SettingsOverviewIcon Icon={BlocksIcon} tone="moss" />
         <div className="flex min-w-0 flex-1 flex-col">

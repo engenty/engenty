@@ -9,8 +9,7 @@
  * intersection of the person's memberships with the spaces the caller may
  * themselves enter — a profile that listed every room someone belongs to would
  * be a directory of private spaces and their occupants, which is precisely what
- * per-space access control exists to prevent. Personal spaces cannot appear at
- * all: they hold no member rows.
+ * per-space access control exists to prevent.
  *
  * A person with no `user_id` has no engenty account yet (imported or invited but
  * not accepted), so there is nothing to look up and the section is absent rather

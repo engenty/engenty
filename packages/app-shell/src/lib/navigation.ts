@@ -203,11 +203,11 @@ export function buildNavigationSections(
           (showDeveloperAdmin || !isDeveloperAdminEntry(entry.to))
       )
     : [];
-  // Connections is a personal surface (`requiresAdmin: false`). Admins see it
-  // in Setup; members keep it in Settings (they have no Setup rail).
-  const CONNECTIONS_PATH = "/setup/connections";
+  // My connections is personal (`requiresAdmin: false`): everyone finds it in
+  // Settings. The Organisation's connector catalog is a Setup page of its own.
+  const MY_CONNECTIONS_PATH = "/settings/connections";
   const connectionsSettingsItem = contributions.settingsItems.find(
-    (item) => item.to === CONNECTIONS_PATH
+    (item) => item.to === MY_CONNECTIONS_PATH
   );
   const mapSettingsContribution = (item: SettingsMenuEntry) => ({
     to: item.to,
@@ -219,12 +219,13 @@ export function buildNavigationSections(
     (isAdmin || connectionsSettingsItem.requiresAdmin === false)
       ? mapSettingsContribution(connectionsSettingsItem)
       : null;
-  // Module settings below the separator — Connections is promoted into Setup
-  // (admins) or the core Settings block (members).
+  // Module settings below the separator — My connections sits in the core
+  // Settings block instead.
   // Groups follow PLUGIN_CATEGORIES; item `order` sorts within a category only.
   const moduleSettingsItems = contributions.settingsItems
     .filter(
-      (item) => item.to !== "/settings/profile" && item.to !== CONNECTIONS_PATH
+      (item) =>
+        item.to !== "/settings/profile" && item.to !== MY_CONNECTIONS_PATH
     )
     // Module settings are tenant configuration — hidden from members, who see
     // only genuinely personal surfaces (declared via `requiresAdmin: false`).
@@ -281,8 +282,7 @@ export function buildNavigationSections(
           },
         ]
       : []),
-    // Members have no Setup rail — Connections stays findable in Settings.
-    ...(!isAdmin && connectionsNavItem ? [connectionsNavItem] : []),
+    ...(connectionsNavItem ? [connectionsNavItem] : []),
   ];
   const settingsChildren = [
     ...coreSettingsChildren,
@@ -340,11 +340,6 @@ export function buildNavigationSections(
                   label: t("settings.roles.menuLabel"),
                   icon: ShieldCheck,
                 },
-                {
-                  to: "/setup/connectors",
-                  label: t("navigation.setupConnectors"),
-                  icon: Cable,
-                },
               ]
             : []),
           ...(isAdmin
@@ -359,7 +354,11 @@ export function buildNavigationSections(
                   label: t("settings.integrationKeys.menuLabel"),
                   icon: KeyRound,
                 },
-                ...(connectionsNavItem ? [connectionsNavItem] : []),
+                {
+                  to: "/setup/connections",
+                  label: t("navigation.setupConnections"),
+                  icon: Cable,
+                },
               ]
             : []),
           ...(developerModeEnabled
@@ -631,19 +630,6 @@ export function getSecondaryNavItems(
     const setupItem = flattenItems(sections).find((i) => i.to === "/setup");
     if (setupItem?.children && setupItem.children.length > 0) {
       return setupItem.children;
-    }
-    // Personal connections live at /setup/connections; members have no Setup
-    // rail, so keep them in the Settings secondary nav.
-    if (
-      currentPath === "/setup/connections" ||
-      currentPath.startsWith("/setup/connections/")
-    ) {
-      const settingsItem = flattenItems(sections).find(
-        (i) => i.to === "/settings"
-      );
-      if (settingsItem?.children && settingsItem.children.length > 0) {
-        return settingsItem.children;
-      }
     }
   }
 

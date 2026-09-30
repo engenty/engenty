@@ -8,7 +8,7 @@
  * `requireSpaceAccess`. Guarding the tree's endpoint would have fixed the tree
  * and left the doors open: the leak is not "the tree shows too much", it is
  * **every module route that accepts a space filter trusts the id it is given**.
- * Nothing stops a second user from putting a colleague's personal space id in
+ * Nothing stops a second user from putting a colleague's private space id in
  * that query string by hand.
  *
  * So the check goes where all of them already converge — the single
@@ -22,16 +22,16 @@
  * lane's JWT subject is the nil UUID, so even RLS-enforced paths cannot tell
  * which user is asking.
  *
- * **404, not 403** — matching core's `requireSpaceAccess`. Personal spaces are
- * named after people; confirming one exists is itself the leak.
+ * **404, not 403** — matching core's `requireSpaceAccess`. Private spaces are
+ * often named after people or clients; confirming one exists is itself the leak.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { findAccessibleSpace } from "../../../dal/space-membership.js";
 
 /**
- * A non-user principal has no membership rows. The nil UUID owns nothing and is
+ * A non-user principal has no membership rows. The nil UUID is
  * a member of nothing, so it resolves exactly the OPEN spaces — a headless
- * caller cannot use a service token to read a personal space.
+ * caller cannot use a service token to read a private space.
  */
 const NIL_USER_ID = "00000000-0000-0000-0000-000000000000";
 

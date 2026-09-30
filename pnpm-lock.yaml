@@ -663,6 +663,9 @@ importers:
       '@engenty/pdf-templates-module':
         specifier: workspace:*
         version: link:../../modules/pdf-templates
+      '@engenty/platform-settings':
+        specifier: workspace:*
+        version: link:../../packages/platform-settings
       '@engenty/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
@@ -2171,6 +2174,9 @@ importers:
       '@engenty/queue':
         specifier: workspace:*
         version: link:../../packages/queue
+      '@engenty/scoped-kv-settings':
+        specifier: workspace:*
+        version: link:../../packages/scoped-kv-settings
       '@engenty/tasks':
         specifier: workspace:*
         version: link:../tasks
@@ -3779,16 +3785,40 @@ importers:
 
   packages/platform-settings:
     dependencies:
+      '@engenty/api-client':
+        specifier: workspace:*
+        version: link:../api-client
+      '@engenty/query-client':
+        specifier: workspace:*
+        version: link:../query-client
       '@engenty/secrets-sdk':
         specifier: workspace:*
         version: link:../secrets-sdk
+      '@engenty/ui-core':
+        specifier: workspace:*
+        version: link:../ui-core
+      '@engenty/ui-icons':
+        specifier: workspace:*
+        version: link:../ui-icons
       '@supabase/supabase-js':
         specifier: ^2.116.0
         version: 2.116.0(@opentelemetry/api@1.9.1)
+      lucide-react:
+        specifier: ^1.46.0
+        version: 1.46.0(react@19.3.0)
+      react:
+        specifier: ^19.0.0
+        version: 19.3.0
+      sonner:
+        specifier: ^2.0.8
+        version: 2.0.8(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
     devDependencies:
       '@types/node':
         specifier: ^24.13.5
         version: 24.13.5
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
       tsup:
         specifier: ^8.5.1
         version: 8.5.1(jiti@2.7.0)(postcss@8.5.15)(tsx@4.23.13)(typescript@6.0.3)(yaml@2.9.1)

@@ -26,7 +26,7 @@ import {
   SpaceMemberRemoveConfirm,
   useSpaceRoster,
 } from "@/components/spaces/space-roster";
-import { isPersonalSpace, type Space } from "@/lib/api/spaces-client";
+import type { Space } from "@/lib/api/spaces-client";
 import { spaceRootPath, spaceSettingsPath } from "@/lib/space-routes";
 import { SpaceHomeInboxBell } from "./SpaceHomeInboxBell";
 
@@ -43,9 +43,8 @@ const iconButtonClassName = cn(
 export function SpaceHomeTopbarActions({ space }: { space: Space }) {
   const { t } = useTranslation("common");
   const { isSuperAdmin, isTenantAdmin } = useWorkspaceContext();
-  const personal = isPersonalSpace(space);
   const canManage = Boolean(isTenantAdmin || isSuperAdmin);
-  const roster = useSpaceRoster(personal ? null : space.id);
+  const roster = useSpaceRoster(space.id);
 
   const copyLink = useCallback(() => {
     const href = `${window.location.origin}${spaceRootPath(space.key)}`;
@@ -99,22 +98,16 @@ export function SpaceHomeTopbarActions({ space }: { space: Space }) {
             <Link2 className="mr-2 size-4" />
             {t("spaces.home.menu.copyLink", { defaultValue: "Copy link" })}
           </DropdownMenuItem>
-          {personal ? null : (
-            <DropdownMenuItem onSelect={() => roster.setPickerOpen(true)}>
-              <Users className="mr-2 size-4" />
-              {t("spaces.members.manageAction", {
-                defaultValue: "Manage people",
-              })}
-            </DropdownMenuItem>
-          )}
+          <DropdownMenuItem onSelect={() => roster.setPickerOpen(true)}>
+            <Users className="mr-2 size-4" />
+            {t("spaces.members.manageAction", {
+              defaultValue: "Manage people",
+            })}
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      {personal ? null : (
-        <>
-          <SpacePeopleDialog canManage={canManage} roster={roster} />
-          <SpaceMemberRemoveConfirm roster={roster} />
-        </>
-      )}
+      <SpacePeopleDialog canManage={canManage} roster={roster} />
+      <SpaceMemberRemoveConfirm roster={roster} />
     </div>
   );
 }

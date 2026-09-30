@@ -97,22 +97,3 @@ export function useConnectionsSettingsAgentUiSlice(input: {
 
   useRegisterAgentUiSlice("connections.settings", slice);
 }
-
-/** Thin brief for the OAuth popup complete landing page. */
-export function useConnectionsConnectCompleteAgentUiSlice() {
-  const slice = useMemo(
-    () => ({
-      page: {
-        ...buildAgentUiPageBrief({
-          page_type: "connect-complete",
-          page_title: "Connect complete",
-          page_description:
-            "OAuth connect popup completion page (reporting result to opener).",
-        }),
-      },
-    }),
-    []
-  );
-
-  useRegisterAgentUiSlice("connections.connect-complete", slice);
-}

@@ -1,4 +1,5 @@
 import { AgentDesk, agentDeskHostKey } from "@engenty/ai-ui";
+import type { UiModuleSidebar } from "@engenty/ui-plugin-sdk";
 import { useMemo } from "react";
 import { Navigate, useParams } from "react-router-dom";
 import { SpaceComposerControls } from "@/components/spaces/SpaceComposerControls";
@@ -11,8 +12,11 @@ import { useSpaceRosterAgents } from "@/lib/use-space-roster-agents";
 
 export function SpaceAgentDeskPage({
   canManageAgents,
+  sidebar,
 }: {
   canManageAgents: boolean;
+  /** The module's sidebar when the desk is opened inside a module. */
+  sidebar?: UiModuleSidebar;
 }) {
   const { agentId = "", spaceKey = "" } = useParams<{
     agentId: string;
@@ -77,6 +81,7 @@ export function SpaceAgentDeskPage({
       moduleLabel={moduleLabel}
       relation={relation}
       rosterAgents={rosterAgents}
+      sidebar={sidebar}
       spaceAudience={spaceAudience}
       spaceId={space.id}
       spaceKey={spaceKey}

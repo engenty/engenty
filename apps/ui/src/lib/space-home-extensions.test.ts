@@ -2,16 +2,17 @@ import { describe, expect, it } from "vitest";
 import {
   type SpaceHomeExtensionAccount,
   selectSpaceHomeExtensionRows,
-  spaceAddAccountPath,
 } from "./space-home-extensions";
 
 const account = (
   overrides: Partial<SpaceHomeExtensionAccount> = {}
 ): SpaceHomeExtensionAccount => ({
+  connectedBy: null,
   connectorId: "google-gmail",
   connectorName: "Gmail",
   id: "conn-gmail",
   label: "me@example.com",
+  status: "active",
   ...overrides,
 });
 
@@ -21,13 +22,21 @@ describe("selectSpaceHomeExtensionRows", () => {
       [
         { resourceKey: "mod-tasks", resourceType: "module" },
         { resourceKey: "skill-custom", resourceType: "skill" },
-        { resourceKey: "google-gmail", resourceType: "plugin" },
+        { resourceKey: "slack", resourceType: "plugin" },
       ],
       [account()],
-      { plugins: new Map([["google-gmail", "Gmail"]]) }
+      { plugins: new Map([["slack", "Slack"]]) }
     );
-    expect(rows.map((row) => row.label)).toEqual(["Gmail", "me@example.com"]);
-    expect(rows.map((row) => row.kind)).toEqual(["plugin", "connection"]);
+    expect(rows.map((row) => row.label)).toEqual(["me@example.com", "Slack"]);
+    expect(rows.map((row) => row.status)).toEqual(["active", "pending"]);
+  });
+
+  it("shows an enabled plugin once its account is connected, as the account", () => {
+    const rows = selectSpaceHomeExtensionRows(
+      [{ resourceKey: "google-gmail", resourceType: "plugin" }],
+      [account()]
+    );
+    expect(rows.map((row) => row.kind)).toEqual(["connection"]);
   });
 
   it("sorts by the label a person reads", () => {
@@ -42,19 +51,5 @@ describe("selectSpaceHomeExtensionRows", () => {
       "alpha@example.com",
       "zeta@example.com",
     ]);
-  });
-});
-
-describe("spaceAddAccountPath", () => {
-  it("carries the space and the page to return to", () => {
-    expect(spaceAddAccountPath("space-1", "/s/game")).toBe(
-      "/settings/connections?back=%2Fs%2Fgame&space=space-1"
-    );
-  });
-
-  it("opens one provider when a connector id is given", () => {
-    expect(spaceAddAccountPath("space-1", "/s/game", "google-gmail")).toBe(
-      "/settings/connections/google-gmail?back=%2Fs%2Fgame&space=space-1"
-    );
   });
 });

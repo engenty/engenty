@@ -33,11 +33,10 @@ Give each space the agents, apps, and knowledge for the job — including comput
 npx engenty start
 ```
 
-It checks Docker, starts engenty's own Supabase, applies the migrations and
+It checks Docker, starts Engenty's own Supabase, applies the migrations and
 brings the containers up. Open **http://localhost:8787**. The first visit is
 `/initial_setup`: it checks the installation, then walks you through the
-administrator account, your team, a model provider, your first space and your
-personal space.
+administrator account, your team, a model provider and your first space.
 
 Chat needs a key from one model provider — [Vercel AI
 Gateway](https://vercel.com/docs/ai-gateway), OpenRouter, OpenAI, Anthropic or
@@ -135,15 +134,15 @@ are optional surfaces around it.
 | `apps/ai` | Agent runtime (Mastra + AG-UI): agent runs, tools, the Docker sandbox, and the proxy in front of app-host |
 | `apps/ui` | React web frontend |
 | `apps/app-host` | [agentOS](https://rivet.dev/agentos) host that builds and runs tenant-authored Apps in isolates; internal-only, reachable from `apps/ai` alone, shipped in the `apps` compose profile |
-| `apps/manage` | Superadmin control plane served under `/manage`; PRO builds only, off by default |
+| `apps/manage` | Superadmin control plane served under `/manage`; closed source, not in the public repo |
 | `apps/desktop` | macOS app (Tauri v2) wrapping the same SPA as `apps/ui` |
-| `apps/browser-extension` | Browser Bridge: links a browser window to an agent session, acting only with the user's approval |
+| `apps/browser-extension` | Browser Bridge: links a browser window to an agent session, acting only with the user's approval; closed source, not in the public repo |
 | `apps/docs` | The documentation site, served under `/docs` |
-| `apps/www` | Public marketing site; talks to nothing else |
+| `apps/www` | Public marketing site; talks to nothing else; closed source, not in the public repo |
 
 ## Modules
 
-engenty ships a basic set of modules, each an installable plugin. Use them as
+Engenty ships a basic set of modules, each an installable plugin. Use them as
 building blocks, as reference, or as they are. Modules still in development
 or pilots are in the tree but not listed here (`"stage": "dev"` or `"alpha"`
 in their manifest).
@@ -153,10 +152,8 @@ in their manifest).
 
 | Module | What it does |
 |--------|--------------|
-| 🔌 **Connections** | Central external-service connections: OAuth, per-action permissions, approvals |
-| 📇 **Contacts** | Contacts and organisations module |
-| 🧩 **engenty Apps** | Tenant-owned applications with a frontend, a backend and their own storage — authored by engenty.app-coder, rendered as artifacts, used by engenty.copilot and mounted Engenties |
-| 🤖 **Engenty Copilot** | Core Engenty copilot full-page chat and apps/ai UI consumer |
+| 🧩 **Engenty Apps** | Tenant-owned applications with a frontend, a backend and their own storage — authored by engenty.app-coder, rendered as artifacts, used by engenty.copilot and mounted engenties |
+| 🤖 **Engenty Copilot** | Core Engenty Copilot full-page chat and apps/ai UI consumer |
 | 🗂️ **Files** | Tenant file storage and previews |
 | 🫧 **Specialists** | Hired engenties — the catalog floor every specialist carries, the Space playbooks it may load, and its standing appendix. A builtin code home like engenty-copilot: never mounted, nothing here is mount-gated. |
 | 👥 **Team** | Team directory, org structure, groups, and taxonomies |
@@ -165,12 +162,20 @@ in their manifest).
 
 | Module | What it does |
 |--------|--------------|
+| 📇 **Contacts** | Contacts and organisations module |
 | 📝 **Offers** | Offer management with draft editor, metadata, blocks, phases, taxes, and billing settings |
 | ↳ ⚙️ Commercial Settings | Shared commercial defaults: currency, tax, units, disciplines — used by Offers |
 | ↳ 🏢 Company Profile | Legal entity profile and business identity settings — used by Offers |
 | ↳ 📄 PDF Templates | Shared PDF template storage, preview, and editor integration — used by Offers |
 
-**Connections** providers: External (imported), Google, Local Files.
+### Connections
+
+| Module | What it does |
+|--------|--------------|
+| 🔌 **Connections** | Central external-service connections: OAuth, per-action permissions, approvals |
+| ↳ External (imported) | Import any external service as a connector from OpenAPI specs, MCP servers, or the integrations.sh registry |
+| ↳ Google | Google connectors for the connections framework: Gmail, Drive, Calendar, Contacts |
+| ↳ Local Files | Read local folders the user grants in the browser (File System Access API) |
 <!-- modules:end -->
 
 Being on disk is not the same as running: the root `package.json` key
@@ -180,9 +185,9 @@ the Plugin SDK — see [Plugins & Modules](docs/content/dev/plugins.md).
 
 ## Run it on a server
 
-Three things engenty does not provide for itself: a **Docker host** (any VPS,
+Three things Engenty does not provide for itself: a **Docker host** (any VPS,
 8 GB of RAM a realistic floor), a **domain** pointed at it, and a **Supabase
-project** — cloud or self-hosted. engenty never runs your database; it connects
+project** — cloud or self-hosted. Engenty never runs your database; it connects
 to the one you already operate, so backups and upgrades stay where you manage
 them.
 
@@ -190,7 +195,7 @@ them.
 pnpm engenty deploy   # --dry-run walks it without writing
 ```
 
-It asks where Supabase runs and how engenty runs,
+It asks where Supabase runs and how Engenty runs,
 writes `deploy/.env`, and either creates the Coolify application or hands you the
 compose commands. It finishes by checking the two Supabase settings that live in
 project config rather than in migrations — a missing exposed schema or a disabled
@@ -216,7 +221,7 @@ Contributing: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-engenty is **Fair Source**: the source is public and free to self-host, but it is
+Engenty is **Fair Source**: the source is public and free to self-host, but it is
 not OSI open source.
 
 [FSL-1.1-MIT](./LICENSE) — free for any non-competing use, converting to MIT two

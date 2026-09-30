@@ -23,7 +23,6 @@ const ROWS = [
     is_default: true,
     key: "company",
     name: "Company",
-    owner_user_id: null,
     tenant_id: TENANT,
     visibility: "open",
   },
@@ -35,13 +34,15 @@ const ROWS = [
     is_default: false,
     key: "alice",
     name: "Alice",
-    owner_user_id: ALICE,
     tenant_id: TENANT,
     visibility: "private",
   },
 ];
 
-/** Minimal PostgREST stand-in: `spaces` replays ROWS, `space_member` is empty. */
+/**
+ * Minimal PostgREST stand-in: `spaces` replays ROWS; `space_member` holds one
+ * seat — Alice in her private space.
+ */
 function getTenantDb() {
   return {
     schema() {
@@ -62,7 +63,13 @@ function getTenantDb() {
             },
             maybeSingle() {
               if (table === "space_member") {
-                return Promise.resolve({ data: null, error: null });
+                const seated =
+                  filters.user_id === ALICE &&
+                  filters.space_id === ALICE_PRIVATE;
+                return Promise.resolve({
+                  data: seated ? { user_id: ALICE } : null,
+                  error: null,
+                });
               }
               const found = ROWS.find(
                 (candidate) =>
@@ -102,7 +109,7 @@ const asUser = (principalId: string) => ({
 });
 
 describe("findForbiddenSpaceScope", () => {
-  it("allows the owner into their own private space", async () => {
+  it("allows a member into their private space", async () => {
     expect(
       await findForbiddenSpaceScope({
         auth: asUser(ALICE),

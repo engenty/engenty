@@ -13,7 +13,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  ScrollArea,
 } from "@engenty/ui-core";
 import { Brain } from "lucide-react";
 import { useState } from "react";
@@ -64,7 +63,7 @@ export function MemoryBreakDivider({
         <span aria-hidden className="h-px flex-1 bg-border" />
       </div>
       <Dialog onOpenChange={setOpen} open={open}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>{t("memoryBreak.title")}</DialogTitle>
             <DialogDescription>
@@ -80,9 +79,12 @@ export function MemoryBreakDivider({
                   })}
             </DialogDescription>
           </DialogHeader>
-          <ScrollArea className="max-h-[60vh] rounded-md border border-border bg-muted/20">
+          {/* A plain scroller, not ScrollArea: its viewport sizes to the
+              longest unbroken line, which pushed the notes (and the dialog's
+              grid) past the dialog's width. */}
+          <div className="max-h-[60vh] min-w-0 overflow-y-auto rounded-md border border-border bg-muted/20">
             {observations ? (
-              <pre className="whitespace-pre-wrap break-words p-3 font-sans text-sm leading-6">
+              <pre className="whitespace-pre-wrap p-3 font-sans text-sm leading-6 [overflow-wrap:anywhere]">
                 {observations}
               </pre>
             ) : (
@@ -90,7 +92,7 @@ export function MemoryBreakDivider({
                 {t("memoryBreak.empty")}
               </p>
             )}
-          </ScrollArea>
+          </div>
         </DialogContent>
       </Dialog>
     </>

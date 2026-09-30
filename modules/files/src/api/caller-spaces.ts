@@ -40,31 +40,18 @@ async function listUserSpaceIds(
   tenantId: string,
   userId: string
 ): Promise<Set<string>> {
-  const [owned, member] = await Promise.all([
-    db
-      .schema("core")
-      .from("spaces")
-      .select("id")
-      .eq("tenant_id", tenantId)
-      .eq("owner_user_id", userId)
-      .is("deleted_at", null),
-    db
-      .schema("core")
-      .from("space_member")
-      .select("space_id")
-      .eq("tenant_id", tenantId)
-      .eq("user_id", userId),
-  ]);
-  if (owned.error) {
-    throw new Error(`space memberships: ${owned.error.message}`);
-  }
+  const member = await db
+    .schema("core")
+    .from("space_member")
+    .select("space_id")
+    .eq("tenant_id", tenantId)
+    .eq("user_id", userId);
   if (member.error) {
     throw new Error(`space memberships: ${member.error.message}`);
   }
-  return new Set([
-    ...((owned.data ?? []) as Array<{ id: string }>).map((row) => row.id),
-    ...((member.data ?? []) as Array<{ space_id: string }>).map(
+  return new Set(
+    ((member.data ?? []) as Array<{ space_id: string }>).map(
       (row) => row.space_id
-    ),
-  ]);
+    )
+  );
 }

@@ -2,8 +2,8 @@
 // (`engenty-browser-<tenant>-<space>`), driven over CDP by apps/ai for every
 // agent working in that Space (PLAN-space-owned-connections.md). Each agent
 // gets its own window (tab) in it — `user-browser-registry.ts` — while
-// logins and cookies are the Space's, shared. The copilot's is the person's
-// personal Space's browser. A SERVICE, not an exec sandbox — nothing
+// logins and cookies are the Space's, shared. The copilot uses the browser of
+// the Space it runs in; outside a Space there is none. A SERVICE, not an exec sandbox — nothing
 // executes commands in it, so it is created with the docker CLI carrying
 // Mastra's sandbox labels (the catalog, Reset and the sweeps find it like any
 // other container) and nothing of Mastra's exec machinery. It exists only when the user asked

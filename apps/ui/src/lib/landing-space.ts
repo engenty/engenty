@@ -58,15 +58,12 @@ export function forgetRememberedSpaceKeyMemoryForTests(): void {
   hydratedFromStorage = false;
 }
 
-type LandingSpace = Pick<
-  Space,
-  "deletedAt" | "isDefault" | "key" | "ownerUserId"
->;
+type LandingSpace = Pick<Space, "deletedAt" | "isDefault" | "key">;
 
 /**
  * Where the app should put you when the URL does not name a place: last
- * visited space (if you still belong to it), then personal, then the tenant
- * default. Copilot is the dock, not this fallback.
+ * visited space (if you still belong to it), then the tenant default. Copilot
+ * is the dock, not this fallback.
  */
 export function pickLandingSpace<T extends LandingSpace>(
   spaces: readonly T[],
@@ -79,10 +76,5 @@ export function pickLandingSpace<T extends LandingSpace>(
       return remembered;
     }
   }
-  return (
-    live.find((space) => space.ownerUserId != null) ??
-    live.find((space) => space.isDefault) ??
-    live[0] ??
-    null
-  );
+  return live.find((space) => space.isDefault) ?? live[0] ?? null;
 }

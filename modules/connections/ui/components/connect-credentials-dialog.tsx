@@ -16,7 +16,6 @@ import { useState } from "react";
 import { toast } from "sonner";
 import type { CatalogConnector } from "../api.js";
 import { connectWithCredentials } from "../api.js";
-import { useConnectSpaceId } from "../hooks/use-connection-space.js";
 import { connectionsKeys } from "../queries.js";
 
 /**
@@ -42,7 +41,7 @@ export function ConnectCredentialsDialog({
   onConnected?: (connectionId: string) => void | Promise<void>;
   onOpenChange?: (open: boolean) => void;
   open?: boolean;
-  /** The Space the new account belongs to; absent = personal Space. */
+  /** The Space the new account belongs to; absent = the viewer's own. */
   spaceId?: string | null;
 }) {
   const { t } = useTranslation("connections");
@@ -53,17 +52,13 @@ export function ConnectCredentialsDialog({
   const setOpen = onOpenChange ?? setUncontrolledOpen;
   const [busy, setBusy] = useState(false);
   const [values, setValues] = useState<Record<string, string>>({});
-  const targetSpaceId = useConnectSpaceId(spaceId);
 
   const submit = async () => {
-    if (!targetSpaceId) {
-      return;
-    }
     setBusy(true);
     try {
       const result = await connectWithCredentials(connector.id, {
         credentials: values,
-        space_id: targetSpaceId,
+        target: spaceId ?? null,
       });
       await queryClient.invalidateQueries({
         queryKey: connectionsKeys.catalog(),
@@ -143,11 +138,7 @@ export function ConnectCredentialsDialog({
             </div>
           ))}
           <DialogFooter className="mt-2">
-            <Button
-              disabled={busy || requiredMissing || !targetSpaceId}
-              size="sm"
-              type="submit"
-            >
+            <Button disabled={busy || requiredMissing} size="sm" type="submit">
               {busy
                 ? t("catalog.connecting")
                 : t("credentials.submit", { defaultValue: "Connect" })}

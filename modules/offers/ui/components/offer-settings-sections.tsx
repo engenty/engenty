@@ -1,9 +1,5 @@
 import {
   PhaseDisplaySettingsCard,
-  SettingsCard,
-  SettingsCardSeparator,
-  SettingsInfoCard,
-  SettingsSection,
   type TaxRate,
   TemplateSettingsSection,
 } from "@engenty/commercial-editor";
@@ -21,6 +17,10 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SettingsCard,
+  SettingsCardSeparator,
+  SettingsInfoCard,
+  SettingsSection,
   Switch,
   Textarea,
 } from "@engenty/ui-core";

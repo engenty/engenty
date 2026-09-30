@@ -13,7 +13,7 @@ import { SpaceHomeSectionHeading } from "./SpaceHomeSectionHeading";
 export function SpaceHomeHireEmptyCard({ space }: { space: Space }) {
   const { t } = useTranslation("common");
   const { isSuperAdmin, isTenantAdmin } = useWorkspaceContext();
-  const canHire = Boolean(isTenantAdmin || isSuperAdmin || space.ownerUserId);
+  const canHire = Boolean(isTenantAdmin || isSuperAdmin);
   const [wizardOpen, setWizardOpen] = useState(false);
 
   return (

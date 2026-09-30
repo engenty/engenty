@@ -1,42 +1,31 @@
 /**
- * Which Space a connection belongs to, and which Space a connect lands in.
+ * Whose accounts a surface shows, and who a connect makes the owner
+ * (PLAN-personal-connections.md).
  *
- * A connected account is owned by a Space: every agent and member of that
- * Space uses it, nobody outside it. Connecting always happens inside a Space —
- * the one the user stands in, or their personal Space (`/s/me`) from the
- * Copilot and other personal places.
+ * A connected account belongs to a Space — every agent and member of that
+ * Space uses it — or to one person, who uses it with their Copilot in any
+ * Space. Surfaces pass a target: a Space id, or null for the viewer's own
+ * accounts (the Copilot, the personal settings page).
  */
 import type { CatalogConnection } from "../api.js";
 
-/** The fields of core's `/api/spaces` row this module reads. */
-export interface ConnectionSpaceRef {
-  id: string;
-  key: string;
-  name: string;
-  /** Set ⇒ somebody's personal Space. */
-  ownerUserId: string | null;
+/** The accounts of one owner: that Space's, or with `null` the viewer's own. */
+export function connectionsInSpace<
+  T extends Pick<CatalogConnection, "space_id">,
+>(connections: readonly T[], target: string | null): T[] {
+  return connections.filter((connection) => connection.space_id === target);
 }
 
 /**
- * The viewer's personal Space. The `/api/spaces` list is membership-filtered,
- * so the viewer's own personal Space is the one they own.
+ * Who the dialog, detail and connect card serve: one Space (its members and
+ * engenties use the accounts), or `"me"` — the viewer, whose accounts only
+ * they and their Copilot use.
  */
-export function findPersonalSpace(
-  spaces: readonly ConnectionSpaceRef[],
-  currentUserId: string | null
-): ConnectionSpaceRef | null {
-  if (!currentUserId) {
-    return null;
-  }
-  return spaces.find((space) => space.ownerUserId === currentUserId) ?? null;
-}
+export type ConnectionsOwner =
+  | { spaceId: string; spaceName?: string | null }
+  | "me";
 
-/** Accounts of one Space. `null` Space (not resolved yet) → none. */
-export function connectionsInSpace<
-  T extends Pick<CatalogConnection, "space_id">,
->(connections: readonly T[], spaceId: string | null): T[] {
-  if (!spaceId) {
-    return [];
-  }
-  return connections.filter((connection) => connection.space_id === spaceId);
+/** The target the catalog and connect routes take: a Space id, or null. */
+export function ownerTarget(owner: ConnectionsOwner): string | null {
+  return owner === "me" ? null : owner.spaceId;
 }

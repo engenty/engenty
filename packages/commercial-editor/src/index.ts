@@ -18,13 +18,6 @@ export {
   TemplateSettingsSection,
 } from "./commercial-core/settings/index.js";
 export { PlaceholderHelperDialog } from "./commercial-core/shared/PlaceholderHelperDialog.js";
-export {
-  SettingsCard,
-  SettingsCardItem,
-  SettingsCardSeparator,
-  SettingsInfoCard,
-  SettingsSection,
-} from "./commercial-core/shared/settings/index.js";
 export { BlockEditor } from "./components/block-editor.js";
 export { DocumentMetadataEditor } from "./components/document-metadata-editor.js";
 export * from "./types.js";

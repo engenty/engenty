@@ -166,11 +166,8 @@ function spaceLines(
       extras?.spaces?.find((entry) => entry.id === input.spaceId) ?? null;
     const lines: string[] = [];
     if (identity) {
-      const personal = identity.ownerUserId
-        ? " — this is the user's PERSONAL space"
-        : "";
       lines.push(
-        `- current_space: ${identity.name} (${identity.key}, ${input.spaceId})${personal}`
+        `- current_space: ${identity.name} (${identity.key}, ${input.spaceId})`
       );
     } else {
       lines.push(

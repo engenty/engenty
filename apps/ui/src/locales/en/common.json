@@ -41,7 +41,7 @@
     "settings": "Settings",
     "setup": "Setup",
     "setupPlatform": "Platform settings",
-    "setupConnectors": "External connectors",
+    "setupConnections": "Connections",
     "mastraStudio": "Mastra Studio",
     "manage": "Manage",
     "apps": "Apps"
@@ -144,7 +144,7 @@
     "pluginsDescription": "Activate and configure plugins for the install.",
     "rolesDescription": "Roles, capabilities, and assignments.",
     "auditLogsDescription": "Review tenant events, policy decisions, and operations.",
-    "connectorsDescription": "Import and manage external connectors.",
+    "connectorsDescription": "Which services this Organisation offers, their OAuth clients, and imported connectors.",
     "studioDescription": "Connect Mastra Studio to this Engenty session."
   },
   "plugins": {
@@ -471,10 +471,9 @@
     },
     "connections": {
       "title": "Connections",
-      "overviewDescription": "Link external accounts for agents and modules.",
-      "linkedOverview": "{{count}} connected",
-      "emptyOverview": "No accounts linked yet",
-      "errorsOverview": "{{count}} need attention"
+      "overviewDescription": "The services this Organisation offers and their credentials.",
+      "linkedOverview": "{{count}} accounts in {{services}} services",
+      "emptyOverview": "No accounts connected yet"
     },
     "aiModels": {
       "menuLabel": "AI models"
@@ -780,7 +779,6 @@
     "version": "Version {{version}}",
     "tenant": "Tenant",
     "plan": "Plan",
-    "tagline": "Your Work Horse Harness",
     "taglineLead": "Teams & Agents working together",
     "taglineAside": "side by side with your apps",
     "changelog": "CHANGELOG",
@@ -884,7 +882,6 @@
   "spaces": {
     "title": "Spaces",
     "group": {
-      "personal": "Personal",
       "shared": "Shared"
     },
     "agents": {
@@ -976,7 +973,6 @@
       "empty": "Nobody here yet.",
       "owner": "Owner",
       "you": "You",
-      "personalNote": "This is your personal, private space.",
       "removeConfirmTitle": "Remove {{name}} from this space?",
       "removeConfirmDescription": "They lose access to this space — its work, its data and its chats. Nothing they created is deleted, and an admin can add them back.",
       "removeConfirmAction": "Remove"
@@ -1302,11 +1298,6 @@
         "add": "Connect",
         "connect": "Connect",
         "all": "All",
-        "dialogTitle": "Extensions",
-        "back": "Back",
-        "dialogDescription": "Connections and skills for this space.",
-        "tabPlugins": "Connections",
-        "tabSkills": "Skills",
         "skillsHint": "Packages are sets of playbooks. Open one to pick individual skills.",
         "skillsCount": "{{count}} skills",
         "skillsCountOne": "{{count}} skill",
@@ -1365,7 +1356,6 @@
       }
     },
     "notFound": "That space is not available.",
-    "personalBadge": "Your personal space",
     "manageAction": "Manage spaces",
     "switcherAriaLabel": "Switch space",
     "settings": {
@@ -1375,8 +1365,6 @@
       "saveFailed": "Could not save. Try again.",
       "chooseSkills": "Choose skills",
       "chooseConnections": "Choose connections",
-      "choosePlugins": "Choose plugins",
-      "needsAuth": "Needs authentication",
       "generalTitle": "General",
       "generalHint": "How this space behaves for the rest of the team.",
       "securityTitle": "Security",
@@ -1437,7 +1425,10 @@
       "publishTitle": "Share the public folder with the organisation",
       "publishHint": "Files in /space/public are readable by every space as /company/spaces/{{key}}. Agents ask before writing there.",
       "memoryTitle": "Memory",
-      "memoryHint": "What every Engenty in this space is told on every turn: how things are now, and the facts kept for it. Agents keep it up to date; any member can change it."
+      "memoryHint": "What every Engenty in this space is told on every turn: how things are now, and the facts kept for it. Agents keep it up to date; any member can change it.",
+      "extensionsHint": "Accounts this Space owns — every member and engenty here uses them — and plugins that still need one. Any member may connect an account; owners manage them.",
+      "connectedBy": "connected by {{name}}",
+      "connectAccount": "Connect an account"
     },
     "data": {
       "derived": "Derived",

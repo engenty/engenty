@@ -1,5 +1,5 @@
 import type { ConnectionsRepo } from "@engenty/connections-sdk";
-import { canEnterSpace } from "@engenty/connections-sdk";
+import { canEnterSpace, resolveConnectOwner } from "@engenty/connections-sdk";
 import type { PluginServerApi } from "@engenty/plugin-sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
@@ -12,8 +12,10 @@ const registerDirBody = z.object({
   device_label: z.string().max(120).nullish(),
   directory_name: z.string().min(1).max(200),
   installation_id: z.string().uuid(),
+  /** `"me"`: the directory is the caller's own account, not a Space's. */
+  owner: z.literal("me").nullish(),
   /** The Space the directory's account belongs to. Checked in the handler,
-   * so a missing one answers `connections.spaceRequired`. */
+   * so a missing owner answers `connections.ownerRequired`. */
   space_id: z.string().uuid().nullish(),
 });
 
@@ -72,19 +74,21 @@ export function registerLocalFilesRoutes(
         return hono.json({ error: "Unauthorized" }, 401);
       }
       const body = ctx.body as z.infer<typeof registerDirBody>;
-      const spaceId = body.space_id;
-      if (!spaceId) {
-        return hono.json({ error: "connections.spaceRequired" }, 400);
-      }
-      if (
-        !(await canEnterSpace(dbFor({ tenantId: ctx.auth.tenantId }), {
-          capabilities: ctx.auth.capabilities,
-          spaceId,
-          tenantId: ctx.auth.tenantId,
-          userId: ctx.auth.principalId,
-        }))
-      ) {
-        return hono.json({ error: "space_not_found" }, 404);
+      const { auth } = ctx;
+      const resolved = await resolveConnectOwner({
+        auth,
+        mayEnterSpace: (spaceId) =>
+          canEnterSpace(dbFor({ tenantId: auth.tenantId }), {
+            capabilities: auth.capabilities,
+            spaceId,
+            tenantId: auth.tenantId,
+            userId: auth.principalId,
+          }),
+        owner: body.owner,
+        spaceId: body.space_id,
+      });
+      if ("error" in resolved) {
+        return hono.json({ error: resolved.error }, resolved.status);
       }
       const existing = await repoFor({
         tenantId: ctx.auth.tenantId,
@@ -117,8 +121,8 @@ export function registerLocalFilesRoutes(
         expiresAt: null,
         externalAccount: label,
         grantedScopes: [],
+        owner: resolved.owner,
         refreshToken: null,
-        spaceId,
         tenantId: ctx.auth.tenantId,
       });
       await repoFor({ tenantId: ctx.auth.tenantId }).upsertDirectory({
@@ -131,7 +135,7 @@ export function registerLocalFilesRoutes(
         detail: {
           connection_id: connection.id,
           connector: CONNECTOR_ID,
-          space_id: spaceId,
+          space_id: connection.space_id,
         },
         type: "connection.connected",
       });
@@ -160,19 +164,19 @@ export function registerLocalFilesRoutes(
         connectionId,
         tenantId: ctx.auth.tenantId,
       });
-      // Re-granting happens in the browser of someone working in the
-      // account's Space; anyone else gets the same answer as a missing id.
-      if (
-        !(
-          connection &&
-          (await canEnterSpace(dbFor({ tenantId: ctx.auth.tenantId }), {
+      // Re-granting happens in the browser of the account's owner, or of
+      // someone working in its Space; anyone else gets the same answer as a
+      // missing id.
+      const spaceId = connection?.space_id;
+      const mayReactivate = spaceId
+        ? await canEnterSpace(dbFor({ tenantId: ctx.auth.tenantId }), {
             capabilities: ctx.auth.capabilities,
-            spaceId: connection.space_id,
+            spaceId,
             tenantId: ctx.auth.tenantId,
             userId: ctx.auth.principalId,
-          }))
-        )
-      ) {
+          })
+        : connection?.owner_user_id === ctx.auth.principalId;
+      if (!(connection && mayReactivate)) {
         return hono.json({ error: "not found" }, 404);
       }
       await connectionsRepoFor({

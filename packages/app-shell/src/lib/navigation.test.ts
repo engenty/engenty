@@ -554,9 +554,9 @@ describe("navigation", () => {
         "/setup/platform",
         "/setup/plugins",
         "/setup/roles",
-        "/setup/connectors",
         "/setup/ai",
         "/setup/integration-keys",
+        "/setup/connections",
         "/setup/development",
         "/setup/studio",
         "/setup/features",
@@ -564,7 +564,7 @@ describe("navigation", () => {
       ]);
     });
 
-    it("promotes Connections into Setup for admins and keeps it in Settings for members", () => {
+    it("keeps My connections in Settings for everyone and the catalog in Setup for admins", () => {
       const ConnectionsIcon = () => null;
       const InvoicesIcon = () => null;
       const childrenOf =
@@ -599,7 +599,7 @@ describe("navigation", () => {
             id: "connections_settings_menu",
             label: "Connections",
             pluginId: "connections",
-            to: "/setup/connections",
+            to: "/settings/connections",
             icon: ConnectionsIcon,
             requiresAdmin: false as const,
           },
@@ -613,6 +613,7 @@ describe("navigation", () => {
         "/settings/spaces",
         "/settings/appearance",
         "/settings/notifications",
+        "/settings/connections",
         "",
         "",
         "/mdl/invoices/settings",
@@ -632,15 +633,15 @@ describe("navigation", () => {
         "/setup/connections",
       ]);
       expect(
-        adminSetup.find((item) => item.to === "/setup/connections")?.icon
+        adminSettings.find((item) => item.to === "/settings/connections")?.icon
       ).toBe(ConnectionsIcon);
 
-      // Members keep Connections (personal surface) without tenant admin rows.
+      // Members keep My connections (personal) without tenant admin rows.
       const memberChildren = childrenOf("/settings")(
         buildNavigationSections(contributions, {})
       );
       expect(memberChildren.map((item) => item.to)).toEqual([
-        "/setup/connections",
+        "/settings/connections",
       ]);
     });
 
@@ -925,9 +926,9 @@ describe("navigation", () => {
         "/setup/platform",
         "/setup/plugins",
         "/setup/roles",
-        "/setup/connectors",
         "/setup/ai",
         "/setup/integration-keys",
+        "/setup/connections",
       ]);
     });
   });

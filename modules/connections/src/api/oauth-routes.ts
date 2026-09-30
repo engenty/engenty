@@ -4,11 +4,13 @@ import {
   buildAuthorizationUrl,
   createOAuth2Pkce,
   exchangeAuthorizationCode,
+  flowSpaceId,
   getConnectorDefinition,
   hasOAuth2ClientCredentials,
+  resolveConnectOwner,
   scopesForGroups,
 } from "@engenty/connections-sdk";
-import type { PluginServerApi } from "@engenty/plugin-sdk";
+import { MY_CONNECTIONS_PATH, type PluginServerApi } from "@engenty/plugin-sdk";
 import { createLogger } from "@engenty/telemetry";
 import type { ConnectionsSettingsResolver } from "../lib/settings-resolver.js";
 import { mayEnterSpace, type ResolveSpaceAccess } from "../lib/space-access.js";
@@ -55,7 +57,10 @@ export interface ConnectionsConnectedEvent {
 }
 
 export interface ConnectionsOAuthRouteOptions {
-  /** Fired after a connection is created/refreshed via the OAuth callback. */
+  /**
+   * Fired after a SPACE account is created/refreshed. A personal account
+   * fires nothing: nothing unattended may act on it.
+   */
   onConnected?: (event: ConnectionsConnectedEvent) => Promise<void> | void;
 }
 
@@ -78,7 +83,7 @@ function redirectUri(): string {
 
 function uiRedirect(target: string | null): string {
   const uiBase = process.env.ENGENTY_UI_BASE_URL?.trim()?.replace(/\/$/, "");
-  const fallback = `${uiBase ?? ""}/settings/connections`;
+  const fallback = `${uiBase ?? ""}${MY_CONNECTIONS_PATH}`;
   if (!target) {
     return fallback;
   }
@@ -102,7 +107,7 @@ export function registerConnectionsOAuthRoutes(
   options: ConnectionsOAuthRouteOptions = {}
 ): void {
   const { getRepo, serviceRepo } = repos;
-  // GET /api/connections/:connectorId/connect?space_id=<uuid>&redirect_to=/settings/connections
+  // GET /api/connections/:connectorId/connect?space_id=<uuid>|owner=me&redirect_to=<ui path>
   api.registerHttpRoute({
     method: "get",
     path: "/api/connections/:connectorId/connect",
@@ -126,18 +131,24 @@ export function registerConnectionsOAuthRoutes(
         );
       }
       const query = ctx.query as {
+        owner?: string;
         redirect_to?: string;
         space_id?: string;
       };
-      // The Space the account will belong to. Carried on the flow row rather
-      // than the redirect URL: the redirect is attacker-visible and the flow
-      // row is not, and the Space decides who may use the account.
-      const spaceId = query?.space_id?.trim();
-      if (!spaceId) {
-        return hono.json({ error: "connections.spaceRequired" }, 400);
-      }
-      if (!(await mayEnterSpace(resolveSpaceAccess, ctx.auth, spaceId))) {
-        return hono.json({ error: "space_not_found" }, 404);
+      // Who the account will belong to — a Space, or the caller. Carried on
+      // the flow row rather than the redirect URL: the redirect is
+      // attacker-visible and the flow row is not, and the owner decides who
+      // may use the account.
+      const { auth } = ctx;
+      const resolved = await resolveConnectOwner({
+        auth,
+        mayEnterSpace: (spaceId) =>
+          mayEnterSpace(resolveSpaceAccess, auth, spaceId),
+        owner: query?.owner,
+        spaceId: query?.space_id,
+      });
+      if ("error" in resolved) {
+        return hono.json({ error: resolved.error }, resolved.status);
       }
       // Request the full scope union up front; the per-action policy matrix
       // governs actual use. (Per-group incremental auth = reconnect flow.)
@@ -171,7 +182,7 @@ export function registerConnectionsOAuthRoutes(
             pkce.codeVerifier
           ),
           requested_scopes: scopes,
-          space_id: spaceId,
+          space_id: flowSpaceId(resolved.owner),
           tenant_id: ctx.auth.tenantId,
           user_id: ctx.auth.principalId,
         });
@@ -301,20 +312,28 @@ export function registerConnectionsOAuthRoutes(
             tokens.grantedScopes.length > 0
               ? tokens.grantedScopes
               : flow.requested_scopes,
+          owner: flow.space_id
+            ? { spaceId: flow.space_id }
+            : { userId: flow.user_id },
           refreshToken: tokens.refreshToken,
-          spaceId: flow.space_id,
           tenantId: flow.tenant_id,
         });
         ctx.recordAuditEvent?.({
-          detail: { connector: connector.id, space_id: flow.space_id },
+          detail: {
+            connector: connector.id,
+            personal: flow.space_id === null,
+            space_id: flow.space_id,
+          },
           type: "connection.connected",
         });
         try {
-          await options.onConnected?.({
-            connectorId: connector.id,
-            spaceId: flow.space_id,
-            tenantId: flow.tenant_id,
-          });
+          if (flow.space_id) {
+            await options.onConnected?.({
+              connectorId: connector.id,
+              spaceId: flow.space_id,
+              tenantId: flow.tenant_id,
+            });
+          }
         } catch (error) {
           logger.error("onConnected hook failed", {
             connector: connector.id,

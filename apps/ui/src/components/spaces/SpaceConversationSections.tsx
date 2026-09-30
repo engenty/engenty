@@ -64,7 +64,8 @@ export function SpaceConversationSections({
   const sidebar = useSpaceConversationSidebar(spaceId);
   const { agents: rosterAgents } = useSpaceRosterAgents(spaceId);
   // The space itself, for how far its desks and open rooms are visible: in a
-  // personal space every desk is private, in a private one its people's.
+  // one-person private space every desk is private, in a shared private one
+  // its people's.
   const spacesQuery = useSpacesQuery();
   const space = useMemo(
     () => spacesQuery.data?.find((candidate) => candidate.key === spaceKey),

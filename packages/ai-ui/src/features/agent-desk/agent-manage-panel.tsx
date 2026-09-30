@@ -148,7 +148,7 @@ export function AgentManagePanel({
       initialTab={connectTab}
       onOpenChange={setConnectOpen}
       open={connectOpen}
-      // The Copilot always works out of its person's personal Space.
+      // The Copilot's accounts are its person's own (null), wherever it runs.
       spaceId={agent.role === "copilot" ? null : spaceId}
     />
   ) : null;
@@ -185,11 +185,11 @@ export function AgentManagePanel({
           TASKS.md (the route answers `enabled: false` for one without). */}
         {agent.agentScope === "personal" ? (
           // The person's own things, on their copilot's pane: the facts every
-          // assistant knows about them and their personal Space's browser
-          // with its standing consents.
+          // assistant knows about them, and the browser of the Space it is
+          // opened in with its standing consents.
           <>
             <UserMemorySection />
-            <UserBrowserSection target={{ spaceId: null }} />
+            {spaceId ? <UserBrowserSection target={{ spaceId }} /> : null}
           </>
         ) : spaceId ? (
           // The Space's browser this agent works in, in its own window.
@@ -361,16 +361,12 @@ export function AgentManagePanel({
         ) : null}
       </div>
 
-      {/* Its computer: the window it works in, in the Space's browser (the
-          copilot's: the personal Space's). */}
-      {agent.agentScope === "personal" || spaceId ? (
+      {/* Its computer: the window it works in, in the Space's browser. */}
+      {spaceId ? (
         <AgentScreenPreview
           agentName={agent.name}
           onOpen={onClosePane}
-          target={{
-            agentId: agent.id,
-            spaceId: agent.agentScope === "personal" ? null : spaceId,
-          }}
+          target={{ agentId: agent.id, spaceId }}
         />
       ) : null}
 

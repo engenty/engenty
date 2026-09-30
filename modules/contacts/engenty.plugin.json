@@ -6,7 +6,7 @@
   "version": "0.0.1",
   "kind": "module",
   "stage": "beta",
-  "category": "work",
+  "category": "commercial",
   "provides": [
     "module.contacts",
     "module.contacts.read",

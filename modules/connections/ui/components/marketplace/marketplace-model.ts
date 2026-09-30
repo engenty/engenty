@@ -4,23 +4,19 @@
  * uninstalled from the tenant catalog.
  */
 
-export const IMPORTED_MODULE_ID = "connections-external";
+import type { CatalogConnection, CatalogConnector } from "../../api.js";
 
-/** A connected account; it belongs to one Space (`space_id`). */
-export interface MarketplaceAccount {
-  display_name: string | null;
-  external_account: string | null;
-  id: string;
-  space_id: string;
-  status?: string;
-}
+export const IMPORTED_MODULE_ID = "connections-external";
 
 export interface MarketplacePlugin {
   /** Catalog actions shipped with the connector package. */
   actions?: Array<{ id: string; summary: string }>;
   auth_kind: "oauth2" | "api_key" | "browser" | "none" | string;
   configured: boolean;
-  connections: MarketplaceAccount[];
+  /** One owner's accounts: the Space's, or the viewer's own. */
+  connections: CatalogConnection[];
+  /** The catalog row itself — actions and policies for the account panel. */
+  connector: CatalogConnector;
   credential_fields?: Array<{
     key: string;
     label: string;
@@ -35,6 +31,30 @@ export interface MarketplacePlugin {
   id: string;
   module_id: string;
   name: string;
+}
+
+/** A catalog connector with one owner's accounts, as the marketplace reads it. */
+export function toMarketplacePlugin(
+  connector: CatalogConnector,
+  connections: CatalogConnection[]
+): MarketplacePlugin {
+  return {
+    actions: (connector.actions ?? []).map((action) => ({
+      id: action.id,
+      summary: action.summary,
+    })),
+    auth_kind: connector.auth_kind,
+    configured: connector.configured,
+    connections,
+    connector,
+    credential_fields: connector.credential_fields,
+    dcr_available: Boolean(connector.dcr_available),
+    description: connector.description ?? "",
+    icon: connector.icon,
+    id: connector.id,
+    module_id: connector.module_id,
+    name: connector.name,
+  };
 }
 
 export function isTenantImportedPlugin(
@@ -53,7 +73,7 @@ export function isRecommendedPlugin(
 }
 
 export function accountLabel(
-  account: Pick<MarketplaceAccount, "display_name" | "external_account">,
+  account: Pick<CatalogConnection, "display_name" | "external_account">,
   pluginName: string
 ): string {
   return (
@@ -118,7 +138,7 @@ export function installedPluginIds(input: {
 
 /** Connector ids that have at least one account in this Space. */
 export function connectorIdsWithSpaceAccounts(
-  plugins: readonly Pick<MarketplacePlugin, "connections" | "id">[]
+  plugins: readonly { connections: readonly unknown[]; id: string }[]
 ): Set<string> {
   return new Set(
     plugins

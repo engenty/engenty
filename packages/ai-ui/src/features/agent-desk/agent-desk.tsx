@@ -1,7 +1,7 @@
 import { spaceRoomPathname } from "@engenty/ai-core/browser";
 import { useCopilotShellOrNull } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
-import type { PageBreadcrumb } from "@engenty/ui-plugin-sdk";
+import type { PageBreadcrumb, UiModuleSidebar } from "@engenty/ui-plugin-sdk";
 import {
   type ReactNode,
   useCallback,
@@ -102,6 +102,11 @@ export function AgentDesk(props: {
    */
   relation?: AgentDeskRelation | null;
   rosterAgents?: readonly AgentDeskSwitchAgent[];
+  /**
+   * The module's sidebar, when the desk is opened inside a module
+   * (`/s/<key>/<module>/agents/<id>`). Absent, the Space's own column stays.
+   */
+  sidebar?: UiModuleSidebar;
   /** How far the Space itself reaches — what a desk "everyone reads" means. */
   spaceAudience?: ChatSpaceAudience | null;
   spaceId: string;
@@ -117,6 +122,7 @@ export function AgentDesk(props: {
     moduleLabel,
     relation,
     rosterAgents = NO_ROSTER,
+    sidebar,
     spaceAudience,
     spaceId,
     spaceKey,
@@ -442,6 +448,8 @@ export function AgentDesk(props: {
         onOpenViewFullPage={openViewFullPage}
         panel={panel}
         routeBreadcrumbAction={routeBreadcrumbAction}
+        secondaryNavAfterItems={sidebar?.secondaryNavAfterItems}
+        secondaryNavHeaderSlot={sidebar?.secondaryNavHeaderSlot}
         spaceAudience={spaceAudience}
         spaceId={spaceId}
         threadId={threadId}

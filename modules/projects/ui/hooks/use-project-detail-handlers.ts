@@ -313,6 +313,26 @@ export function useProjectDetailHandlers({
     [id, updateProjectMutation]
   );
 
+  const handleClientChange = useCallback(
+    (next: { client_id: string | null; client_name: string | null }) => {
+      if (!id) {
+        return;
+      }
+      updateProjectMutation.mutate(next);
+    },
+    [id, updateProjectMutation]
+  );
+
+  const handleSubtitleChange = useCallback(
+    (subtitle: string | null) => {
+      if (!id) {
+        return;
+      }
+      updateProjectMutation.mutate({ subtitle });
+    },
+    [id, updateProjectMutation]
+  );
+
   const handleCoverChange = useCallback(
     (cover: Cover | null) => {
       if (!id) {
@@ -337,6 +357,8 @@ export function useProjectDetailHandlers({
     activeTask,
     handleBriefingSave,
     handleCoverChange,
+    handleSubtitleChange,
+    handleClientChange,
     handleDragEnd,
     handleDragStart,
     handlePhaseSubmit,

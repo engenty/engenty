@@ -18,6 +18,7 @@ function connection(
     error_message: null,
     external_account: null,
     granted_scopes: [],
+    owner_user_id: null,
     space_id: "space-1",
     status: "active",
     tenant_id: "tenant-1",

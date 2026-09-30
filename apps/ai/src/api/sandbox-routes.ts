@@ -20,8 +20,7 @@ import {
   UserBrowserLimitError,
 } from "../ai/sandbox/space-browser.js";
 import { getSpaceComputerQueueDepths } from "../ai/sandbox/space-computer.js";
-import { resolvePersonalSpaceId } from "../ai/sessions/run-space.js";
-import { type AiSessionScope, scopeAccessToken } from "../ai/sessions/types.js";
+import { scopeAccessToken } from "../ai/sessions/types.js";
 import { AI_BASE_PATH } from "../config/constants.js";
 import type { AgentRunStore } from "../dal/threads/agent-run-store.js";
 import type { ThreadStore } from "../dal/threads/index.js";
@@ -111,20 +110,17 @@ export function registerSandboxRoutes(
   });
 
   // A Space's browser (PLAN-space-owned-connections.md): every route below
-  // names the Space in `?space_id=` — absent means the caller's personal
-  // Space, the copilot's — and core's surface endpoint, gated by Space
-  // access, is the membership check, so a caller only ever reads, starts,
-  // stops or views the browser of a Space they can enter. The tenant comes
-  // from the scope, so the id cannot cross tenants.
-  const readSpaceId = async (
-    c: Context<{ Bindings: HonoBindings; Variables: HonoVariables }>,
-    scope: AiSessionScope
-  ): Promise<string | null> => {
+  // names the Space in `?space_id=` — required; outside a Space there is no
+  // computer and no browser (PLAN-personal-connections.md) — and core's
+  // surface endpoint, gated by Space access, is the membership check, so a
+  // caller only ever reads, starts, stops or views the browser of a Space
+  // they can enter. The tenant comes from the scope, so the id cannot cross
+  // tenants.
+  const readSpaceId = (
+    c: Context<{ Bindings: HonoBindings; Variables: HonoVariables }>
+  ): string | null => {
     const named = c.req.query("space_id")?.trim();
-    if (named) {
-      return UUID_PATTERN.test(named) ? named : null;
-    }
-    return await resolvePersonalSpaceId(scope);
+    return named && UUID_PATTERN.test(named) ? named : null;
   };
 
   const readBrowserIdentity = async (
@@ -134,7 +130,7 @@ export function registerSandboxRoutes(
     if (!scope.ok) {
       return { ok: false as const, response: scope.response };
     }
-    const spaceId = await readSpaceId(c, scope.scope);
+    const spaceId = readSpaceId(c);
     if (!spaceId) {
       return {
         ok: false as const,
@@ -282,7 +278,7 @@ export function registerSandboxRoutes(
     if (!scope.ok) {
       return { ok: false as const, response: scope.response };
     }
-    const spaceId = await readSpaceId(c, scope.scope);
+    const spaceId = readSpaceId(c);
     if (!spaceId) {
       return {
         ok: false as const,

@@ -39,6 +39,8 @@ export interface ProjectListItem {
   /** Space the project belongs to. Present on list/detail since Phase 6. */
   space_id?: string;
   start_date: string | null;
+  /** One line under the title in the header. */
+  subtitle?: string | null;
   tenant_id: string;
   /** `false` = lean project: no phases, dates or Gantt. Absent means enabled. */
   timeplan_enabled?: boolean;
@@ -115,6 +117,8 @@ export interface ProjectCreateInput {
   /** Defaults to the current Space when created from a Space-mounted UI. */
   space_id?: string;
   start_date?: string | null;
+  /** One line under the title in the header. */
+  subtitle?: string | null;
   team_member_ids?: string[];
   timeplan_enabled?: boolean;
   title: string;

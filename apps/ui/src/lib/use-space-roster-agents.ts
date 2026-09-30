@@ -103,7 +103,12 @@ export function useSpaceRosterAgents(spaceId: string | null): {
         .map((mount) => [mount.resourceKey, mount.reportsTo ?? null])
     );
     const nameOf = (id: string) => catalog.get(id)?.name ?? id;
+    // The surface keeps a tenant-disabled module's agents (the AI side refuses
+    // them at call time); the registry catalog does not list them, and an
+    // agent the runtime cannot resolve has no desk to open — so it is not
+    // on the roster either, the same way its module is not.
     return [...(surfaceQuery.data?.agents ?? [])]
+      .filter((id) => catalog.has(id))
       .map((id) => {
         const entry = catalog.get(id);
         const reportsTo = reportsToByAgent.get(id) ?? null;

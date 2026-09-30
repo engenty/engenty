@@ -7,6 +7,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { projectsAiRegistration } from "../ai/registrar.js";
 import { registerProjectsApi } from "./api/index.js";
 import { createPortalDAL } from "./dal/portal-supabase.js";
+import { createProjectKvRepo } from "./dal/project-kv.js";
 import { createProjectRepoSupabase } from "./dal/supabase.js";
 import { createProjectVisibilityPolicy } from "./policies.js";
 
@@ -88,6 +89,8 @@ const registerProjectsPlugin: EngentyPluginFactory = (engenty) => {
   ]);
 
   registerProjectsApi(server, repoOrFactory, {
+    kvRepoFor: (auth) =>
+      createProjectKvRepo(getDb(auth), auth.tenantId, auth.scopeId),
     portalDAL,
   });
 };

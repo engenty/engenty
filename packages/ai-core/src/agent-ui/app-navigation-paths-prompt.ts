@@ -33,6 +33,9 @@ export function buildAppNavigationPathsPromptSection(): string {
     "| AI models & usage (settings) | `/settings/ai` |",
     "| Users (settings) | `/settings/users` |",
     "| Tenant plugins (setup) | `/setup/plugins` |",
+    "| My connections — the user's own accounts (their mail, their calendar) | `/settings/connections` |",
+    "| Connections catalog — which services the Organisation offers, and their OAuth client credentials (setup, tenant admin) | `/setup/connections` |",
+    "| Platform settings — the same credentials installation-wide (setup, superadmin) | `/setup/platform` |",
     "| Roles & permissions (setup) | `/setup/roles` |",
     "| Audit logs (setup) | `/setup/audit-logs` |",
     // A prefix is not a page: over half the modules register no bare

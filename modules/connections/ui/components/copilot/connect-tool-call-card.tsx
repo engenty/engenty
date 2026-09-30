@@ -7,9 +7,10 @@
 // the card resumes the conversation with a continuation message — the user
 // never leaves the chat. When already connected it shows a done state — also
 // when the connection was made later through another card or Settings, read
-// live from the catalog; when
-// the connector's client credentials are missing anywhere, it points the user
-// at Setup.
+// live from the catalog. It names who the account will belong to — the
+// person, or the Space — before the click. When the connector's client
+// credentials are missing, an admin adds them in place and anyone else asks
+// the admins.
 
 import type { ToolCallCardProps } from "@engenty/ai-ui";
 import { useCopilotToolCallActions } from "@engenty/ai-ui";
@@ -19,11 +20,12 @@ import { cn } from "@engenty/ui-core";
 import { CheckCircle2 } from "lucide-react";
 import { useState } from "react";
 import type { ConnectCompleteResult } from "../../connect-popup.js";
-import { usePersonalSpaceId } from "../../hooks/use-connection-space.js";
+import { useConnectionSpacesQuery } from "../../hooks/use-connection-space.js";
 import { connectionsInSpace } from "../../lib/connection-space.js";
-import { ConnectorIcon } from "../../pages/connections-settings-page.js";
 import { connectionsKeys, useConnectionsCatalogQuery } from "../../queries.js";
 import { ConnectButton } from "../connect-button.js";
+import { ConnectorIcon } from "../connector-icon.js";
+import { NeedsCredentialsAffordance } from "../credentials-sheet.js";
 
 interface ConnectRequestOutput {
   accounts: string[];
@@ -36,7 +38,10 @@ interface ConnectRequestOutput {
     auth_kind: "oauth2" | "api_key" | "browser";
   };
   dcr_available?: boolean;
-  /** The run's Space, when the op reports it — the connect lands there. */
+  /**
+   * The Space the connect lands in; null when the account will be the
+   * person's own (`owner: "me"` — the Copilot's default).
+   */
   space_id?: string | null;
 }
 
@@ -84,13 +89,13 @@ export function ConnectToolCallCard(props: ToolCallCardProps) {
   );
 
   const data = parse(props.output);
-  // The connect lands in the run's Space when the op names it, else the
-  // person's personal Space (the Copilot always works out of it).
-  const personalSpaceId = usePersonalSpaceId();
-  const spaceId = data?.space_id ?? personalSpaceId;
-  // That Space's accounts, not the page's: the card must still read
+  // The connect lands in the Space the op names, else the account is the
+  // person's own.
+  const spaceId = data?.space_id ?? null;
+  // That owner's accounts, not the page's: the card must still read
   // "connected" after a remount (sidebar ↔ window) on another Space's page.
   const catalog = useConnectionsCatalogQuery(spaceId);
+  const spacesQuery = useConnectionSpacesQuery();
   if (!data) {
     return null;
   }
@@ -106,6 +111,13 @@ export function ConnectToolCallCard(props: ToolCallCardProps) {
   const connected =
     data.connected || flowState === "connected" || liveConnected;
   const canConnect = configured || Boolean(data.dcr_available);
+  const spaceName = spaceId
+    ? (spacesQuery.data?.find((space) => space.id === spaceId)?.name ??
+      t("sheet.ownerSpaceUnknown"))
+    : null;
+  const ownerLine = spaceName
+    ? t("chatCard.ownerSpace", { name: spaceName })
+    : t("chatCard.ownerMe");
 
   const onResult = (result: ConnectCompleteResult) => {
     // Ignore results for a different connector (stale popup) — but accept a
@@ -155,6 +167,7 @@ export function ConnectToolCallCard(props: ToolCallCardProps) {
                 ? t("chatCard.connectPrompt")
                 : t("chatCard.notConfigured")}
         </p>
+        <p className="truncate text-muted-foreground text-xs">{ownerLine}</p>
         {flowState === "connected" ? (
           // Just connected NOW → autonomous use is at its OFF default. Chat
           // use works (the user is present); sync and scheduled runs do not,
@@ -176,6 +189,8 @@ export function ConnectToolCallCard(props: ToolCallCardProps) {
           size="sm"
           spaceId={spaceId}
         />
+      ) : liveConnector ? (
+        <NeedsCredentialsAffordance connector={liveConnector} />
       ) : null}
     </section>
   );

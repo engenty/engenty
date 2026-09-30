@@ -26,7 +26,11 @@ export async function withImportedAccessToken<T>(params: {
     connectorId: params.record.id,
     tenantId: params.record.tenant_id,
   });
-  const active = connections.find((row) => row.status === "active");
+  // A Space's account only: the refresh runs unattended, and a personal
+  // account serves its owner live (PLAN-personal-connections.md).
+  const active = connections.find(
+    (row) => row.status === "active" && row.space_id
+  );
   if (!active) {
     return params.use(null);
   }

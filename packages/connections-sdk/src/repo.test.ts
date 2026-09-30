@@ -99,8 +99,8 @@ describe("createConnectionsRepo.upsertConnectionWithTokens", () => {
       expiresAt: null,
       externalAccount: "Office@x.com",
       grantedScopes: [],
+      owner: { spaceId: patch.spaceId },
       refreshToken: null,
-      spaceId: patch.spaceId,
       tenantId: TENANT,
     });
   }

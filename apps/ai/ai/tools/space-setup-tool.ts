@@ -109,7 +109,7 @@ function toFailure(error: unknown, action: string) {
     return {
       code: "forbidden" as const,
       message:
-        `Only a workspace admin — or the owner of a personal Space — may ${action} in a Space. ` +
+        `Only a workspace admin may ${action} in a Space. ` +
         "Do not retry. Tell the user an admin has to do it in the Space's setup.",
       ok: false as const,
     };

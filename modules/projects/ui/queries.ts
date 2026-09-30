@@ -42,6 +42,9 @@ export const projectKeys = {
   ) => [...projectKeys.all, "tasks", "counts", params] as const,
   associatedTaskCount: (projectId: string) =>
     [...projectKeys.all, "associated-task-count", projectId] as const,
+  clientChoices: () => [...projectKeys.all, "client-choices"] as const,
+  clientContact: (id: string) =>
+    [...projectKeys.all, "client-contact", id] as const,
   createModalEntitySearch: (search: string) =>
     [...projectKeys.all, "create-modal", "entity-search", search] as const,
 };
@@ -112,6 +115,36 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
     return () => clearTimeout(timer);
   }, [value, delayMs]);
   return debounced;
+}
+
+/** Contacts for the change-client dialog (same page size as offers). */
+export function useProjectClientChoicesQuery(
+  contactsPlugin: ContactsPluginApi | null,
+  enabled: boolean
+) {
+  return useQuery({
+    enabled: Boolean(contactsPlugin) && enabled,
+    queryKey: projectKeys.clientChoices(),
+    queryFn: ({ signal }) =>
+      (contactsPlugin as ContactsPluginApi)
+        .getContacts({ pageSize: 200 }, signal)
+        .then((data) =>
+          (data ?? []).map((e) => ({ id: e.id, display_name: e.display_name }))
+        ),
+  });
+}
+
+/** The project's client as a contact (address, email) for the sidebar card. */
+export function useProjectClientContactQuery(
+  contactsPlugin: ContactsPluginApi | null,
+  clientId: string | null
+) {
+  return useQuery({
+    enabled: Boolean(contactsPlugin && clientId),
+    queryKey: projectKeys.clientContact(clientId ?? ""),
+    queryFn: ({ signal }) =>
+      (contactsPlugin as ContactsPluginApi).getContact(clientId ?? "", signal),
+  });
 }
 
 export function projectEntitySearchOptions(

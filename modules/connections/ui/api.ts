@@ -40,9 +40,10 @@ export interface CatalogAction {
 }
 
 /**
- * One connected account. It belongs to a Space (`space_id`): every agent and
- * member of that Space uses it, nobody outside it. `connected_by` is who signed
- * in — audit only, not ownership.
+ * One connected account. It belongs to a Space (`space_id`) — every agent and
+ * member of that Space uses it — or to one person (`owner_user_id`), who uses
+ * it with their Copilot in any Space. `connected_by` is who signed in — audit
+ * only, not ownership.
  */
 export interface CatalogConnection {
   autonomous_mode: ConnectionAutonomousMode;
@@ -54,8 +55,11 @@ export interface CatalogConnection {
   external_account: string | null;
   granted_scopes: string[];
   id: string;
+  /** The person who owns a personal account; null for a Space's. */
+  owner_user_id: string | null;
   policies: ConnectionPolicyOverride[];
-  space_id: string;
+  /** The Space that owns the account; null for a personal one. */
+  space_id: string | null;
   status: ConnectionStatus;
   tenant_id: string;
 }
@@ -152,30 +156,47 @@ export async function preferImportedToken(connectorId: string): Promise<{
 }
 
 /**
+ * Who a new account will belong to: a Space id, or null for the viewer's own
+ * account (PLAN-personal-connections.md). Connect routes take it as `space_id`
+ * or `owner=me`.
+ */
+export type ConnectTarget = string | null;
+
+function ownerFields(target: ConnectTarget): {
+  owner?: "me";
+  space_id?: string;
+} {
+  return target ? { space_id: target } : { owner: "me" };
+}
+
+/**
  * Connect an api_key connector by submitting its credential form. The account
- * belongs to `space_id` — connecting always happens inside a Space.
+ * belongs to `target`: that Space, or the viewer when null.
  */
 export async function connectWithCredentials(
   connectorId: string,
   input: {
     credentials: Record<string, string>;
-    space_id: string;
+    target: ConnectTarget;
   }
 ): Promise<{ connection_id: string }> {
   return requestApiJson(`/api/connections/${connectorId}/connect_credentials`, {
     method: "POST",
-    body: input,
+    body: { credentials: input.credentials, ...ownerFields(input.target) },
   });
 }
 
-/** `spaceId`: the accounts of that Space; omitted, the current Space's. */
+/**
+ * The catalog with one owner's accounts: a Space's (`target` id), the viewer's
+ * own (`null`), or — omitted — the current Space's.
+ */
 export async function getConnectionsCatalog(
   signal?: AbortSignal,
-  spaceId?: string | null
+  target?: ConnectTarget
 ): Promise<ConnectionsCatalog> {
   return invokeTool<ConnectionsCatalog>(
     "connections_catalog",
-    spaceId ? { space_id: spaceId } : {},
+    target === undefined ? {} : ownerFields(target),
     signal
   );
 }
@@ -229,15 +250,45 @@ export async function decideApprovalRequest(
 export async function getConnectUrl(params: {
   connectorId: string;
   redirectTo: string;
-  /** The Space the new account will belong to. Required. */
-  spaceId: string;
+  /** Who the new account will belong to. */
+  target: ConnectTarget;
 }): Promise<{ authUrl: string; connectorId: string }> {
   const query = new URLSearchParams({
     redirect_to: params.redirectTo,
-    space_id: params.spaceId,
+    ...ownerFields(params.target),
   });
   return requestApiJson<{ authUrl: string; connectorId: string }>(
     `/api/connections/${params.connectorId}/connect?${query.toString()}`,
     { method: "GET" }
+  );
+}
+
+/**
+ * A member cannot add a connector's OAuth client: ask the Organisation's
+ * admins to (a notification each, deduped per connector).
+ */
+export async function requestConnectorSetup(
+  connectorId: string
+): Promise<{ notified: number }> {
+  return invokeTool<{ notified: number }>("connections_request_setup", {
+    connector_id: connectorId,
+  });
+}
+
+/** Per connector: how many Spaces and persons hold an account (admin). */
+export interface ConnectorUsage {
+  account_count: number;
+  connector_id: string;
+  person_count: number;
+  space_count: number;
+}
+
+export async function getConnectionsUsage(
+  signal?: AbortSignal
+): Promise<{ usage: ConnectorUsage[] }> {
+  return invokeTool<{ usage: ConnectorUsage[] }>(
+    "connections_usage",
+    {},
+    signal
   );
 }

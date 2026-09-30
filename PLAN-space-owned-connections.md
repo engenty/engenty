@@ -2,6 +2,11 @@
 
 Decided 2026-09-23 (Matthias). Model: Grok Bot's, scoped to Spaces.
 
+> **Superseded 2026-09-29 in part:** everything below about the Copilot using
+> `/s/me` and about personal Spaces is replaced by
+> [PLAN-personal-connections.md](./PLAN-personal-connections.md). Space-owned
+> connections, computer and browser stay.
+
 - A **Space** is the "account": every agent in it shares the Space's
   connections (Gmail, Slack, …), its computer (files, installed tools) and its
   browser logins.

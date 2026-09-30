@@ -73,23 +73,17 @@ async function invokeTool<T>(
 }
 
 /**
- * The Space the caller works in — where its accounts live and connect to.
- * Outside any Space it is the caller's personal Space (`/s/me`): core lists
- * only the caller's own personal Space among the Spaces it returns.
+ * The Space the caller works in — where the accounts an import reads from
+ * live and connect to. Imports read through the files module, which reads
+ * Space accounts only (PLAN-personal-connections.md), so there is no
+ * fallback outside a Space.
  */
-async function requireCurrentSpaceId(signal?: AbortSignal): Promise<string> {
+function requireCurrentSpaceId(): string {
   const spaceId = currentRequestSpaceId();
-  if (spaceId) {
-    return spaceId;
-  }
-  const spaces = await requestApiJson<
-    Array<{ id: string; ownerUserId: string | null }>
-  >("/api/spaces", { signal });
-  const personal = spaces.find((space) => space.ownerUserId);
-  if (!personal) {
+  if (!spaceId) {
     throw new Error("connections.spaceRequired");
   }
-  return personal.id;
+  return spaceId;
 }
 
 /** Connectors and the current Space's accounts. */
@@ -98,7 +92,7 @@ export async function getConnectionsCatalog(
 ): Promise<ConnectionsCatalog> {
   return invokeTool<ConnectionsCatalog>(
     "connections_catalog",
-    { space_id: await requireCurrentSpaceId(signal) },
+    { space_id: requireCurrentSpaceId() },
     signal
   );
 }
@@ -110,7 +104,7 @@ export async function getConnectUrl(params: {
 }): Promise<{ authUrl: string; connectorId: string }> {
   const query = new URLSearchParams({
     redirect_to: params.redirectTo,
-    space_id: await requireCurrentSpaceId(),
+    space_id: requireCurrentSpaceId(),
   });
   return requestApiJson<{ authUrl: string; connectorId: string }>(
     `/api/connections/${params.connectorId}/connect?${query.toString()}`,
@@ -127,7 +121,7 @@ export async function connectWithCredentials(
     method: "POST",
     body: {
       credentials: input.credentials,
-      space_id: await requireCurrentSpaceId(),
+      space_id: requireCurrentSpaceId(),
     },
   });
 }

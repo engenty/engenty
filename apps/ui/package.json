@@ -53,6 +53,7 @@
     "@engenty/notifications-ui": "workspace:*",
     "@engenty/offers": "workspace:*",
     "@engenty/pdf-templates-module": "workspace:*",
+    "@engenty/platform-settings": "workspace:*",
     "@engenty/plugin-sdk": "workspace:*",
     "@engenty/projects": "workspace:*",
     "@engenty/query-client": "workspace:*",

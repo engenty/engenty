@@ -100,9 +100,8 @@ export type SpaceAccessMap = ReadonlyMap<string, SpaceAccessEntry>;
  * Every Space this user may enter, keyed by id, with whether they own it.
  *
  * Core's rule for `/s/<key>`, stated once for connection code: you may enter
- * a Space iff it is open, you own it (`spaces.owner_user_id`), or you have a
- * `space_member` row; you OWN it via `owner_user_id` or a member row with role
- * `owner`. Read on the tenant-locked server handle, whose JWT subject is not
+ * a Space iff it is open or you have a `space_member` row; you OWN it via a
+ * member row with role `owner`. Read on the tenant-locked server handle, whose JWT subject is not
  * the user — so this is the enforcement on that lane, not a convenience over
  * RLS.
  */
@@ -114,7 +113,7 @@ export async function readSpaceAccess(
     client
       .schema("core")
       .from("spaces")
-      .select("id, owner_user_id, visibility")
+      .select("id, visibility")
       .eq("tenant_id", params.tenantId)
       .is("deleted_at", null),
     client
@@ -138,11 +137,10 @@ export async function readSpaceAccess(
   const access = new Map<string, SpaceAccessEntry>();
   for (const space of (spaces.data ?? []) as Array<{
     id: string;
-    owner_user_id: string | null;
     visibility: string;
   }>) {
     const role = roles.get(space.id);
-    const isOwner = space.owner_user_id === params.userId || role === "owner";
+    const isOwner = role === "owner";
     if (isOwner || role !== undefined || space.visibility === "open") {
       access.set(space.id, { isOwner });
     }

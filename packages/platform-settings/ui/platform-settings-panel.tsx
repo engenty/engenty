@@ -20,9 +20,10 @@ import {
   type PlatformSettingView,
   setPlatformSetting,
   setTenantSettingOverride,
-} from "@/lib/api/client";
+} from "./api.js";
 
-type Scope = "platform" | "tenant";
+export type PlatformSettingsScope = "platform" | "tenant";
+type Scope = PlatformSettingsScope;
 
 const scopeApi = {
   platform: {
@@ -341,15 +342,37 @@ function SettingControl({
   );
 }
 
-export function PlatformSettingsPanel({ scope }: { scope: Scope }) {
+export const platformSettingsQueryKey = (scope: Scope) =>
+  ["platform-settings", scope] as const;
+
+/**
+ * The settings of one scope, optionally only those of one feature (a
+ * connector's OAuth client: `connections-google`). `layout="sheet"` drops the
+ * page's section cards for use inside a dialog.
+ */
+export function PlatformSettingsPanel({
+  feature,
+  layout = "page",
+  onChanged: onChangedExtra,
+  scope,
+}: {
+  feature?: string;
+  layout?: "page" | "sheet";
+  /** After a save or clear — e.g. to refresh a connector's `configured`. */
+  onChanged?: () => void;
+  scope: Scope;
+}) {
   const queryClient = useQueryClient();
-  const queryKey = ["platform-settings", scope] as const;
+  const queryKey = platformSettingsQueryKey(scope);
   const query = useQuery({
     queryKey,
     queryFn: ({ signal }) => scopeApi[scope].list(signal),
   });
 
-  const onChanged = () => queryClient.invalidateQueries({ queryKey });
+  const handleChanged = () => {
+    void queryClient.invalidateQueries({ queryKey });
+    onChangedExtra?.();
+  };
 
   if (query.isLoading) {
     return <p className="text-muted-foreground text-sm">Loading settings…</p>;
@@ -362,7 +385,9 @@ export function PlatformSettingsPanel({ scope }: { scope: Scope }) {
     );
   }
 
-  const settings = query.data?.settings ?? [];
+  const settings = (query.data?.settings ?? []).filter(
+    (setting) => !feature || setting.feature === feature
+  );
   if (settings.length === 0) {
     return (
       <p className="text-muted-foreground text-sm">
@@ -375,10 +400,84 @@ export function PlatformSettingsPanel({ scope }: { scope: Scope }) {
 
   const groups = groupSettings(settings);
   const context = query.data?.context;
-  const deployByGroup = groupDeploymentEnv(query.data?.deploymentEnv ?? []);
+  const deployByGroup = groupDeploymentEnv(
+    (query.data?.deploymentEnv ?? []).filter(
+      (envVar) => !feature || envVar.feature === feature
+    )
+  );
   const deployOnlyGroups = [...deployByGroup.entries()].filter(
     ([group]) => !groups.some((g) => g.group === group)
   );
+
+  const groupBody = (
+    items: PlatformSettingView[],
+    deployVars: DeploymentEnvVar[]
+  ) => (
+    <div className="space-y-4">
+      {items.map((setting) => (
+        <div
+          className="space-y-1.5 border-border-soft border-b pb-4 last:border-0 last:pb-0"
+          key={setting.key}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <code className="font-medium font-mono text-sm">{setting.key}</code>
+            <span
+              className={`rounded-full px-2 py-0.5 font-medium text-[11px] ${sourceTone(
+                setting.source,
+                scope
+              )}`}
+            >
+              {SOURCE_LABEL[setting.source] ?? setting.source}
+            </span>
+          </div>
+          <p className="text-muted-foreground text-xs">{setting.description}</p>
+          {setting.obtain.instructions?.length ? (
+            <ul className="list-disc space-y-0.5 pl-4 text-muted-foreground text-xs">
+              {setting.obtain.instructions.map((step) => (
+                <li key={step}>{step}</li>
+              ))}
+            </ul>
+          ) : null}
+          {obtainUrl(setting) ? (
+            <a
+              className="inline-block text-primary text-xs hover:underline"
+              href={obtainUrl(setting) ?? "#"}
+              rel="noreferrer"
+              target="_blank"
+            >
+              Where to get this →
+            </a>
+          ) : null}
+          <div className="pt-1">
+            <SettingControl
+              onChanged={handleChanged}
+              scope={scope}
+              setting={setting}
+            />
+          </div>
+        </div>
+      ))}
+      {groupUsesRedirectUri(items) ? (
+        <RedirectUriCallout context={context} />
+      ) : null}
+      <DeploymentEnvRows vars={deployVars} />
+    </div>
+  );
+
+  if (layout === "sheet") {
+    return (
+      <div className="space-y-6">
+        {groups.map(({ group, items }) => (
+          <div key={group}>
+            {groupBody(items, deployByGroup.get(group) ?? [])}
+          </div>
+        ))}
+        {deployOnlyGroups.map(([group, vars]) => (
+          <DeploymentEnvRows key={group} vars={vars} />
+        ))}
+      </div>
+    );
+  }
 
   return (
     <>
@@ -392,59 +491,7 @@ export function PlatformSettingsPanel({ scope }: { scope: Scope }) {
           key={group}
           title={group}
         >
-          <div className="space-y-4">
-            {items.map((setting) => (
-              <div
-                className="space-y-1.5 border-border-soft border-b pb-4 last:border-0 last:pb-0"
-                key={setting.key}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <code className="font-medium font-mono text-sm">
-                    {setting.key}
-                  </code>
-                  <span
-                    className={`rounded-full px-2 py-0.5 font-medium text-[11px] ${sourceTone(
-                      setting.source,
-                      scope
-                    )}`}
-                  >
-                    {SOURCE_LABEL[setting.source] ?? setting.source}
-                  </span>
-                </div>
-                <p className="text-muted-foreground text-xs">
-                  {setting.description}
-                </p>
-                {setting.obtain.instructions?.length ? (
-                  <ul className="list-disc space-y-0.5 pl-4 text-muted-foreground text-xs">
-                    {setting.obtain.instructions.map((step) => (
-                      <li key={step}>{step}</li>
-                    ))}
-                  </ul>
-                ) : null}
-                {obtainUrl(setting) ? (
-                  <a
-                    className="inline-block text-primary text-xs hover:underline"
-                    href={obtainUrl(setting) ?? "#"}
-                    rel="noreferrer"
-                    target="_blank"
-                  >
-                    Where to get this →
-                  </a>
-                ) : null}
-                <div className="pt-1">
-                  <SettingControl
-                    onChanged={onChanged}
-                    scope={scope}
-                    setting={setting}
-                  />
-                </div>
-              </div>
-            ))}
-            {groupUsesRedirectUri(items) ? (
-              <RedirectUriCallout context={context} />
-            ) : null}
-            <DeploymentEnvRows vars={deployByGroup.get(group) ?? []} />
-          </div>
+          {groupBody(items, deployByGroup.get(group) ?? [])}
         </SettingsFormSection>
       ))}
       {deployOnlyGroups.map(([group, vars]) => (

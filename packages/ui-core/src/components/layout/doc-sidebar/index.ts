@@ -10,6 +10,13 @@ export {
   type DocSidebarToggleProps,
 } from "./doc-sidebar";
 export {
+  SettingsCard,
+  SettingsCardItem,
+  SettingsCardSeparator,
+  SettingsInfoCard,
+  SettingsSection,
+} from "./doc-sidebar-settings";
+export {
   type DocSidebarMode,
   type UseDocSidebarResult,
   useDocSidebar,

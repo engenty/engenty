@@ -59,6 +59,7 @@
     "@engenty/plugin-sdk": "workspace:*",
     "@engenty/query-client": "workspace:*",
     "@engenty/queue": "workspace:*",
+    "@engenty/scoped-kv-settings": "workspace:*",
     "@engenty/tasks": "workspace:*",
     "@engenty/telemetry": "workspace:*",
     "@engenty/tiptap-editor": "workspace:*",

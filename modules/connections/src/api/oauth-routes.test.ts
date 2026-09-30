@@ -65,10 +65,10 @@ describe("OAuth connect start — the account belongs to a Space", () => {
     __resetConnectorRegistryForTests();
   });
 
-  it("requires space_id", async () => {
+  it("requires an owner: a Space, or the caller", async () => {
     const { connect, createPendingFlow } = setup();
     expect(await connect({})).toEqual({
-      body: { error: "connections.spaceRequired" },
+      body: { error: "connections.ownerRequired" },
       status: 400,
     });
     expect(createPendingFlow).not.toHaveBeenCalled();

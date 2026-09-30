@@ -107,11 +107,16 @@
       "heading": "Kunde",
       "viewInContacts": "In Kontakten anzeigen",
       "change": "Kunde ändern",
-      "addLink": "Kunde zuordnen"
+      "addLink": "Kunde zuordnen",
+      "save": "Speichern"
     },
     "edit": "Bearbeiten",
     "editTitle": "Titel bearbeiten",
     "editTitleLabel": "Titel",
+    "subtitle": {
+      "add": "Untertitel hinzufügen…",
+      "label": "Untertitel"
+    },
     "settings": "Einstellungen",
     "tabs": {
       "planning": "Übersicht",
@@ -267,13 +272,15 @@
     "projectSettings": {
       "title": "Projekt-Einstellungen",
       "timeplanSection": "Zeitplanung",
-      "timeplanSectionDescription": "Phasen, Termine und Gantt-Ansicht. Ohne Zeitplan bleibt das Projekt ein schlanker Raum für Notizen, Dateien und Aufgaben.",
+      "timeplanSectionDescription": "Phasen, Termine und Gantt-Ansicht.",
       "startDate": "Startdatum",
       "endDate": "Enddatum",
       "portalSection": "Kundenportal",
-      "portalSectionDescription": "Öffentlicher Zugang für Kundinnen und Kunden: Aufgaben ansehen und Anfragen stellen.",
+      "portalSectionDescription": "Kunden sehen Aufgaben und stellen Anfragen.",
       "clientSection": "Kunde",
-      "clientSectionDescription": "Kontakt oder Organisation, für die dieses Projekt läuft."
+      "clientSectionDescription": "Kontakt oder Organisation, für die dieses Projekt läuft.",
+      "teamSection": "Team",
+      "teamSectionDescription": "Wer an diesem Projekt arbeitet."
     },
     "saveFailed": "Projekt konnte nicht gespeichert werden.",
     "quickAdd": {
@@ -435,8 +442,8 @@
   },
   "pins": {
     "section": "Projekte",
-    "pin": "Im Space anheften",
-    "unpin": "Vom Space lösen"
+    "pin": "Zu Favoriten hinzufügen",
+    "unpin": "Aus Favoriten entfernen"
   },
   "cover": {
     "openTasks_one": "{{count}} offene Aufgabe",

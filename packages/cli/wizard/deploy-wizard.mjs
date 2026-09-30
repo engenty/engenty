@@ -23,7 +23,6 @@
 import { randomBytes } from "node:crypto";
 import {
   copyFileSync,
-  cpSync,
   existsSync,
   mkdirSync,
   readFileSync,
@@ -572,9 +571,6 @@ const CONFIG_TOML = CHECKOUT ? `${CHECKOUT}/supabase/config.toml` : null;
 const TEMPLATE_DIR = existsSync(`${PACKAGE_ROOT}/templates`)
   ? `${PACKAGE_ROOT}/templates`
   : `${PACKAGE_ROOT}/../../deploy`;
-// Directories the compose bind-mounts by relative path — without them the
-// proxy containers fail at start with "not a directory".
-const TEMPLATE_DIRS = ["egress-proxy", "browser-proxy"];
 const TEMPLATE_FILES = [
   "docker-compose.prebuilt.yaml",
   "docker-compose.backend.prebuilt.yaml",
@@ -604,14 +600,6 @@ function writeDeployTemplates() {
     }
     copyFileSync(source, `${DEPLOY_DIR}/${name}`);
     written.push(name);
-  }
-  for (const dir of TEMPLATE_DIRS) {
-    const source = `${TEMPLATE_DIR}/${dir}`;
-    if (!existsSync(source)) {
-      continue;
-    }
-    cpSync(source, `${DEPLOY_DIR}/${dir}`, { recursive: true });
-    written.push(dir);
   }
   return written;
 }

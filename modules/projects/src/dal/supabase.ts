@@ -42,6 +42,13 @@ import type {
   ProjectUpdateInput,
   ProjectWithPhasesAndTasks,
 } from "../schema/types.js";
+import {
+  createProjectKvRepo,
+  PROJECT_KV_EMBED,
+  type ProjectKvFields,
+  projectKvFieldsFromEmbed,
+  writeProjectKvFields,
+} from "./project-kv.js";
 
 const DEFAULT_PROJECT_SETTINGS: ProjectSettings = {
   briefing_overdue_days: 7,
@@ -68,11 +75,6 @@ function rowToProject(row: Record<string, unknown>): Project {
     portal_intro_text: (row.portal_intro_text as string | null) ?? null,
     visibility:
       (row.visibility as "tenant" | "members" | undefined) ?? "tenant",
-    // Pre-lean-projects rows (and any row read before the column landed) are
-    // full-featured projects, so an absent value means "timeplan on".
-    timeplan_enabled: row.timeplan_enabled !== false,
-    cover: (row.cover as Project["cover"]) ?? null,
-    enabled_tabs: (row.enabled_tabs as string[] | null) ?? null,
     created_by: (row.created_by as string | null) ?? null,
     created_at: String(row.created_at),
     updated_at: String(row.updated_at),
@@ -129,8 +131,11 @@ function mapProjectTeamMembersFromNested(
 }
 
 function projectRowToProject(row: Record<string, unknown>): Project {
-  const { project_team: nested, ...rest } = row;
-  const base = rowToProject(rest as Record<string, unknown>);
+  const { project_team: nested, project_kv: kvEmbed, ...rest } = row;
+  const base = {
+    ...rowToProject(rest as Record<string, unknown>),
+    ...projectKvFieldsFromEmbed(kvEmbed),
+  };
   const members = mapProjectTeamMembersFromNested(base.id, nested);
   if (members.length === 0) {
     return base;
@@ -173,6 +178,7 @@ export function createProjectRepoSupabase(
   const phases = () => supabase.schema(schema).from("project_phases");
   const settings = () => supabase.schema(schema).from("project_settings");
   const projectTeamMembers = () => supabase.schema(schema).from("project_team");
+  const kv = createProjectKvRepo(supabase, tenantId, scopeId);
 
   const record = (type: string, detail?: Record<string, unknown>) => {
     audit?.recordAuditEvent?.({ type, detail });
@@ -387,9 +393,6 @@ export function createProjectRepoSupabase(
         portal_password: projectFields.portal_password ?? null,
         portal_intro_text: projectFields.portal_intro_text ?? null,
         visibility,
-        timeplan_enabled: projectFields.timeplan_enabled ?? false,
-        cover: projectFields.cover ?? null,
-        enabled_tabs: projectFields.enabled_tabs ?? null,
         created_by: projectFields.created_by ?? null,
         created_at: now,
         updated_at: now,
@@ -398,7 +401,17 @@ export function createProjectRepoSupabase(
       if (error) {
         throw new Error(`Failed to create project: ${error.message}`);
       }
-      const created = rowToProject((data ?? row) as Record<string, unknown>);
+      const kvFields: ProjectKvFields = {
+        cover: projectFields.cover ?? null,
+        enabled_tabs: projectFields.enabled_tabs ?? null,
+        subtitle: projectFields.subtitle ?? null,
+        timeplan_enabled: projectFields.timeplan_enabled ?? false,
+      };
+      await writeProjectKvFields(kv, id, kvFields);
+      const created: Project = {
+        ...rowToProject((data ?? row) as Record<string, unknown>),
+        ...kvFields,
+      };
       record("projects.project.created", {
         id: created.id,
         title: created.title,
@@ -433,7 +446,10 @@ export function createProjectRepoSupabase(
       const sortOrder = params.sortOrder === "asc";
 
       let query = projects()
-        .select("*, project_team(*)", { count: "exact", head: false })
+        .select(`*, project_team(*), ${PROJECT_KV_EMBED}`, {
+          count: "exact",
+          head: false,
+        })
         .eq("tenant_id", tenantId)
         .eq("scope_id", scopeId);
 
@@ -511,7 +527,7 @@ export function createProjectRepoSupabase(
 
     async getById(id: string): Promise<Project | null> {
       const { data, error } = await projects()
-        .select("*, project_team(*)")
+        .select(`*, project_team(*), ${PROJECT_KV_EMBED}`)
         .eq("id", id)
         .eq("tenant_id", tenantId)
         .eq("scope_id", scopeId)
@@ -583,7 +599,20 @@ export function createProjectRepoSupabase(
       if (!existing) {
         return null;
       }
-      const { team_member_ids, project_team, ...rest } = input;
+      const {
+        team_member_ids,
+        project_team,
+        cover,
+        enabled_tabs,
+        subtitle,
+        timeplan_enabled,
+        ...rest
+      } = input;
+      const kvPatch = { cover, enabled_tabs, subtitle, timeplan_enabled };
+      const kvChanged = Object.values(kvPatch).some((v) => v !== undefined);
+      if (kvChanged) {
+        await writeProjectKvFields(kv, id, kvPatch);
+      }
       // Guard the members-only × portal combination against the effective
       // state (existing values overlaid with this patch).
       const effectiveVisibility =
@@ -598,7 +627,8 @@ export function createProjectRepoSupabase(
       const patchEntries = Object.entries(rest).filter(
         ([, v]) => v !== undefined
       );
-      if (patchEntries.length > 0) {
+      // A KV-only change still bumps the project's updated_at.
+      if (patchEntries.length > 0 || kvChanged) {
         const patch = Object.fromEntries(patchEntries) as Record<
           string,
           unknown
@@ -620,7 +650,12 @@ export function createProjectRepoSupabase(
           record("projects.project.updated", {
             id,
             title: (data as { title?: string }).title,
-            changed_keys: Object.keys(patch),
+            changed_keys: [
+              ...Object.keys(patch),
+              ...Object.keys(kvPatch).filter(
+                (k) => kvPatch[k as keyof typeof kvPatch] !== undefined
+              ),
+            ],
           });
         }
       }

@@ -19,7 +19,7 @@ export interface ConnectorConnectButtonProps {
   onConnected?: (connectionId?: string) => void | Promise<void>;
   /** Where to return to after connecting (for redirect-style flows). */
   redirectTo: string;
-  /** The Space the new account belongs to; absent = personal Space. */
+  /** The Space the new account belongs to; absent = the viewer's own. */
   spaceId?: string | null;
 }
 
@@ -74,35 +74,44 @@ export function getConnectionExtras(
 }
 
 /**
- * Agent desk "Connect" dialog — the marketplace for the agent's Space. The
- * agent uses that Space's accounts; there is no per-agent grant.
+ * Extra sections on Setup → Connections, below the catalog — the imported
+ * connectors' table (connections-external) registers one.
  */
-export interface AgentPluginPanelProps {
-  /** Set when the agent's preferred-plugin list may be edited. */
-  agentId?: string | null;
-  detailsId?: string | null;
-  onDetailsIdChange?: (id: string | null) => void;
-  /** The agent's Space; null = the viewer's personal Space (Copilot). */
-  spaceId: string | null;
+const CATALOG_SECTIONS_KEY = Symbol.for("engenty.connections.catalog-sections");
+
+function catalogSections(): ComponentType[] {
+  const g = globalThis as Record<symbol, unknown>;
+  if (!g[CATALOG_SECTIONS_KEY]) {
+    g[CATALOG_SECTIONS_KEY] = [];
+  }
+  return g[CATALOG_SECTIONS_KEY] as ComponentType[];
 }
 
-const AGENT_PLUGIN_PANEL_KEY = Symbol.for(
-  "engenty.connections.plugin-marketplace-panel"
+export function registerCatalogSection(component: ComponentType): void {
+  const sections = catalogSections();
+  if (!sections.includes(component)) {
+    sections.push(component);
+  }
+}
+
+export function getCatalogSections(): readonly ComponentType[] {
+  return catalogSections();
+}
+
+/**
+ * The connect dialog for surfaces that cannot import this module — ai-ui's
+ * agent desk and Copilot pane (a cycle otherwise). They look it up on
+ * `globalThis` under this key; `engenty-extensions-dialog` fires once it is
+ * registered. The props are ExtensionsDialogProps.
+ */
+const EXTENSIONS_DIALOG_KEY = Symbol.for(
+  "engenty.connections.extensions-dialog"
 );
 
-export function registerAgentPluginPanel(
-  component: ComponentType<AgentPluginPanelProps>
+export function registerExtensionsDialog(
+  component: ComponentType<never>
 ): void {
   const g = globalThis as Record<symbol, unknown>;
-  g[AGENT_PLUGIN_PANEL_KEY] = component;
-  globalThis.dispatchEvent(new Event("engenty-agent-plugin-panel"));
-}
-
-export function getAgentPluginPanel():
-  | ComponentType<AgentPluginPanelProps>
-  | undefined {
-  const g = globalThis as Record<symbol, unknown>;
-  return g[AGENT_PLUGIN_PANEL_KEY] as
-    | ComponentType<AgentPluginPanelProps>
-    | undefined;
+  g[EXTENSIONS_DIALOG_KEY] = component;
+  globalThis.dispatchEvent(new Event("engenty-extensions-dialog"));
 }

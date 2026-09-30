@@ -5,7 +5,6 @@
 
 export const AUTH_TRANSLATIONS = {
   en: {
-    tagline: "Your Work Horse Harness",
     taglineLead: "Teams & Agents working together",
     taglineAside: "side by side with your apps",
     features: [
@@ -95,7 +94,6 @@ export const AUTH_TRANSLATIONS = {
   },
 
   de: {
-    tagline: "Your Work Horse Harness",
     taglineLead: "Teams & Agenten arbeiten zusammen",
     taglineAside: "Seite an Seite mit deinen Apps",
     features: [

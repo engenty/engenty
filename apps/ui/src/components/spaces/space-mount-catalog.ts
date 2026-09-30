@@ -14,18 +14,12 @@ import {
   spaceMountKey,
 } from "@engenty/ui-plugin-sdk";
 import { useMemo } from "react";
-import type {
-  SpaceCatalogConnector,
-  SpaceMount,
-} from "@/lib/api/spaces-client";
+import type { SpaceMount } from "@/lib/api/spaces-client";
 import {
   useSpaceAgentCatalogQuery,
-  useSpaceConnectorCatalogQuery,
   useSpaceSetupCatalogQuery,
   useSpaceSkillCatalogQuery,
 } from "@/lib/spaces-queries";
-import { FILE_CONNECTOR_IDS } from "./space-capability-recommendations";
-import { pluginsFromConnectors } from "./space-plugin-catalog";
 
 export interface SpaceCatalogItem {
   category: string;
@@ -83,62 +77,6 @@ function withMountedExtras(
   return extras.length > 0 ? [...items, ...extras] : items;
 }
 
-/** One connected account, flattened out of the connector catalog. */
-export interface SpaceConnectionMeta {
-  connectorId: string;
-  /** Display name of the connector it belongs to ("Gmail"). */
-  connectorName: string;
-  hasFiles: boolean;
-  id: string;
-  /** The account as a person recognises it, or the connector as a last resort. */
-  label: string;
-  /** The Space that owns the account. */
-  spaceId: string;
-}
-
-/**
- * The accounts a Space owns — every agent and member of that Space uses them,
- * nobody outside it. Labelled by the account (the mailbox), not the provider,
- * sorted the way a person reads them.
- */
-export function spaceAccounts(
-  connectors: readonly SpaceCatalogConnector[],
-  spaceId: string
-): SpaceConnectionMeta[] {
-  const accounts: SpaceConnectionMeta[] = [];
-  for (const connector of connectors) {
-    const connectorName = connector.title ?? connector.name ?? connector.id;
-    const hasFiles = connectorHasFiles(connector);
-    for (const connection of connector.connections ?? []) {
-      const account =
-        connection.display_name?.trim() ||
-        connection.external_account?.trim() ||
-        null;
-      if (connection.space_id !== spaceId) {
-        continue;
-      }
-      accounts.push({
-        connectorId: connector.id,
-        connectorName,
-        hasFiles,
-        id: connection.id,
-        label: account ?? connectorName,
-        spaceId: connection.space_id,
-      });
-    }
-  }
-  return accounts.sort((left, right) => left.label.localeCompare(right.label));
-}
-
-function connectorHasFiles(connector: SpaceCatalogConnector): boolean {
-  if (FILE_CONNECTOR_IDS.has(connector.id)) {
-    return true;
-  }
-  return (connector.actions ?? []).some((action) =>
-    action.id.startsWith("files_")
-  );
-}
-
 export function byCategory(
   items: SpaceCatalogItem[]
 ): [string, SpaceCatalogItem[]][] {
@@ -179,8 +117,6 @@ export interface SpaceMountCatalog {
    */
   lockedKeys: ReadonlySet<string>;
   modules: SpaceCatalogItem[];
-  /** Connector ids (builtins + tenant imports), mountable without an account. */
-  plugins: SpaceCatalogItem[];
   skills: SpaceCatalogItem[];
 }
 
@@ -192,7 +128,6 @@ export function useSpaceMountCatalog(
   const catalogQuery = useSpaceSetupCatalogQuery(enabled);
   const agentsQuery = useSpaceAgentCatalogQuery(enabled);
   const skillsQuery = useSpaceSkillCatalogQuery(enabled);
-  const connectorsQuery = useSpaceConnectorCatalogQuery(enabled);
 
   const moduleCategories = useMemo(
     () =>
@@ -260,11 +195,6 @@ export function useSpaceMountCatalog(
     [mounts, skillsQuery.data]
   );
 
-  const plugins = useMemo(
-    () => pluginsFromConnectors(connectorsQuery.data ?? [], mounts),
-    [connectorsQuery.data, mounts]
-  );
-
   const lockedKeys = useMemo(() => {
     const keys = new Set(
       (catalogQuery.data?.baseline ?? []).map((mount) => spaceMountKey(mount))
@@ -280,13 +210,9 @@ export function useSpaceMountCatalog(
   return {
     agents,
     isPending:
-      catalogQuery.isPending ||
-      agentsQuery.isPending ||
-      skillsQuery.isPending ||
-      connectorsQuery.isPending,
+      catalogQuery.isPending || agentsQuery.isPending || skillsQuery.isPending,
     lockedKeys,
     modules,
-    plugins,
     skills,
   };
 }

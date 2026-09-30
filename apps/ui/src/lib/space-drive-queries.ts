@@ -128,11 +128,7 @@ export function useSpaceDrive(
     queryFn: ({ signal }) => getSpaceArtifacts(id, signal),
     queryKey: spaceDriveKeys.artifacts(id),
   });
-  const dataRootsQuery = useQuery({
-    enabled,
-    queryFn: ({ signal }) => getSpaceDataRoots(id, signal),
-    queryKey: spaceDriveKeys.dataRoots(id),
-  });
+  const dataRootsQuery = useSpaceDataRoots(spaceId);
 
   const projects = projectsQuery.data;
   const artifacts = artifactsQuery.data;
@@ -177,6 +173,15 @@ export function useSpaceDrive(
     nodes,
     unavailable,
   };
+}
+
+/** The adapter roots this space shows — the same read the tree makes. */
+export function useSpaceDataRoots(spaceId: string | null) {
+  return useQuery({
+    enabled: Boolean(spaceId),
+    queryFn: ({ signal }) => getSpaceDataRoots(spaceId ?? "", signal),
+    queryKey: spaceDriveKeys.dataRoots(spaceId ?? ""),
+  });
 }
 
 /**

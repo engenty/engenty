@@ -322,7 +322,6 @@ export function createThreadService(opts: ThreadServiceOptions) {
       threadId: input.threadId,
       ...(input.runId ? { runId: input.runId } : {}),
     });
-    // The copilot resolves to its person's personal Space (resolveRunSpace).
     if (input.runId) {
       await ensureAgentRunStarted(opts.getRunStore?.() ?? null, {
         id: input.runId,

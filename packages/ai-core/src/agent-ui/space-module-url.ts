@@ -124,6 +124,20 @@ export function spaceRoomPathname(spaceKey: string, threadId: string): string {
 }
 
 /**
+ * `/s/<key>/<module>/agents/<agentId>` — an agent's desk opened inside one of
+ * the space's modules, so the module's sidebar stays beside it. Shared like
+ * `spaceChatsPathname`: the module sidebar's agent rows (ai-ui) link here and
+ * the shell routes it.
+ */
+export function spaceModuleAgentDeskPathname(
+  spaceKey: string,
+  moduleId: string,
+  agentId: string
+): string {
+  return `/s/${encodeURIComponent(spaceKey)}/${spaceModuleUrlSegment(moduleId)}/agents/${encodeURIComponent(agentId)}`;
+}
+
+/**
  * The space key a pathname is inside, or null outside `/s/…`.
  *
  * Deliberately NOT "the space you are in": outside a space route this answers

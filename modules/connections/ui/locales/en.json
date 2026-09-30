@@ -1,25 +1,17 @@
 {
   "menu": {
-    "connections": "Connections"
+    "connections": "My connections"
   },
   "breadcrumb": {
-    "settings": "Settings",
-    "connections": "Connections"
+    "settings": "Settings"
   },
   "catalog": {
     "needsSetup": "Needs setup",
     "needsSetupAdmin": "Set up →",
-    "needsSetupMember": "Ask an admin to set this up",
-    "connected": "Connected",
     "connectedAs": "Connected as {{account}}",
-    "notConnected": "Not connected",
-    "manage": "Manage",
     "connect": "Connect",
     "addAccount": "Add account",
-    "connecting": "Connecting…",
-    "empty": "No connectors available",
-    "emptyDescription": "Install a connector module (Google, Microsoft, Slack, …) to connect external services.",
-    "spaceHint": "Accounts of {{name}}. Every agent and member of this Space uses them."
+    "connecting": "Connecting…"
   },
   "toasts": {
     "connected": "Connection established.",
@@ -40,12 +32,11 @@
     "connected": "Connected",
     "connectPrompt": "Connect your account to continue",
     "connectFailed": "Connecting failed — try again",
-    "notConfigured": "Not available yet — an admin must add this connector's credentials in Setup → Platform settings",
+    "notConfigured": "Not available yet — the Organisation has no credentials for this connector",
     "connectedContinue": "I've connected {{name}} — please continue.",
-    "connectedAutonomyHint": "Usable in chat right away. For background sync and scheduled runs, enable autonomous use in Settings → Connections."
-  },
-  "connectComplete": {
-    "closing": "Finishing up — you can close this window."
+    "connectedAutonomyHint": "Usable in chat right away. For background sync and scheduled runs, turn on autonomous use under Manage on the account.",
+    "ownerMe": "Only for you — your Copilot uses it in any Space",
+    "ownerSpace": "For Space {{name}} — its members and engenties use it"
   },
   "status": {
     "active": "Connected",
@@ -111,6 +102,7 @@
       "space": "Space",
       "status": "Status"
     },
+    "personalAccount": "Someone’s own account",
     "approvalsTitle": "Pending approvals",
     "approvalsDescription": "Requests from autonomous runs that hit an \"Ask first\" permission.",
     "approvalsEmpty": "No pending requests",
@@ -131,7 +123,7 @@
   },
   "marketplace": {
     "title": "Connections",
-    "hintSpace": "Plugins and accounts of your personal Space. The Copilot uses these.",
+    "hintOwn": "Your own accounts — your mail, your calendar. Only you and your Copilot use them, in any space. Nothing is synced from them.",
     "hintNamedSpace": "Plugins and accounts of {{name}}. Every agent and member of this Space uses them.",
     "search": "Search connections",
     "searchCatalog": "Search integrations.sh",
@@ -150,11 +142,9 @@
     "authenticate": "Authenticate",
     "addAccount": "Add another account",
     "defaultAccount": "default",
-    "sectionApps": "Apps {{count}}",
     "sectionIntegrations": "Integrations {{count}}",
     "sectionSignIn": "How to sign in",
     "getToken": "Get token",
-    "connector": "Connector",
     "sectionConnections": "Connections {{count}}",
     "sectionInfo": "Information",
     "infoKind": "Category",
@@ -175,7 +165,6 @@
     "uninstallTitle": "Uninstall “{{name}}”?",
     "uninstallDescription": "Removes this tenant install. Built-in plugins cannot be uninstalled. Existing accounts for it stop working.",
     "removeFromSpace": "Remove from this space",
-    "usedThisSpace": "This space",
     "registry": "Integrations catalog",
     "catalogEmpty": "Nothing in the integrations catalog matches.",
     "needsAuthToAdd": "This server needs a sign-in before it can be added.",
@@ -195,13 +184,10 @@
     "noMatches": "No matching connections.",
     "searchInMarketplace": "Search in Marketplace",
     "loading": "Loading connections…",
-    "close": "Close",
     "open": "Add connections",
     "subsetLabel": "Plugins this agent uses",
-    "subsetHint": "Empty means every plugin enabled on the space, plus this agent’s personal accounts. A non-empty list is the subset it actually uses.",
-    "subsetAll": "All plugins enabled on the space",
-    "spaceAccounts": "Accounts in this Space",
-    "noSpace": "No Space to connect into. Open a Space and connect from there."
+    "subsetHint": "Empty means every plugin enabled on the space. A non-empty list is the subset it actually uses.",
+    "subsetAll": "All plugins enabled on the space"
   },
   "credentials": {
     "description": "Enter the credentials for this service. They are stored encrypted and never shown again.",
@@ -214,5 +200,50 @@
     "enableReadOnly": "Allow read-only",
     "enableFull": "Allow all actions",
     "askOwner": "Ask the connection owner to enable autonomous use."
+  },
+  "extensions": {
+    "titleSpace": "Extensions",
+    "titleMine": "My connections",
+    "tabConnections": "Connections",
+    "tabSkills": "Skills",
+    "back": "Back"
+  },
+  "sheet": {
+    "accounts": "Accounts",
+    "forSpace": "For Space {{name}} — every member and engenty there uses it",
+    "forMe": "Only for you — you and your Copilot use it, in any Space",
+    "ownerSpace": "Space {{name}}",
+    "ownerSpaceUnknown": "a Space",
+    "ownerMine": "Only me",
+    "manage": "Manage",
+    "details": "Details",
+    "hide": "Close",
+    "credentials": "Credentials",
+    "credentialsReady": "Set up",
+    "credentialsMissing": "Missing",
+    "credentialsNone": "Not needed",
+    "setCredentials": "Add credentials",
+    "editCredentials": "Edit credentials",
+    "credentialsTitle": "{{name}} credentials",
+    "credentialsHint": "The OAuth client this Organisation uses for {{name}}. Leave a field blank to use the platform default.",
+    "credentialsPlatform": "Installation-wide defaults for every Organisation:",
+    "credentialsPlatformLink": "Platform settings",
+    "askAdmin": "Ask an admin",
+    "askedAdmin": "Admins notified",
+    "askAdminFailed": "Could not notify the admins: {{error}}",
+    "usageSpaces": "Spaces with an account",
+    "usagePersons": "Persons with their own account"
+  },
+  "mine": {
+    "emptyTitle": "No accounts of your own yet",
+    "emptyDescription": "Connect your mail or calendar. Only you and your Copilot use them.",
+    "connect": "Connect an account"
+  },
+  "catalogPage": {
+    "title": "Connections",
+    "description": "The services this Organisation offers, and their OAuth clients. Counts only: personal accounts stay private.",
+    "colService": "Service",
+    "colSpaces": "Spaces",
+    "colPersons": "Persons"
   }
 }

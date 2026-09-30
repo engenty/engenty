@@ -30,10 +30,7 @@ function formatCurrentSpaceLine(
   if (!identity) {
     return `- current_space: (${id})`;
   }
-  const personal = identity.ownerUserId
-    ? " — this is the user's PERSONAL space"
-    : "";
-  return `- current_space: ${identity.name} (${identity.key}, ${id})${personal}`;
+  return `- current_space: ${identity.name} (${identity.key}, ${id})`;
 }
 
 function formatMountedModules(surface: EngentySpaceSurface): string[] {

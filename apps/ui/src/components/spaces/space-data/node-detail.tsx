@@ -150,7 +150,7 @@ function SingleMemberPane({
   onClose: () => void;
   spaceId: string;
 }) {
-  const breadcrumbs = useNodeBreadcrumbs(document.path);
+  const breadcrumbs = useNodeBreadcrumbs(spaceId, document.path);
   const invalidate = useInvalidateNode(spaceId, document.path);
   const state = useMemberDraft({
     document: {
@@ -193,7 +193,7 @@ function BundlePane({
   onClose: () => void;
   spaceId: string;
 }) {
-  const breadcrumbs = useNodeBreadcrumbs(document.path);
+  const breadcrumbs = useNodeBreadcrumbs(spaceId, document.path);
   const invalidate = useInvalidateNode(spaceId, document.path);
 
   return (

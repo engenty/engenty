@@ -19,12 +19,6 @@ export interface RailSpace {
   color?: string | null;
   icon?: string | null;
   id: string;
-  /**
-   * The viewer's own personal space (PLAN-spaces.md Phase P). At most one of
-   * these can be present, because the list the caller passes is already
-   * membership-filtered server-side and a user owns at most one.
-   */
-  isPersonal?: boolean;
   key: string;
   name: string;
 }
@@ -75,11 +69,8 @@ export interface ResolveRailSpacesResult {
  * (An earlier version of this comment said there was no per-space access control
  * at all. That was true until Phase P and is now exactly backwards.)
  *
- * **The personal space is pinned first and exempt from the budget**, which
- * amends Phase 5a's "the current space is always first": your own space is the
- * one place you always want one click away, and it is the fallback the shell
- * lands on. Shared spaces keep their recency order while visible; only a
- * current space that would otherwise be hidden is promoted.
+ * Spaces keep their recency order while visible; only a current space that
+ * would otherwise be hidden is promoted.
  */
 export function resolveRailSpaces(
   input: ResolveRailSpacesInput
@@ -88,15 +79,8 @@ export function resolveRailSpaces(
   const indicatorFor = (id: string): RailSpaceIndicator =>
     input.indicators?.[id] ?? {};
 
-  const personal = input.spaces.find((space) => space.isPersonal) ?? null;
-
   const ordered: RailSpace[] = [];
   const taken = new Set<string>();
-  if (personal) {
-    // Claimed before anything else so the passes below cannot place it a second
-    // time — it is rendered separately, outside the budget.
-    taken.add(personal.id);
-  }
   const take = (id: string | null | undefined) => {
     if (!id || taken.has(id)) {
       return;
@@ -121,9 +105,6 @@ export function resolveRailSpaces(
     take(space.id);
   }
 
-  // The budget governs the SHARED spaces only. Counting the pinned personal tile
-  // against it would mean acquiring a personal space silently pushed a space you
-  // use off the rail and into the overflow chooser.
   const budget =
     ordered.length <= RAIL_SPACE_NO_STACK_MAX
       ? ordered.length
@@ -145,10 +126,7 @@ export function resolveRailSpaces(
     isCurrent: space.id === input.currentSpaceId,
   });
 
-  const visible = [
-    ...(personal ? [toTile(personal)] : []),
-    ...ordered.slice(0, budget).map(toTile),
-  ];
+  const visible = ordered.slice(0, budget).map(toTile);
   const hiddenAll = ordered.slice(budget).map(toTile);
 
   return {

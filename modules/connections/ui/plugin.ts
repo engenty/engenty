@@ -1,29 +1,24 @@
 import { CONNECTIONS_ROOT_PATH } from "@engenty/ai-ui";
+import {
+  CONNECTIONS_CATALOG_PATH,
+  MY_CONNECTIONS_PATH,
+} from "@engenty/plugin-sdk";
 import type { EngentyPluginContext } from "@engenty/ui-plugin-sdk";
 import { Blocks } from "lucide-react";
-import { AgentPluginMarketplacePanel } from "./components/marketplace/agent-plugin-marketplace-panel.js";
-import { registerAgentPluginPanel } from "./extensions.js";
-import { ConnectCompletePage } from "./pages/connect-complete-page.js";
-import {
-  CONNECTIONS_SETTINGS_PATH,
-  ConnectionsSettingsPage,
-} from "./pages/connections-settings-page.js";
+import type { ComponentType } from "react";
+import { ExtensionsDialog } from "./components/marketplace/extensions-dialog.js";
+import { registerExtensionsDialog } from "./extensions.js";
+import { ConnectionsCatalogPage } from "./pages/connections-catalog-page.js";
 import {
   ConnectionsWorkspacePage,
   LegacyConnectionsAdminRedirect,
 } from "./pages/connections-workspace-page.js";
-import {
-  ConnectorDetailPage,
-  ConnectorWorkspaceDetailPage,
-} from "./pages/connector-detail-page.js";
-import {
-  LegacyConnectionsDetailRedirect,
-  LegacyConnectionsSettingsRedirect,
-} from "./pages/legacy-connections-redirect.js";
+import { ConnectorWorkspaceDetailPage } from "./pages/connector-detail-page.js";
+import { MyConnectionsPage } from "./pages/my-connections-page.js";
 import { registerConnectionsToolCallUi } from "./register-tool-call-ui.js";
 
 export default function plugin(engenty: EngentyPluginContext) {
-  registerAgentPluginPanel(AgentPluginMarketplacePanel);
+  registerExtensionsDialog(ExtensionsDialog as ComponentType<never>);
   registerConnectionsToolCallUi();
   engenty.i18n.registerNamespace({
     pluginId: "connections",
@@ -34,47 +29,38 @@ export default function plugin(engenty: EngentyPluginContext) {
     },
   });
 
+  // The person's own accounts (PLAN-personal-connections.md).
   engenty.UI.registerRoute({
-    id: "connections_settings",
-    path: CONNECTIONS_SETTINGS_PATH,
-    component: ConnectionsSettingsPage,
+    id: "connections_mine",
+    path: MY_CONNECTIONS_PATH,
+    component: MyConnectionsPage,
     order: 400,
-    // Per-user surface: a member links their own accounts for agents to use.
     requiresAdmin: false,
   });
 
   engenty.UI.registerRoute({
-    id: "connections_settings_legacy",
-    path: "/settings/connections",
-    component: LegacyConnectionsSettingsRedirect,
-    order: 400.1,
-    requiresAdmin: false,
-  });
-
-  // Popup landing page for the in-chat connect flow: posts the OAuth result
-  // to window.opener and closes (see ui/connect-popup.ts for the contract).
-  engenty.UI.registerRoute({
-    id: "connections_oauth_complete",
-    path: "/connections/oauth/complete",
-    component: ConnectCompletePage,
-    order: 402,
-    requiresAdmin: false,
-  });
-
-  engenty.UI.registerRoute({
-    id: "connections_settings_detail",
-    path: `${CONNECTIONS_SETTINGS_PATH}/:connectorId`,
-    component: ConnectorDetailPage,
+    id: "connections_mine_detail",
+    path: `${MY_CONNECTIONS_PATH}/:connectorId`,
+    component: MyConnectionsPage,
     order: 401,
     requiresAdmin: false,
   });
 
+  // The Organisation's catalog: connectors, their OAuth clients, usage.
   engenty.UI.registerRoute({
-    id: "connections_settings_detail_legacy",
-    path: "/settings/connections/:connectorId",
-    component: LegacyConnectionsDetailRedirect,
-    order: 401.1,
-    requiresAdmin: false,
+    id: "connections_catalog",
+    path: CONNECTIONS_CATALOG_PATH,
+    component: ConnectionsCatalogPage,
+    order: 402.5,
+    requiresAdmin: true,
+  });
+
+  engenty.UI.registerRoute({
+    id: "connections_catalog_detail",
+    path: `${CONNECTIONS_CATALOG_PATH}/:connectorId`,
+    component: ConnectionsCatalogPage,
+    order: 402.6,
+    requiresAdmin: true,
   });
 
   // Main entry inside the /admin/engenty workspace; the sidebar row lives in
@@ -102,13 +88,12 @@ export default function plugin(engenty: EngentyPluginContext) {
 
   engenty.UI.registerSettingsItem({
     id: "connections_settings_menu",
-    label: "Connections",
+    label: "My connections",
     labelKey: "connections:menu.connections",
-    to: CONNECTIONS_SETTINGS_PATH,
+    to: MY_CONNECTIONS_PATH,
     icon: Blocks,
-    // Promoted into Setup for admins; members keep it in Settings.
     order: 5,
-    // Personal surface — members manage their own connected accounts.
+    // Personal surface — everyone manages their own connected accounts.
     requiresAdmin: false,
   });
 }

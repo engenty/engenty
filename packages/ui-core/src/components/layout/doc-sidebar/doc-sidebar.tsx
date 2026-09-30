@@ -132,17 +132,21 @@ export function DocSidebarLayout({
     ? displayedWidthPx + DOC_SIDEBAR_GAP_PX
     : DOC_SIDEBAR_MAX_WIDTH_PX + DOC_SIDEBAR_GAP_PX;
 
-  const resizeHandle = resizable ? (
-    <button
-      aria-label="Resize sidebar"
-      className="absolute top-0 left-0 z-10 h-full w-2 -translate-x-1/2 cursor-ew-resize rounded-full bg-transparent transition-colors hover:bg-border/80"
-      onKeyDown={handleResizeKeyDown}
-      onPointerDown={handleResizePointerDown}
-      type="button"
-    >
-      <span className="sr-only">Resize sidebar</span>
-    </button>
-  ) : null;
+  // Inline, the handle sits in the middle of the gap between document and
+  // sidebar; on the overlay sheet, on its leading edge.
+  const resizeHandle = (offsetPx: number) =>
+    resizable ? (
+      <button
+        aria-label="Resize sidebar"
+        className="absolute top-0 z-10 h-full w-2 -translate-x-1/2 cursor-ew-resize rounded-full bg-transparent transition-colors hover:bg-border/80"
+        onKeyDown={handleResizeKeyDown}
+        onPointerDown={handleResizePointerDown}
+        style={{ left: offsetPx }}
+        type="button"
+      >
+        <span className="sr-only">Resize sidebar</span>
+      </button>
+    ) : null;
 
   return (
     <div className="w-full" ref={measureRef}>
@@ -195,7 +199,7 @@ export function DocSidebarLayout({
                   : null),
               }}
             >
-              {resizeHandle}
+              {resizeHandle(DOC_SIDEBAR_GAP_PX / 2)}
               {sidebar}
             </aside>
           </div>
@@ -220,7 +224,7 @@ export function DocSidebarLayout({
                   : undefined
               }
             >
-              {resizeHandle}
+              {resizeHandle(0)}
               <SheetHeader>
                 <SheetTitle>{sidebarLabel}</SheetTitle>
               </SheetHeader>

@@ -25,8 +25,8 @@ vi.mock("./agent-connector-rows.js", () => ({
 vi.mock("./agent-runs-panel.js", () => ({
   AgentRecentRuns: () => null,
 }));
-vi.mock("../agents-workspace/agent-connections-panel.js", () => ({
-  AgentConnectionsPanel: () => null,
+vi.mock("./extensions-dialog-slot.js", () => ({
+  ExtensionsDialogSlot: () => null,
 }));
 vi.mock("../memory/memory-entries-api.js", () => ({
   useMemoryEntriesQuery: () => ({ data: undefined, isLoading: false }),

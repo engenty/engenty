@@ -9,13 +9,6 @@ export const COMPOSE_FILES = [
   "docker-compose.local.yaml",
 ] as const;
 
-/**
- * Directories the compose bind-mounts by relative path. Without them Docker
- * creates a directory where a config file belongs and the proxy containers die
- * with "not a directory".
- */
-export const COMPOSE_DIRS = ["egress-proxy", "browser-proxy"] as const;
-
 /** Copy this release's compose files in, replacing the previous release's. */
 export function writeComposeFiles(home = engentyHome()): string[] {
   ensureEngentyHome(home);
@@ -23,12 +16,6 @@ export function writeComposeFiles(home = engentyHome()): string[] {
   for (const name of COMPOSE_FILES) {
     fs.copyFileSync(requireTemplate(name), path.join(home, name));
     written.push(name);
-  }
-  for (const dir of COMPOSE_DIRS) {
-    const target = path.join(home, dir);
-    fs.rmSync(target, { force: true, recursive: true });
-    fs.cpSync(requireTemplate(dir), target, { recursive: true });
-    written.push(dir);
   }
   return written;
 }

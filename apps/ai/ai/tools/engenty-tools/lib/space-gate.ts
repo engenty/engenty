@@ -47,8 +47,6 @@ export interface SpaceGateSurface {
   connectorPrefixes: ReadonlySet<string>;
   moduleIds: ReadonlySet<string>;
   readOnlyModuleIds: ReadonlySet<string>;
-  /** Where connections live when not `spaceId` — see `RunSpace.resourceSpaceId`. */
-  resourceSpaceId?: string;
   spaceId: string;
   /** Hired engenties that report to nobody here — they carry the hiring set. */
   topLevelAgentIds?: ReadonlySet<string>;
@@ -88,10 +86,9 @@ export type SpaceGateContext =
 
 /**
  * An agent run outside a space: modules stay tenant-global, and connectors are
- * refused — a connection always belongs to a Space
- * (PLAN-space-owned-connections.md). `connectorPrefixes` is empty for that
- * reason. Distinct from a missing `space` (legacy "allow every connector") so
- * live chat and assemble can agree.
+ * limited to `connectorPrefixes` — the Copilot's person's own accounts, empty
+ * for every other agent (PLAN-personal-connections.md). Distinct from a missing
+ * `space` (legacy "allow every connector") so live chat and assemble can agree.
  */
 export interface GlobalConnectorGate {
   /**
@@ -180,24 +177,17 @@ function isConnectionsModule(moduleId: string): boolean {
 }
 
 /**
- * The Space a core call names (`x-engenty-space-id`): connector and
- * connections operations go to where the run's connections live, everything
- * else to the Space the run stands in.
+ * The Space a core call names (`x-engenty-space-id`): the one the run stands
+ * in. A person's own accounts need no Space — core finds them by the caller
+ * (PLAN-personal-connections.md).
  */
 export function callSpaceIdFor(
-  entry: { moduleId?: string; operationId: string },
   space?: SpaceGateContext | null
 ): string | undefined {
   if (!space || "kind" in space) {
     return;
   }
-  const isConnectionCall =
-    connectorPrefixFor(entry.operationId, space.allConnectorPrefixes) !==
-      null ||
-    (entry.moduleId !== undefined && isConnectionsModule(entry.moduleId));
-  return isConnectionCall && space.resourceSpaceId
-    ? space.resourceSpaceId
-    : space.spaceId;
+  return space.spaceId;
 }
 
 /**
@@ -270,10 +260,11 @@ export function spaceScopeNote(space?: SpaceGateContext | null): string | null {
     );
   }
   if (isGlobalConnectorGate(space)) {
-    return (
-      "This run is not in a space, so connector tools are unavailable — connections " +
-      "belong to a space. Apps are otherwise unrestricted."
-    );
+    return space.connectorPrefixes.size > 0
+      ? "This run is not in a space, so connector tools reach only the person's own " +
+          "accounts — a space's accounts are used from inside that space. Apps are otherwise unrestricted."
+      : "This run is not in a space, so connector tools are unavailable — connections " +
+          "belong to a space or to a person. Apps are otherwise unrestricted.";
   }
   if (!space) {
     return null;

@@ -15,8 +15,8 @@ function coreDb(): SupabaseClient {
   const tables: Record<string, unknown[]> = {
     space_member: [{ role: "member", space_id: SPACE }],
     spaces: [
-      { id: SPACE, owner_user_id: null, visibility: "private" },
-      { id: "other", owner_user_id: null, visibility: "private" },
+      { id: SPACE, visibility: "private" },
+      { id: "other", visibility: "private" },
     ],
   };
   return {
@@ -67,11 +67,11 @@ function setup() {
   return { register, upsertConnectionWithTokens };
 }
 
-describe("registering a local directory — the account belongs to a Space", () => {
-  it("requires space_id", async () => {
+describe("registering a local directory — the account belongs to a Space or the caller", () => {
+  it("requires an owner: a Space, or the caller", async () => {
     const { register, upsertConnectionWithTokens } = setup();
     expect(await register({})).toEqual({
-      data: { error: "connections.spaceRequired" },
+      data: { error: "connections.ownerRequired" },
       status: 400,
     });
     expect(upsertConnectionWithTokens).not.toHaveBeenCalled();
@@ -95,9 +95,17 @@ describe("registering a local directory — the account belongs to a Space", () 
       expect.objectContaining({
         authKind: "browser",
         connectedBy: USER,
-        spaceId: SPACE,
+        owner: { spaceId: SPACE },
         tenantId: TENANT,
       })
+    );
+  });
+
+  it("registers the caller's own directory with owner=me", async () => {
+    const { register, upsertConnectionWithTokens } = setup();
+    await register({ owner: "me" });
+    expect(upsertConnectionWithTokens).toHaveBeenCalledWith(
+      expect.objectContaining({ owner: { userId: USER } })
     );
   });
 });

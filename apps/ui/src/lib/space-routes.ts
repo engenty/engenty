@@ -19,17 +19,6 @@ import {
 export const SPACE_ROUTE_PREFIX = "/s";
 
 /**
- * `/s/me` — the `~` of this system (PLAN-spaces.md Phase P3).
- *
- * A REDIRECT ALIAS, never a canonical URL. It resolves per viewer, so a link
- * containing it means something different to whoever opens it; leaving it in the
- * address bar would make "copy link and send it to a colleague" quietly point
- * them at their own space instead of the one being discussed. The redirect
- * therefore replaces itself with the real key immediately.
- */
-export const PERSONAL_SPACE_ALIAS = "me";
-
-/**
  * Route patterns of a wizard inside a space, relative to `/s/:spaceKey`:
  * page 0 by workflow id (a stored uuid or a module id), a run by its run id.
  * `workflows` is a reserved segment (space-module-url.ts).

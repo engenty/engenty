@@ -7,6 +7,7 @@ import {
   listApprovalRequestsForModule,
 } from "@engenty/approvals-sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { ConnectionReach } from "./reach.js";
 import { listConnectorDefinitions } from "./registry.js";
 import { decryptToken, encryptToken } from "./token-crypto.js";
 import type {
@@ -55,7 +56,7 @@ function toApprovalRequestRecord(
 }
 
 const CONNECTION_COLUMNS =
-  "id, tenant_id, space_id, connector_id, connected_by, autonomous_mode, display_name, external_account, granted_scopes, status, error_message, created_at, auth_kind";
+  "id, tenant_id, space_id, owner_user_id, connector_id, connected_by, autonomous_mode, display_name, external_account, granted_scopes, status, error_message, created_at, auth_kind";
 
 interface ConnectionTokenRow {
   access_token_enc: string | null;
@@ -70,11 +71,17 @@ export interface PendingOAuthFlow {
   nonce: string;
   redirect_to: string | null;
   requested_scopes: string[];
-  /** The Space the connected account will belong to. */
-  space_id: string;
+  /**
+   * The Space the connected account will belong to; null connects a personal
+   * account of `user_id`.
+   */
+  space_id: string | null;
   tenant_id: string;
   user_id: string;
 }
+
+/** Who owns an account: a Space, or one person. */
+export type ConnectionOwner = { spaceId: string } | { userId: string };
 
 function throwOnError<T>(result: {
   data: T;
@@ -240,12 +247,13 @@ export function createConnectionsRepo(supabase: SupabaseClient) {
     },
 
     /**
-     * Connections in the tenant, or in one Space when `spaceId` is given. On
-     * a user-scoped client RLS already limits rows to Spaces the caller can
-     * enter.
+     * Connections in the tenant, or of one owner when `spaceId` or
+     * `ownerUserId` is given. On a user-scoped client RLS already limits rows
+     * to Spaces the caller belongs to and the caller's own accounts.
      */
     async listConnections(params: {
       connectorId?: string;
+      ownerUserId?: string;
       spaceId?: string;
       tenantId: string;
     }): Promise<ConnectionSummary[]> {
@@ -259,6 +267,9 @@ export function createConnectionsRepo(supabase: SupabaseClient) {
       }
       if (params.spaceId) {
         query = query.eq("space_id", params.spaceId);
+      }
+      if (params.ownerUserId) {
+        query = query.eq("owner_user_id", params.ownerUserId);
       }
       return throwOnError(await query) as ConnectionSummary[];
     },
@@ -277,18 +288,33 @@ export function createConnectionsRepo(supabase: SupabaseClient) {
       ) as ConnectionPolicyOverride[];
     },
 
-    /** Active connections for a connector that the given Space owns. */
+    /**
+     * Active connections for a connector within a call's reach: the accounts
+     * its Space owns, then the person's own. Either side may be absent.
+     */
     async listCandidateConnections(params: {
       connectorId: string;
-      spaceId: string;
+      reach: ConnectionReach;
       tenantId: string;
     }): Promise<ConnectionSummary[]> {
-      const all = await this.listConnections({
-        connectorId: params.connectorId,
-        spaceId: params.spaceId,
-        tenantId: params.tenantId,
-      });
-      return all.filter((c) => c.status === "active");
+      const { personalUserId, spaceId } = params.reach;
+      const [space, personal] = await Promise.all([
+        spaceId
+          ? this.listConnections({
+              connectorId: params.connectorId,
+              spaceId,
+              tenantId: params.tenantId,
+            })
+          : [],
+        personalUserId
+          ? this.listConnections({
+              connectorId: params.connectorId,
+              ownerUserId: personalUserId,
+              tenantId: params.tenantId,
+            })
+          : [],
+      ]);
+      return [...space, ...personal].filter((c) => c.status === "active");
     },
 
     async setPolicyOverride(params: {
@@ -372,23 +398,33 @@ export function createConnectionsRepo(supabase: SupabaseClient) {
       expiresAt: Date | null;
       externalAccount: string | null;
       grantedScopes: string[];
+      /** The Space or the person the account belongs to. */
+      owner: ConnectionOwner;
       refreshToken: string | null;
-      /** The Space the account belongs to. */
-      spaceId: string;
       tenantId: string;
     }): Promise<ConnectionSummary> {
-      // One connection per (tenant, space, connector, external_account) —
-      // reconnecting the same account in the same Space replaces tokens
+      // One connection per (tenant, owner, connector, external_account) —
+      // reconnecting the same account for the same owner replaces tokens
       // (connection id stays stable so downstream cursors survive); a different
       // account inserts a new row. A null-account row (degraded connect where
-      // resolveAccount failed) is the replace target for the next connect in
-      // the same Space, so degraded connects never strand duplicates.
+      // resolveAccount failed) is the replace target for the next connect for
+      // the same owner, so degraded connects never strand duplicates.
+      const ownerColumns =
+        "spaceId" in input.owner
+          ? { owner_user_id: null, space_id: input.owner.spaceId }
+          : { owner_user_id: input.owner.userId, space_id: null };
       const scoped = throwOnError(
-        await db()
-          .from("connections")
-          .select(CONNECTION_COLUMNS)
+        await ("spaceId" in input.owner
+          ? db()
+              .from("connections")
+              .select(CONNECTION_COLUMNS)
+              .eq("space_id", input.owner.spaceId)
+          : db()
+              .from("connections")
+              .select(CONNECTION_COLUMNS)
+              .eq("owner_user_id", input.owner.userId)
+        )
           .eq("tenant_id", input.tenantId)
-          .eq("space_id", input.spaceId)
           .eq("connector_id", input.connectorId)
       ) as ConnectionSummary[];
       const account = input.externalAccount?.toLowerCase() ?? null;
@@ -433,7 +469,7 @@ export function createConnectionsRepo(supabase: SupabaseClient) {
             auth_kind: input.authKind ?? "oauth2",
             connected_by: input.connectedBy,
             connector_id: input.connectorId,
-            space_id: input.spaceId,
+            ...ownerColumns,
             tenant_id: input.tenantId,
             ...tokenFields,
           })

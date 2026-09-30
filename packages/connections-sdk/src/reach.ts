@@ -1,23 +1,42 @@
 /**
- * Where an account may be used: in the Space that owns it, and nowhere else
- * (PLAN-space-owned-connections.md). Every agent and member of that Space
- * shares it — there is no per-agent grant and no "every space" flag.
+ * Where an account may be used (PLAN-personal-connections.md):
+ *
+ * - a **Space** account in the Space that owns it — every agent and member of
+ *   that Space shares it;
+ * - a **personal** account by the person who owns it and their Copilot, in
+ *   whatever Space the call runs.
+ *
+ * There is no per-agent grant and no "every space" flag.
  */
 import type { ConnectionSummary } from "./types.js";
 
-export type ConnectionReachSummary = Pick<ConnectionSummary, "id" | "space_id">;
+export type ConnectionReachSummary = Pick<
+  ConnectionSummary,
+  "id" | "owner_user_id" | "space_id"
+>;
 
 /**
- * Whether this account may be selected for a connector call in this run. A
- * run that names no Space reaches no account: a connection is always some
- * Space's, and guessing which would be the leak this rule exists to close.
+ * Whose accounts one call reaches: the verified Space it runs in, and the
+ * person whose own accounts it may use (see `resolvePersonalReach`). Either
+ * may be null; both null reaches nothing.
  */
+export interface ConnectionReach {
+  personalUserId: string | null;
+  spaceId: string | null;
+}
+
+/** Whether this account may be selected for a connector call with this reach. */
 export function isAccountReachableInRun(params: {
   connection: ConnectionReachSummary;
-  spaceId: string | null | undefined;
+  reach: ConnectionReach;
 }): boolean {
-  const spaceId = params.spaceId?.trim();
-  return Boolean(spaceId) && params.connection.space_id === spaceId;
+  const { connection, reach } = params;
+  const spaceId = reach.spaceId?.trim();
+  if (connection.space_id) {
+    return Boolean(spaceId) && connection.space_id === spaceId;
+  }
+  const personalUserId = reach.personalUserId?.trim();
+  return Boolean(personalUserId) && connection.owner_user_id === personalUserId;
 }
 
 /**

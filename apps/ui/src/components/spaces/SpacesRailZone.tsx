@@ -12,7 +12,6 @@ import { useWorkspaceContext } from "@engenty/ui-plugin-sdk";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { SpaceSetupDialog } from "@/components/spaces/SpaceSetupDialog";
-import { isPersonalSpace } from "@/lib/api/spaces-client";
 import { prefetchSpaceDestination } from "@/lib/prefetch-space-destination";
 import { spaceRootPath } from "@/lib/space-routes";
 import { useSpacesQuery } from "@/lib/spaces-queries";
@@ -54,11 +53,6 @@ export function SpacesRailZone() {
           color: space.color,
           icon: space.icon,
           id: space.id,
-          // The list is already membership-filtered by `/api/spaces`, so any
-          // owned space in it is the viewer's own — no identity check needed
-          // here, and none wanted: the UI must not be a second place where
-          // "who may see this" is decided.
-          isPersonal: isPersonalSpace(space),
           key: space.key,
           name: space.name,
         })),

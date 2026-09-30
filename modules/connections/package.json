@@ -35,8 +35,16 @@
       "default": "./ui/hooks/use-connection-space.ts"
     },
     "./ui/marketplace": {
-      "types": "./ui/components/marketplace/plugin-marketplace-dialog.tsx",
-      "default": "./ui/components/marketplace/plugin-marketplace-dialog.tsx"
+      "types": "./ui/components/marketplace/extensions-dialog.tsx",
+      "default": "./ui/components/marketplace/extensions-dialog.tsx"
+    },
+    "./ui/marketplace-body": {
+      "types": "./ui/components/marketplace/plugin-marketplace.tsx",
+      "default": "./ui/components/marketplace/plugin-marketplace.tsx"
+    },
+    "./ui/connect-popup": {
+      "types": "./ui/connect-popup.ts",
+      "default": "./ui/connect-popup.ts"
     }
   },
   "engenty": {

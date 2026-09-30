@@ -18,7 +18,9 @@ function collectOperations() {
       throw new Error("repo unused at registration");
     },
     {
+      askAdminsForSetup: async () => 0,
       onApprovalDecided: async () => undefined,
+      resolvePersonalReach: async () => null,
       resolveSpaceAccess: async () => new Map(),
       settings: { clientEnv: () => async () => undefined },
     }

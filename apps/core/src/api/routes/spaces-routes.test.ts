@@ -102,7 +102,6 @@ function space(partial: Partial<Space> & Pick<Space, "id" | "key">): Space {
     icon: null,
     isDefault: false,
     name: partial.key,
-    ownerUserId: null,
     purgeAfter: null,
     tenantId: TENANT,
     visibility: "open",
@@ -121,7 +120,6 @@ const VAULT = space({
   key: "vault",
   name: "Vault",
   visibility: "private",
-  ownerUserId: BOB,
 });
 
 async function token(params: {
@@ -298,7 +296,7 @@ describe("spaces HTTP routes", () => {
     expect(member.status).toBe(404);
   });
 
-  it("refuses mount writes for a member who is not the owner or an admin", async () => {
+  it("refuses mount writes for a member who is not an admin", async () => {
     dal.findAccessibleSpace.mockResolvedValue(COMPANY);
     const app = createApp();
     const res = await app.request("/api/spaces/company/mounts", {
@@ -414,7 +412,7 @@ describe("spaces HTTP routes", () => {
       });
     });
 
-    it("refuses a member who is not the space owner or an admin", async () => {
+    it("refuses a member who is not an admin", async () => {
       const app = createApp();
       const res = await app.request("/api/spaces/company/setup/add", {
         ...addBody([

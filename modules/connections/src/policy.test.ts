@@ -69,6 +69,7 @@ function connection(
     external_account: "person@example.com",
     granted_scopes: [],
     id: CONNECTION_ID,
+    owner_user_id: null,
     space_id: SPACE,
     status: "active",
     tenant_id: TENANT,
@@ -83,8 +84,17 @@ function connection(
 function repo(...conns: ConnectionSummary[]): () => ConnectionsRepo {
   const all = conns.length > 0 ? conns : [connection()];
   const stub = {
-    listCandidateConnections: (params: { spaceId: string }) =>
-      Promise.resolve(all.filter((c) => c.space_id === params.spaceId)),
+    listCandidateConnections: (params: {
+      reach: { personalUserId: string | null; spaceId: string | null };
+    }) =>
+      Promise.resolve(
+        all.filter(
+          (c) =>
+            (c.space_id !== null && c.space_id === params.reach.spaceId) ||
+            (c.owner_user_id !== null &&
+              c.owner_user_id === params.reach.personalUserId)
+        )
+      ),
     listPolicyOverrides: () => Promise.resolve([]),
   } as unknown as ConnectionsRepo;
   return () => stub;
@@ -129,6 +139,17 @@ function policyInput(overrides: {
 /** The Space claim check, passing: these tests are about what happens inside a Space. */
 const allowSpace = async () => true;
 
+/** Nobody's own accounts are in reach unless a test says so. */
+const noPersonal = async () => null;
+
+function policyFor(
+  getRepo: () => ConnectionsRepo,
+  mayUseSpace: () => Promise<boolean>,
+  personalReach: () => Promise<string | null> = noPersonal
+) {
+  return createConnectionsProfilePolicy(getRepo, mayUseSpace, personalReach);
+}
+
 describe("connections profile policy — who owns the approval UX", () => {
   beforeEach(() => {
     __resetConnectorRegistryForTests();
@@ -141,7 +162,7 @@ describe("connections profile policy — who owns the approval UX", () => {
   });
 
   it("refuses a Space the call may not use, before reading any account", async () => {
-    const policy = createConnectionsProfilePolicy(repo(), async () => false);
+    const policy = policyFor(repo(), async () => false);
     const decision = await policy(
       policyInput({ callOrigin: "app", principalType: "user" })
     );
@@ -152,7 +173,7 @@ describe("connections profile policy — who owns the approval UX", () => {
   });
 
   it("escalates an App-originated write with the connection it resolved", async () => {
-    const policy = createConnectionsProfilePolicy(repo(), allowSpace);
+    const policy = policyFor(repo(), allowSpace);
     const decision = await policy(
       policyInput({ callOrigin: "app", principalType: "user" })
     );
@@ -181,20 +202,20 @@ describe("connections profile policy — who owns the approval UX", () => {
     // Same user, same write, no app origin: `null` hands the approval card to
     // the AI pre-gate, which IS running in chat. Changing this would put two
     // approval prompts in front of every chat connector call.
-    const policy = createConnectionsProfilePolicy(repo(), allowSpace);
+    const policy = policyFor(repo(), allowSpace);
     const decision = await policy(policyInput({ principalType: "user" }));
 
     expect(decision).toBeNull();
   });
 
   it("still escalates an agent principal", async () => {
-    const policy = createConnectionsProfilePolicy(repo(), allowSpace);
+    const policy = policyFor(repo(), allowSpace);
     const decision = await policy(policyInput({ principalType: "agent" }));
     expect(decision?.action).toBe("require_approval");
   });
 
   it("allows an App-originated read — reads were never the hole", async () => {
-    const policy = createConnectionsProfilePolicy(repo(), allowSpace);
+    const policy = policyFor(repo(), allowSpace);
     const decision = await policy(
       policyInput({
         callOrigin: "app",
@@ -208,7 +229,7 @@ describe("connections profile policy — who owns the approval UX", () => {
     // Treating App calls as autonomous also subjects them to the connection's
     // own autonomous_mode clamp. A connection its owner marked "off" now
     // refuses outright rather than asking.
-    const policy = createConnectionsProfilePolicy(
+    const policy = policyFor(
       repo(connection({ autonomous_mode: "off" })),
       allowSpace
     );
@@ -236,7 +257,7 @@ describe("connections profile policy — who owns the approval UX", () => {
     ];
 
     it("denies a write to a connector the role does not name", async () => {
-      const policy = createConnectionsProfilePolicy(
+      const policy = policyFor(
         repo(connection({ connector_id: "testchat" })),
         allowSpace
       );
@@ -253,7 +274,7 @@ describe("connections profile policy — who owns the approval UX", () => {
     });
 
     it("allows the write to the connector it does name", async () => {
-      const policy = createConnectionsProfilePolicy(repo(), allowSpace);
+      const policy = policyFor(repo(), allowSpace);
       const decision = await policy(
         policyInput({
           capabilities: gmailScoped,
@@ -265,7 +286,7 @@ describe("connections profile policy — who owns the approval UX", () => {
     });
 
     it("does not restrict reads on the unnamed connector", async () => {
-      const policy = createConnectionsProfilePolicy(
+      const policy = policyFor(
         repo(connection({ connector_id: "testchat" })),
         allowSpace
       );
@@ -279,7 +300,7 @@ describe("connections profile policy — who owns the approval UX", () => {
     });
 
     it("leaves an unscoped broad grant able to drive every connector", async () => {
-      const policy = createConnectionsProfilePolicy(
+      const policy = policyFor(
         repo(connection({ connector_id: "testchat" })),
         allowSpace
       );
@@ -295,7 +316,7 @@ describe("connections profile policy — who owns the approval UX", () => {
     it("still denies an App-origin write to an unnamed connector", async () => {
       // The two gates compose: scope refuses first, so CON-01's approval
       // request is never even recorded for a connector the role cannot use.
-      const policy = createConnectionsProfilePolicy(
+      const policy = policyFor(
         repo(connection({ connector_id: "testchat" })),
         allowSpace
       );
@@ -331,10 +352,7 @@ describe("connections profile policy — who owns the approval UX", () => {
     }
 
     it("resolves to the account its own Space owns, not the other Space's", async () => {
-      const policy = createConnectionsProfilePolicy(
-        repo(connection(), accountB),
-        allowSpace
-      );
+      const policy = policyFor(repo(connection(), accountB), allowSpace);
       // Two accounts of the same connector would be ambiguous tenant-wide;
       // each Space sees exactly its own.
       expect(await policy(asAgent(SPACE))).toEqual({
@@ -348,14 +366,14 @@ describe("connections profile policy — who owns the approval UX", () => {
     });
 
     it("does not reach another Space's account", async () => {
-      const policy = createConnectionsProfilePolicy(repo(accountB), allowSpace);
+      const policy = policyFor(repo(accountB), allowSpace);
       const decision = await policy(asAgent(SPACE));
       expect(decision?.action).toBe("deny");
       expect(decision?.reason).toContain("connection_not_connected");
     });
 
     it("denies with connection_not_in_space when the run names no Space", async () => {
-      const policy = createConnectionsProfilePolicy(repo(), allowSpace);
+      const policy = policyFor(repo(), allowSpace);
       for (const principalType of ["user", "service"] as const) {
         const decision = await policy(
           policyInput({
@@ -371,7 +389,7 @@ describe("connections profile policy — who owns the approval UX", () => {
     });
 
     it("clamps an unattended run by the account's autonomous_mode only", async () => {
-      const policy = createConnectionsProfilePolicy(
+      const policy = policyFor(
         repo(connection({ autonomous_mode: "read_only" })),
         allowSpace
       );
@@ -390,7 +408,7 @@ describe("connections profile policy — who owns the approval UX", () => {
     it("does not care who connected the account", async () => {
       // `connected_by` is audit only: a colleague's sign-in serves the whole
       // Space, and a person who connected elsewhere gets nothing here.
-      const policy = createConnectionsProfilePolicy(
+      const policy = policyFor(
         repo(connection({ connected_by: "someone-else" })),
         allowSpace
       );
@@ -399,11 +417,60 @@ describe("connections profile policy — who owns the approval UX", () => {
   });
 
   it("abstains on operations that are not connector actions", async () => {
-    const policy = createConnectionsProfilePolicy(repo(), allowSpace);
+    const policy = policyFor(repo(), allowSpace);
     expect(
       await policy(
         policyInput({ callOrigin: "app", operationId: "tasks_create" })
       )
     ).toBeNull();
+  });
+});
+
+describe("connections profile policy — personal accounts", () => {
+  const annasMail = connection({
+    id: "conn-anna",
+    owner_user_id: USER,
+    space_id: null,
+  });
+
+  beforeEach(() => {
+    __resetConnectorRegistryForTests();
+    registerTestConnector();
+  });
+
+  afterEach(() => {
+    __resetConnectorRegistryForTests();
+  });
+
+  it("lets the owner's live call or Copilot use their own account inside any Space or outside all", async () => {
+    const policy = policyFor(repo(annasMail), allowSpace, async () => USER);
+    for (const spaceId of [
+      SPACE,
+      "00000000-0000-4000-8000-00000000bbbb",
+      null,
+    ]) {
+      const decision = await policy(
+        policyInput({ operationId: "testmail_list_messages", spaceId })
+      );
+      expect(decision?.action).toBe("allow");
+    }
+  });
+
+  it("never gives a personal account to a call without the owner's reach", async () => {
+    // A Space engenty in a live chat forwards the user's token too; its reach
+    // carries no person, so the owner's own account is not a candidate.
+    const policy = policyFor(repo(annasMail), allowSpace, noPersonal);
+    const decision = await policy(
+      policyInput({ operationId: "testmail_list_messages" })
+    );
+    expect(decision?.action).toBe("deny");
+  });
+
+  it("never gives one person's account to another person's Copilot", async () => {
+    const policy = policyFor(repo(annasMail), allowSpace, async () => "u-2");
+    const decision = await policy(
+      policyInput({ operationId: "testmail_list_messages", principalId: "u-2" })
+    );
+    expect(decision?.action).toBe("deny");
   });
 });

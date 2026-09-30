@@ -29,30 +29,26 @@ export type ChatVisibility = "open" | "private" | "protected";
 
 /**
  * Who the Space itself lets in — what "readable by the Space" amounts to.
- * A personal space is one person; a private space is the people added to it;
- * an open space is everyone in the tenant.
+ * A private space is the people added to it; an open space is everyone in
+ * the tenant.
  */
 export interface ChatSpaceAudience {
   /** The people in a private space, when known (the viewer included). */
   peopleCount?: number | null;
-  personal: boolean;
   visibility: "open" | "private";
 }
 
 /**
  * The tier of something the whole Space reads — a desk, or a room open to
  * the Space. In an open Space that is open. In a private one it is as wide
- * as the Space: one person (or a personal space) makes it private, more make
- * it protected. Unknown Space: open, the default.
+ * as the Space: one person makes it private, more make it protected.
+ * Unknown Space: open, the default.
  */
 export function spaceAudienceVisibility(
   space: ChatSpaceAudience | null | undefined
 ): ChatVisibility {
   if (!space || space.visibility === "open") {
     return "open";
-  }
-  if (space.personal) {
-    return "private";
   }
   return typeof space.peopleCount === "number" && space.peopleCount > 1
     ? "protected"

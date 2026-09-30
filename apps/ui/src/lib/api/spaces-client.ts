@@ -39,8 +39,6 @@ export interface Space {
   isDefault: boolean;
   key: string;
   name: string;
-  /** Set ⇒ somebody's personal space (PLAN-spaces.md Phase P). */
-  ownerUserId: string | null;
   /**
    * Whether the company reads this space's `public/` folder. Null follows the
    * visibility — see {@link spacePublishesToCompany}.
@@ -51,26 +49,14 @@ export interface Space {
   visibility: "open" | "private";
 }
 
-/**
- * A space this user owns — their personal one.
- *
- * The list `/api/spaces` returns is already membership-filtered server-side, so
- * at most one space here can be owned by the viewer and the check needs no
- * identity of its own. That is deliberate: the UI never decides who may see a
- * space, it only decides how to group what it was given.
- */
-export function isPersonalSpace(space: Space): boolean {
-  return space.ownerUserId != null;
-}
-
-/** Same rule as core: an open team space publishes unless turned off. */
+/** Same rule as core: an open space publishes unless turned off. */
 export function spacePublishesToCompany(
-  space: Pick<Space, "ownerUserId" | "publishToCompany" | "visibility">
+  space: Pick<Space, "publishToCompany" | "visibility">
 ): boolean {
   if (space.publishToCompany !== null) {
     return space.publishToCompany;
   }
-  return space.visibility === "open" && space.ownerUserId === null;
+  return space.visibility === "open";
 }
 
 export interface SpaceMount {

@@ -464,10 +464,7 @@
       "descriptionPlaceholder": "Wofür dieser Agent da ist…",
       "noConnectors": "Keine Verbindungen.",
       "connect": "Verbinden",
-      "connectTitle": "Erweiterungen",
-      "connectBack": "Zurück",
       "connectDescription": "Verbindungen und Skills für {{name}}.",
-      "connectPlugins": "Verbindungen",
       "connectInstallSkill": "Von skills.sh installieren",
       "filterAll": "Alle",
       "filterAdded": "Hinzugefügt",
@@ -596,6 +593,7 @@
       "emptyStateTitle": "Wie kann ich helfen?",
       "emptyStateSubtitle": "Stelle Fragen, entwirf Inhalte oder lass dir bei der Arbeit im Workspace helfen.",
       "description": "Dein Copilot überall in Engenty. Kurzes erledigt er direkt hier im Chat; was regelmäßig passieren soll, bekommt ein Engenty als Routine, und Arbeit mit Verantwortung wird zur Aufgabe.",
+      "myConnections": "Meine Verbindungen",
       "developer": {
         "heading": "Entwickler",
         "copyJson": "Als JSON kopieren",
@@ -2198,6 +2196,7 @@
       "start": "Starten",
       "stop": "Stoppen",
       "hint": "Starte den angemeldeten Browser dieses Spaces. Jeder Engenty hier arbeitet in seinem eigenen Fenster; Anmeldungen sind geteilt. Du kannst jederzeit übernehmen.",
+      "noSpace": "Der Browser gehört zu einem Space. Öffne einen Space, um ihn hier zu nutzen.",
       "startFailed": "Browser konnte nicht gestartet werden.",
       "toggle": "Browser zeigen",
       "state": {

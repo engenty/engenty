@@ -1,25 +1,17 @@
 {
   "menu": {
-    "connections": "Verbindungen"
+    "connections": "Meine Verbindungen"
   },
   "breadcrumb": {
-    "settings": "Einstellungen",
-    "connections": "Verbindungen"
+    "settings": "Einstellungen"
   },
   "catalog": {
     "needsSetup": "Einrichtung nötig",
     "needsSetupAdmin": "Einrichten →",
-    "needsSetupMember": "Bitte jemanden mit Adminrechten um die Einrichtung",
-    "connected": "Verbunden",
     "connectedAs": "Verbunden als {{account}}",
-    "notConnected": "Nicht verbunden",
-    "manage": "Verwalten",
     "connect": "Verbinden",
     "addAccount": "Konto hinzufügen",
-    "connecting": "Verbinde…",
-    "empty": "Keine Konnektoren verfügbar",
-    "emptyDescription": "Installieren Sie ein Konnektor-Modul (Google, Microsoft, Slack, …), um externe Dienste zu verbinden.",
-    "spaceHint": "Konten von {{name}}. Alle Agenten und Mitglieder dieses Space nutzen sie."
+    "connecting": "Verbinde…"
   },
   "toasts": {
     "connected": "Verbindung hergestellt.",
@@ -38,14 +30,13 @@
   },
   "chatCard": {
     "connected": "Verbunden",
-    "connectPrompt": "Verbinden Sie Ihr Konto, um fortzufahren",
+    "connectPrompt": "Verbinde dein Konto, um fortzufahren",
     "connectFailed": "Verbinden fehlgeschlagen — bitte erneut versuchen",
-    "notConfigured": "Noch nicht verfügbar — ein Admin muss die Zugangsdaten dieses Konnektors unter Setup → Plattformeinstellungen hinterlegen",
+    "notConfigured": "Noch nicht verfügbar — der Organisation fehlen die Zugangsdaten für diesen Konnektor",
     "connectedContinue": "Ich habe {{name}} verbunden — bitte fahre fort.",
-    "connectedAutonomyHint": "Im Chat sofort nutzbar. Für Hintergrund-Synchronisierung und geplante Läufe aktivieren Sie die autonome Nutzung unter Einstellungen → Verbindungen."
-  },
-  "connectComplete": {
-    "closing": "Wird abgeschlossen — Sie können dieses Fenster schließen."
+    "connectedAutonomyHint": "Im Chat sofort nutzbar. Für Hintergrund-Synchronisierung und geplante Läufe schalte die autonome Nutzung am Konto unter „Verwalten“ ein.",
+    "ownerMe": "Nur für dich — dein Copilot nutzt es in jedem Space",
+    "ownerSpace": "Für Space {{name}} — Mitglieder und Engenties dort nutzen es"
   },
   "status": {
     "active": "Verbunden",
@@ -111,6 +102,7 @@
       "space": "Space",
       "status": "Status"
     },
+    "personalAccount": "Persönliches Konto",
     "approvalsTitle": "Ausstehende Freigaben",
     "approvalsDescription": "Anfragen aus autonomen Läufen, die auf eine \"Zuerst fragen\"-Berechtigung gestoßen sind.",
     "approvalsEmpty": "Keine ausstehenden Anfragen",
@@ -131,7 +123,7 @@
   },
   "marketplace": {
     "title": "Verbindungen",
-    "hintSpace": "Plugins und Konten Ihres persönlichen Space. Der Copilot nutzt diese.",
+    "hintOwn": "Deine eigenen Konten — deine Mails, dein Kalender. Nur du und dein Copilot nutzt sie, in jedem Space. Daraus wird nichts synchronisiert.",
     "hintNamedSpace": "Plugins und Konten von {{name}}. Alle Agenten und Mitglieder dieses Space nutzen sie.",
     "search": "Verbindungen suchen",
     "searchCatalog": "integrations.sh durchsuchen",
@@ -150,11 +142,9 @@
     "authenticate": "Authentifizieren",
     "addAccount": "Weiteres Konto hinzufügen",
     "defaultAccount": "default",
-    "sectionApps": "Apps {{count}}",
     "sectionIntegrations": "Integrationen {{count}}",
     "sectionSignIn": "Anmeldung",
     "getToken": "Token holen",
-    "connector": "Connector",
     "sectionConnections": "Verbindungen {{count}}",
     "sectionInfo": "Informationen",
     "infoKind": "Kategorie",
@@ -175,7 +165,6 @@
     "uninstallTitle": "“{{name}}” deinstallieren?",
     "uninstallDescription": "Entfernt diese Mandanten-Installation. Eingebaute Plugins können nicht deinstalliert werden. Bestehende Konten dazu funktionieren nicht mehr.",
     "removeFromSpace": "Aus diesem Space entfernen",
-    "usedThisSpace": "Dieser Space",
     "registry": "Integrationskatalog",
     "catalogEmpty": "Nichts im Integrationskatalog passt dazu.",
     "needsAuthToAdd": "Dieser Server braucht eine Anmeldung, bevor er hinzugefügt werden kann.",
@@ -195,13 +184,10 @@
     "noMatches": "Keine passenden Verbindungen.",
     "searchInMarketplace": "Im Marketplace suchen",
     "loading": "Verbindungen werden geladen…",
-    "close": "Schließen",
     "open": "Verbindungen hinzufügen",
     "subsetLabel": "Plugins dieses Agenten",
-    "subsetHint": "Leer bedeutet jedes im Space aktivierte Plugin plus die persönlichen Konten dieses Agenten. Eine nicht-leere Liste ist die Teilmenge, die er wirklich nutzt.",
-    "subsetAll": "Alle im Space aktivierten Plugins",
-    "spaceAccounts": "Konten in diesem Space",
-    "noSpace": "Kein Space zum Verbinden. Öffnen Sie einen Space und verbinden Sie dort."
+    "subsetHint": "Leer bedeutet jedes im Space aktivierte Plugin. Eine nicht-leere Liste ist die Teilmenge, die er wirklich nutzt.",
+    "subsetAll": "Alle im Space aktivierten Plugins"
   },
   "credentials": {
     "description": "Zugangsdaten für diesen Dienst eingeben. Sie werden verschlüsselt gespeichert und nie wieder angezeigt.",
@@ -214,5 +200,50 @@
     "enableReadOnly": "Nur Lesen erlauben",
     "enableFull": "Alle Aktionen erlauben",
     "askOwner": "Bitten Sie die Besitzerin oder den Besitzer der Verbindung, die autonome Nutzung zu aktivieren."
+  },
+  "extensions": {
+    "titleSpace": "Erweiterungen",
+    "titleMine": "Meine Verbindungen",
+    "tabConnections": "Verbindungen",
+    "tabSkills": "Skills",
+    "back": "Zurück"
+  },
+  "sheet": {
+    "accounts": "Konten",
+    "forSpace": "Für Space {{name}} — alle Mitglieder und Engenties dort nutzen es",
+    "forMe": "Nur für dich — du und dein Copilot nutzt es, in jedem Space",
+    "ownerSpace": "Space {{name}}",
+    "ownerSpaceUnknown": "ein Space",
+    "ownerMine": "Nur ich",
+    "manage": "Verwalten",
+    "details": "Details",
+    "hide": "Schließen",
+    "credentials": "Zugangsdaten",
+    "credentialsReady": "Hinterlegt",
+    "credentialsMissing": "Fehlen",
+    "credentialsNone": "Nicht nötig",
+    "setCredentials": "Zugangsdaten hinterlegen",
+    "editCredentials": "Zugangsdaten bearbeiten",
+    "credentialsTitle": "Zugangsdaten für {{name}}",
+    "credentialsHint": "Der OAuth-Client, den diese Organisation für {{name}} nutzt. Ein leeres Feld übernimmt den Plattform-Standard.",
+    "credentialsPlatform": "Standardwerte für alle Organisationen dieser Installation:",
+    "credentialsPlatformLink": "Plattform-Einstellungen",
+    "askAdmin": "Admin fragen",
+    "askedAdmin": "Admins benachrichtigt",
+    "askAdminFailed": "Admins konnten nicht benachrichtigt werden: {{error}}",
+    "usageSpaces": "Spaces mit Konto",
+    "usagePersons": "Personen mit eigenem Konto"
+  },
+  "mine": {
+    "emptyTitle": "Noch keine eigenen Konten",
+    "emptyDescription": "Verbinde deine Mail oder deinen Kalender. Nur du und dein Copilot nutzt sie.",
+    "connect": "Konto verbinden"
+  },
+  "catalogPage": {
+    "title": "Verbindungen",
+    "description": "Die Dienste, die diese Organisation anbietet, und ihre OAuth-Clients. Nur Anzahlen: persönliche Konten bleiben privat.",
+    "colService": "Dienst",
+    "colSpaces": "Spaces",
+    "colPersons": "Personen"
   }
 }

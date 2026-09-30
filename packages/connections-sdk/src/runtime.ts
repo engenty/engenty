@@ -12,6 +12,7 @@ import { createConnectorClientEnv } from "./client-env-resolver.js";
 import { executeConnectorAction } from "./execute.js";
 import { filesCapabilityActions } from "./files-capability.js";
 import type { ClientEnvResolver } from "./oauth2.js";
+import { resolvePersonalReach } from "./personal-reach.js";
 import {
   getConnectorDefinition,
   registerConnectorDefinition,
@@ -109,7 +110,7 @@ function buildActionOperation(params: {
       // Defense in depth: the connections profile policy is the authoritative
       // gate (with full principal context); the executor re-checks with the
       // narrower gateway auth so a route that skipped policy still cannot
-      // execute a denied action — including an account outside the run's Space.
+      // execute a denied action — including an account outside the run's reach.
       const claimedSpaceId = auth.spaceId?.trim() || null;
       const spaceId =
         claimedSpaceId &&
@@ -124,6 +125,7 @@ function buildActionOperation(params: {
         }))
           ? claimedSpaceId
           : null;
+      const personalUserId = await resolvePersonalReach(getDb(auth), auth);
       const liveConnector =
         getConnectorDefinition(connector.id, auth.tenantId) ?? connector;
       const liveAction =
@@ -135,7 +137,7 @@ function buildActionOperation(params: {
         input: actionInput,
         isAutonomous: false,
         log: (msg, data) => ctx.logger.info(msg, data ?? {}),
-        spaceId,
+        reach: { personalUserId, spaceId },
         principal: {
           // Carried so the executor can re-check the per-connector scope
           // (CON-02) rather than trusting that policy already ran.

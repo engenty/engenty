@@ -39,6 +39,7 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useSpaceAgentNames } from "@/lib/space-agent-folder-names";
+import { useSpaceDataRoots } from "@/lib/space-drive-queries";
 
 export const NO_BREADCRUMBS: PageBreadcrumb[] = [];
 
@@ -205,11 +206,22 @@ export function PaneChrome({
  * Labels, not links: a data path addresses a node in the tree, not a route, and
  * a breadcrumb that navigates nowhere is better than one that 404s.
  */
-export function useNodeBreadcrumbs(path: string): PageBreadcrumb[] {
+export function useNodeBreadcrumbs(
+  spaceId: string,
+  path: string
+): PageBreadcrumb[] {
   const { t } = useTranslation("common");
+  const root = path.split("/")[0] ?? "";
   // An agent's folder sits in Dateien under the agent's name, as in the tree.
-  const inAgents = path.split("/")[0] === SPACE_AGENTS_DATA_ROOT;
+  const inAgents = root === SPACE_AGENTS_DATA_ROOT;
   const agentName = useSpaceAgentNames(inAgents);
+  // The Files module's root reads Dateien, as its tree heading does.
+  const roots = useSpaceDataRoots(spaceId);
+  const inFiles = Boolean(
+    roots.data?.some(
+      (entry) => entry.root === root && entry.moduleId === "files"
+    )
+  );
   const filesLabel = t("spaces.data.filesSection", { defaultValue: "Files" });
   return useMemo(
     () =>
@@ -217,7 +229,7 @@ export function useNodeBreadcrumbs(path: string): PageBreadcrumb[] {
         .split("/")
         .filter(Boolean)
         .map((segment, index) => {
-          if (inAgents && index === 0) {
+          if ((inAgents || inFiles) && index === 0) {
             return { label: filesLabel };
           }
           if (inAgents && index === 1) {
@@ -229,6 +241,6 @@ export function useNodeBreadcrumbs(path: string): PageBreadcrumb[] {
           // whole bar on the half nobody reads.
           return { label: spaceDataSegmentLabel(segment) };
         }),
-    [agentName, filesLabel, inAgents, path]
+    [agentName, filesLabel, inAgents, inFiles, path]
   );
 }

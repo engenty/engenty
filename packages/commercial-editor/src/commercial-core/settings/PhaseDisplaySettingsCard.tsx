@@ -7,6 +7,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SettingsCardSeparator,
   Switch,
   Tooltip,
   TooltipContent,
@@ -20,7 +21,6 @@ import {
   getTaxRateOptionLabel,
   type TaxRate,
 } from "../../types";
-import { SettingsCardSeparator } from "../shared/settings/SettingsCard";
 import { formatPhaseIndex } from "../utils/formatPhaseIndex";
 
 export interface PhaseDisplaySettings {

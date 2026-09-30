@@ -115,15 +115,6 @@ export function AuthLoginLayout({
                 </p>
                 <div className="space-y-0.5">
                   <p style={{ fontSize: 13, color: BRAND_MUTED }}>
-                    {t.tagline}
-                  </p>
-                  <p
-                    style={{
-                      fontSize: 12,
-                      color: BRAND_SOFT,
-                      lineHeight: 1.35,
-                    }}
-                  >
                     {t.taglineLead}
                   </p>
                   <p

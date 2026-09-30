@@ -55,7 +55,9 @@ export const projectSchema = z.object({
   portal_intro_text: z.string().nullable(),
   visibility: z.enum(["tenant", "members"]).default("tenant"),
   timeplan_enabled: z.boolean().default(false),
+  // Stored in `project_kv`, not columns (see dal/project-kv.ts).
   cover: coverSchema.nullable().optional(),
+  subtitle: z.string().max(300).nullable().optional(),
   enabled_tabs: z.array(z.string()).nullable().optional(),
   created_by: z.string().uuid().nullable(),
   created_at: z.string(),
@@ -253,3 +255,47 @@ export const projectTaskCountsByStatusSchema = z.record(
   z.string(),
   z.number().int().nonnegative()
 );
+
+/**
+ * Project KV (`module_projects.project_kv`): the typed-value shape of
+ * core.tenant_settings / core.user_settings, one set per project.
+ */
+const projectKvTypeSchema = z.enum(["string", "numeric", "boolean", "json"]);
+
+export const projectKvEntrySchema = z.object({
+  name: z.string(),
+  type: projectKvTypeSchema,
+  value: z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.record(z.string(), z.unknown()),
+    z.null(),
+  ]),
+});
+
+export const projectKvListResponseSchema = z.object({
+  settings: z.array(projectKvEntrySchema),
+});
+
+export const projectKvSetRequestSchema = z
+  .object({
+    type: projectKvTypeSchema,
+    value_string: z.string().nullable().optional(),
+    value_jsonb: z.unknown().optional(),
+    value_numeric: z.number().nullable().optional(),
+    value_boolean: z.boolean().nullable().optional(),
+  })
+  .refine(
+    (data) =>
+      ({
+        string: data.value_string,
+        numeric: data.value_numeric,
+        boolean: data.value_boolean,
+        json: data.value_jsonb,
+      })[data.type] !== undefined,
+    {
+      message:
+        "Value must match type (value_string for string, value_numeric for numeric, etc.)",
+    }
+  );

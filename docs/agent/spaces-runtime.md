@@ -47,16 +47,18 @@ and read-only refusals as final rather than retrying around the boundary.
   `mayUseSpaceInRun` (`packages/connections-sdk/src/space-mounts.ts`): a
   person must be able to enter the Space; an agent or service principal may
   use an open Space, or the Space of its own routine or task. `ask` actions
-  on a Space's account are decided by that Space's owners (personal Space
-  owner, or a `space_member` with role `owner`) or a tenant admin
-  (`core.users.manage`) — the approval context carries `space_id`.
-- **Personal:** personal memory/home data. The **personal Space** (`/s/me`:
-  private, owner-only, no members) holds the copilot's connections wherever it
-  is opened (`RunSpace.resourceSpaceId`). Everything else — its computer and
-  browser, apps, hiring, routines, the agent roster — is the Space the person
-  stands in (route context), or `/s/me` outside any Space (`resolveRunSpace`).
-  Connector and connections calls name the resource Space to core
-  (`callSpaceIdFor`).
+  on a Space's account are decided by that Space's owners (a `space_member`
+  with role `owner`) or a tenant admin (`core.users.manage`) — the approval
+  context carries `space_id`.
+- **Personal:** personal memory/home data, and a person's own accounts
+  (`connections.owner_user_id`, PLAN-personal-connections.md). A personal
+  account serves its owner and their Copilot, live, in any Space — never a
+  Space's engenties, and nothing is synced from it (`resolvePersonalReach`,
+  `isAccountReachableInRun`). There is no personal Space: private work is an
+  ordinary Space with one member. The Copilot runs in the Space the person
+  stands in (route context) — its computer, browser, apps, hiring, routines —
+  and outside every Space `global`, with no computer or browser
+  (`resolveRunSpace`).
 - **Platform:** operations that are intentionally outside tenant record data.
 
 Mount availability and record scope are separate decisions: mounting determines

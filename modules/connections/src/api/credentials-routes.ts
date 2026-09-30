@@ -1,6 +1,7 @@
 import {
   type ConnectionsRepo,
   getConnectorDefinition,
+  resolveConnectOwner,
 } from "@engenty/connections-sdk";
 import { actorUserIdFromAuth, type PluginServerApi } from "@engenty/plugin-sdk";
 import { z } from "zod";
@@ -9,8 +10,10 @@ import type { ConnectionsOAuthRouteOptions } from "./oauth-routes.js";
 
 const connectBody = z.object({
   credentials: z.record(z.string(), z.string()),
+  /** `"me"`: a personal account of the caller, instead of a Space's. */
+  owner: z.literal("me").optional(),
   /** The Space the account will belong to. Checked in the handler, so a
-   * missing one answers `connections.spaceRequired` rather than a schema
+   * missing owner answers `connections.ownerRequired` rather than a schema
    * error. */
   space_id: z.string().uuid().optional(),
 });
@@ -61,19 +64,18 @@ export function registerConnectionsCredentialsRoutes(
         );
       }
       const body = ctx.body as z.infer<typeof connectBody>;
-      const spaceId = body.space_id;
-      if (!spaceId) {
-        return hono.json({ error: "connections.spaceRequired" }, 400);
+      const caller = { ...ctx.auth, principalId: connectedBy };
+      const resolved = await resolveConnectOwner({
+        auth: caller,
+        mayEnterSpace: (spaceId) =>
+          mayEnterSpace(resolveSpaceAccess, caller, spaceId),
+        owner: body.owner,
+        spaceId: body.space_id,
+      });
+      if ("error" in resolved) {
+        return hono.json({ error: resolved.error }, resolved.status);
       }
-      if (
-        !(await mayEnterSpace(
-          resolveSpaceAccess,
-          { ...ctx.auth, principalId: connectedBy },
-          spaceId
-        ))
-      ) {
-        return hono.json({ error: "space_not_found" }, 404);
-      }
+      const { owner } = resolved;
       const missing = connector.auth.apiKey.fields
         .filter((field) => field.required !== false)
         .filter((field) => !body.credentials[field.key]?.trim())
@@ -111,24 +113,27 @@ export function registerConnectionsCredentialsRoutes(
         expiresAt: null,
         externalAccount: account.label,
         grantedScopes: [],
+        owner,
         refreshToken: null,
-        spaceId,
         tenantId: ctx.auth.tenantId,
       });
       ctx.recordAuditEvent?.({
         detail: {
           connection_id: connection.id,
           connector: connector.id,
-          space_id: spaceId,
+          personal: "userId" in owner,
+          space_id: connection.space_id,
         },
         type: "connection.connected",
       });
       try {
-        await options.onConnected?.({
-          connectorId: connector.id,
-          spaceId,
-          tenantId: ctx.auth.tenantId,
-        });
+        if ("spaceId" in owner) {
+          await options.onConnected?.({
+            connectorId: connector.id,
+            spaceId: owner.spaceId,
+            tenantId: ctx.auth.tenantId,
+          });
+        }
       } catch {
         // Connection stored; the event hook must not fail the response.
       }

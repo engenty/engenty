@@ -55,7 +55,6 @@ export interface EngentySpace {
   isDefault?: boolean;
   key: string;
   name: string;
-  ownerUserId?: string | null;
 }
 
 /**
@@ -767,8 +766,8 @@ export class EngentyCoreClient {
           ...(options?.origin
             ? { "x-engenty-call-origin": options.origin }
             : {}),
-          // One call in another Space than the client's: a connector call of
-          // a run whose connections live elsewhere (`callSpaceIdFor`).
+          // The Space this one call names, when the client has none of its
+          // own (`callSpaceIdFor`).
           ...(options?.spaceId
             ? { "x-engenty-space-id": options.spaceId }
             : {}),

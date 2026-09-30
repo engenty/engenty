@@ -10,12 +10,14 @@
  *
  * What is rendered, and from which manifest field:
  * - two groups, **Core** and **Commercial**, by `category`;
+ * - a module with providers (`modules/<id>/providers/*`) gets its own section
+ *   instead, the providers as sub-module rows under it;
  * - inside a group, a module that exists for other modules — `placement:
  *   "settings"` and it `requires` a listed module, or a listed space module
  *   `requires` it — is a sub-module row under the same table, naming what it
  *   extends or serves;
  * - `emoji` sits before the name; a `stage` of `dev` or `alpha` leaves the
- *   module out (what a normal install shows: `beta` and `stable`).
+ *   module or provider out (what a normal install shows: `beta` and `stable`).
  *
  * `--root` renders another workspace's README — the open-source snapshot
  * publishes a tree with fewer modules, and pro's table would advertise the
@@ -42,15 +44,16 @@ const active = new Set(
   )
 );
 
+const isListed = (manifest) =>
+  active.has(manifest.id) &&
+  manifest.stage !== "dev" &&
+  manifest.stage !== "alpha";
+
 const modules = [];
 const providersByParent = new Map();
 for await (const rel of glob("modules/*/engenty.plugin.json", { cwd: root })) {
   const manifest = JSON.parse(readFileSync(join(root, rel), "utf8"));
-  if (
-    active.has(manifest.id) &&
-    manifest.stage !== "dev" &&
-    manifest.stage !== "alpha"
-  ) {
+  if (isListed(manifest)) {
     modules.push(manifest);
   }
 }
@@ -58,7 +61,7 @@ for await (const rel of glob("modules/*/providers/*/engenty.plugin.json", {
   cwd: root,
 })) {
   const manifest = JSON.parse(readFileSync(join(root, rel), "utf8"));
-  if (!active.has(manifest.id)) {
+  if (!isListed(manifest)) {
     continue;
   }
   const parent = rel.split("/")[1];
@@ -100,15 +103,27 @@ function subModuleRelation(manifest) {
 const withEmoji = (manifest, label) =>
   manifest.emoji ? `${manifest.emoji} ${label}` : label;
 
+const hasProviders = (manifest) => providersByParent.has(manifest.id);
+
 const GROUPS = [
   {
     title: "Core",
-    matches: (manifest) => manifest.category !== "commercial",
+    matches: (manifest) =>
+      manifest.category !== "commercial" && !hasProviders(manifest),
   },
   {
     title: "Commercial",
-    matches: (manifest) => manifest.category === "commercial",
+    matches: (manifest) =>
+      manifest.category === "commercial" && !hasProviders(manifest),
   },
+];
+
+const tableHead = (title) => [
+  "",
+  `### ${title}`,
+  "",
+  "| Module | What it does |",
+  "|--------|--------------|",
 ];
 
 const lines = [];
@@ -119,13 +134,7 @@ for (const group of GROUPS) {
   }
   const main = members.filter((m) => !subModuleRelation(m));
   const subs = members.filter((m) => subModuleRelation(m));
-  lines.push(
-    "",
-    `### ${group.title}`,
-    "",
-    "| Module | What it does |",
-    "|--------|--------------|"
-  );
+  lines.push(...tableHead(group.title));
   for (const manifest of main) {
     lines.push(
       `| ${withEmoji(manifest, `**${manifest.name}**`)} | ${manifest.description} |`
@@ -140,16 +149,17 @@ for (const group of GROUPS) {
   }
 }
 // A provider's name carries its parent as a prefix ("Connections — GitHub");
-// under the parent's own heading that prefix is noise.
-for (const [parent, providers] of [...providersByParent].sort()) {
-  const parentManifest = byId.get(parent);
-  if (!parentManifest) {
-    continue;
+// under the parent's own section that prefix is noise.
+for (const parent of modules.filter(hasProviders).sort(byName)) {
+  lines.push(...tableHead(parent.name));
+  lines.push(
+    `| ${withEmoji(parent, `**${parent.name}**`)} | ${parent.description} |`
+  );
+  for (const provider of [...providersByParent.get(parent.id)].sort(byName)) {
+    lines.push(
+      `| ↳ ${provider.name.replace(/^.*—\s*/, "")} | ${provider.description} |`
+    );
   }
-  const names = [...providers]
-    .sort(byName)
-    .map((p) => p.name.replace(/^.*—\s*/, ""));
-  lines.push("", `**${parentManifest.name}** providers: ${names.join(", ")}.`);
 }
 
 const readmePath = join(root, "README.md");

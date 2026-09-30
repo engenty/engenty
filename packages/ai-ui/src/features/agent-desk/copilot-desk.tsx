@@ -273,8 +273,9 @@ export function CopilotDesk(props: {
       }
       background="card"
       breadcrumbs={breadcrumbs}
-      // The copilot works out of the personal Space, wherever it is opened.
-      browserTarget={{ agentId: agent.id, spaceId: null }}
+      // The copilot uses the browser of the Space it is opened in; none on
+      // `/copilot`.
+      browserTarget={{ agentId: agent.id, spaceId: space?.id ?? null }}
       canEditPads
       canManage={false}
       chapterCard={<ThreadChapterCard threadId={river.threadId} />}

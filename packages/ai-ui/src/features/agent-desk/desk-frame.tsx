@@ -97,7 +97,7 @@ export interface DeskFrameProps {
   breadcrumbs: PageBreadcrumb[];
   /**
    * The browser the monitor pane shows: this desk's agent's window in its
-   * Space's browser (the copilot's: the personal Space's).
+   * Space's browser (the copilot's: the Space it is opened in).
    */
   browserTarget: BrowserTarget;
   canEditPads: boolean;

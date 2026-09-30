@@ -28,7 +28,6 @@ interface Row {
   is_default: boolean;
   key: string;
   name: string;
-  owner_user_id: string | null;
   purge_after: string | null;
   tenant_id: string;
   visibility: string;
@@ -42,7 +41,6 @@ function row(partial: Partial<Row> & { id: string; key: string }): Row {
     icon: null,
     is_default: false,
     name: partial.key,
-    owner_user_id: null,
     purge_after: null,
     tenant_id: TENANT,
     visibility: "open",
@@ -52,47 +50,49 @@ function row(partial: Partial<Row> & { id: string; key: string }): Row {
 
 const COMPANY = row({ id: "s-company", is_default: true, key: "company" });
 const MARKETING = row({ id: "s-marketing", key: "marketing" });
-const ALICE_PERSONAL = row({
+/** Alice's private work: a private space with her as its only member. */
+const ALICE_PRIVATE = row({
   id: "s-alice",
   key: "alice",
-  owner_user_id: ALICE,
   visibility: "private",
 });
-const BOB_PERSONAL = row({
-  id: "s-bob",
-  key: "bob",
-  owner_user_id: BOB,
-  visibility: "private",
-});
-/** A private space with no owner — a shared project room, or an orphan. */
+const BOB_PRIVATE = row({ id: "s-bob", key: "bob", visibility: "private" });
+/** A private space — a shared project room, or an orphan. */
 const VAULT = row({ id: "s-vault", key: "vault", visibility: "private" });
 /** UUID-shaped ids, so the `id` lookup branch is reachable in tests. */
 const UUID_SPACE = row({
   id: "cccccccc-cccc-cccc-cccc-cccccccccccc",
   key: "uuid-room",
 });
-const UUID_PERSONAL = row({
+const UUID_PRIVATE = row({
   id: "dddddddd-dddd-dddd-dddd-dddddddddddd",
-  key: "uuid-personal",
-  owner_user_id: ALICE,
+  key: "uuid-private",
   visibility: "private",
 });
 
 const ALL = [
   COMPANY,
   MARKETING,
-  ALICE_PERSONAL,
-  BOB_PERSONAL,
+  ALICE_PRIVATE,
+  BOB_PRIVATE,
   VAULT,
   UUID_SPACE,
-  UUID_PERSONAL,
+  UUID_PRIVATE,
+];
+
+/** Alice is the only member of her private spaces. */
+const ALICE_SEATS = [
+  { role: "owner", spaceId: "s-alice", userId: ALICE },
+  { role: "owner", spaceId: UUID_PRIVATE.id, userId: ALICE },
 ];
 
 /**
  * Enough of the PostgREST builder to answer the two queries this module makes.
  * `memberships` is the source of truth the stub filters on.
  */
-function stubClient(memberships: Array<{ spaceId: string; userId: string }>) {
+function stubClient(
+  memberships: Array<{ role?: string; spaceId: string; userId: string }>
+) {
   function spacesQuery(filters: Record<string, string>) {
     const builder = {
       eq(column: string, value: string) {
@@ -147,7 +147,8 @@ function stubClient(memberships: Array<{ spaceId: string; userId: string }>) {
         .filter(
           (m) =>
             (!filters.user_id || m.userId === filters.user_id) &&
-            (!filters.space_id || m.spaceId === filters.space_id)
+            (!filters.space_id || m.spaceId === filters.space_id) &&
+            (!filters.role || (m.role ?? "member") === filters.role)
         )
         .map((m) => ({ space_id: m.spaceId, user_id: m.userId }));
     const builder = {
@@ -184,15 +185,15 @@ function stubClient(memberships: Array<{ spaceId: string; userId: string }>) {
 }
 
 describe("listAccessibleSpaces", () => {
-  it("gives a member the open spaces plus their own personal space", async () => {
-    const client = stubClient([{ spaceId: "s-alice", userId: ALICE }]);
+  it("gives a member the open spaces plus the private ones they are in", async () => {
+    const client = stubClient(ALICE_SEATS);
     const spaces = await listAccessibleSpaces(client, TENANT, ALICE);
     expect(spaces.map((space) => space.key)).toEqual([
       "company",
       "marketing",
       "alice",
       "uuid-room",
-      "uuid-personal",
+      "uuid-private",
     ]);
   });
 
@@ -215,17 +216,17 @@ describe("findAccessibleSpace", () => {
     expect(space?.id).toBe("s-marketing");
   });
 
-  it("resolves a personal space by key for its owner", async () => {
-    const client = stubClient([{ spaceId: "s-alice", userId: ALICE }]);
+  it("resolves a private space by key for its member", async () => {
+    const client = stubClient(ALICE_SEATS);
     expect(
       (await findAccessibleSpace(client, TENANT, ALICE, "alice"))?.id
     ).toBe("s-alice");
   });
 
-  it("returns null — not the row — for somebody else's personal space", async () => {
+  it("returns null — not the row — for a private space they are not in", async () => {
     // Callers turn this into 404. A 403 would confirm the space exists, and a
-    // personal space's key is a person's name.
-    const client = stubClient([{ spaceId: "s-alice", userId: ALICE }]);
+    // private space's key is often a person's or a client's name.
+    const client = stubClient(ALICE_SEATS);
     expect(await findAccessibleSpace(client, TENANT, BOB, "alice")).toBeNull();
   });
 
@@ -245,7 +246,12 @@ describe("findAccessibleSpace", () => {
     // The id branch is the one an API client uses directly — if only the key
     // branch were filtered, every guarded route would be bypassable by id.
     expect(
-      await findAccessibleSpace(stubClient([]), TENANT, BOB, UUID_PERSONAL.id)
+      await findAccessibleSpace(
+        stubClient(ALICE_SEATS),
+        TENANT,
+        BOB,
+        UUID_PRIVATE.id
+      )
     ).toBeNull();
   });
 });
@@ -265,13 +271,12 @@ describe("canAccessSpace", () => {
     isDefault: source.is_default,
     key: source.key,
     name: source.name,
-    ownerUserId: source.owner_user_id,
     purgeAfter: source.purge_after,
     tenantId: source.tenant_id,
     visibility: source.visibility === "private" ? "private" : "open",
   });
 
-  it("lets an invited member into a private space with no owner", async () => {
+  it("lets an invited member into a private space", async () => {
     const client = stubClient([{ spaceId: "s-vault", userId: BOB }]);
     expect(await canAccessSpace(client, TENANT, BOB, asSpace(VAULT))).toBe(
       true
@@ -279,8 +284,8 @@ describe("canAccessSpace", () => {
   });
 
   it("keeps everyone out of an orphaned private space", async () => {
-    // Owner left the tenant: owner nulled, memberships dropped. Unreachable until
-    // a superadmin claims it, which is an audited action.
+    // Its last member left the tenant, taking their seat with them.
+    // Unreachable until a superadmin claims it, which is an audited action.
     expect(
       await canAccessSpace(stubClient([]), TENANT, ALICE, asSpace(VAULT))
     ).toBe(false);
@@ -288,12 +293,12 @@ describe("canAccessSpace", () => {
 });
 
 describe("isSpaceOwner", () => {
-  it("names the personal space's owner, and nobody else", async () => {
-    expect(await isSpaceOwner(stubClient([]), TENANT, "s-alice", ALICE)).toBe(
-      true
-    );
-    expect(await isSpaceOwner(stubClient([]), TENANT, "s-alice", BOB)).toBe(
-      false
-    );
+  it("names the owner member, and not a plain member", async () => {
+    const client = stubClient([
+      ...ALICE_SEATS,
+      { role: "member", spaceId: "s-alice", userId: BOB },
+    ]);
+    expect(await isSpaceOwner(client, TENANT, "s-alice", ALICE)).toBe(true);
+    expect(await isSpaceOwner(client, TENANT, "s-alice", BOB)).toBe(false);
   });
 });

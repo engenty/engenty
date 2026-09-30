@@ -3,12 +3,12 @@ import { Spinner } from "@engenty/ui-core";
 import { useWorkspaceContext } from "@engenty/ui-plugin-sdk";
 import { useMemo, useState } from "react";
 import {
-  useConnectionSpacesQuery,
-  useConnectSpaceId,
-} from "../../hooks/use-connection-space.js";
+  type ConnectionsOwner,
+  ownerTarget,
+} from "../../lib/connection-space.js";
+import { ConnectorSheet } from "../connector-sheet.js";
 import { MarketplaceBrowse } from "./marketplace-browse.js";
 import { MarketplaceCatalogDetail } from "./marketplace-catalog-detail.js";
-import { MarketplaceDetail } from "./marketplace-detail.js";
 import {
   EXECUTOR_DETAILS_ID,
   MarketplaceExecutor,
@@ -33,8 +33,11 @@ export interface PluginMarketplaceProps {
   detailsId?: string | null;
   enabled?: boolean;
   onDetailsIdChange?: (id: string | null) => void;
-  /** The Space whose accounts and plugins to show; absent = personal Space. */
-  spaceId?: string | null;
+  /**
+   * Whose accounts and plugins to show: a Space's, or the viewer's own
+   * (Copilot, personal settings), which need no plugin enabled.
+   */
+  owner: ConnectionsOwner;
 }
 
 export function PluginMarketplace({
@@ -42,11 +45,15 @@ export function PluginMarketplace({
   detailsId: detailsIdProp,
   enabled = true,
   onDetailsIdChange,
-  spaceId = null,
+  owner,
 }: PluginMarketplaceProps) {
   const { t } = useTranslation("connections");
   const { isSuperAdmin, isTenantAdmin } = useWorkspaceContext();
   const canImport = isSuperAdmin || isTenantAdmin;
+  // Enabling a plugin on a Space is a tenant-admin change (core's mounts
+  // route); any member who can enter the Space may still connect an account.
+  const spaceId = ownerTarget(owner);
+  const canMount = canImport && spaceId != null;
   const [query, setQuery] = useState("");
   const [localDetailsId, setLocalDetailsId] = useState<string | null>(null);
   const detailsId = onDetailsIdChange
@@ -60,15 +67,9 @@ export function PluginMarketplace({
     setLocalDetailsId(id);
   };
   // A Space's accounts are what its agents use; outside a Space (Copilot,
-  // personal places) that is the viewer's personal Space.
-  const targetSpaceId = useConnectSpaceId(spaceId);
-  const spacesQuery = useConnectionSpacesQuery();
-  const data = useMarketplaceData({
-    agentId,
-    enabled,
-    spaceId: targetSpaceId,
-  });
-  const actions = useMarketplaceActions({ agentId, spaceId: targetSpaceId });
+  // personal settings) these are the viewer's own accounts.
+  const data = useMarketplaceData({ agentId, enabled, spaceId });
+  const actions = useMarketplaceActions({ agentId, spaceId });
 
   const installedIds = installedPluginIds({
     pluginMountIds: data.pluginMountIds,
@@ -102,7 +103,9 @@ export function PluginMarketplace({
    * (non-empty preferred list) — add it there too, so the agent reaches it.
    */
   const enableFor = async (plugin: MarketplacePlugin) => {
-    if (!data.pluginMountIds.has(plugin.id)) {
+    // A person's own account needs no plugin enabled anywhere; a member's
+    // Space account works without the mount they may not set.
+    if (canMount && spaceId && !data.pluginMountIds.has(plugin.id)) {
       await actions.enableOnSpace.mutateAsync(plugin.id);
     }
     if (
@@ -126,14 +129,6 @@ export function PluginMarketplace({
     await enableFor(plugin);
     setDetailsId(plugin.id);
   };
-
-  if (!targetSpaceId && spacesQuery.isSuccess) {
-    return (
-      <p className="py-8 text-muted-foreground text-sm">
-        {t("marketplace.noSpace")}
-      </p>
-    );
-  }
 
   if (data.isPending) {
     return (
@@ -181,7 +176,8 @@ export function PluginMarketplace({
             {actions.errorMessage}
           </p>
         ) : null}
-        <MarketplaceDetail
+        <ConnectorSheet
+          canMount={canMount}
           onAdd={() =>
             addPlugin(details).catch(() => {
               /* mutation error surfaces via actions.errorMessage */
@@ -214,10 +210,10 @@ export function PluginMarketplace({
                   )
               : undefined
           }
+          owner={owner}
           plugin={details}
           pluginMounted={data.pluginMountIds.has(details.id)}
           saving={actions.pending}
-          spaceId={targetSpaceId as string}
         />
       </>
     );

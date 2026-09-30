@@ -27,6 +27,7 @@ async function ensureClientRoleOnEntity(
 
 import { z } from "@hono/zod-openapi";
 import type { createPortalDAL } from "../dal/portal-supabase.js";
+import type { ProjectKvRepo } from "../dal/project-kv.js";
 import {
   deleteProjectResponseSchema,
   notFoundSchema,
@@ -55,6 +56,7 @@ import { buildProjectsBriefingResponse } from "../services/projects-briefing-ser
 import { registerProjectsGatewayMethods } from "./gateway-methods.js";
 import { getRepo, type RepoOrFactory } from "./gateway-shared.js";
 import { registerProjectCoverRoutes } from "./project-cover-routes.js";
+import { registerProjectKvRoutes } from "./project-kv-routes.js";
 
 /** UUID v4 pattern to avoid /api/projects/tasks matching /api/projects/:id */
 const UUID_PARAM =
@@ -66,6 +68,8 @@ export const PROJECT_BY_ID_PATH = `/api/projects/:id${UUID_PARAM}`;
 type PortalDAL = ReturnType<typeof createPortalDAL>;
 
 interface RegisterProjectsApiOpts {
+  /** Per-project key/value store (`/api/projects/:id/kv`). */
+  kvRepoFor?: (auth: PluginAuthContext) => ProjectKvRepo;
   portalDAL?: PortalDAL;
 }
 
@@ -822,4 +826,7 @@ export function registerProjectsApi(
   }
 
   registerProjectCoverRoutes(api, repoOrFactory);
+  if (opts?.kvRepoFor) {
+    registerProjectKvRoutes(api, repoOrFactory, opts.kvRepoFor);
+  }
 }

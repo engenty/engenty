@@ -1,6 +1,7 @@
 import { useTranslation } from "@engenty/i18n/ui";
 import {
   Button,
+  DocSidebarToggle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -9,19 +10,17 @@ import {
   TabsList,
   TabsTrigger,
 } from "@engenty/ui-core";
-import { Copy, ExternalLink, Eye, Link2, Settings, Users } from "lucide-react";
-import { ProjectPinButton } from "./project-pin-button.js";
+import { Copy, ExternalLink, Eye, Link2, Users } from "lucide-react";
+import { PROJECT_SETTINGS_SIDEBAR_KEY } from "../lib/project-settings-sidebar.js";
 
 interface ProjectDetailPageActionsProps {
   onCopyLink: () => void;
   onCopyLinkClick: (e: React.MouseEvent) => void;
-  onOpenProjectSettings: () => void;
   onPortalDropdownOpenChange: (open: boolean) => void;
   onViewModeChange: (mode: "internal" | "external") => void;
   portalDropdownOpen: boolean;
   portalEnabled: boolean;
   portalUrl: string;
-  projectId: string | undefined;
   viewMode: "internal" | "external";
 }
 
@@ -32,10 +31,8 @@ export function ProjectDetailPageActions({
   onViewModeChange,
   onCopyLinkClick,
   onCopyLink,
-  onOpenProjectSettings,
   portalDropdownOpen,
   onPortalDropdownOpenChange,
-  projectId,
 }: ProjectDetailPageActionsProps) {
   const { t } = useTranslation("projects");
 
@@ -109,17 +106,10 @@ export function ProjectDetailPageActions({
         </DropdownMenu>
       )}
 
-      {projectId ? <ProjectPinButton projectId={projectId} /> : null}
-
-      <Button
-        className="h-8 w-8 p-0"
-        onClick={onOpenProjectSettings}
-        size="sm"
-        title={t("detail.projectSettings.title")}
-        variant="outline"
-      >
-        <Settings className="h-3.5 w-3.5" />
-      </Button>
+      <DocSidebarToggle
+        label={t("detail.projectSettings.title")}
+        storageKey={PROJECT_SETTINGS_SIDEBAR_KEY}
+      />
     </div>
   );
 }

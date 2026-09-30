@@ -27,6 +27,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SettingsCard,
+  SettingsSection,
 } from "@engenty/ui-core";
 import { Check, Pencil, Plus, Users } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -48,17 +50,19 @@ const PROJECT_ROLES: ProjectMemberRole[] = [
 interface ProjectTeamMembersSectionProps {
   catalog: TeamMemberCatalogRow[];
   className?: string;
-  /**
-   * `"link"`: with nobody on the team, render only a quiet "+ Team" add
-   * trigger — the overview lines empty sections up in one row.
-   */
-  emptyAs?: "link" | "section";
+  /** Start with the editable list open (header popover, settings sidebar). */
+  defaultExpanded?: boolean;
   onProjectUpdated: () => void | Promise<void>;
   projectId: string;
   projectTeamMembers: ProjectTeamMemberRow[];
+  /**
+   * `sidebar`: a settings-sidebar section (`SettingsSection` + `SettingsCard`)
+   * with + and pencil in its heading, always shown.
+   */
+  variant?: "section" | "sidebar";
 }
 
-function catalogRowByMembershipKey(
+export function catalogRowByMembershipKey(
   catalog: TeamMemberCatalogRow[]
 ): Map<string, TeamMemberCatalogRow> {
   const map = new Map<string, TeamMemberCatalogRow>();
@@ -133,7 +137,7 @@ function ProjectMemberRoleField({
       <PopoverTrigger asChild>
         <button
           aria-label={t("detail.members.editRole")}
-          className="group/role -mx-1 inline-flex cursor-pointer items-center gap-1.5 rounded px-1 text-left text-muted-foreground text-xs hover:text-foreground hover:outline-dashed hover:outline-1 hover:outline-muted-foreground/50 disabled:cursor-not-allowed disabled:opacity-50"
+          className="group/role -mx-1 inline-flex cursor-pointer items-center gap-1.5 rounded px-1 text-left text-muted-foreground text-xs leading-tight hover:text-foreground hover:outline-dashed hover:outline-1 hover:outline-muted-foreground/50 disabled:cursor-not-allowed disabled:opacity-50"
           disabled={disabled}
           type="button"
         >
@@ -287,7 +291,8 @@ export function ProjectTeamMembersSection({
   catalog,
   onProjectUpdated,
   className,
-  emptyAs = "section",
+  defaultExpanded = false,
+  variant = "section",
 }: ProjectTeamMembersSectionProps) {
   const { t } = useTranslation("projects");
   const members = useMemo(
@@ -308,7 +313,7 @@ export function ProjectTeamMembersSection({
     [members]
   );
 
-  const [listExpanded, setListExpanded] = useState(false);
+  const [listExpanded, setListExpanded] = useState(defaultExpanded);
   const [memberToRemove, setMemberToRemove] = useState<{
     fullName: string;
     userId: string;
@@ -442,93 +447,63 @@ export function ProjectTeamMembersSection({
     [members, rowByKey]
   );
 
-  if (emptyAs === "link" && memberIds.length === 0) {
-    const label = (
-      <span className="inline-flex items-center gap-1">
-        <Plus className="size-3.5" />
-        {t("detail.quickAdd.team")}
-      </span>
-    );
-    return addOptions.length === 0 ? (
-      <Link
-        className="inline-flex items-center gap-1 text-muted-foreground text-sm transition-colors hover:text-foreground"
-        to="/mdl/team"
-      >
-        {label}
-      </Link>
-    ) : (
-      <MultiSelect
-        align="start"
-        className="inline-flex h-auto w-auto border-0 bg-transparent p-0 font-normal text-muted-foreground text-sm shadow-none hover:bg-transparent hover:text-foreground"
-        deduplicateOptions
-        defaultValue={[]}
-        disabled={saving}
-        hideSelectAll
-        onValueChange={(vals) => {
-          if (vals.length > 0) {
-            handleAddFromMultiSelect(vals);
+  // Pencil (open the editable list) and + (add members): in the heading —
+  // revealed on hover in the section, always shown in the sidebar.
+  const actionsVisible = variant === "sidebar";
+  const actions = (
+    <>
+      {memberIds.length > 0 ? (
+        <Button
+          aria-expanded={listExpanded}
+          aria-label={
+            listExpanded
+              ? t("detail.members.toggleLabelClose")
+              : t("detail.members.toggleLabel")
           }
-        }}
-        options={addOptions}
-        placeholder={t("detail.members.addPlaceholder")}
-        popoverClassName="w-64 max-w-full"
-        triggerElement={label}
-        variant="ghost"
-      />
-    );
-  }
-
-  return (
-    <div className={cn("mt-6 space-y-3", className)}>
-      <div className="group/header flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <h3 className="flex items-center gap-2 font-medium text-lg">
-            <Users className="h-4 w-4 shrink-0 text-muted-foreground" />
-            {t("detail.members.listHeading")}
-          </h3>
-          {memberIds.length > 0 ? (
-            <Button
-              aria-expanded={listExpanded}
-              aria-label={
-                listExpanded
-                  ? t("detail.members.toggleLabelClose")
-                  : t("detail.members.toggleLabel")
+          className={cn(
+            "h-7 w-7 p-0 text-muted-foreground transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover/header:opacity-100",
+            !actionsVisible && "opacity-0"
+          )}
+          onClick={() => setListExpanded((v) => !v)}
+          size="sm"
+          type="button"
+          variant="ghost"
+        >
+          <Pencil className="h-4 w-4" />
+        </Button>
+      ) : null}
+      {addOptions.length > 0 ? (
+        <div
+          className={cn(
+            "transition-opacity focus-within:opacity-100 group-hover/header:opacity-100",
+            !actionsVisible && "opacity-0"
+          )}
+        >
+          <MultiSelect
+            align="end"
+            className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground [&_svg]:mx-auto [&_svg]:h-4 [&_svg]:w-4"
+            deduplicateOptions
+            defaultValue={[]}
+            disabled={saving}
+            hideSelectAll
+            key={memberIds.join(",")}
+            onValueChange={(vals) => {
+              if (vals.length > 0) {
+                handleAddFromMultiSelect(vals);
               }
-              className="h-7 w-7 p-0 text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover/header:opacity-100"
-              onClick={() => setListExpanded((v) => !v)}
-              size="sm"
-              type="button"
-              variant="ghost"
-            >
-              <Pencil className="h-4 w-4" />
-            </Button>
-          ) : null}
-          {addOptions.length > 0 ? (
-            <div className="opacity-0 transition-opacity focus-within:opacity-100 group-hover/header:opacity-100">
-              <MultiSelect
-                align="start"
-                className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground [&_svg]:mx-auto [&_svg]:h-4 [&_svg]:w-4"
-                deduplicateOptions
-                defaultValue={[]}
-                disabled={saving}
-                hideSelectAll
-                key={memberIds.join(",")}
-                onValueChange={(vals) => {
-                  if (vals.length > 0) {
-                    handleAddFromMultiSelect(vals);
-                  }
-                }}
-                options={addOptions}
-                placeholder={t("detail.members.addPlaceholder")}
-                popoverClassName="w-64 max-w-full"
-                triggerElement={<Plus className="h-4 w-4" />}
-                variant="ghost"
-              />
-            </div>
-          ) : null}
+            }}
+            options={addOptions}
+            placeholder={t("detail.members.addPlaceholder")}
+            popoverClassName="w-64 max-w-full"
+            triggerElement={<Plus className="h-4 w-4" />}
+            variant="ghost"
+          />
         </div>
-      </div>
-
+      ) : null}
+    </>
+  );
+  const content = (
+    <>
       {memberIds.length > 0 && !listExpanded ? (
         <CollapsedMembersPreview
           formatRole={(role, roleName) =>
@@ -615,7 +590,7 @@ export function ProjectTeamMembersSection({
       ) : null}
 
       {listExpanded && memberRows.length > 0 ? (
-        <ul className="space-y-0 pt-2">
+        <ul className={cn("space-y-0", variant !== "sidebar" && "pt-2")}>
           {memberRows.map((member) => (
             <li
               className="group flex items-center gap-3 py-2.5"
@@ -633,10 +608,10 @@ export function ProjectTeamMembersSection({
                 </AvatarFallback>
               </Avatar>
               <div className="min-w-0 flex-1">
-                <p className="truncate font-medium text-sm">
+                <p className="truncate font-medium text-sm leading-tight">
                   {member.fullName}
                 </p>
-                <div className="mt-0.5">
+                <div className="leading-tight">
                   <ProjectMemberRoleField
                     disabled={saving}
                     fullName={member.fullName}
@@ -655,6 +630,35 @@ export function ProjectTeamMembersSection({
           ))}
         </ul>
       ) : null}
+    </>
+  );
+
+  if (variant === "sidebar") {
+    return (
+      <SettingsSection
+        action={<div className="flex items-center gap-0.5">{actions}</div>}
+        description={t("detail.projectSettings.teamSectionDescription")}
+        title={t("detail.projectSettings.teamSection")}
+      >
+        <SettingsCard className={cn("space-y-3 px-4 py-2", className)}>
+          {content}
+        </SettingsCard>
+      </SettingsSection>
+    );
+  }
+
+  return (
+    <div className={cn("mt-6 space-y-3", className)}>
+      <div className="group/header flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <h3 className="flex items-center gap-2 font-medium text-lg">
+            <Users className="h-4 w-4 shrink-0 text-muted-foreground" />
+            {t("detail.members.listHeading")}
+          </h3>
+          {actions}
+        </div>
+      </div>
+      {content}
     </div>
   );
 }

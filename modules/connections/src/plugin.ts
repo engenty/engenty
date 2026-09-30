@@ -1,9 +1,14 @@
 import {
   createConnectionsRepo,
   mayUseSpaceInRun,
+  type PersonalReachAuth,
   readSpaceAccess,
+  resolvePersonalReach,
 } from "@engenty/connections-sdk";
-import type { EngentyPluginFactory } from "@engenty/plugin-sdk";
+import {
+  connectionsCatalogPath,
+  type EngentyPluginFactory,
+} from "@engenty/plugin-sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { registerConnectionsCredentialsRoutes } from "./api/credentials-routes.js";
 import { registerConnectionsOAuthRoutes } from "./api/oauth-routes.js";
@@ -78,6 +83,9 @@ const registerConnectionsPlugin: EngentyPluginFactory = (engenty) => {
   // tenant-locked handle as the connections themselves.
   const resolveSpaceAccess: ResolveSpaceAccess = ({ tenantId, userId }) =>
     readSpaceAccess(getDb({ tenantId }), { tenantId, userId });
+  // Whose own accounts a call reaches: the person live, or their Copilot.
+  const personalReach = (auth: PersonalReachAuth) =>
+    resolvePersonalReach(getDb({ tenantId: auth.tenantId }), auth);
   registerConnectionsOAuthRoutes(
     server,
     { getRepo, serviceRepo },
@@ -89,7 +97,58 @@ const registerConnectionsPlugin: EngentyPluginFactory = (engenty) => {
     onConnected,
   });
 
+  server.notifications?.registerKinds({
+    "connections.setup_requested": "todo",
+  });
+  // "Ask an admin": one notification per tenant admin, deduped per connector
+  // so a second ask does not stack.
+  const askAdminsForSetup = async (params: {
+    connector: { id: string; name: string };
+    requesterId: string;
+    tenantId: string;
+  }): Promise<number> => {
+    const notifications = server.notifications;
+    if (!notifications) {
+      return 0;
+    }
+    const { data, error } = await getDb({ tenantId: params.tenantId })
+      .schema("core")
+      .from("user_tenant_roles")
+      .select("user_id")
+      .eq("tenant_id", params.tenantId)
+      .eq("role", "admin");
+    if (error) {
+      throw new Error(
+        `Could not read the Organisation's admins: ${error.message}`
+      );
+    }
+    const adminIds = (data ?? [])
+      .map((row) => (row as { user_id: string }).user_id)
+      .filter((id) => id !== params.requesterId);
+    await Promise.all(
+      adminIds.map((userId) =>
+        notifications.emit({
+          actor: { id: params.requesterId, kind: "user" },
+          audience: { kind: "user", userId },
+          body: "Add its OAuth client so people can connect their accounts.",
+          dedupeKey: `connections:setup:${params.connector.id}:${userId}`,
+          kind: "connections.setup_requested",
+          payload: { connector_id: params.connector.id },
+          priority: "medium",
+          source: "connections",
+          subject: { id: params.connector.id, type: "connector" },
+          summary: `${params.connector.name} needs credentials`,
+          target: connectionsCatalogPath(params.connector.id),
+          tenantId: params.tenantId,
+        })
+      )
+    );
+    return adminIds.length;
+  };
+
   registerConnectionsOperations(server, getRepo, {
+    askAdminsForSetup,
+    resolvePersonalReach: personalReach,
     resolveSpaceAccess,
     settings,
     // task_id/operation_id ride along so the tasks module can resume the
@@ -123,16 +182,19 @@ const registerConnectionsPlugin: EngentyPluginFactory = (engenty) => {
   // The run's Space picks the account (it owns it); the account's own
   // autonomous_mode and action policies decide the rest.
   server.registerProfilePolicy(
-    createConnectionsProfilePolicy(getRepo, (auth, spaceId) =>
-      mayUseSpaceInRun(getDb({ tenantId: auth.tenantId }), {
-        capabilities: auth.capabilities,
-        principalId: auth.principalId,
-        principalType: auth.principalType,
-        spaceId,
-        taskId: auth.taskId ?? null,
-        tenantId: auth.tenantId,
-        triggerId: auth.triggerId ?? null,
-      })
+    createConnectionsProfilePolicy(
+      getRepo,
+      (auth, spaceId) =>
+        mayUseSpaceInRun(getDb({ tenantId: auth.tenantId }), {
+          capabilities: auth.capabilities,
+          principalId: auth.principalId,
+          principalType: auth.principalType,
+          spaceId,
+          taskId: auth.taskId ?? null,
+          tenantId: auth.tenantId,
+          triggerId: auth.triggerId ?? null,
+        }),
+      personalReach
     )
   );
 };

@@ -1,26 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { connectionsInSpace, findPersonalSpace } from "./connection-space";
+import { connectionsInSpace } from "./connection-space";
 
-const spaces = [
-  { id: "team", key: "team", name: "Team", ownerUserId: null },
-  { id: "mine", key: "me", name: "Me", ownerUserId: "u1" },
-];
+describe("connectionsInSpace", () => {
+  const rows = [
+    { id: "a", space_id: "marketing" },
+    { id: "b", space_id: "sales" },
+    { id: "mine", space_id: null },
+  ];
 
-describe("connection-space", () => {
-  it("finds the viewer's personal Space", () => {
-    expect(findPersonalSpace(spaces, "u1")?.id).toBe("mine");
-    expect(findPersonalSpace(spaces, "u2")).toBeNull();
-    expect(findPersonalSpace(spaces, null)).toBeNull();
-  });
-
-  it("keeps only the accounts of one Space", () => {
-    const rows = [
-      { id: "a", space_id: "team" },
-      { id: "b", space_id: "mine" },
-    ];
-    expect(connectionsInSpace(rows, "mine").map((row) => row.id)).toEqual([
-      "b",
+  it("keeps one Space's accounts, or the viewer's own for null", () => {
+    expect(connectionsInSpace(rows, "marketing").map((row) => row.id)).toEqual([
+      "a",
     ]);
-    expect(connectionsInSpace(rows, null)).toEqual([]);
+    expect(connectionsInSpace(rows, null).map((row) => row.id)).toEqual([
+      "mine",
+    ]);
   });
 });

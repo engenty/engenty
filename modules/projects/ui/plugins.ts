@@ -1,4 +1,5 @@
 import type { EngentyPluginsApi } from "@engenty/ui-plugin-sdk";
+import type { ComponentType } from "react";
 
 export type {
   TeamMemberCatalogRow,
@@ -23,6 +24,25 @@ export type CommercialSettingsPluginApi = {
 
 // biome-ignore lint/style/useConsistentTypeDefinitions: must be a type alias (not an interface) to satisfy the `Record<string, unknown>` plugin-API generic constraint below
 export type ContactsPluginApi = {
+  /** The contacts module's chooser — the same one the offers client dialog uses. */
+  ContactChooser: ComponentType<{
+    className?: string;
+    entities: EntityOption[];
+    onChange: (id: string | null) => void;
+    value: string | null;
+  }>;
+  getContact: (
+    id: string,
+    signal?: AbortSignal
+  ) => Promise<{
+    address_city: string | null;
+    address_country: string | null;
+    address_street: string | null;
+    address_zip: string | null;
+    display_name: string;
+    email: string | null;
+    phone: string | null;
+  }>;
   createContact: (input: {
     display_name: string;
     type: "organisation" | "person";

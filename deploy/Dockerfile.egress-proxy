@@ -1,0 +1,14 @@
+# The sandboxes' egress proxy: deploy/egress-proxy/proxy.mjs (no dependencies)
+# with the shared allowlist baked in. An image, not a bind mount of
+# deploy/egress-proxy/, because a server only receives the compose file and
+# .env — a mounted folder there never follows a release.
+FROM node:24-alpine
+
+COPY deploy/egress-proxy/proxy.mjs deploy/egress-proxy/filter /opt/egress-proxy/
+
+ENV EGRESS_FILTER=/opt/egress-proxy/filter \
+  EGRESS_SPACES_DIR=/etc/engenty-egress/spaces
+
+USER node
+EXPOSE 8888
+CMD ["node", "/opt/egress-proxy/proxy.mjs"]

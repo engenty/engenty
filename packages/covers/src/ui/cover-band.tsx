@@ -32,6 +32,7 @@ export function CoverBand({
   minHeight = 200,
   onChange,
   pending = false,
+  topRight,
 }: {
   className?: string;
   cover: Cover;
@@ -43,6 +44,8 @@ export function CoverBand({
   minHeight?: number;
   onChange?: (cover: Cover | null) => void;
   pending?: boolean;
+  /** Pinned to the band's top-right corner; the hover edit buttons then move top-left. */
+  topRight?: ReactNode;
 }) {
   const { t } = useTranslation("common");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -84,7 +87,13 @@ export function CoverBand({
         />
       ) : null}
       {canEdit ? (
-        <div className="absolute top-3 right-3 z-10 flex gap-1.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover/cover:opacity-100">
+        // Top-right by default; top-left when `topRight` holds that corner.
+        <div
+          className={cn(
+            "absolute top-3 z-10 flex gap-1.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover/cover:opacity-100",
+            topRight ? "left-3" : "right-3"
+          )}
+        >
           <Button
             className={chromeButtonClass}
             disabled={pending}
@@ -108,6 +117,9 @@ export function CoverBand({
             {t("covers.remove_cover")}
           </Button>
         </div>
+      ) : null}
+      {topRight ? (
+        <div className="absolute top-3 right-3 z-10">{topRight}</div>
       ) : null}
       {header ? <div className="relative z-10">{header}</div> : null}
     </div>

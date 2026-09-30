@@ -1,4 +1,7 @@
-import { resolveAgentEngenty } from "@engenty/ai-core/browser";
+import {
+  resolveAgentEngenty,
+  spaceModuleAgentDeskPathname,
+} from "@engenty/ai-core/browser";
 import { shellSecondaryNavItemProps } from "@engenty/app-shell";
 import {
   cn,
@@ -9,15 +12,14 @@ import {
 import { useWorkspaceSpace } from "@engenty/ui-plugin-sdk";
 import { useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { spaceAgentDeskPath } from "../features/agent-form/hire-spaces.js";
 import { useAiAgentsQuery } from "../lib/admin/ai-runtime-queries.js";
 import type { AiRegisteredAgent } from "../lib/admin/ai-runtime-types.js";
 import { AgentFace } from "./agent-face.js";
 
 /**
  * A module's own Engentys, for its sidebar: each row opens that agent's desk
- * in the current Space. Renders nothing outside a Space or when the module
- * ships no agent.
+ * inside the module, so this sidebar stays beside it. Renders nothing outside
+ * a Space or when the module ships no agent.
  */
 export function ModuleSidebarAgents({ moduleId }: { moduleId: string }) {
   const space = useWorkspaceSpace();
@@ -43,7 +45,11 @@ export function ModuleSidebarAgents({ moduleId }: { moduleId: string }) {
       <SidebarGroupContent>
         <div className="flex flex-col gap-0.5">
           {agents.map((agent) => {
-            const to = spaceAgentDeskPath(space.key, agent.id);
+            const to = spaceModuleAgentDeskPathname(
+              space.key,
+              moduleId,
+              agent.id
+            );
             return (
               <ModuleAgentRow
                 active={pathname === to || pathname.startsWith(`${to}/`)}

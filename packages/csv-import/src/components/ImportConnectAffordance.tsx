@@ -1,3 +1,4 @@
+import { MY_CONNECTIONS_PATH } from "@engenty/plugin-sdk";
 import { Button } from "@engenty/ui-core";
 import type { CatalogConnector } from "../connection-import-api.js";
 import type { ConnectionImportConfig } from "../types.js";
@@ -45,7 +46,7 @@ export function ImportConnectAffordance({
   // browser (e.g. local-files): settings owns the File System Access flow
   return (
     <Button asChild size="sm" type="button" variant="outline">
-      <a href="/settings/connections">{labels.openSettings}</a>
+      <a href={MY_CONNECTIONS_PATH}>{labels.openSettings}</a>
     </Button>
   );
 }

@@ -77,6 +77,7 @@ export {
   SPACE_RESERVED_SEGMENTS,
   spaceChatsPathname,
   spaceKeyFromPathname,
+  spaceModuleAgentDeskPathname,
   spaceModuleIdFromUrlSegment,
   spaceModuleUrlSegment,
   spaceRoomPathname,

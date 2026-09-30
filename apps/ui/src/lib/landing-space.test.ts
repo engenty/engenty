@@ -11,41 +11,34 @@ import {
 
 function space(
   overrides: Partial<Space> & Pick<Space, "key">
-): Pick<Space, "deletedAt" | "isDefault" | "key" | "ownerUserId"> {
+): Pick<Space, "deletedAt" | "isDefault" | "key"> {
   return {
     deletedAt: null,
     isDefault: false,
-    ownerUserId: null,
     ...overrides,
   };
 }
 
 describe("pickLandingSpace", () => {
-  const personal = space({ key: "matthias", ownerUserId: "u1" });
   const company = space({ key: "company", isDefault: true });
   const sport = space({ key: "sport" });
 
   it("returns the last visited space when it is still in the list", () => {
-    expect(pickLandingSpace([personal, company, sport], "sport")?.key).toBe(
-      "sport"
-    );
+    expect(pickLandingSpace([company, sport], "sport")?.key).toBe("sport");
   });
 
   it("skips a remembered key that was deleted or left behind", () => {
     expect(
       pickLandingSpace(
-        [personal, company, { ...sport, deletedAt: "2026-01-01T00:00:00Z" }],
+        [company, { ...sport, deletedAt: "2026-01-01T00:00:00Z" }],
         "sport"
       )?.key
-    ).toBe("matthias");
-    expect(pickLandingSpace([personal, company], "gone")?.key).toBe("matthias");
+    ).toBe("company");
+    expect(pickLandingSpace([sport, company], "gone")?.key).toBe("company");
   });
 
-  it("falls back to personal, then the tenant default", () => {
-    expect(pickLandingSpace([company, personal, sport], null)?.key).toBe(
-      "matthias"
-    );
-    expect(pickLandingSpace([company, sport], null)?.key).toBe("company");
+  it("falls back to the tenant default, then the first space", () => {
+    expect(pickLandingSpace([sport, company], null)?.key).toBe("company");
     expect(pickLandingSpace([sport], null)?.key).toBe("sport");
     expect(pickLandingSpace([], "sport")).toBeNull();
   });

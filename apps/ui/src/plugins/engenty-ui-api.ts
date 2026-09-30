@@ -15,6 +15,7 @@ import type {
   UiEventMap,
   UiI18nNamespaceContribution,
   UiLiveBindingContribution,
+  UiModuleSidebarContribution,
   UiNavigationPrefetchContribution,
   UiRouteContribution,
   UiRouteScope,
@@ -39,6 +40,7 @@ interface MutableUiContributions {
   developmentPanels: UiDevelopmentPanelContribution[];
   i18nNamespaces: UiI18nNamespaceContribution[];
   liveBindings: UiLiveBindingContribution[];
+  moduleSidebars: UiModuleSidebarContribution[];
   navigationPrefetch: UiNavigationPrefetchContribution[];
   routes: UiRouteContribution[];
   settingsItems: UiSettingsItemContribution[];
@@ -117,6 +119,7 @@ export function createUiPluginRuntime(
       developmentPanels: [],
       i18nNamespaces: [],
       liveBindings: [],
+      moduleSidebars: [],
       navigationPrefetch: [],
       settingsItems: [],
       spaceSections: [],
@@ -384,6 +387,14 @@ export function createEngentyUiApi(
         sourceInfo: sourceInfoFor(catalogSourceInfo, "ui.liveBinding"),
       });
     },
+    registerModuleSidebar: (input) => {
+      runtime.contributions.moduleSidebars.push({
+        moduleId: normalizeId(input.moduleId, "module sidebar"),
+        pluginId: normalizedPluginId,
+        sourceInfo: sourceInfoFor(catalogSourceInfo, "ui.moduleSidebar"),
+        useSidebar: input.useSidebar,
+      });
+    },
     on: (event, handler) => runtime.hooks.on(event, handler),
   };
 }
@@ -458,6 +469,7 @@ export async function resolveUiContributions(
     developmentPanels,
     i18nNamespaces,
     liveBindings,
+    moduleSidebars: [...runtime.contributions.moduleSidebars],
     navigationPrefetch,
     settingsItems,
     spaceSections,

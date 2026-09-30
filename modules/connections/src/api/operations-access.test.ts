@@ -34,6 +34,7 @@ const account: ConnectionSummary = {
   external_account: "team@example.com",
   granted_scopes: [],
   id: CONNECTION_ID,
+  owner_user_id: null,
   space_id: SPACE,
   status: "active",
   tenant_id: TENANT,
@@ -48,8 +49,9 @@ const ACCESS: Record<string, Map<string, SpaceAccessEntry>> = {
 
 function setup() {
   const updateConnectionSettings = vi.fn(async () => undefined);
-  const listCandidateConnections = vi.fn(async (params: { spaceId: string }) =>
-    params.spaceId === SPACE ? [account] : []
+  const listCandidateConnections = vi.fn(
+    async (params: { reach: { spaceId: string | null } }) =>
+      params.reach.spaceId === SPACE ? [account] : []
   );
   const repo = {
     getConnection: async ({ connectionId }: { connectionId: string }) =>
@@ -72,7 +74,9 @@ function setup() {
     } as unknown as PluginServerApi,
     () => repo,
     {
+      askAdminsForSetup: async () => 0,
       onApprovalDecided: async () => undefined,
+      resolvePersonalReach: async () => null,
       resolveSpaceAccess: async ({ userId }) => ACCESS[userId] ?? new Map(),
       settings: { clientEnv: () => async () => undefined },
     }

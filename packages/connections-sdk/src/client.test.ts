@@ -25,6 +25,7 @@ function connection(
     error_message: null,
     external_account: "office@x.com",
     granted_scopes: [],
+    owner_user_id: null,
     space_id: "space-1",
     status: "active",
     tenant_id: "tenant-1",
@@ -130,6 +131,40 @@ describe("createConnectionsModuleClientFromRepo", () => {
     );
     const listed = await client.listConnections({ tenantId: "tenant-1" });
     expect(listed.map((c) => c.id)).toEqual(["c-1"]);
+  });
+
+  it("never hands a module someone's personal account — listed, called or pulled", async () => {
+    registerGmail();
+    const personal = connection({
+      autonomous_mode: "full",
+      id: "c-anna",
+      owner_user_id: "user-anna",
+      space_id: null,
+    });
+    const client = createConnectionsModuleClientFromRepo(
+      () => fakeRepo([connection({ id: "c-1" }), personal]),
+      { moduleId: "inbox" }
+    );
+    const listed = await client.listConnections({ tenantId: "tenant-1" });
+    expect(listed.map((c) => c.id)).toEqual(["c-1"]);
+    await expect(
+      client.callAction({
+        actionId: "search_threads",
+        connectionId: "c-anna",
+        input: {},
+        isAutonomous: true,
+        principal: { principalId: "svc", principalType: "service" },
+        tenantId: "tenant-1",
+      })
+    ).rejects.toMatchObject({ code: "connection_not_connected" });
+    await expect(
+      client.pullStream({
+        connectionId: "c-anna",
+        cursor: null,
+        limit: 25,
+        tenantId: "tenant-1",
+      })
+    ).rejects.toMatchObject({ code: "connection_not_connected" });
   });
 
   it("calls a read action on a read_only connection autonomously", async () => {

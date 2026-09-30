@@ -219,6 +219,11 @@ export {
   type DocSidebarMode,
   DocSidebarToggle,
   type DocSidebarToggleProps,
+  SettingsCard,
+  SettingsCardItem,
+  SettingsCardSeparator,
+  SettingsInfoCard,
+  SettingsSection,
   type UseDocSidebarResult,
   useDocSidebar,
 } from "./components/layout/doc-sidebar";

@@ -20,9 +20,10 @@ import type {
  * The authoritative gate for connector operations, registered as an async
  * profile policy in core:
  *
- * - `deny` clamps (autonomous mode, user-configured deny, and an account the
- *   run's Space does not own — PLAN-space-owned-connections.md) are enforced
- *   for every principal.
+ * - `deny` clamps (autonomous mode, user-configured deny, and an account out
+ *   of the call's reach — neither its verified Space's nor, for a person or
+ *   their Copilot, their own; PLAN-personal-connections.md) are enforced for
+ *   every principal.
  * - INTERACTIVE user principals with an `ask` outcome return `null`: live chat
  *   approval stays with the AI-side native suspend/resume pre-gate.
  * - autonomous callers — agent/service principals, AND user-token calls whose
@@ -42,7 +43,9 @@ export function createConnectionsProfilePolicy(
   mayUseSpace: (
     auth: PluginPolicyInput["auth"],
     spaceId: string
-  ) => Promise<boolean>
+  ) => Promise<boolean>,
+  /** The person whose own accounts this call may use (`resolvePersonalReach`). */
+  personalReach: (auth: PluginPolicyInput["auth"]) => Promise<string | null>
 ): PluginProfilePolicy {
   return async (input: PluginPolicyInput) => {
     const match = resolveConnectorOperation(
@@ -81,18 +84,11 @@ export function createConnectionsProfilePolicy(
     // unattended caller: record the approval request and answer 202.
     const isAutonomous =
       input.auth.principalType !== "user" || input.auth.callOrigin === "app";
-    // A connection is always some Space's: a run that names none reaches no
-    // account, and guessing which Space it meant would be the leak.
-    const spaceId = input.auth.spaceId?.trim();
-    if (!spaceId) {
-      return {
-        action: "deny",
-        reason:
-          `connection_not_in_space: ${connector.name} accounts belong to a space, and this call runs outside one. ` +
-          "This is not a temporary failure — do not retry. Say so, and that the account is used from inside the space it was connected in.",
-      };
-    }
-    if (!(await mayUseSpace(input.auth, spaceId))) {
+    // A connection is some Space's or some person's. The Space the call names
+    // is a claim to verify; the person is the caller themselves, live or
+    // through their Copilot. Guessing either would be the leak.
+    const spaceId = input.auth.spaceId?.trim() || null;
+    if (spaceId && !(await mayUseSpace(input.auth, spaceId))) {
       return {
         action: "deny",
         reason:
@@ -100,14 +96,24 @@ export function createConnectionsProfilePolicy(
           "Do not retry. Say that the account belongs to a space this run is not part of.",
       };
     }
+    const personalUserId = await personalReach(input.auth);
+    if (!(spaceId || personalUserId)) {
+      return {
+        action: "deny",
+        reason:
+          `connection_not_in_space: ${connector.name} accounts belong to a space, and this call runs outside one. ` +
+          "This is not a temporary failure — do not retry. Say so, and that the account is used from inside the space it was connected in.",
+      };
+    }
+    const reach = { personalUserId, spaceId };
     const repo = getRepo({ tenantId: input.auth.tenantId });
     const candidates = (
       await repo.listCandidateConnections({
         connectorId: connector.id,
-        spaceId,
+        reach,
         tenantId: input.auth.tenantId,
       })
-    ).filter((c) => isAccountReachableInRun({ connection: c, spaceId }));
+    ).filter((c) => isAccountReachableInRun({ connection: c, reach }));
     // Same selection the operation handler runs (shared resolver): the gate
     // must evaluate policy on the exact connection the call will use.
     const rawAccount =

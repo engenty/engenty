@@ -61,7 +61,6 @@ export function SpaceAgentsPage() {
   const skillsQuery = useSpaceSkillCatalogQuery(space != null);
   const connectorCatalogQuery = useSpaceConnectorCatalogQuery(space != null);
   const canManage = Boolean(isTenantAdmin || isSuperAdmin);
-  const canHire = canManage || Boolean(space?.ownerUserId);
   const askCopilot = useAskCopilotSidebar();
 
   const skillLabels = useMemo(() => {
@@ -135,10 +134,10 @@ export function SpaceAgentsPage() {
           </Badge>
         ) : undefined
       )}
-      {node.reports.length > 0 || (depth === 0 && canHire) ? (
+      {node.reports.length > 0 || (depth === 0 && canManage) ? (
         <div className="ml-6 flex flex-col gap-2.5 border-border-soft border-l pl-4">
           {node.reports.map((report) => renderNode(report, depth + 1))}
-          {depth === 0 && canHire ? (
+          {depth === 0 && canManage ? (
             <div className="flex items-center gap-2 text-muted-foreground text-xs">
               <SpaceAgentHireTrigger
                 reportsTo={node.agent.id}
@@ -171,7 +170,7 @@ export function SpaceAgentsPage() {
           <Sparkles className="mr-1.5 size-3.5" />
           {t("spaces.agents.askAi", { defaultValue: "Ask AI" })}
         </Button>
-        {canHire ? (
+        {canManage ? (
           <SpaceAgentHireTrigger
             spaceId={space?.id ?? null}
             spaceKey={spaceKey}
@@ -180,7 +179,7 @@ export function SpaceAgentsPage() {
         ) : null}
       </div>
     ),
-    [askCopilot, canHire, space?.id, spaceKey, t]
+    [askCopilot, canManage, space?.id, spaceKey, t]
   );
 
   usePageConfig({
@@ -222,7 +221,7 @@ export function SpaceAgentsPage() {
         ) : agents.length === 0 ? (
           <SpaceAgentsEmpty
             hireAction={
-              canHire ? (
+              canManage ? (
                 <SpaceAgentHireTrigger
                   spaceId={space?.id ?? null}
                   spaceKey={spaceKey}

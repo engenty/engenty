@@ -1,4 +1,5 @@
 import type {
+  ConnectionReach,
   ConnectionSummary,
   ConnectionsRepo,
 } from "@engenty/connections-sdk";
@@ -40,6 +41,15 @@ const ACCOUNT_MOUNTED_CONNECTION = {
 } as const;
 
 export interface ConnectionsOperationHooks {
+  /**
+   * A member asks the Organisation's admins to add a connector's OAuth
+   * client: one notification per admin. Resolves how many were notified.
+   */
+  askAdminsForSetup: (params: {
+    connector: { id: string; name: string };
+    requesterId: string;
+    tenantId: string;
+  }) => Promise<number>;
   onApprovalDecided: (params: {
     approved: boolean;
     /** Connector operation id the approval was gating (grant currency). */
@@ -49,6 +59,12 @@ export interface ConnectionsOperationHooks {
     taskId: string | null;
     tenantId: string;
   }) => Promise<void>;
+  /**
+   * The person whose own accounts this call may use — the caller live, or
+   * their Copilot; null for engenties, services and Apps
+   * (`resolvePersonalReach`).
+   */
+  resolvePersonalReach: (auth: OperationAuth) => Promise<string | null>;
   /** The Spaces a user may enter, and which of them they own. */
   resolveSpaceAccess: ResolveSpaceAccess;
   settings: ConnectionsSettingsResolver;
@@ -56,7 +72,13 @@ export interface ConnectionsOperationHooks {
 
 type OperationAuth = Pick<
   PluginAuthContext,
-  "capabilities" | "principalId" | "principalType" | "spaceId" | "tenantId"
+  | "agentId"
+  | "callOrigin"
+  | "capabilities"
+  | "principalId"
+  | "principalType"
+  | "spaceId"
+  | "tenantId"
 >;
 
 const spaceIdInput = z
@@ -64,6 +86,9 @@ const spaceIdInput = z
   .uuid()
   .optional()
   .describe("The Space whose accounts to use. Defaults to the current Space.");
+
+const PERSONAL_OWNER_NOTE =
+  "`me` is the person's own account (their mail, their calendar): only they and their Copilot use it, in any space, and nothing is synced from it. `space` is shared by the current space's members and engenties.";
 
 function isUser(auth: OperationAuth): boolean {
   return (auth.principalType ?? "user") === "user";
@@ -98,10 +123,52 @@ async function resolveCallerSpace(
   }
   if (!(await mayEnterSpace(hooks.resolveSpaceAccess, auth, spaceId))) {
     // 404 like core's space routes: "not yours" and "does not exist" look
-    // the same, so this cannot confirm someone's personal space.
+    // the same, so this cannot confirm someone's private space.
     throw notFoundError("space_not_found", "No such space.");
   }
   return spaceId;
+}
+
+/**
+ * Whose accounts a call reaches: its Space when it names or runs in one
+ * (verified like {@link resolveCallerSpace}), and the caller's own accounts
+ * when they may hold personal ones. At least one side is required.
+ */
+async function resolveCallerReach(
+  hooks: ConnectionsOperationHooks,
+  auth: OperationAuth,
+  inputSpaceId: string | undefined
+): Promise<ConnectionReach> {
+  const personalUserId = await hooks.resolvePersonalReach(auth);
+  const named = inputSpaceId?.trim() || auth.spaceId?.trim();
+  if (!named) {
+    if (!personalUserId) {
+      throw new PluginOperationError(
+        "connections.spaceRequired",
+        "Connected accounts belong to a space; name one with space_id."
+      );
+    }
+    return { personalUserId, spaceId: null };
+  }
+  return {
+    personalUserId,
+    spaceId: await resolveCallerSpace(hooks, auth, inputSpaceId),
+  };
+}
+
+/** The caller's own accounts, or a 403 when they cannot hold any. */
+async function requirePersonalOwner(
+  hooks: ConnectionsOperationHooks,
+  auth: OperationAuth
+): Promise<string> {
+  const userId = await hooks.resolvePersonalReach(auth);
+  if (!userId) {
+    throw forbiddenError(
+      "connections.personalNeedsPerson",
+      "Only a person, or their Copilot, has personal accounts."
+    );
+  }
+  return userId;
 }
 
 async function getConnectionOrThrow(
@@ -125,7 +192,10 @@ async function getConnectionOrThrow(
   return connection;
 }
 
-/** The caller may use this account: it belongs to a Space they can act in. */
+/**
+ * The caller may use this account: it belongs to a Space they can act in, or
+ * it is their own.
+ */
 async function assertCanUseOrThrow(
   repo: ConnectionsRepo,
   hooks: ConnectionsOperationHooks,
@@ -133,6 +203,15 @@ async function assertCanUseOrThrow(
   connectionId: string
 ): Promise<ConnectionSummary> {
   const connection = await getConnectionOrThrow(repo, auth, connectionId);
+  if (!connection.space_id) {
+    if (connection.owner_user_id !== (await hooks.resolvePersonalReach(auth))) {
+      throw notFoundError(
+        "connection_not_found",
+        "No such connection in this tenant."
+      );
+    }
+    return connection;
+  }
   try {
     await resolveCallerSpace(hooks, auth, connection.space_id);
   } catch {
@@ -145,9 +224,9 @@ async function assertCanUseOrThrow(
 }
 
 /**
- * The caller may change or decide for this account: an owner of its Space,
- * or a tenant admin. A caller who cannot even enter the Space gets the same
- * 404 as for a missing id.
+ * The caller may change or decide for this account: an owner of its Space or
+ * a tenant admin; for a personal account, its owner and nobody else. A caller
+ * who cannot even enter the Space gets the same 404 as for a missing id.
  */
 async function assertCanManageOrThrow(
   repo: ConnectionsRepo,
@@ -156,6 +235,15 @@ async function assertCanManageOrThrow(
   connectionId: string
 ): Promise<ConnectionSummary> {
   const connection = await getConnectionOrThrow(repo, auth, connectionId);
+  if (!connection.space_id) {
+    if (!(isUser(auth) && connection.owner_user_id === auth.principalId)) {
+      throw notFoundError(
+        "connection_not_found",
+        "No such connection in this tenant."
+      );
+    }
+    return connection;
+  }
   if (isTenantAdmin(auth)) {
     return connection;
   }
@@ -191,40 +279,54 @@ export function registerConnectionsOperations(
     operationId: "connections_catalog",
     moduleId: "connections",
     spacePolicy: ACCOUNT_MOUNTED,
-    summary: "List available connectors and a Space's connected accounts",
+    summary:
+      "List available connectors and a Space's (or your own) connected accounts",
     description:
-      "Connector catalog with per-action permission matrix and the accounts the Space owns (`space_id`, else the current Space).",
+      'Connector catalog with per-action permission matrix and the accounts the Space owns (`space_id`, else the current Space), or with `owner: "me"` the caller\'s own personal accounts.',
     idempotent: true,
     riskLevel: "low",
     requiredCapabilities: ["module.connections.read"],
-    inputSchema: z.object({ space_id: spaceIdInput }).optional(),
+    inputSchema: z
+      .object({
+        owner: z.enum(["me", "space"]).optional(),
+        space_id: spaceIdInput,
+      })
+      .optional(),
     handler: async (input, ctx) => {
       if (!ctx.auth) {
         throw new Error("unauthorized");
       }
       const { tenantId } = ctx.auth;
-      const parsed = (input ?? {}) as { space_id?: string };
-      const spaceId = await resolveCallerSpace(
-        hooks,
-        ctx.auth,
-        parsed.space_id
-      );
+      const parsed = (input ?? {}) as {
+        owner?: "me" | "space";
+        space_id?: string;
+      };
       const repo = getRepo(ctx.auth);
       const connectors = listConnectorDefinitions(tenantId);
-      const visible = await repo.listConnections({ spaceId, tenantId });
+      let spaceId: string | null = null;
+      let visible: ConnectionSummary[];
       // Whether the caller may change settings / policies / disconnect here —
       // the UI hides the controls rather than letting a member hit a 403.
-      const canManage =
-        isTenantAdmin(ctx.auth) ||
-        (isUser(ctx.auth) &&
-          canManageSpace(
-            await hooks.resolveSpaceAccess({
-              tenantId,
-              userId: ctx.auth.principalId,
-            }),
-            ctx.auth,
-            spaceId
-          ));
+      let canManage: boolean;
+      if (parsed.owner === "me") {
+        const ownerUserId = await requirePersonalOwner(hooks, ctx.auth);
+        visible = await repo.listConnections({ ownerUserId, tenantId });
+        canManage = isUser(ctx.auth);
+      } else {
+        spaceId = await resolveCallerSpace(hooks, ctx.auth, parsed.space_id);
+        visible = await repo.listConnections({ spaceId, tenantId });
+        canManage =
+          isTenantAdmin(ctx.auth) ||
+          (isUser(ctx.auth) &&
+            canManageSpace(
+              await hooks.resolveSpaceAccess({
+                tenantId,
+                userId: ctx.auth.principalId,
+              }),
+              ctx.auth,
+              spaceId
+            ));
+      }
       const overrides = await repo.listPolicyOverrides(
         visible.map((c) => c.id)
       );
@@ -248,6 +350,7 @@ export function registerConnectionsOperations(
       );
       return {
         can_manage: canManage,
+        owner: parsed.owner === "me" ? "me" : "space",
         space_id: spaceId,
         connectors: connectors.map((connector) => ({
           // What this connector can BE to a module — the words a module
@@ -315,23 +418,40 @@ export function registerConnectionsOperations(
     summary:
       "Check a connector's connect state and offer the user a connect card",
     description:
-      "Use when the user needs to connect an integration (e.g. their email or calendar) before you can act. Accounts belong to a space: the connect happens for the current space (or `space_id`). Returns the connector's connect state: `configured` (client credentials exist so a connect flow can start), `connected` (the space already has a usable account), the connected `accounts`, and `auth_kind`. When configured and not connected, a connect button is shown to the user in chat; it stays in the conversation and turns to connected on its own once the user connects. Call this at most once per connector per conversation: if you already requested it earlier (including before an approval or a resumed run), do not call it again — point the user at the existing card, and after they say they connected, check with connections_list_accounts. When not configured, tell the user an admin must add the connector's credentials in Setup → Platform settings.",
+      "Use when the user needs to connect an integration (e.g. their email or calendar) before you can act. Pick who the account belongs to with `owner`: " +
+      PERSONAL_OWNER_NOTE +
+      " Default: `me` when the caller can hold personal accounts (a person, or their Copilot), else `space` (the current space, or `space_id`). Returns the connector's connect state: `configured` (client credentials exist so a connect flow can start), `connected` (the space already has a usable account), the connected `accounts`, and `auth_kind`. When configured and not connected, a connect button is shown to the user in chat; it stays in the conversation and turns to connected on its own once the user connects. Call this at most once per connector per conversation: if you already requested it earlier (including before an approval or a resumed run), do not call it again — point the user at the existing card, and after they say they connected, check with connections_list_accounts. When not configured, the card offers an admin the credentials form in place and lets anyone else ask an admin; tell the user an admin must add the connector's OAuth client in Setup → Connections (`/setup/connections`, tenant admin) or Setup → Platform settings (`/setup/platform`, superadmin, installation-wide) — not in Setup → Plugins.",
     idempotent: true,
     riskLevel: "low",
     requiredCapabilities: ["module.connections.read"],
     inputSchema: z.object({
       connector_id: z.string().describe('Connector id (e.g. "google-gmail").'),
+      owner: z
+        .enum(["me", "space"])
+        .optional()
+        .describe(`Who the account belongs to. ${PERSONAL_OWNER_NOTE}`),
       space_id: spaceIdInput,
     }),
     handler: async (input, ctx) => {
       if (!ctx.auth) {
         throw new Error("unauthorized");
       }
-      const { connector_id, space_id } = input as {
+      const { connector_id, owner, space_id } = input as {
         connector_id: string;
+        owner?: "me" | "space";
         space_id?: string;
       };
-      const spaceId = await resolveCallerSpace(hooks, ctx.auth, space_id);
+      const personalUserId =
+        owner === "space" ? null : await hooks.resolvePersonalReach(ctx.auth);
+      if (owner === "me" && !personalUserId) {
+        throw forbiddenError(
+          "connections.personalNeedsPerson",
+          "Only a person, or their Copilot, has personal accounts."
+        );
+      }
+      const spaceId = personalUserId
+        ? null
+        : await resolveCallerSpace(hooks, ctx.auth, space_id);
       const connector = getConnectorDefinition(connector_id, ctx.auth.tenantId);
       if (!connector) {
         throw new Error(`Unknown connector: ${connector_id}`);
@@ -348,12 +468,13 @@ export function registerConnectionsOperations(
         Boolean(connector.auth.oauth2.dynamicClientRegistration);
       const candidates = await getRepo(ctx.auth).listCandidateConnections({
         connectorId: connector_id,
-        spaceId,
+        reach: { personalUserId, spaceId },
         tenantId: ctx.auth.tenantId,
       });
       return {
-        // The connect card starts OAuth for THIS Space — the account will
-        // belong to it.
+        // The connect card starts OAuth for THIS owner — the person (`me`)
+        // or this Space.
+        owner: personalUserId ? "me" : "space",
         space_id: spaceId,
         connector: {
           id: connector.id,
@@ -369,6 +490,100 @@ export function registerConnectionsOperations(
     },
   });
 
+  // ── Organisation catalog: who holds accounts, counts only ─────────────────
+  // Setup → Connections shows per connector how many Spaces and persons hold
+  // an account. Never names: a person's own accounts stay theirs.
+  api.registerOperation({
+    operationId: "connections_usage",
+    moduleId: "connections",
+    spacePolicy: ACCOUNT_MOUNTED,
+    summary: "Count the Spaces and persons holding an account, per connector",
+    description:
+      "Tenant admins: per connector, how many Spaces and how many persons hold a connected account. Counts only — no account names.",
+    idempotent: true,
+    riskLevel: "low",
+    requiredCapabilities: ["module.connections.read"],
+    inputSchema: z.object({}).optional(),
+    handler: async (_input, ctx) => {
+      if (!ctx.auth) {
+        throw new Error("unauthorized");
+      }
+      if (!isTenantAdmin(ctx.auth)) {
+        throw forbiddenError(
+          "connections.usageAdminOnly",
+          "Only a tenant admin sees the Organisation's connection counts."
+        );
+      }
+      const all = await getRepo(ctx.auth).listConnections({
+        tenantId: ctx.auth.tenantId,
+      });
+      const byConnector = new Map<
+        string,
+        { accounts: number; persons: Set<string>; spaces: Set<string> }
+      >();
+      for (const connection of all) {
+        const entry = byConnector.get(connection.connector_id) ?? {
+          accounts: 0,
+          persons: new Set<string>(),
+          spaces: new Set<string>(),
+        };
+        entry.accounts += 1;
+        if (connection.space_id) {
+          entry.spaces.add(connection.space_id);
+        } else if (connection.owner_user_id) {
+          entry.persons.add(connection.owner_user_id);
+        }
+        byConnector.set(connection.connector_id, entry);
+      }
+      return {
+        usage: [...byConnector.entries()].map(([connectorId, entry]) => ({
+          account_count: entry.accounts,
+          connector_id: connectorId,
+          person_count: entry.persons.size,
+          space_count: entry.spaces.size,
+        })),
+      };
+    },
+  });
+
+  // ── "Ask an admin": a connector nobody can connect yet ────────────────────
+  api.registerOperation({
+    operationId: "connections_request_setup",
+    moduleId: "connections",
+    spacePolicy: ACCOUNT_MOUNTED,
+    summary: "Ask the Organisation's admins to add a connector's credentials",
+    description:
+      "When a connector is not configured (no OAuth client), a person asks the tenant admins to add its credentials. Each admin gets one notification per connector.",
+    idempotent: true,
+    riskLevel: "low",
+    requiredCapabilities: ["module.connections.read"],
+    inputSchema: z.object({
+      connector_id: z.string().describe('Connector id (e.g. "google-gmail").'),
+    }),
+    handler: async (input, ctx) => {
+      if (!ctx.auth) {
+        throw new Error("unauthorized");
+      }
+      if (!isUser(ctx.auth)) {
+        throw forbiddenError(
+          "connections.setupRequestNeedsPerson",
+          "Only a person asks the admins."
+        );
+      }
+      const { connector_id } = input as { connector_id: string };
+      const connector = getConnectorDefinition(connector_id, ctx.auth.tenantId);
+      if (!connector) {
+        throw notFoundError("connector_not_found", "No such connector.");
+      }
+      const notified = await hooks.askAdminsForSetup({
+        connector: { id: connector.id, name: connector.name },
+        requesterId: ctx.auth.principalId,
+        tenantId: ctx.auth.tenantId,
+      });
+      return { notified };
+    },
+  });
+
   // ── Account discovery for agents ──────────────────────────────────────────
   // Static tool descriptions cannot enumerate per-tenant accounts (the
   // operation catalog is process-global); this cheap read plus the
@@ -380,7 +595,7 @@ export function registerConnectionsOperations(
     summary:
       "List the connected accounts usable for a connector (for the `account` param of its actions)",
     description:
-      "Accounts the current space (or `space_id`) owns for a connector, addressable on its actions via the optional `account` input param. Use when an action fails with connection_ambiguous.",
+      "Accounts this call can use for a connector — the current space's (or `space_id`'s) and, for a person or their Copilot, their own — addressable on its actions via the optional `account` input param. Use when an action fails with connection_ambiguous.",
     idempotent: true,
     riskLevel: "low",
     requiredCapabilities: ["module.connections.read"],
@@ -393,14 +608,10 @@ export function registerConnectionsOperations(
         throw new Error("unauthorized");
       }
       const parsed = input as { connector_id: string; space_id?: string };
-      const spaceId = await resolveCallerSpace(
-        hooks,
-        ctx.auth,
-        parsed.space_id
-      );
+      const reach = await resolveCallerReach(hooks, ctx.auth, parsed.space_id);
       const candidates = await getRepo(ctx.auth).listCandidateConnections({
         connectorId: parsed.connector_id,
-        spaceId,
+        reach,
         tenantId: ctx.auth.tenantId,
       });
       return { accounts: candidates.map(connectionAccountLabel) };
@@ -673,9 +884,6 @@ export function registerConnectionsOperations(
         status: parsed.status ?? "pending",
         tenantId,
       });
-      if (isTenantAdmin(ctx.auth)) {
-        return { requests };
-      }
       if (!isUser(ctx.auth)) {
         return { requests: [] };
       }
@@ -683,16 +891,21 @@ export function registerConnectionsOperations(
         tenantId,
         userId: ctx.auth.principalId,
       });
-      const spaceOf = new Map(
-        (await repo.listConnections({ tenantId })).map((c) => [
-          c.id,
-          c.space_id,
-        ])
+      const byId = new Map(
+        (await repo.listConnections({ tenantId })).map((c) => [c.id, c])
       );
       return {
         requests: requests.filter((request) => {
-          const spaceId = spaceOf.get(request.connection_id);
-          return spaceId !== undefined && canManageSpace(access, auth, spaceId);
+          const connection = byId.get(request.connection_id);
+          if (!connection) {
+            return false;
+          }
+          // A tenant admin decides for every Space's accounts; a personal
+          // account's requests are its owner's alone.
+          return connection.space_id
+            ? isTenantAdmin(auth) ||
+                canManageSpace(access, auth, connection.space_id)
+            : connection.owner_user_id === auth.principalId;
         }),
       };
     },
@@ -783,7 +996,7 @@ export function registerConnectionsOperations(
     moduleId: "connections",
     spacePolicy: ACCOUNT_MOUNTED,
     summary:
-      "Operation ids durably allowed on the current space's connections (merged into chat approval grants)",
+      "Operation ids durably allowed on the connections this call reaches — the current space's and the caller's own (merged into chat approval grants)",
     idempotent: true,
     riskLevel: "low",
     requiredCapabilities: ["module.connections.read"],
@@ -795,14 +1008,25 @@ export function registerConnectionsOperations(
       const { principalId, tenantId } = ctx.auth;
       const inputSpaceId = (input as { space_id?: string } | undefined)
         ?.space_id;
-      // No Space, no accounts — and so nothing granted on one.
-      if (!(inputSpaceId || ctx.auth.spaceId?.trim())) {
+      const personalUserId = await hooks.resolvePersonalReach(ctx.auth);
+      const named = inputSpaceId?.trim() || ctx.auth.spaceId?.trim();
+      // No Space and no person, no accounts — and so nothing granted on one.
+      if (!(named || personalUserId)) {
         return { operation_ids: [] };
       }
-      const spaceId = await resolveCallerSpace(hooks, ctx.auth, inputSpaceId);
+      const spaceId = named
+        ? await resolveCallerSpace(hooks, ctx.auth, inputSpaceId)
+        : null;
       const repo = getRepo(ctx.auth);
-      const connections = await repo.listConnections({ spaceId, tenantId });
-      const usable = connections.filter((c) => c.status === "active");
+      const [space, personal] = await Promise.all([
+        spaceId ? repo.listConnections({ spaceId, tenantId }) : [],
+        personalUserId
+          ? repo.listConnections({ ownerUserId: personalUserId, tenantId })
+          : [],
+      ]);
+      const usable = [...space, ...personal].filter(
+        (c) => c.status === "active"
+      );
       const overrides = await repo.listPolicyOverrides(usable.map((c) => c.id));
       const granted = new Set<string>();
       for (const connection of usable) {

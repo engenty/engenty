@@ -11,7 +11,10 @@ import {
   loadMarketplaceCatalog,
   patchAgentConnectorIds,
 } from "./marketplace-api.js";
-import type { MarketplacePlugin } from "./marketplace-model.js";
+import {
+  type MarketplacePlugin,
+  toMarketplacePlugin,
+} from "./marketplace-model.js";
 
 const spaceMountsKey = (spaceId: string) =>
   ["spaces", "mounts", spaceId] as const;
@@ -20,8 +23,9 @@ const connectorIdsKey = (agentId: string) =>
 
 /**
  * Catalog + the Space's plugin mounts (+ the agent's preferred plugins).
- * `plugins[].connections` holds only the accounts of `spaceId`: a Space's
- * accounts are what its agents and members use.
+ * `plugins[].connections` holds only the accounts of `spaceId` — a Space's
+ * accounts are what its agents and members use — or, with `null`, the
+ * viewer's own.
  */
 export function useMarketplaceData(input: {
   agentId?: string | null;
@@ -30,8 +34,8 @@ export function useMarketplaceData(input: {
 }) {
   const catalogQuery = useQuery({
     enabled: input.enabled,
-    queryFn: ({ signal }) => loadMarketplaceCatalog(signal),
-    queryKey: connectionsKeys.catalog(),
+    queryFn: ({ signal }) => loadMarketplaceCatalog(signal, input.spaceId),
+    queryKey: connectionsKeys.catalog(input.spaceId),
     staleTime: 15_000,
   });
   const mountsQuery = useQuery({
@@ -48,22 +52,12 @@ export function useMarketplaceData(input: {
 
   const plugins: MarketplacePlugin[] = (
     catalogQuery.data?.connectors ?? []
-  ).map((connector) => ({
-    auth_kind: connector.auth_kind,
-    configured: connector.configured,
-    connections: connectionsInSpace(connector.connections ?? [], input.spaceId),
-    credential_fields: connector.credential_fields,
-    dcr_available: Boolean(connector.dcr_available),
-    description: connector.description ?? "",
-    icon: connector.icon,
-    id: connector.id,
-    module_id: connector.module_id,
-    name: connector.name,
-    actions: (connector.actions ?? []).map((action) => ({
-      id: action.id,
-      summary: action.summary,
-    })),
-  }));
+  ).map((connector) =>
+    toMarketplacePlugin(
+      connector,
+      connectionsInSpace(connector.connections ?? [], input.spaceId)
+    )
+  );
 
   const pluginMountIds = new Set(
     (mountsQuery.data ?? [])
@@ -73,11 +67,10 @@ export function useMarketplaceData(input: {
 
   return {
     connectorIds: connectorIdsQuery.data ?? [],
-    error: catalogQuery.error ?? mountsQuery.error,
+    error: catalogQuery.error ?? (input.spaceId ? mountsQuery.error : null),
     isPending:
       catalogQuery.isPending ||
-      !input.spaceId ||
-      mountsQuery.isPending ||
+      (Boolean(input.spaceId) && mountsQuery.isPending) ||
       (Boolean(input.agentId) && connectorIdsQuery.isPending),
     pluginMountIds,
     plugins,

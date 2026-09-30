@@ -114,7 +114,6 @@ function spacesClient(tables: {
   space_member: Array<{ role: string; space_id: string }>;
   spaces: Array<{
     id: string;
-    owner_user_id: string | null;
     visibility: string;
   }>;
 }): SupabaseClient {
@@ -142,12 +141,11 @@ describe("readSpaceAccess", () => {
       { role: "member", space_id: "team-member" },
     ],
     spaces: [
-      { id: "personal", owner_user_id: "u-1", visibility: "private" },
-      { id: "someone-else", owner_user_id: "u-2", visibility: "private" },
-      { id: "team-owned", owner_user_id: null, visibility: "private" },
-      { id: "team-member", owner_user_id: null, visibility: "private" },
-      { id: "team-private", owner_user_id: null, visibility: "private" },
-      { id: "company", owner_user_id: null, visibility: "open" },
+      { id: "someone-else", visibility: "private" },
+      { id: "team-owned", visibility: "private" },
+      { id: "team-member", visibility: "private" },
+      { id: "team-private", visibility: "private" },
+      { id: "company", visibility: "open" },
     ],
   });
 
@@ -156,7 +154,6 @@ describe("readSpaceAccess", () => {
       await readSpaceAccess(client, { tenantId: TENANT, userId: "u-1" })
     ).toEqual(
       new Map([
-        ["personal", { isOwner: true }],
         ["team-owned", { isOwner: true }],
         ["team-member", { isOwner: false }],
         ["company", { isOwner: false }],

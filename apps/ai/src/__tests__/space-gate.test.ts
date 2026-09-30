@@ -3,7 +3,6 @@
 
 import { describe, expect, it } from "vitest";
 import {
-  callSpaceIdFor,
   checkOperationAgainstSpace,
   type SpaceGateContext,
   type SpaceGateSurface,
@@ -17,35 +16,6 @@ const marketing: SpaceGateSurface = {
   readOnlyModuleIds: new Set(),
   spaceId: "019fe8ec-0000-0000-0000-000000000001",
 };
-
-describe("callSpaceIdFor", () => {
-  const personal = "019fe8ec-0000-0000-0000-00000000000f";
-  const copilotInMarketing = { ...marketing, resourceSpaceId: personal };
-
-  it("names the resource Space for connector and connections calls", () => {
-    expect(
-      callSpaceIdFor({ operationId: "gmail_send" }, copilotInMarketing)
-    ).toBe(personal);
-    expect(
-      callSpaceIdFor(
-        { moduleId: "connections", operationId: "connections_list_accounts" },
-        copilotInMarketing
-      )
-    ).toBe(personal);
-  });
-
-  it("names the Space the run stands in for everything else", () => {
-    expect(
-      callSpaceIdFor(
-        { moduleId: "tasks", operationId: "tasks_create" },
-        copilotInMarketing
-      )
-    ).toBe(marketing.spaceId);
-    expect(callSpaceIdFor({ operationId: "gmail_send" }, marketing)).toBe(
-      marketing.spaceId
-    );
-  });
-});
 
 function connectorCall(operationId: string, space: SpaceGateContext) {
   return checkOperationAgainstSpace({

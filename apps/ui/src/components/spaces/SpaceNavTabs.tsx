@@ -63,7 +63,6 @@ interface SpaceSection {
 
 export function SpaceNavTabs({
   activeModuleId,
-  isPersonal,
   section,
   space,
   spaceId,
@@ -71,12 +70,6 @@ export function SpaceNavTabs({
   tabsOnly = false,
 }: {
   activeModuleId: string | undefined;
-  /**
-   * A personal space, which has no roster at all — `owner_user_id` is its whole
-   * access grant and the database refuses a member row on one. The People list
-   * is suppressed entirely rather than rendered empty.
-   */
-  isPersonal: boolean;
   section: SpaceSectionId;
   space: Space | null;
   spaceId: string | null;
@@ -95,10 +88,8 @@ export function SpaceNavTabs({
   // unread: an approval you looked at yesterday and left open is the whole
   // reason to put a number on the tab. The tenant-wide number is the bell's.
   const attentionCount = useAttentionCount("space");
+  // Mounting modules and agents, and adding people, are admin-only.
   const canManage = Boolean(isTenantAdmin || isSuperAdmin);
-  // Personal-space owners may mount modules and agents (admins cannot see
-  // those spaces). Adding people is admin-only, and only on shared spaces.
-  const canEdit = canManage || isPersonal;
   const [editingKind, setEditingKind] = useState<SpaceResourceKind | null>(
     null
   );
@@ -233,8 +224,8 @@ export function SpaceNavTabs({
           {/* Favoriten first, then this person's sections and the built-ins.
               The copilot is not listed — it lives in the app bar. */}
           <SpaceConversationSections
-            canAdd={canEdit}
-            canManage={canEdit}
+            canAdd={canManage}
+            canManage={canManage}
             spaceId={spaceId}
             spaceKey={spaceKey}
           />
@@ -252,7 +243,7 @@ export function SpaceNavTabs({
           />
           <SpaceModulesSection
             activeModuleId={activeModuleId}
-            canAdd={canEdit}
+            canAdd={canManage}
             isPending={isPending}
             modules={modules}
             onAdd={() => setEditingKind("module")}
@@ -263,12 +254,10 @@ export function SpaceNavTabs({
           {spaceId ? (
             <SpacePluginSidebarSections spaceId={spaceId} spaceKey={spaceKey} />
           ) : null}
-          {/* People remain last. A personal space shows its owner as the sole
-              person, but cannot accept member rows or offer an add action. */}
+          {/* People remain last. */}
           <SpaceMembersSection
-            canAdd={canManage && !isPersonal}
+            canAdd={canManage}
             canManage={false}
-            personalOwnerLabel={isPersonal ? space?.name : undefined}
             spaceId={spaceId}
             spaceKey={spaceKey}
           />

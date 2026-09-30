@@ -26,8 +26,10 @@ import {
   copilotRiverPathForPathname,
   isCopilotRiverPathname,
 } from "../../../copilot/copilot-river-paths.js";
+import { ExtensionsDialogSlot } from "../../../features/agent-desk/extensions-dialog-slot.js";
 import { CopilotApprovalModeMenuSection } from "./copilot-approval-mode-menu";
 import { CopilotCompanionLane } from "./copilot-companion-lane";
+import { CopilotConnectionsMenuItem } from "./copilot-connections-menu";
 import { CopilotDeveloperMenuSection } from "./copilot-developer-menu";
 import { CopilotDrawerPositionMenu } from "./copilot-drawer-position-menu";
 import { CopilotDrawerSurfaceTree } from "./copilot-drawer-surfaces";
@@ -158,6 +160,9 @@ export function CopilotDrawerBody({
     setPreferredDockMode,
   });
 
+  // The person's own accounts, opened from the pane menu.
+  const [connectionsOpen, setConnectionsOpen] = useState(false);
+
   const handleHeaderClose = useCallback(() => {
     layout.collapseToFabIcon();
   }, [layout.collapseToFabIcon]);
@@ -167,25 +172,35 @@ export function CopilotDrawerBody({
   }, [river.navigate, talkPathname]);
 
   const copilotPositionDropdown = setPreferredDockMode ? (
-    <CopilotDrawerPositionMenu
-      compactTrigger={headerChrome === "contentBlend"}
-      extraSection={
-        <>
-          <CopilotApprovalModeMenuSection />
-          <CopilotDeveloperMenuSection />
-        </>
-      }
-      onSelectDockPosition={layout.handleDockPositionSelect}
-      onSelectFullscreen={river.navigate ? handleSelectFullscreen : undefined}
-      positionDrawerLabel={positionDrawerLabel}
-      positionFullscreenLabel={positionFullscreenLabel}
-      positionHeadingLabel={positionHeadingLabel}
-      positionMenuAriaLabel={positionMenuAriaLabel}
-      positionSidebarLabel={positionSidebarLabel}
-      positionWindowLabel={positionWindowLabel}
-      showDrawerOption={isMobile}
-      value={positionMenuValue}
-    />
+    <>
+      <CopilotDrawerPositionMenu
+        compactTrigger={headerChrome === "contentBlend"}
+        extraSection={
+          <>
+            <CopilotConnectionsMenuItem
+              onOpen={() => setConnectionsOpen(true)}
+            />
+            <CopilotApprovalModeMenuSection />
+            <CopilotDeveloperMenuSection />
+          </>
+        }
+        onSelectDockPosition={layout.handleDockPositionSelect}
+        onSelectFullscreen={river.navigate ? handleSelectFullscreen : undefined}
+        positionDrawerLabel={positionDrawerLabel}
+        positionFullscreenLabel={positionFullscreenLabel}
+        positionHeadingLabel={positionHeadingLabel}
+        positionMenuAriaLabel={positionMenuAriaLabel}
+        positionSidebarLabel={positionSidebarLabel}
+        positionWindowLabel={positionWindowLabel}
+        showDrawerOption={isMobile}
+        value={positionMenuValue}
+      />
+      <ExtensionsDialogSlot
+        onOpenChange={setConnectionsOpen}
+        open={connectionsOpen}
+        owner="me"
+      />
+    </>
   ) : null;
 
   const handleSurfacePanelModeChange = (mode: "docked" | "floating") => {

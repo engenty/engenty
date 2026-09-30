@@ -51,7 +51,7 @@ export function DataFolderDetail({
       ? drive.nodes.find((node) => node.moduleId === "space-agents")
       : undefined;
   }, [drive.nodes, path]);
-  const breadcrumbs = useNodeBreadcrumbs(path);
+  const breadcrumbs = useNodeBreadcrumbs(spaceId, path);
   const View = useSpaceDataSurfaceView(
     listing.self?.nodeType
       ? spaceDataFolderSurface(listing.self.nodeType)

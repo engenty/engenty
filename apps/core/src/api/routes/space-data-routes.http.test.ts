@@ -54,7 +54,6 @@ const COMPANY: Space = {
   isDefault: true,
   key: "company",
   name: "Company",
-  ownerUserId: null,
   purgeAfter: null,
   tenantId: TENANT,
   visibility: "open",

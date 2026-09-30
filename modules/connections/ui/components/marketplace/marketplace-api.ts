@@ -38,10 +38,14 @@ export interface SourcePreview {
   title: string | null;
 }
 
-export async function loadMarketplaceCatalog(signal?: AbortSignal): Promise<{
+/** The catalog with one owner's accounts: a Space's, or (null) the viewer's. */
+export async function loadMarketplaceCatalog(
+  signal: AbortSignal | undefined,
+  target: string | null
+): Promise<{
   connectors: CatalogConnector[];
 }> {
-  return getConnectionsCatalog(signal);
+  return getConnectionsCatalog(signal, target);
 }
 
 export async function listSpaceMounts(

@@ -1211,4 +1211,40 @@ describe("CUSTOM engenty.sub_agent.progress", () => {
     )?.transcript_parts?.[0] as { progressLines?: string[] };
     expect(nextPart.progressLines).toEqual(["$ pwd", "/workspace"]);
   });
+
+  it("opens a hand-off that starts a turn below the user's message, once", () => {
+    let state: EngentyAgUiConversationState = {
+      ...emptyState(),
+      messages: [
+        { id: "assistant-1", role: "assistant", content: "Done." },
+        { id: "user-2", role: "user", content: "Tell App Coder to build it." },
+      ] as EngentyAgUiConversationState["messages"],
+    };
+    // No message streamed yet this run: the harness names the call itself.
+    state = reduceEngentyAgUiConversationEvent(state, {
+      type: "CUSTOM",
+      name: "engenty.sub_agent.progress",
+      value: {
+        agentId: "app-coder",
+        line: "Running browser_show",
+        messageId: "call-3",
+        toolCallId: "call-3",
+        toolName: "message_agent",
+      },
+    });
+    // The buffered call lands on the run's real message.
+    state = reduceEngentyAgUiConversationEvent(state, {
+      type: "TOOL_CALL_START",
+      messageId: "assistant-3",
+      toolCallId: "call-3",
+      toolCallName: "message_agent",
+    } as never);
+
+    expect(state.messages.map((message) => message.id)).toEqual([
+      "assistant-1",
+      "user-2",
+      "assistant-3",
+    ]);
+    expect(state.messages[0]?.metadata).toBeUndefined();
+  });
 });

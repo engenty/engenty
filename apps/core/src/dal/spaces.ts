@@ -49,13 +49,6 @@ export interface Space {
   key: string;
   name: string;
   /**
-   * Set ⇒ this is somebody's personal space (PLAN-spaces.md Phase P). It is the
-   * whole of what makes a space personal — there is no `kind` column and no
-   * separate table, exactly as a Unix home directory is an ordinary directory
-   * that happens to have an owner.
-   */
-  ownerUserId: string | null;
-  /**
    * Whether the space's `public/` folder is shown to the rest of the company.
    * `null` follows {@link visibility} — see {@link spacePublishesToCompany}.
    */
@@ -63,11 +56,7 @@ export interface Space {
   /** Instant the background sweep may hard-delete this marked space. */
   purgeAfter: string | null;
   tenantId: string;
-  /**
-   * `private` ⇒ reachable only by its owner and members. Personal spaces are
-   * always private (`spaces_personal_is_private_check`); sharing one is done by
-   * granting membership, never by opening it to the tenant.
-   */
+  /** `private` ⇒ reachable only by its members. */
   visibility: "open" | "private";
 }
 
@@ -106,9 +95,7 @@ export interface UpdateSpaceInput {
   publishToCompany?: boolean | null;
   /**
    * Making a space private hides it from everyone without a member row — it does
-   * not delete anything, and flipping back to `open` restores it. A personal
-   * space cannot be opened at all (`spaces_personal_is_private_check`), so the
-   * database refuses that rather than this function.
+   * not delete anything, and flipping back to `open` restores it.
    */
   visibility?: "open" | "private";
 }
@@ -119,7 +106,7 @@ export interface GetSpaceOptions {
 }
 
 const SPACE_COLUMN_LIST =
-  "id, tenant_id, key, name, description, icon, color, is_default, visibility, owner_user_id, agent_approval_mode, computer_network_tier, computer_egress_hosts, publish_to_company, created_at, deleted_at, purge_after";
+  "id, tenant_id, key, name, description, icon, color, is_default, visibility, agent_approval_mode, computer_network_tier, computer_egress_hosts, publish_to_company, created_at, deleted_at, purge_after";
 
 /**
  * A space's egress hosts as stored: each one parsed, duplicates dropped,
@@ -168,7 +155,6 @@ export interface SpaceRow {
   is_default: boolean;
   key: string;
   name: string;
-  owner_user_id: string | null;
   publish_to_company?: boolean | null;
   purge_after?: string | null;
   tenant_id: string;
@@ -189,7 +175,6 @@ export function mapSpace(row: SpaceRow): Space {
     isDefault: row.is_default,
     key: row.key,
     name: row.name,
-    ownerUserId: row.owner_user_id,
     publishToCompany: row.publish_to_company ?? null,
     purgeAfter: row.purge_after ? String(row.purge_after) : null,
     tenantId: row.tenant_id,
@@ -201,16 +186,16 @@ export const SPACE_COLUMNS = SPACE_COLUMN_LIST;
 
 /**
  * Whether the rest of the company sees this space's `public/` folder. An open
- * team space does unless its owner turned it off; a private or personal space
- * does only once someone turned it on — being private is a reason to ask.
+ * space does unless its owner turned it off; a private space does only once
+ * someone turned it on — being private is a reason to ask.
  */
 export function spacePublishesToCompany(
-  space: Pick<Space, "ownerUserId" | "publishToCompany" | "visibility">
+  space: Pick<Space, "publishToCompany" | "visibility">
 ): boolean {
   if (space.publishToCompany !== null) {
     return space.publishToCompany;
   }
-  return space.visibility === "open" && space.ownerUserId === null;
+  return space.visibility === "open";
 }
 
 function spacesTable(client: SupabaseClient) {
@@ -225,7 +210,7 @@ function withoutDeleted<T extends { is: (column: string, value: null) => T }>(
 }
 
 /**
- * Every space in the tenant, INCLUDING every user's private personal space.
+ * Every space in the tenant, INCLUDING every private one.
  *
  * The name is a warning label. On the tenant-locked handle the database enforces
  * the tenant wall and nothing else — the server lane's JWT subject is the nil
@@ -502,9 +487,7 @@ export async function updateSpace(
 /**
  * Hide a space immediately and schedule the hard delete.
  *
- * The Company space and personal spaces are refused: the former is the tenant's
- * front door, the latter is somebody's home directory — neither is an admin
- * cleanup target.
+ * The Company space is refused: it is the tenant's front door.
  */
 export async function markSpaceDeleted(
   client: SupabaseClient,
@@ -520,9 +503,6 @@ export async function markSpaceDeleted(
   }
   if (current.isDefault) {
     throw new Error("space_is_default");
-  }
-  if (current.ownerUserId) {
-    throw new Error("space_is_personal");
   }
   if (current.deletedAt) {
     return current;

@@ -11,8 +11,8 @@ export async function registerDirectory(input: {
   deviceLabel: string | null;
   directoryName: string;
   installationId: string;
-  /** The Space the folder connection belongs to. */
-  spaceId: string;
+  /** The Space the folder connection belongs to; null = the viewer's own. */
+  spaceId: string | null;
 }): Promise<{ connection_id: string }> {
   return requestApiJson("/api/local-files/directories", {
     method: "POST",
@@ -20,7 +20,7 @@ export async function registerDirectory(input: {
       device_label: input.deviceLabel,
       directory_name: input.directoryName,
       installation_id: input.installationId,
-      space_id: input.spaceId,
+      ...(input.spaceId ? { space_id: input.spaceId } : { owner: "me" }),
     },
   });
 }

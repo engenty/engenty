@@ -28,18 +28,19 @@ interface AuthenticatedRoutesProps {
 }
 
 // Settings pages that are genuinely per-user (not tenant config) and so stay
-// reachable by members even though they live under /settings/* or the
-// connections surface under /setup/connections. Appearance is NOT here — it is
-// the tenant-wide branding editor (writes tenant settings); members change
-// only their own theme/language via the user menu.
+// reachable by members even though they live under /settings/*. Appearance is
+// NOT here — it is the tenant-wide branding editor (writes tenant settings);
+// members change only their own theme/language via the user menu.
 const PERSONAL_SETTINGS_PREFIXES = [
   "/settings/profile",
-  "/setup/connections",
   "/settings/connections",
 ];
 
-const SETUP_TENANT_ADMIN_PREFIXES = ["/setup/ai", "/setup/integration-keys"];
-const SETUP_PERSONAL_PREFIXES = ["/setup/connections"];
+const SETUP_TENANT_ADMIN_PREFIXES = [
+  "/setup/ai",
+  "/setup/connections",
+  "/setup/integration-keys",
+];
 
 // The Engenty agents workspace (every module page under it, too) is a debugging
 // surface: superadmins with developer mode on only. `useDeveloperModeEnabled`
@@ -56,11 +57,6 @@ function isBlockedSetupPath(
   path: string,
   opts: { isAdmin: boolean; isSuperAdmin: boolean }
 ): boolean {
-  if (
-    SETUP_PERSONAL_PREFIXES.some((prefix) => pathMatchesPrefix(path, prefix))
-  ) {
-    return false;
-  }
   if (
     SETUP_TENANT_ADMIN_PREFIXES.some((prefix) =>
       pathMatchesPrefix(path, prefix)

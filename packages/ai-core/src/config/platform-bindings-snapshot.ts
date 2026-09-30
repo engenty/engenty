@@ -10,7 +10,22 @@
  */
 import type { ModelBindings } from "./model-roles.js";
 
-let snapshot: ModelBindings | undefined;
+/**
+ * Held on `globalThis`, not in module scope: apps/core loads plugins through
+ * jiti, which gives each plugin its own copy of this module. A module-scoped
+ * snapshot would be loaded in core's copy and empty in every plugin's.
+ */
+const SNAPSHOT_KEY = Symbol.for("engenty.ai-core.platform-bindings");
+
+interface SnapshotHolder {
+  [SNAPSHOT_KEY]?: ModelBindings;
+}
+
+const holder = globalThis as SnapshotHolder;
+
+function currentSnapshot(): ModelBindings | undefined {
+  return holder[SNAPSHOT_KEY];
+}
 
 /** Thrown when a role is asked for before it is bound. */
 export class ModelRoleNotBoundError extends Error {
@@ -28,17 +43,17 @@ export class ModelRoleNotBoundError extends Error {
 }
 
 export function setPlatformBindings(bindings: ModelBindings | undefined): void {
-  snapshot = bindings && bindings.size > 0 ? bindings : undefined;
+  holder[SNAPSHOT_KEY] = bindings && bindings.size > 0 ? bindings : undefined;
 }
 
 export function platformBindings(): ModelBindings | undefined {
-  return snapshot;
+  return currentSnapshot();
 }
 
 /** The binding for `role`, or throw {@link ModelRoleNotBoundError}. */
 export function requirePlatformBinding(
   role: string,
-  bindings: ModelBindings | undefined = snapshot
+  bindings: ModelBindings | undefined = currentSnapshot()
 ) {
   if (!bindings) {
     throw new ModelRoleNotBoundError(role, "not_loaded");
@@ -69,7 +84,7 @@ export async function startPlatformBindingsSync(
       // Keep the last good snapshot; a failed read must not unbind roles.
     }
     if (!stopped) {
-      timer = setTimeout(tick, snapshot ? intervalMs : EMPTY_RETRY_MS);
+      timer = setTimeout(tick, currentSnapshot() ? intervalMs : EMPTY_RETRY_MS);
       (timer as { unref?: () => void }).unref?.();
     }
   };

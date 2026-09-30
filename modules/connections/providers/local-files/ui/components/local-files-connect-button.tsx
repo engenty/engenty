@@ -1,5 +1,4 @@
 import type { ConnectorConnectButtonProps } from "@engenty/connections/ui/extensions";
-import { useConnectSpaceId } from "@engenty/connections/ui/space";
 import { useQueryClient } from "@engenty/query-client";
 import { Button } from "@engenty/ui-core";
 import { FolderPlus } from "lucide-react";
@@ -24,8 +23,7 @@ export function LocalFilesConnectButton({
 }: ConnectorConnectButtonProps) {
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
-  // A folder belongs to a Space: this one, else the viewer's personal Space.
-  const targetSpaceId = useConnectSpaceId(spaceId);
+  // A folder belongs to a Space: this one, else it is the viewer's own.
 
   if (!canGrantLocalFolder()) {
     return (
@@ -39,10 +37,7 @@ export function LocalFilesConnectButton({
   const connect = async () => {
     setBusy(true);
     try {
-      if (!targetSpaceId) {
-        return;
-      }
-      const granted = await grantLocalFolder({ spaceId: targetSpaceId });
+      const granted = await grantLocalFolder({ spaceId });
       if (!granted) {
         return;
       }

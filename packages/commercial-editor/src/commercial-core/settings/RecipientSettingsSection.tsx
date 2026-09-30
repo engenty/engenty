@@ -1,5 +1,5 @@
 import { useTranslation } from "@engenty/i18n/ui";
-import { SettingsSection } from "../shared/settings";
+import { SettingsSection } from "@engenty/ui-core";
 import { RecipientSettingsCard } from "./RecipientSettingsCard";
 
 export type DocumentType = "offer" | "invoice";

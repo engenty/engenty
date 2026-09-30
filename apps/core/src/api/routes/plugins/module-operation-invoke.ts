@@ -174,6 +174,9 @@ export function handlerAuth(
       // can audit the acting agent instead of the impersonated user.
       ...(auth.agentId ? { agentId: auth.agentId } : {}),
       ...(auth.goalId ? { goalId: auth.goalId } : {}),
+      // An App call has nobody watching the turn: personal accounts stay out
+      // of its reach (PLAN-personal-connections.md).
+      ...(auth.callOrigin ? { callOrigin: auth.callOrigin } : {}),
       // The space the call happens in (CN.3), so a handler that LISTS what a
       // space contains can narrow to it. Filtering only, never widening.
       ...(auth.spaceId ? { spaceId: auth.spaceId } : {}),

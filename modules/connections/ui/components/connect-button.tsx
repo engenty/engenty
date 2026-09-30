@@ -1,15 +1,16 @@
 import { useTranslation } from "@engenty/i18n/ui";
+import { MY_CONNECTIONS_PATH } from "@engenty/plugin-sdk";
 import { Button } from "@engenty/ui-core";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { getConnectUrl } from "../api.js";
 import {
+  CONNECT_COMPLETE_CHANNEL,
   CONNECT_COMPLETE_PATH,
   type ConnectCompleteResult,
   readConnectCompleteMessage,
 } from "../connect-popup.js";
-import { useConnectSpaceId } from "../hooks/use-connection-space.js";
 
 export interface ConnectButtonProps {
   className?: string;
@@ -29,7 +30,7 @@ export interface ConnectButtonProps {
   size?: "sm" | "default";
   /**
    * The Space the new account will belong to — the one the connect started
-   * in. Absent = the viewer's personal Space (Copilot, personal places).
+   * in. Absent = the viewer's own account (the Copilot, personal settings).
    */
   spaceId?: string | null;
   variant?: "default" | "ghost" | "outline";
@@ -37,10 +38,10 @@ export interface ConnectButtonProps {
 
 const POPUP_FEATURES = "popup,width=600,height=720";
 const POPUP_CLOSED_POLL_MS = 500;
-// The completion page posts its message right before window.close(); give the
-// message a moment to arrive after the closed-poll fires before declaring the
-// flow cancelled.
-const POPUP_CLOSED_GRACE_MS = 300;
+// A provider's opener policy can make the popup read as closed while the
+// person is still signing in; the result then arrives on the channel. Keep
+// listening this long after it looks closed.
+const POPUP_RESULT_WAIT_MS = 10 * 60_000;
 
 /**
  * Starts the OAuth flow: fetches the provider auth URL, then either redirects
@@ -52,7 +53,7 @@ export function ConnectButton({
   flow = "redirect",
   hasConnections = false,
   onResult,
-  redirectTo = "/settings/connections",
+  redirectTo = MY_CONNECTIONS_PATH,
   size = "sm",
   spaceId = null,
   label,
@@ -62,7 +63,6 @@ export function ConnectButton({
 }: ConnectButtonProps) {
   const { t } = useTranslation("connections");
   const [connecting, setConnecting] = useState(false);
-  const targetSpaceId = useConnectSpaceId(spaceId);
   const cleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(
@@ -74,16 +74,14 @@ export function ConnectButton({
 
   const watchPopup = (popup: Window) => {
     let settled = false;
-    const settle = (result: ConnectCompleteResult | null) => {
+    const settle = (result: ConnectCompleteResult) => {
       if (settled) {
         return;
       }
       settled = true;
       cleanup();
       setConnecting(false);
-      if (result) {
-        onResult?.(result);
-      }
+      onResult?.(result);
     };
     const onMessage = (event: MessageEvent) => {
       const message = readConnectCompleteMessage(event);
@@ -92,25 +90,39 @@ export function ConnectButton({
       }
     };
     window.addEventListener("message", onMessage);
+    const channel =
+      typeof BroadcastChannel === "undefined"
+        ? null
+        : new BroadcastChannel(CONNECT_COMPLETE_CHANNEL);
+    channel?.addEventListener("message", (event) =>
+      onMessage(
+        new MessageEvent("message", {
+          data: event.data,
+          origin: window.location.origin,
+        })
+      )
+    );
+    let giveUp: number | null = null;
     const poll = window.setInterval(() => {
       if (popup.closed) {
         window.clearInterval(poll);
-        // A just-posted completion message may still be in flight.
-        window.setTimeout(() => settle(null), POPUP_CLOSED_GRACE_MS);
+        setConnecting(false);
+        giveUp = window.setTimeout(cleanup, POPUP_RESULT_WAIT_MS);
       }
     }, POPUP_CLOSED_POLL_MS);
     const cleanup = () => {
       window.removeEventListener("message", onMessage);
+      channel?.close();
       window.clearInterval(poll);
+      if (giveUp !== null) {
+        window.clearTimeout(giveUp);
+      }
       cleanupRef.current = null;
     };
     cleanupRef.current = cleanup;
   };
 
   const connect = async () => {
-    if (!targetSpaceId) {
-      return;
-    }
     setConnecting(true);
     // Open synchronously inside the click gesture so popup blockers allow it;
     // the auth URL is assigned once fetched.
@@ -128,7 +140,7 @@ export function ConnectButton({
               ? // Popup blocked — fall back to a full redirect returning here.
                 `${window.location.pathname}${window.location.search}`
               : redirectTo,
-        spaceId: targetSpaceId,
+        target: spaceId,
       });
       if (popup) {
         popup.location.replace(authUrl);
@@ -154,7 +166,7 @@ export function ConnectButton({
   return (
     <Button
       className={className}
-      disabled={connecting || !targetSpaceId}
+      disabled={connecting}
       onClick={() => void connect()}
       size={size}
       type="button"

@@ -5,7 +5,7 @@ import type {
   PluginStage,
   PluginTenantDefault,
 } from "@engenty/plugin-sdk";
-import type { ComponentType } from "react";
+import type { ComponentType, ReactNode } from "react";
 
 export type {
   PluginCategory,
@@ -441,6 +441,25 @@ export interface UiLiveBindingContribution {
   sourceInfo?: PluginSourceInfo;
 }
 
+/** What a module's sidebar puts in the shell's secondary column. */
+export interface UiModuleSidebar {
+  secondaryNavAfterItems: ReactNode;
+  secondaryNavHeaderSlot: ReactNode;
+}
+
+/**
+ * A module's sidebar, registered once so the shell can show it on pages the
+ * module does not own — an agent's desk opened inside the module
+ * (`/s/<key>/<module>/agents/<id>`). A React hook: called at the top level of
+ * that page, so it must obey the rules of hooks.
+ */
+export interface UiModuleSidebarContribution {
+  moduleId: string;
+  pluginId: UiPluginId;
+  sourceInfo?: PluginSourceInfo;
+  useSidebar: () => UiModuleSidebar;
+}
+
 /** Brand identity a module (e.g. company-profile) surfaces to the app shell. */
 export interface UiBrandInfo {
   logoUrl?: string | null;
@@ -479,6 +498,8 @@ export interface UiContributions {
   developmentPanels: UiDevelopmentPanelContribution[];
   i18nNamespaces: UiI18nNamespaceContribution[];
   liveBindings: UiLiveBindingContribution[];
+  /** Optional like `spaceSections`; consumers use `?? []`. */
+  moduleSidebars?: UiModuleSidebarContribution[];
   navigationPrefetch: UiNavigationPrefetchContribution[];
   routes: UiRouteContribution[];
   settingsItems: UiSettingsItemContribution[];
@@ -663,6 +684,10 @@ export interface EngentyUiApi {
     id: string;
     postgresChanges?: UiLiveBindingPostgresChange[];
     queryRoot: readonly unknown[];
+  }) => void;
+  registerModuleSidebar: (input: {
+    moduleId: string;
+    useSidebar: () => UiModuleSidebar;
   }) => void;
   registerNavigationPrefetch: (input: {
     id: string;

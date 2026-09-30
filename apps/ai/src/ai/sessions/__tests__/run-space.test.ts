@@ -158,22 +158,34 @@ describe("resolveRunSpace", () => {
     expect(toolsSpaceFromResolution(resolution)).toBeNull();
   });
 
-  it("puts the copilot where the person stands, its resources in /s/me", async () => {
+  it("gives the copilot its person's own connectors on top of the Space's", async () => {
     // Hiring, apps, routines, the computer and the browser are the Space the
-    // person is in; the copilot's connections stay their personal Space's.
-    listSpaces.mockResolvedValue([
-      { id: SPACE_A, ownerUserId: null },
-      { id: SPACE_B, ownerUserId: USER },
-    ]);
-    request.mockImplementation((path: string) =>
+    // person is in; their own accounts come along wherever that is.
+    invokeTool.mockImplementation((_id: string, input: { owner?: string }) =>
       Promise.resolve(
-        path.includes(SPACE_B)
-          ? surfaceFixture({ connectors: ["google-gmail"] })
-          : surfaceFixture({
-              browserGrant: { autostart: true, unattended: true },
-              connectors: [],
-            })
+        input.owner === "me"
+          ? {
+              connectors: [
+                {
+                  connections: [{ status: "active" }],
+                  tool_prefix: "gmail",
+                },
+                { connections: [], tool_prefix: "slack" },
+              ],
+            }
+          : {
+              connectors: [
+                { id: "google-gmail", tool_prefix: "gmail" },
+                { id: "slack", tool_prefix: "slack" },
+              ],
+            }
       )
+    );
+    request.mockResolvedValue(
+      surfaceFixture({
+        browserGrant: { autostart: true, unattended: true },
+        connectors: [],
+      })
     );
     const resolution = await resolveRunSpace({
       scope: userScope,
@@ -185,21 +197,31 @@ describe("resolveRunSpace", () => {
     });
     const space = resolvedRunSpace(resolution);
     expect(space?.spaceId).toBe(SPACE_A);
-    expect(space?.resourceSpaceId).toBe(SPACE_B);
     expect([...(space?.connectorPrefixes ?? [])]).toEqual(["gmail"]);
     expect(space?.browser.unattended).toBe(true);
   });
 
-  it("puts the copilot in /s/me when the person stands in no Space", async () => {
-    listSpaces.mockResolvedValue([{ id: SPACE_B, ownerUserId: USER }]);
-    request.mockResolvedValue(surfaceFixture());
+  it("never gives a Space engenty its person's own connectors", async () => {
+    request.mockResolvedValue(surfaceFixture({ connectors: [] }));
+    const resolution = await resolveRunSpace({
+      scope: userScope,
+      thread: { agent_id: "tasks.assist", space_id: SPACE_A },
+    });
+    expect([
+      ...(resolvedRunSpace(resolution)?.connectorPrefixes ?? []),
+    ]).toEqual([]);
+    expect(invokeTool).not.toHaveBeenCalledWith("connections_catalog", {
+      owner: "me",
+    });
+  });
+
+  it("leaves the copilot in no Space when the person stands in none", async () => {
     const resolution = await resolveRunSpace({
       scope: userScope,
       thread: { agent_id: "engenty.copilot", space_id: null },
     });
-    const space = resolvedRunSpace(resolution);
-    expect(space?.spaceId).toBe(SPACE_B);
-    expect(space?.resourceSpaceId).toBeUndefined();
+    expect(resolution).toEqual({ kind: "global" });
+    expect(request).not.toHaveBeenCalled();
   });
 
   it("returns resolved for an open Space the caller can enter", async () => {
@@ -438,5 +460,16 @@ describe("applyAgentConnectorReach", () => {
     });
     expect(next && "kind" in next && next.kind === "global").toBe(true);
     expect(prefixes(next)).toEqual([]);
+  });
+
+  it("gives the copilot outside any space its person's own connectors only", () => {
+    const next = applyAgentConnectorReach({
+      allConnectorPrefixes: all,
+      personalPrefixes: new Set(["gmail"]),
+      preferredPrefixes: new Set(),
+      space: null,
+    });
+    expect(next && "kind" in next && next.kind === "global").toBe(true);
+    expect(prefixes(next)).toEqual(["gmail"]);
   });
 });

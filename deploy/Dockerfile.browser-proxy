@@ -1,0 +1,10 @@
+# The user browsers' proxy: tinyproxy with deploy/browser-proxy's config and
+# blocklist baked in. An image, not a bind mount, for the same reason as
+# Dockerfile.egress-proxy — a mounted folder on a server never follows a
+# release.
+FROM monokal/tinyproxy:latest
+
+COPY deploy/browser-proxy/tinyproxy.conf deploy/browser-proxy/filter /etc/tinyproxy/
+
+EXPOSE 8888
+ENTRYPOINT ["tinyproxy", "-d", "-c", "/etc/tinyproxy/tinyproxy.conf"]

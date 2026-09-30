@@ -92,8 +92,8 @@ export function registerUserManagementCrudRoutes(
    * The member-facing directory: everyone in the tenant, as a name and an id.
    *
    * Exists because a picker ("who can I add to this space?") must be usable by
-   * someone who is not an admin — sharing a personal space is done by naming a
-   * person, and its owner is usually an ordinary member. `/api/users` cannot
+   * someone who is not an admin — sharing a private space is done by naming a
+   * person. `/api/users` cannot
    * serve that: it is `select("*")`, so it hands back private phone numbers and
    * home addresses to render a dropdown.
    *

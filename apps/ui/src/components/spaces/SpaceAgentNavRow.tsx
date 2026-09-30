@@ -1,7 +1,7 @@
 /**
  * A desk row in the conversation list: blob, the visibility marker when the
- * desk is not simply open (a lock in a personal space, a key in a private
- * one), agent name, when its desk line last moved, and that line's title
+ * desk is not simply open (a lock in a one-person private space, a key in a
+ * shared private one), agent name, when its desk line last moved, and that line's title
  * underneath. No conversation → New pill
  * where the timestamp would be, and no second line. Hover marquees
  * overflowing line-2 text only (paint/overflow). The menu is the row's ⋮;

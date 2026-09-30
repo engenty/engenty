@@ -76,7 +76,7 @@ function ApprovalModeRow({
 export function SpaceApprovalModeControl({ space }: { space: Space }) {
   const { t } = useTranslation("common");
   const { isSuperAdmin, isTenantAdmin } = useWorkspaceContext();
-  const canEdit = isSuperAdmin || isTenantAdmin || space.ownerUserId != null;
+  const canEdit = isSuperAdmin || isTenantAdmin;
   const mountsQuery = useSpaceMountsQuery(space.id);
   const effectiveQuery = useEffectiveAiSettingsQuery();
   const save = useSaveSpaceSetupMutation();
@@ -119,7 +119,7 @@ export function SpaceApprovalModeControl({ space }: { space: Space }) {
         })),
         name: space.name,
         spaceId: space.id,
-        ...(space.ownerUserId ? {} : { visibility: space.visibility }),
+        visibility: space.visibility,
         agent_approval_mode: parsed,
       },
       {

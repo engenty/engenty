@@ -62,8 +62,8 @@ Each step ends on a tool result, not on a promise.
 - `instructions`: that mandate, plus "Load the **chief-of-staff** skill for
   setup, routing and hiring — it is your playbook here." (The playbook is the
   hire's, handed to it at run time; it is not in your catalog.)
-- `for_work`: `chat`; `agent_scope`: `personal` in the personal Space,
-  `shared` in a team Space; `tool_ids: []`, `skill_ids: []`.
+- `for_work`: `chat`; `agent_scope`: `personal` in a Space whose only member
+  is the person, `shared` in a team Space; `tool_ids: []`, `skill_ids: []`.
 
 No Routine — people talk to it.
 

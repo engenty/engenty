@@ -41,9 +41,14 @@ import {
 
 const KEPT_CHATS = 3;
 
-/** The chat a pathname opens, or null for any other page of the space. */
+/**
+ * The chat a pathname opens, or null for any other page of the space. A desk
+ * opened inside a module (`<module>/agents/<id>`) is its own kept chat.
+ */
 function chatKeyOf(pathname: string): string | null {
-  const match = /^\/s\/([^/]+)\/(copilot|agents\/([^/]+))\/?$/.exec(pathname);
+  const match = /^\/s\/([^/]+)\/(copilot|(?:[^/]+\/)?agents\/([^/]+))\/?$/.exec(
+    pathname
+  );
   if (!match || match[3] === "new") {
     return null;
   }

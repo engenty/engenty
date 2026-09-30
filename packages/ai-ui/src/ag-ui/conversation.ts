@@ -8,7 +8,10 @@ import type { JsonPatchOperation, RunAgentInput } from "@engenty/ag-ui-bridge";
 import { sortAgUiMessagesForTranscript } from "@engenty/ai-core/browser";
 import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 import { logCopilotChatNew } from "./chat-new-debug.js";
-import { appendSubAgentProgressToAgUiMessages } from "./sub-agent-progress-message.js";
+import {
+  adoptSubAgentPlaceholder,
+  appendSubAgentProgressToAgUiMessages,
+} from "./sub-agent-progress-message.js";
 
 type AgUiMessageBase = RunAgentInput["messages"][number];
 
@@ -483,16 +486,17 @@ export function reduceEngentyAgUiConversationEvent(
         events: [...current.events, event],
       };
     case "TOOL_CALL_START": {
+      const toolCallId = getString(record.toolCallId);
       const messageId =
         getString(record.messageId) ??
         current.activeTextMessageId ??
-        `assistant-tool-${getString(record.toolCallId) ?? Date.now()}`;
+        `assistant-tool-${toolCallId ?? Date.now()}`;
       return {
         ...current,
         activeTextMessageId: messageId,
         events: [...current.events, event],
         messages: upsertStreamedMessage(
-          current.messages,
+          adoptSubAgentPlaceholder(current.messages, toolCallId, messageId),
           messageId,
           (message) => appendToolCall(message, record)
         ),

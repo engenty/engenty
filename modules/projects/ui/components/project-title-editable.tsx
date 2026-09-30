@@ -1,7 +1,7 @@
 import { useTranslation } from "@engenty/i18n/ui";
 import { Button } from "@engenty/ui-core";
 import { Pencil } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 
 export interface ProjectTitleEditableProps {
   editAriaLabel?: string;
@@ -12,6 +12,8 @@ export interface ProjectTitleEditableProps {
   onStartEditTitle: () => void;
   onTitleChange: (value: string) => void;
   title: string;
+  /** Shown right after the title, before the hover pencil (the project star). */
+  titleAdornment?: ReactNode;
   titleValue: string;
 }
 
@@ -25,6 +27,7 @@ export function ProjectTitleEditable({
   editingTitle,
   editLabel,
   title,
+  titleAdornment,
   titleValue,
   onTitleChange,
   onStartEditTitle,
@@ -96,6 +99,7 @@ export function ProjectTitleEditable({
       >
         {title}
       </button>
+      {titleAdornment}
       <Button
         aria-label={editLabel ?? t("detail.editTitle")}
         className="opacity-0 transition-opacity group-hover:opacity-100"

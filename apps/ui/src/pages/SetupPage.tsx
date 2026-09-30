@@ -58,8 +58,8 @@ const SETUP_ROWS: SetupOverviewRow[] = [
     tone: "amber",
   },
   {
-    to: "/setup/connectors",
-    labelKey: "navigation.setupConnectors",
+    to: "/setup/connections",
+    labelKey: "navigation.setupConnections",
     descriptionKey: "setup.connectorsDescription",
     Icon: Cable,
     tone: "moss",

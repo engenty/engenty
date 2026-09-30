@@ -20,7 +20,16 @@ import type {
 } from "./types.js";
 
 /** A file-capable connection, enriched with connector display metadata. */
-export interface FileSourceConnection extends ConnectionSummary {
+/**
+ * A Space's account — the only kind a module ever sees
+ * ({@link spaceAccountsOnly}).
+ */
+export type SpaceConnectionSummary = ConnectionSummary & {
+  owner_user_id: null;
+  space_id: string;
+};
+
+export interface FileSourceConnection extends SpaceConnectionSummary {
   connector_icon: string | null;
   connector_name: string;
 }
@@ -170,14 +179,43 @@ export function createConnectionsModuleClient(
 }
 
 /**
+ * A repo that sees Space accounts only. Modules consume accounts unattended —
+ * syncs, background pulls, stored records — and a personal account serves its
+ * owner and their Copilot live, never that (PLAN-personal-connections.md).
+ * Hiding them here covers every module path: listed, addressed by id, or
+ * executed.
+ */
+function isSpaceAccount(
+  connection: ConnectionSummary
+): connection is SpaceConnectionSummary {
+  return connection.space_id !== null;
+}
+
+function spaceAccountsOnly(repo: ConnectionsRepo): ConnectionsRepo {
+  return {
+    ...repo,
+    async getConnection(params) {
+      const connection = await repo.getConnection(params);
+      return connection && isSpaceAccount(connection) ? connection : null;
+    },
+    async listConnections(params) {
+      return (await repo.listConnections(params)).filter(isSpaceAccount);
+    },
+  };
+}
+
+/**
  * Same client over a per-tenant repo factory (module composition, tests).
  * Every method carries a `tenantId` and resolves its repo through `getRepo`
- * at call time — nothing tenant-shaped is captured at construction.
+ * at call time — nothing tenant-shaped is captured at construction. Personal
+ * accounts are invisible to it ({@link spaceAccountsOnly}).
  */
 export function createConnectionsModuleClientFromRepo(
-  getRepo: (tenantId: string) => ConnectionsRepo,
+  getTenantRepo: (tenantId: string) => ConnectionsRepo,
   options: ConnectionsModuleClientOptions
 ) {
+  const getRepo = (tenantId: string) =>
+    spaceAccountsOnly(getTenantRepo(tenantId));
   function requireConnector(
     connectorId: string,
     tenantId?: string | null
@@ -193,13 +231,16 @@ export function createConnectionsModuleClientFromRepo(
   }
 
   const client = {
-    /** Active connections of the tenant (optionally one connector). */
+    /** Active Space accounts of the tenant (optionally one connector). */
     async listConnections(params: {
       connectorId?: string;
       tenantId: string;
-    }): Promise<ConnectionSummary[]> {
+    }): Promise<SpaceConnectionSummary[]> {
       const all = await getRepo(params.tenantId).listConnections(params);
-      return all.filter((c) => c.status === "active");
+      return all.filter(
+        (c): c is SpaceConnectionSummary =>
+          isSpaceAccount(c) && c.status === "active"
+      );
     },
 
     /** Active connections whose connector declares the files capability. */
@@ -211,7 +252,7 @@ export function createConnectionsModuleClientFromRepo(
       });
       const sources: FileSourceConnection[] = [];
       for (const connection of all) {
-        if (connection.status !== "active") {
+        if (!isSpaceAccount(connection) || connection.status !== "active") {
           continue;
         }
         const def = getConnectorDefinition(

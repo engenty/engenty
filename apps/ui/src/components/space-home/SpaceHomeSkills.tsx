@@ -38,7 +38,7 @@ import {
   SPACE_SECTION_OPEN_KEYS,
   useSpaceSectionOpen,
 } from "@/lib/use-space-section-open";
-import { SpaceHomeConnectDialog } from "./SpaceHomeConnectDialog";
+import { SpaceExtensionsDialog } from "./SpaceExtensionsDialog";
 import { SpaceHomeSectionHeading } from "./SpaceHomeSectionHeading";
 import {
   SPACE_HOME_ROW_CLASSNAME,
@@ -182,7 +182,7 @@ export function SpaceHomeSkills({ space }: { space: Space }) {
           ) : null}
         </div>
       </CollapsibleContent>
-      <SpaceHomeConnectDialog
+      <SpaceExtensionsDialog
         initialTab="skills"
         onOpenChange={setConnectOpen}
         open={connectOpen}

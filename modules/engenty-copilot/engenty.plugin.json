@@ -2,7 +2,7 @@
   "id": "engenty-copilot",
   "name": "Engenty Copilot",
   "emoji": "🤖",
-  "description": "Core Engenty copilot full-page chat and apps/ai UI consumer",
+  "description": "Core Engenty Copilot full-page chat and apps/ai UI consumer",
   "version": "0.0.1",
   "kind": "module",
   "stage": "beta",

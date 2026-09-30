@@ -464,10 +464,7 @@
       "descriptionPlaceholder": "What this agent does…",
       "noConnectors": "No connections.",
       "connect": "Connect",
-      "connectTitle": "Extensions",
-      "connectBack": "Back",
       "connectDescription": "Connections and skills for {{name}}.",
-      "connectPlugins": "Connections",
       "connectInstallSkill": "Install from skills.sh",
       "filterAll": "All",
       "filterAdded": "Added",
@@ -596,6 +593,7 @@
       "emptyStateTitle": "How can I help?",
       "emptyStateSubtitle": "Ask questions, draft content, or get help across your workspace.",
       "description": "Your copilot everywhere in Engenty. Quick things get done right here in the chat; work that keeps recurring goes to an Engenty as a Routine, owned work becomes a Task.",
+      "myConnections": "My connections",
       "developer": {
         "heading": "Developer",
         "copyJson": "Copy as JSON",
@@ -2198,6 +2196,7 @@
       "start": "Start",
       "stop": "Stop",
       "hint": "Start this Space's logged-in browser. Every Engenty here works in its own window; logins are shared. You can take over any time.",
+      "noSpace": "The browser belongs to a space. Open a space to use it here.",
       "startFailed": "Could not start the browser.",
       "toggle": "Show the browser",
       "state": {

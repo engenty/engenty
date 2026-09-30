@@ -80,8 +80,8 @@ export function SpaceModuleGate({
   if (mounted) {
     return <>{children}</>;
   }
-  // Admins mount modules; so does the owner of a personal space.
-  const canEdit = Boolean(isTenantAdmin || isSuperAdmin || space.ownerUserId);
+  // Admins mount modules.
+  const canEdit = Boolean(isTenantAdmin || isSuperAdmin);
   return (
     <div className="flex h-full items-center justify-center p-8">
       <Empty>

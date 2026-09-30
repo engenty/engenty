@@ -26,6 +26,7 @@ function connection(
     error_message: null,
     external_account: null,
     granted_scopes: [],
+    owner_user_id: null,
     space_id: SPACE,
     status: "active",
     tenant_id: "tenant-1",
@@ -76,13 +77,15 @@ function fakeRepo(state: FakeRepoState) {
       (state.pending ?? []) as ApprovalRequestRecord[],
     listCandidateConnections: async (params: {
       connectorId: string;
-      spaceId: string;
+      reach: { personalUserId: string | null; spaceId: string | null };
     }) =>
       state.connections.filter(
         (c) =>
           c.status === "active" &&
           c.connector_id === params.connectorId &&
-          c.space_id === params.spaceId
+          ((c.space_id !== null && c.space_id === params.reach.spaceId) ||
+            (c.owner_user_id !== null &&
+              c.owner_user_id === params.reach.personalUserId))
       ),
     listPolicyOverrides: async (ids: string[]) =>
       (state.overrides ?? []).filter((o) => ids.includes(o.connection_id)),
@@ -142,7 +145,7 @@ describe("executeConnectorAction", () => {
       principal: user,
       recordAuditEvent: audit,
       repo,
-      spaceId: SPACE,
+      reach: { personalUserId: null, spaceId: SPACE },
       tenantId: "tenant-1",
     });
     expect(result.connection.id).toBe("c-1");
@@ -186,7 +189,7 @@ describe("executeConnectorAction", () => {
       moduleId: "files",
       principal: user,
       repo,
-      spaceId: SPACE,
+      reach: { personalUserId: null, spaceId: SPACE },
       tenantId: "tenant-1",
     });
     expect(result.output).toEqual({ token: "" });
@@ -215,7 +218,7 @@ describe("executeConnectorAction", () => {
       isAutonomous: false,
       principal: user,
       repo,
-      spaceId: SPACE,
+      reach: { personalUserId: null, spaceId: SPACE },
       tenantId: "tenant-1",
     });
     expect(result.connection.id).toBe("c-org");
@@ -238,7 +241,7 @@ describe("executeConnectorAction", () => {
       isAutonomous: false,
       principal: user,
       repo,
-      spaceId: SPACE,
+      reach: { personalUserId: null, spaceId: SPACE },
       tenantId: "tenant-1",
     }).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(ConnectionsActionError);
@@ -258,7 +261,7 @@ describe("executeConnectorAction", () => {
         isAutonomous: false,
         principal: user,
         repo,
-        spaceId: SPACE,
+        reach: { personalUserId: null, spaceId: SPACE },
         tenantId: "tenant-1",
       })
     ).rejects.toMatchObject({ code: "connection_not_connected" });
@@ -281,7 +284,7 @@ describe("executeConnectorAction", () => {
         isAutonomous: true,
         principal: { principalId: "svc-1", principalType: "service" },
         repo,
-        spaceId: SPACE,
+        reach: { personalUserId: null, spaceId: SPACE },
         tenantId: "tenant-1",
       })
     ).rejects.toMatchObject({ code: "connection_denied" });
@@ -304,7 +307,7 @@ describe("executeConnectorAction", () => {
       principal: { principalId: "svc-1", principalType: "service" },
       repo,
       taskId: "task-7",
-      spaceId: SPACE,
+      reach: { personalUserId: null, spaceId: SPACE },
       tenantId: "tenant-1",
     }).catch((e: unknown) => e);
     expect((error as ConnectionsActionError).code).toBe(
@@ -346,7 +349,7 @@ describe("executeConnectorAction", () => {
       principal: { principalId: "svc-1", principalType: "service" },
       repo,
       taskId: "task-7",
-      spaceId: SPACE,
+      reach: { personalUserId: null, spaceId: SPACE },
       tenantId: "tenant-1",
     });
     expect(first.output).toEqual({ ok: true });
@@ -362,7 +365,7 @@ describe("executeConnectorAction", () => {
         principal: { principalId: "svc-1", principalType: "service" },
         repo,
         taskId: "task-7",
-        spaceId: SPACE,
+        reach: { personalUserId: null, spaceId: SPACE },
         tenantId: "tenant-1",
       })
     ).rejects.toMatchObject({ code: "connection_approval_pending" });
@@ -393,7 +396,7 @@ describe("executeConnectorAction", () => {
         onApprovalRequested,
         principal: { principalId: "svc-1", principalType: "service" },
         repo,
-        spaceId: SPACE,
+        reach: { personalUserId: null, spaceId: SPACE },
         tenantId: "tenant-1",
       })
     ).rejects.toMatchObject({ code: "connection_approval_pending" });
@@ -419,7 +422,7 @@ describe("executeConnectorAction", () => {
       isAutonomous: true,
       principal: { principalId: "svc-1", principalType: "service" },
       repo,
-      spaceId: SPACE,
+      reach: { personalUserId: null, spaceId: SPACE },
       tenantId: "tenant-1",
     });
     expect(result.output).toEqual({ ok: true });
@@ -434,7 +437,7 @@ describe("executeConnectorAction", () => {
       isAutonomous: false,
       principal: user,
       repo,
-      spaceId: SPACE,
+      reach: { personalUserId: null, spaceId: SPACE },
       tenantId: "tenant-1",
     });
     expect(result.output).toEqual({ ok: true });
@@ -477,7 +480,7 @@ describe("executeConnectorAction — Space reach", () => {
       isAutonomous: true,
       principal: service,
       repo,
-      spaceId: SPACE,
+      reach: { personalUserId: null, spaceId: SPACE },
       tenantId: "tenant-1",
     });
     expect(result.connection.id).toBe("c-ours");
@@ -489,7 +492,7 @@ describe("executeConnectorAction — Space reach", () => {
         isAutonomous: true,
         principal: service,
         repo,
-        spaceId: "space-empty",
+        reach: { personalUserId: null, spaceId: "space-empty" },
         tenantId: "tenant-1",
       })
     ).rejects.toMatchObject({ code: "connection_not_connected" });
@@ -510,7 +513,7 @@ describe("executeConnectorAction — Space reach", () => {
           isAutonomous: true,
           principal: service,
           repo,
-          spaceId,
+          reach: { personalUserId: null, spaceId: spaceId ?? null },
           tenantId: "tenant-1",
         })
       ).rejects.toMatchObject({ code: "connection_not_in_space" });
@@ -531,7 +534,7 @@ describe("executeConnectorAction — Space reach", () => {
         isAutonomous: true,
         principal: service,
         repo,
-        spaceId: SPACE,
+        reach: { personalUserId: null, spaceId: SPACE },
         tenantId: "tenant-1",
       })
     ).rejects.toMatchObject({

@@ -1,13 +1,9 @@
-/**
- * The Company space and personal spaces must not be markable for deletion:
- * `core.purge_space` only refuses the default space, not a personal one.
- */
+/** The Company space must not be markable for deletion. */
 import { describe, expect, it, vi } from "vitest";
 import { markSpaceDeleted, type SpaceRow } from "./spaces.js";
 
 const TENANT = "11111111-1111-1111-1111-111111111111";
 const SPACE = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
-const OWNER = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 
 function row(
   partial: Partial<SpaceRow> & Pick<SpaceRow, "id" | "key">
@@ -21,7 +17,6 @@ function row(
     icon: null,
     is_default: false,
     name: partial.key,
-    owner_user_id: null,
     purge_after: null,
     tenant_id: TENANT,
     visibility: "open",
@@ -48,18 +43,6 @@ describe("markSpaceDeleted", () => {
     await expect(
       markSpaceDeleted(stubClient(company), TENANT, SPACE)
     ).rejects.toThrow("space_is_default");
-  });
-
-  it("refuses a personal space", async () => {
-    const personal = row({
-      id: SPACE,
-      key: "alice",
-      owner_user_id: OWNER,
-      visibility: "private",
-    });
-    await expect(
-      markSpaceDeleted(stubClient(personal), TENANT, SPACE)
-    ).rejects.toThrow("space_is_personal");
   });
 });
 

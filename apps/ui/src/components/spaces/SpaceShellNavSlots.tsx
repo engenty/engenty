@@ -142,9 +142,6 @@ export function SpaceNavLeadingSlot({
   return (
     <SpaceNavTabs
       activeModuleId={moduleId}
-      // `/api/spaces` is membership-filtered, so an owned space in that list is
-      // the viewer's own personal one.
-      isPersonal={space?.ownerUserId != null}
       section={spaceSectionFor({ moduleId, segment }, spaceTabs)}
       space={space}
       spaceId={space?.id ?? null}

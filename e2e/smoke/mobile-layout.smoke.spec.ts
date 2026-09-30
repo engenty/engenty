@@ -10,20 +10,30 @@ import { expectNoHorizontalOverflow, gotoLoggedIn } from "../helpers";
  * surface belongs in that surface's own spec.
  */
 
+const SPACE_PATH = /\/s\/[^/]+/;
+
 const ROUTES: { label: string; path: string }[] = [
   { label: "copilot chat (home)", path: "/" },
   { label: "tasks", path: "/mdl/tasks" },
   { label: "inbox", path: "/mdl/inbox" },
-  // Space surfaces: the personal space redirects to the caller's own space,
-  // so this covers space home + the Data tab without hard-coding a space key.
-  { label: "space home", path: "/s/me" },
-  { label: "space data", path: "/s/me/data" },
 ];
 
 test("no route scrolls sideways at phone width", async ({ page }) => {
   await gotoLoggedIn(page, "/");
+  // `/` lands in a space: its home and Data tab cover the space surfaces
+  // without hard-coding a space key.
+  await page.waitForURL(SPACE_PATH, { timeout: 30_000 });
+  const spaceHome = new URL(page.url()).pathname
+    .split("/")
+    .slice(0, 3)
+    .join("/");
+  const routes = [
+    ...ROUTES,
+    { label: "space home", path: spaceHome },
+    { label: "space data", path: `${spaceHome}/data` },
+  ];
 
-  for (const route of ROUTES) {
+  for (const route of routes) {
     await page.goto(route.path, { waitUntil: "domcontentloaded" });
     // Let the module's first paint settle; the check is about layout, not
     // data, so a visible app bar is enough of a signal.
