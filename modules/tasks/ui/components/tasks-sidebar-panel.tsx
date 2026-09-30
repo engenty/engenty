@@ -35,6 +35,7 @@ import {
   X,
 } from "lucide-react";
 import {
+  type ComponentType,
   type ReactNode,
   useCallback,
   useEffect,
@@ -51,11 +52,9 @@ import { BUILTIN_TASK_STATUS_DEFINITIONS } from "../../task-status-builtins.js";
 import { useTeamMembersCatalogQuery } from "../hooks/use-team-catalog-query.js";
 import { resolveTaskStatusDotTone } from "../lib/task-status-styles.js";
 import {
-  isBriefingPath,
   isOperationsPath,
   isSettingsPath,
   isTaskDetailPath,
-  isTasksListPath,
   tasksPaths,
 } from "../lib/tasks-routes.js";
 import {
@@ -64,6 +63,7 @@ import {
   organizeSidebarTasks,
   type TasksSidebarOrganizationLabels,
 } from "../lib/tasks-sidebar-organization.js";
+import { useIsGlobalPlan, useTasksPaths } from "../lib/use-tasks-paths.js";
 import { useTasksSidebarPrefs } from "../lib/use-tasks-sidebar-prefs.js";
 import { buildAssigneeProfileMap } from "../plugins.js";
 import {
@@ -153,6 +153,31 @@ function SidebarSecondaryNavRow({
           <span className="truncate">{label}</span>
         </Link>
       </SidebarRowButton>
+    </SidebarRow>
+  );
+}
+
+/** A row for a place the global Plan will have: shown, not yet clickable. */
+function ComingSoonRow({
+  icon: Icon,
+  label,
+}: {
+  icon: ComponentType<{ className?: string }>;
+  label: string;
+}) {
+  const { t } = useTranslation("tasks");
+  return (
+    <SidebarRow isActive={false}>
+      <div
+        aria-disabled
+        className="flex h-8 w-full min-w-0 items-center gap-2 px-2 text-muted-foreground/70 text-sm"
+      >
+        <Icon aria-hidden className="size-4 shrink-0" />
+        <span className="truncate">{label}</span>
+        <span className="ml-auto shrink-0 text-[11px]">
+          {t("sidebar.comingSoon")}
+        </span>
+      </div>
     </SidebarRow>
   );
 }
@@ -251,11 +276,19 @@ function SidebarGroupedList<T extends Task>(props: {
   );
 }
 
+/**
+ * Plan's sidebar. Inside a space it is that space's Plan; on the global Plan
+ * (`/tasks/…`) it is the viewer's own: their tasks across every space, with
+ * the global briefing, notifications and list.
+ */
 export function TasksSidebarPanel() {
   const { t, i18n } = useTranslation("tasks");
-  // Canonical, not raw: in a space this is `/s/<key>/<segment>/…`, and every
-  // matcher below is written against `/mdl/<module>/…`.
-  const pathname = canonicalModulePathname(useLocation().pathname);
+  const rawPathname = useLocation().pathname;
+  // Canonical, not raw: in a space this is `/s/<key>/<segment>/…`, and the
+  // detail/settings matchers are written against `/mdl/<module>/…`.
+  const pathname = canonicalModulePathname(rawPathname);
+  const global = useIsGlobalPlan();
+  const paths = useTasksPaths();
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const trimmed = search.trim();
@@ -302,13 +335,18 @@ export function TasksSidebarPanel() {
 
   const activeTaskId = isTaskDetailPath(pathname);
 
-  const tasksQuery = useTasksListQuery({
-    page: 1,
-    pageSize: SIDEBAR_FETCH_SIZE,
-    sortBy: prefs.tasks.sortBy,
-    sortOrder: prefs.tasks.sortOrder,
-    status: prefs.tasks.status === "all" ? undefined : prefs.tasks.status,
-  });
+  // Global: the viewer's own tasks, across every space they can see.
+  const tasksQuery = useTasksListQuery(
+    {
+      page: 1,
+      pageSize: SIDEBAR_FETCH_SIZE,
+      sortBy: prefs.tasks.sortBy,
+      sortOrder: prefs.tasks.sortOrder,
+      status: prefs.tasks.status === "all" ? undefined : prefs.tasks.status,
+      ...(global ? { scope: "mine" as const } : {}),
+    },
+    global ? { scope: "tenant" } : {}
+  );
 
   const taskSearchQuery = useQuery({
     ...tasksListOptions({
@@ -401,17 +439,20 @@ export function TasksSidebarPanel() {
 
   const navActive = useMemo(
     () => ({
-      briefing: isBriefingPath(pathname),
-      inbox: pathname === tasksPaths.inbox,
+      briefing: rawPathname === paths.briefing || rawPathname === paths.root,
+      inbox: rawPathname === paths.inbox,
       operations: isOperationsPath(pathname),
       settings: isSettingsPath(pathname),
-      tasksList: isTasksListPath(pathname),
+      tasksList: rawPathname === paths.list,
     }),
-    [pathname]
+    [pathname, paths, rawPathname]
   );
   const inboxAttentionQuery = useInboxAttentionCountQuery();
-  const inboxAttention =
-    inboxAttentionQuery.data?.in_space ?? inboxAttentionQuery.data?.total ?? 0;
+  const inboxAttention = global
+    ? (inboxAttentionQuery.data?.total ?? 0)
+    : (inboxAttentionQuery.data?.in_space ??
+      inboxAttentionQuery.data?.total ??
+      0);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -432,14 +473,14 @@ export function TasksSidebarPanel() {
                     active={navActive.briefing}
                     icon={LayoutDashboard}
                     label={t("sidebar.briefing")}
-                    to={tasksPaths.briefing}
+                    to={paths.briefing}
                   />
                   <SidebarNavRow
                     active={navActive.inbox}
                     badgeCount={inboxAttention}
                     icon={Inbox}
                     label={t("sidebar.inbox")}
-                    to={tasksPaths.inbox}
+                    to={paths.inbox}
                   />
                 </SidebarNavList>
               </div>
@@ -448,21 +489,26 @@ export function TasksSidebarPanel() {
                   {t("sidebar.sectionWork")}
                 </SidebarNavSectionLabel>
                 <SidebarNavList>
-                  <SidebarRow isActive={false}>
-                    <SidebarRowButton
-                      isActive={false}
-                      onClick={() => setCreateTaskOpen(true)}
-                      {...shellSecondaryNavItemProps}
-                    >
-                      <Plus aria-hidden className="size-4 shrink-0" />
-                      <span className="truncate">{t("newTask.title")}</span>
-                    </SidebarRowButton>
-                  </SidebarRow>
+                  {global ? (
+                    // A new task needs a space; the global Plan has none yet.
+                    <ComingSoonRow icon={Plus} label={t("newTask.title")} />
+                  ) : (
+                    <SidebarRow isActive={false}>
+                      <SidebarRowButton
+                        isActive={false}
+                        onClick={() => setCreateTaskOpen(true)}
+                        {...shellSecondaryNavItemProps}
+                      >
+                        <Plus aria-hidden className="size-4 shrink-0" />
+                        <span className="truncate">{t("newTask.title")}</span>
+                      </SidebarRowButton>
+                    </SidebarRow>
+                  )}
                   <SidebarNavRow
                     active={navActive.tasksList}
                     icon={ListTodo}
-                    label={t("sidebar.tasks")}
-                    to={tasksPaths.list}
+                    label={global ? t("sidebar.allTasks") : t("sidebar.tasks")}
+                    to={paths.list}
                   />
                 </SidebarNavList>
               </div>
@@ -515,9 +561,11 @@ export function TasksSidebarPanel() {
                 teamMembersEnabled={teamMembersCatalogQuery.pluginEnabled}
                 userFilterOptions={userFilterOptions}
               />
-              <TasksModuleAddMenuSidebarTrigger
-                handlers={{ onAddTask: () => setCreateTaskOpen(true) }}
-              />
+              {global ? null : (
+                <TasksModuleAddMenuSidebarTrigger
+                  handlers={{ onAddTask: () => setCreateTaskOpen(true) }}
+                />
+              )}
             </>
           )}
         </div>
@@ -602,17 +650,21 @@ export function TasksSidebarPanel() {
       >
         <nav aria-label={t("sidebar.extraLinksAria")} className="shrink-0">
           <SidebarNavList>
-            <SidebarSecondaryNavRow
-              active={navActive.operations}
-              icon={Activity}
-              label={t("menu.operations")}
-              to={tasksPaths.operations}
-            />
+            {global ? (
+              <ComingSoonRow icon={Activity} label={t("menu.operations")} />
+            ) : (
+              <SidebarSecondaryNavRow
+                active={navActive.operations}
+                icon={Activity}
+                label={t("menu.operations")}
+                to={paths.operations}
+              />
+            )}
             <SidebarSecondaryNavRow
               active={navActive.settings}
               icon={Settings}
               label={t("sidebar.settings")}
-              to={tasksPaths.settings}
+              to={paths.settings}
             />
           </SidebarNavList>
         </nav>

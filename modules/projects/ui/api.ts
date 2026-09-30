@@ -4,6 +4,7 @@ import {
   requestApiJson,
 } from "@engenty/api-client";
 import type { Cover } from "@engenty/covers";
+import type { ProjectNote } from "../src/schema/types.js";
 
 export type { TaskStatusColor } from "../src/schema/task-status-colors.js";
 export { TASK_STATUS_COLOR_OPTIONS } from "../src/schema/task-status-colors.js";
@@ -21,7 +22,6 @@ export interface ProjectTeamMemberRow {
 }
 
 export interface ProjectListItem {
-  briefing: string | null;
   client_id: string | null;
   client_name: string | null;
   cover?: Cover | null;
@@ -46,6 +46,15 @@ export interface ProjectListItem {
   timeplan_enabled?: boolean;
   title: string;
   updated_at: string;
+}
+
+export type { ProjectNote } from "../src/schema/types.js";
+
+export interface ProjectNoteInput {
+  content_json?: Record<string, unknown> | null;
+  content_markdown?: string | null;
+  order_index?: number;
+  title?: string;
 }
 
 export interface ProjectPhase {
@@ -103,7 +112,6 @@ export type ProjectWithPhasesAndTasks = ProjectListItem & {
 };
 
 export interface ProjectCreateInput {
-  briefing?: string | null;
   client_id: string | null;
   client_name: string | null;
   cover?: Cover | null;
@@ -286,6 +294,41 @@ export async function deleteProject(
   return request<{ ok: boolean; id: string }>(`/api/projects/${id}${query}`, {
     method: "DELETE",
   });
+}
+
+export async function getProjectNotes(projectId: string, signal?: AbortSignal) {
+  return request<{ notes: ProjectNote[] }>(`/api/projects/${projectId}/notes`, {
+    method: "GET",
+    signal,
+  });
+}
+
+export async function createProjectNote(
+  projectId: string,
+  input: ProjectNoteInput
+) {
+  return request<ProjectNote>(`/api/projects/${projectId}/notes`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateProjectNote(
+  projectId: string,
+  noteId: string,
+  patch: ProjectNoteInput
+) {
+  return request<ProjectNote>(`/api/projects/${projectId}/notes/${noteId}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function deleteProjectNote(projectId: string, noteId: string) {
+  return request<{ success: boolean }>(
+    `/api/projects/${projectId}/notes/${noteId}`,
+    { method: "DELETE" }
+  );
 }
 
 export async function createPhase(

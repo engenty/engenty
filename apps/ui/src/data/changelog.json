@@ -1,7 +1,109 @@
 [
   {
+    "version": "v0.2.28",
+    "timestamp": 1790769250,
+    "commits": [
+      {
+        "id": "0a87d83",
+        "message": "notes page lines up under the project title",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "2671330",
+        "message": "an outside click hides the bubble even after a click inside it",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "6fc7cd8",
+        "message": "a click in the editor brings the dismissed bubble back",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "27b4033",
+        "message": "hide the inline bubble through its plugin meta; a no-op transaction never re-checks it",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "44cc9ef",
+        "message": "notes page list as the Notes tab's doc sidebar; link field finds the project's pages",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "1591919",
+        "message": "inline bubble closes on Escape and when focus leaves; link panel closes on outside click",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "c6e7c63",
+        "message": "notes migration version no longer collides with core_space_settings",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "92d0783",
+        "message": "notes as pages with the KB page editor; settings sidebar only on the planning tabs",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "3a397c2",
+        "message": "space home header with cover, description and people; the rail as a doc sidebar",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "e28d3a8",
+        "message": "a key/value store per space, the home cover in it, PATCH details for description and cover",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "72cc3ec",
+        "message": "dynamic viewport height in the connect popup",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "be4fbb7",
+        "message": "bell beside the module icons, Setup before Team",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "8ba0634",
+        "message": "the app-bar bell opens on the tenant, switch reads Tenant / Space",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "fc54966",
+        "message": "global Plan at /tasks with briefing, notifications and list",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "bdafa63",
+        "message": "let a module host the notifications page with its own sidebar",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "60d07b1",
+        "message": "a new project writes only the KV fields it sets",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.2.27",
-    "timestamp": 1790762687,
+    "timestamp": 1790762692,
     "commits": [
       {
         "id": "d878420",

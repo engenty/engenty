@@ -6,7 +6,6 @@ function makeProject(
   overrides: Partial<ProjectWithPhasesAndTasks> = {}
 ): ProjectWithPhasesAndTasks {
   return {
-    briefing: null,
     client_id: null,
     client_name: "Acme",
     created_at: "2026-08-21T00:00:00.000Z",

@@ -51,11 +51,12 @@
     "dueThisWeek": "Diese Woche fällig",
     "dueLater": "Später fällig",
     "dueOverdue": "Überfällig",
-    "inbox": "Inbox"
+    "inbox": "Benachrichtigungen",
+    "comingSoon": "Bald"
   },
   "tabs": {
     "briefing": "Briefing",
-    "inbox": "Inbox",
+    "inbox": "Benachrichtigungen",
     "tasks": "Aufgaben"
   },
   "briefing": {

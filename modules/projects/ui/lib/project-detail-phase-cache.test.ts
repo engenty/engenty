@@ -56,7 +56,6 @@ function project(
   overrides: Partial<ProjectWithPhasesAndTasks> = {}
 ): ProjectWithPhasesAndTasks {
   return {
-    briefing: null,
     client_id: null,
     client_name: null,
     created_at: "2026-09-01T09:00:00.000Z",
@@ -261,9 +260,9 @@ describe("reconcilePhase", () => {
 describe("patchProject", () => {
   it("merges project fields without touching phases or general tasks", () => {
     const current = project();
-    const next = patchProject(current, { briefing: "Kick off Monday" });
+    const next = patchProject(current, { subtitle: "Kick off Monday" });
 
-    expect(next?.briefing).toBe("Kick off Monday");
+    expect(next?.subtitle).toBe("Kick off Monday");
     expect(next?.phases).toBe(current.phases);
     expect(next?.general_tasks).toBe(current.general_tasks);
   });

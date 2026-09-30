@@ -14,10 +14,6 @@ import type {
 } from "../api.js";
 import { GeneralTasksSection } from "./general-tasks-section.js";
 import { PhaseSection } from "./phase-section.js";
-import {
-  hasBriefingText,
-  ProjectBriefSection,
-} from "./project-brief-section.js";
 import { ProjectTimeplanSection } from "./project-timeplan-section.js";
 import { TaskCard } from "./task-card.js";
 
@@ -27,7 +23,6 @@ interface ProjectPlanningTabProps {
   filteredGeneralTasks: PhaseTask[];
   filteredPhases: (ProjectPhase & { tasks: PhaseTask[] })[];
   onAddTaskToPhase: (phaseId: string) => void;
-  onBriefingSave?: (briefing: string | null) => void | Promise<void>;
   onDragEnd: (event: DragEndEvent) => void;
   onDragStart: (event: DragStartEvent) => void;
   onPhaseCreate: (title: string) => Promise<string | null>;
@@ -45,7 +40,6 @@ interface ProjectPlanningTabProps {
   onTaskEdit: (task: PhaseTask, phaseId?: string) => void;
   onTaskStatusChange: (taskId: string, status: string) => void;
   onTaskVisibilityToggle: (taskId: string, is_public: boolean) => void;
-  onViewNotes?: () => void;
   project: ProjectWithPhasesAndTasks;
   projectId: string;
   sensors: ReturnType<typeof useSensors>;
@@ -76,30 +70,16 @@ export function ProjectPlanningTab({
   onTaskDelete,
   onTaskStatusChange,
   onTaskVisibilityToggle,
-  onBriefingSave,
   onPhaseVisibilityToggle,
-  onViewNotes,
   teamMembersEnabled,
   taskStatusDefinitions,
 }: ProjectPlanningTabProps) {
   const { t } = useTranslation("projects");
   const timeplanEnabled = project.timeplan_enabled !== false;
 
-  const internal = viewMode === "internal";
   // "Visible to the client" only means something while the client portal is
   // on — without it there is no one to hide anything from.
   const portalVisibility = project.portal_enabled;
-  const hasNotes = hasBriefingText(project.briefing ?? null);
-  const emptyLinks = [
-    onBriefingSave && !hasNotes && internal && onViewNotes ? (
-      <ProjectBriefSection
-        briefing={null}
-        key="notes"
-        onSave={onBriefingSave}
-        onViewNotes={onViewNotes}
-      />
-    ) : null,
-  ].filter(Boolean);
 
   return (
     <DndContext
@@ -108,22 +88,6 @@ export function ProjectPlanningTab({
       sensors={sensors}
     >
       <div className="mt-0 space-y-6">
-        {/* Notes still missing is a quiet "+ …" link; it becomes the full
-            section once it has content. Client and team live in the header
-            and the settings sidebar. */}
-        {emptyLinks.length > 0 ? (
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 [&>*]:flex [&>*]:items-center">
-            {emptyLinks}
-          </div>
-        ) : null}
-        {onBriefingSave && hasNotes ? (
-          <ProjectBriefSection
-            briefing={project.briefing ?? null}
-            disabled={viewMode === "external"}
-            onSave={onBriefingSave}
-            onViewNotes={onViewNotes}
-          />
-        ) : null}
         {/* Lean projects (`timeplan_enabled === false`) are rooms for notes,
             files and tasks - no dates, phases or Gantt on the main page. */}
         {timeplanEnabled && (

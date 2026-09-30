@@ -23,6 +23,7 @@ import {
   restoreSpace,
   type SpaceSetupCatalog,
   type SpaceSetupPayload,
+  updateSpaceDetails,
   updateSpaceSetup,
 } from "@/lib/api/spaces-client";
 import { spaceSetupNotices } from "@/lib/space-setup-notices";
@@ -136,6 +137,18 @@ export function useAddSpaceMemberMutation(spaceId: string | null) {
       queryClient.invalidateQueries({
         queryKey: spaceKeys.members(spaceId ?? ""),
       });
+    },
+  });
+}
+
+/** Description and cover from the home header; the space lists refetch. */
+export function useUpdateSpaceDetailsMutation(spaceId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Parameters<typeof updateSpaceDetails>[1]) =>
+      updateSpaceDetails(spaceId as string, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: spaceKeys.all });
     },
   });
 }

@@ -96,6 +96,7 @@ function space(partial: Partial<Space> & Pick<Space, "id" | "key">): Space {
     computerEgressHosts: [],
     publishToCompany: null,
     color: null,
+    cover: null,
     createdAt: "2026-08-21T00:00:00.000Z",
     deletedAt: null,
     description: null,

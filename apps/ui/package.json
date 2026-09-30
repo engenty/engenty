@@ -40,6 +40,7 @@
     "@engenty/connections-local-files": "workspace:*",
     "@engenty/contacts": "workspace:*",
     "@engenty/context-graph": "workspace:*",
+    "@engenty/covers": "workspace:*",
     "@engenty/dashboard-core": "workspace:*",
     "@engenty/engenty-copilot": "workspace:*",
     "@engenty/environment": "workspace:*",

@@ -24,7 +24,7 @@ Use this skill when the user wants to create, edit, delete, or configure project
 - Use `load_project` before partial edits, deletes, or team/portal changes so you work from the current record.
 
 ## Create And Update
-- Use `projects_create` for new projects. Required: `title`. Optional: `briefing`, `start_date`, `end_date`, `client_id`, `client_name`, `lead_id` (team member UUID), `portal_enabled`, `portal_password`, `portal_intro_text`, `created_by`, `team_member_ids`.
+- Use `projects_create` for new projects. Required: `title`. Optional: `start_date`, `end_date`, `client_id`, `client_name`, `lead_id` (team member UUID), `portal_enabled`, `portal_password`, `portal_intro_text`, `created_by`, `team_member_ids`.
 - Use `projects_update` with `{ "id": "<project-id>", "patch": { ... } }` for partial edits. Send only fields that should change.
 - Keep payload keys in snake_case.
 

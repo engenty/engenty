@@ -1,4 +1,3 @@
-import { useTranslation } from "@engenty/i18n/ui";
 import {
   Button,
   DocSidebarToggle,
@@ -11,7 +10,6 @@ import {
   TabsTrigger,
 } from "@engenty/ui-core";
 import { Copy, ExternalLink, Eye, Link2, Users } from "lucide-react";
-import { PROJECT_SETTINGS_SIDEBAR_KEY } from "../lib/project-settings-sidebar.js";
 
 interface ProjectDetailPageActionsProps {
   onCopyLink: () => void;
@@ -21,6 +19,8 @@ interface ProjectDetailPageActionsProps {
   portalDropdownOpen: boolean;
   portalEnabled: boolean;
   portalUrl: string;
+  /** Toggle for the active tab's doc sidebar; null when the tab has none. */
+  sidebarToggle: { label: string; storageKey: string } | null;
   viewMode: "internal" | "external";
 }
 
@@ -33,9 +33,8 @@ export function ProjectDetailPageActions({
   onCopyLink,
   portalDropdownOpen,
   onPortalDropdownOpenChange,
+  sidebarToggle,
 }: ProjectDetailPageActionsProps) {
-  const { t } = useTranslation("projects");
-
   return (
     <div className="flex items-center gap-2">
       {portalEnabled ? (
@@ -106,10 +105,13 @@ export function ProjectDetailPageActions({
         </DropdownMenu>
       )}
 
-      <DocSidebarToggle
-        label={t("detail.projectSettings.title")}
-        storageKey={PROJECT_SETTINGS_SIDEBAR_KEY}
-      />
+      {sidebarToggle ? (
+        <DocSidebarToggle
+          key={sidebarToggle.storageKey}
+          label={sidebarToggle.label}
+          storageKey={sidebarToggle.storageKey}
+        />
+      ) : null}
     </div>
   );
 }

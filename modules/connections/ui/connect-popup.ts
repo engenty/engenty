@@ -69,7 +69,7 @@ export function reportConnectPopupResult(): boolean {
       ? `Verbinden fehlgeschlagen (${message.error ?? "unbekannt"}). Du kannst dieses Fenster schließen.`
       : `Connecting failed (${message.error ?? "unknown"}). You can close this window.`;
   document.body.style.cssText =
-    "margin:0;display:grid;place-items:center;min-height:100vh;font:14px system-ui,sans-serif;color:#555";
+    "margin:0;display:grid;place-items:center;min-height:100dvh;font:14px system-ui,sans-serif;color:#555";
   document.body.textContent = line;
   return true;
 }

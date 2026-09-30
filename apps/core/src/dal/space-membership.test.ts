@@ -263,6 +263,7 @@ describe("canAccessSpace", () => {
     computerEgressHosts: [],
     publishToCompany: null,
     color: null,
+    cover: null,
     createdAt: source.created_at,
     deletedAt: source.deleted_at,
     description: null,

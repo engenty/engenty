@@ -12,6 +12,7 @@
  * writers drift and these carry capability grants.
  */
 import { requestApiJson } from "@engenty/api-client";
+import type { Cover } from "@engenty/covers";
 import type {
   SpaceMountDeclaration,
   SpaceResourceKind,
@@ -26,6 +27,8 @@ export interface Space {
   computerEgressHosts: string[];
   /** Network reach of this space's shared computer. Null inherits the host. */
   computerNetworkTier: "none" | "egress" | null;
+  /** The home header's cover; null = none. */
+  cover: Cover | null;
   createdAt: string;
   /**
    * When set, the space is marked for deletion. Hidden from the rail; shown on
@@ -300,6 +303,17 @@ export function updateSpaceSetup(spaceId: string, payload: SpaceSetupPayload) {
     method: "PUT",
     body: payload,
   });
+}
+
+/** The home header's own fields: description and cover (`null` clears). */
+export function updateSpaceDetails(
+  spaceId: string,
+  payload: { cover?: Cover | null; description?: string | null }
+) {
+  return request<{ space: Space }>(
+    `/api/spaces/${encodeURIComponent(spaceId)}/details`,
+    { method: "PATCH", body: payload }
+  );
 }
 
 export function putSpaceSkillPack(spaceId: string, category: string) {

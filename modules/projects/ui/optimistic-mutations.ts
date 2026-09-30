@@ -463,7 +463,7 @@ export function useDeleteProjectPhaseMutation(projectId: string) {
   });
 }
 
-/** Project-level field edits from the settings panel and the briefing editor. */
+/** Project-level field edits from the header and the settings panel. */
 export function useUpdateProjectDetailMutation(projectId: string) {
   const queryClient = useQueryClient();
   const { t } = useTranslation("projects");

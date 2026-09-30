@@ -4,6 +4,24 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.2.28] - 2026-09-30
+- ADDED **[projects]** Notes page list as the Notes tab's doc sidebar; link field finds the project's pages
+- ADDED **[projects]** Notes as pages with the KB page editor; settings sidebar only on the planning tabs
+- ADDED **[ui]** Space home header with cover, description and people; the rail as a doc sidebar
+- ADDED **[core]** A key/value store per space, the home cover in it, PATCH details for description and cover
+- ADDED **[app-shell]** Bell beside the module icons, Setup before Team
+- ADDED **[notifications-ui]** The app-bar bell opens on the tenant, switch reads Tenant / Space
+- ADDED **[tasks]** Global Plan at /tasks with briefing, notifications and list
+- ADDED **[notifications-ui]** Let a module host the notifications page with its own sidebar
+- FIXED **[projects]** Notes page lines up under the project title
+- FIXED **[tiptap-editor]** An outside click hides the bubble even after a click inside it
+- FIXED **[tiptap-editor]** A click in the editor brings the dismissed bubble back
+- FIXED **[tiptap-editor]** Hide the inline bubble through its plugin meta; a no-op transaction never re-checks it
+- FIXED **[tiptap-editor]** Inline bubble closes on Escape and when focus leaves; link panel closes on outside click
+- FIXED **[projects]** Notes migration version no longer collides with core_space_settings
+- FIXED **[connections]** Dynamic viewport height in the connect popup
+- FIXED **[projects]** A new project writes only the KV fields it sets
+
 ## [0.2.27] - 2026-09-30
 - FIXED **[connections]** The OAuth popup landing never boots the app; it reports, closes, or says it can be closed
 - FIXED **[connections]** Report the OAuth popup result before the app boots, also when the provider cuts the opener link

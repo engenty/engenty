@@ -88,7 +88,6 @@ export function registerProjectsGatewayMethods(
         ...raw,
         client_id: raw.client_id ?? null,
         client_name: raw.client_name ?? null,
-        briefing: raw.briefing ?? null,
         start_date: raw.start_date ?? null,
         end_date: raw.end_date ?? null,
         lead_id: raw.lead_id ?? null,

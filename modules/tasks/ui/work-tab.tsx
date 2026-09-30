@@ -3,9 +3,14 @@
  */
 import { useTranslation } from "@engenty/i18n/ui";
 import type { Task } from "../src/schema/types.js";
+import { BUILTIN_TASK_STATUS_DEFINITIONS } from "../task-status-builtins.js";
 import { getTasks } from "./api.js";
-import { TaskStatusBadge } from "./components/task-status-badge.js";
+import {
+  resolveTaskStatusLabel,
+  TaskStatusBadge,
+} from "./components/task-status-badge.js";
 import { tasksPathsForSpace } from "./lib/tasks-routes.js";
+import { useTaskSettingsQuery } from "./tasks-queries.js";
 import { formatWorkDate, type WorkTab } from "./work-tabs.js";
 
 /** The list route's page maximum. */
@@ -14,6 +19,29 @@ const PAGE_SIZE = 200;
 function TaskPriorityLabel({ priority }: { priority: Task["priority"] }) {
   const { t } = useTranslation("tasks");
   return <>{t(`priority.${priority}`, { defaultValue: priority })}</>;
+}
+
+/** The tenant's status definitions (built-ins until settings load). */
+function useStatusDefinitions() {
+  const settingsQuery = useTaskSettingsQuery();
+  return (
+    settingsQuery.data?.task_status_definitions ??
+    BUILTIN_TASK_STATUS_DEFINITIONS
+  );
+}
+
+function WorkTaskStatus({ status }: { status: string }) {
+  return (
+    <TaskStatusBadge
+      compact
+      definitions={useStatusDefinitions()}
+      status={status}
+    />
+  );
+}
+
+function WorkTaskStatusLabel({ status }: { status: string }) {
+  return <>{resolveTaskStatusLabel(status, useStatusDefinitions())}</>;
 }
 
 export const tasksWorkTab: WorkTab<Task> = {
@@ -38,7 +66,7 @@ export const tasksWorkTab: WorkTab<Task> = {
       key: "status",
       label: "Status",
       labelKey: "tasks:work.columns.status",
-      render: (task) => <TaskStatusBadge compact status={task.status} />,
+      render: (task) => <WorkTaskStatus status={task.status} />,
     },
     {
       className: "w-28 text-xs",
@@ -82,6 +110,7 @@ export const tasksWorkTab: WorkTab<Task> = {
   order: 10,
   rowKey: (task) => task.id,
   spaceIdOf: (task) => task.space_id,
+  StatusLabel: WorkTaskStatusLabel,
   statusOf: (task) => task.status,
   supportsMine: true,
 };

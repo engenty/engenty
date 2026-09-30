@@ -132,6 +132,9 @@ export function NotificationBell({
 
   const panel = (
     <NotificationInboxPanel
+      // The app bar is global: it always opens on the whole tenant; the
+      // switch narrows to the space you stand in.
+      defaultScope="tenant"
       initial={request}
       inSpace={inSpace}
       // A new request re-reads its lane and actor even while open.

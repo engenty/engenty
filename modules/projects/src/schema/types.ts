@@ -26,7 +26,6 @@ export interface ProjectTeamMember {
 }
 
 export interface Project {
-  briefing: string | null;
   client_id: string | null;
   client_name: string | null;
   /** Colour, gradient or image heading the project page. */
@@ -64,6 +63,19 @@ export interface Project {
   updated_at: string;
   /** Project visibility: whole-tenant (default) or restricted to its team. */
   visibility?: "tenant" | "members";
+}
+
+/** One page of a project's notes (TipTap JSON + its markdown). */
+export interface ProjectNote {
+  content_json: Record<string, unknown> | null;
+  content_markdown: string | null;
+  created_at: string;
+  created_by: string | null;
+  id: string;
+  order_index: number;
+  project_id: string;
+  title: string;
+  updated_at: string;
 }
 
 export interface ProjectPhase {

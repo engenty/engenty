@@ -2,7 +2,6 @@ import { PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { useCopilotShell } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import { useQueryClient } from "@engenty/query-client";
-import { InlineEditableRichText } from "@engenty/tiptap-editor";
 import "@engenty/tiptap-editor/styles.css";
 import { useTeamMembersCatalogQuery } from "@engenty/tasks/ui/assignee";
 import {
@@ -20,6 +19,7 @@ import { PhaseFormDialog } from "../components/phase-form-dialog.js";
 import { ProjectDetailHeader } from "../components/project-detail-header.js";
 import { ProjectDetailPageActions } from "../components/project-detail-page-actions.js";
 import { ProjectDetailSkeleton } from "../components/project-detail-skeleton.js";
+import { ProjectNotesTab } from "../components/project-notes-tab.js";
 import { ProjectStarButton } from "../components/project-pin-button.js";
 import { ProjectPlanningTab } from "../components/project-planning-tab.js";
 import { ProjectSettingsPanel } from "../components/project-settings-panel.js";
@@ -38,7 +38,10 @@ import {
 } from "../hooks/use-project-tabs.js";
 import { useProjectsDetailAgentUiSlice } from "../hooks/use-projects-agent-ui-slice.js";
 import { useProjectsModuleSecondaryShellNav } from "../hooks/use-projects-module-secondary-shell-nav.js";
-import { PROJECT_SETTINGS_SIDEBAR_KEY } from "../lib/project-settings-sidebar.js";
+import {
+  PROJECT_NOTES_SIDEBAR_KEY,
+  PROJECT_SETTINGS_SIDEBAR_KEY,
+} from "../lib/project-settings-sidebar.js";
 import {
   useCreateProjectPhaseMutation,
   useUpdateProjectDetailMutation,
@@ -67,8 +70,7 @@ export function ProjectDetailPage() {
   const [openTabsConfig, setOpenTabsConfig] = useState(false);
   const [viewMode, setViewMode] = useState<"internal" | "external">("internal");
   const settingsSidebar = useDocSidebar(PROJECT_SETTINGS_SIDEBAR_KEY);
-  const settingsInlineOpen =
-    settingsSidebar.mode === "inline" && settingsSidebar.open;
+  const notesSidebar = useDocSidebar(PROJECT_NOTES_SIDEBAR_KEY);
   const [portalDropdownOpen, setPortalDropdownOpen] = useState(false);
 
   const teamMembersCatalogQuery = useTeamMembersCatalogQuery();
@@ -112,7 +114,6 @@ export function ProjectDetailPage() {
 
   const {
     activeTask,
-    handleBriefingSave,
     handleDragEnd,
     handleDragStart,
     handlePhaseSubmit,
@@ -215,6 +216,35 @@ export function ProjectDetailPage() {
     [visibleTabs, effectiveActiveTab]
   );
 
+  // The sidebar belongs to the tab: project settings beside the planning
+  // tabs, the page list beside notes; contributed tabs bring none.
+  const hasSettingsSidebar =
+    effectiveActiveTab === "planning" || effectiveActiveTab === "timeplan";
+  const tabSidebar = (() => {
+    if (hasSettingsSidebar) {
+      return {
+        key: PROJECT_SETTINGS_SIDEBAR_KEY,
+        label: t("detail.projectSettings.title"),
+        state: settingsSidebar,
+      };
+    }
+    if (effectiveActiveTab === "notes") {
+      return {
+        key: PROJECT_NOTES_SIDEBAR_KEY,
+        label: t("detail.notes.pages"),
+        state: notesSidebar,
+      };
+    }
+    return null;
+  })();
+  const sidebarInlineOpen =
+    tabSidebar !== null &&
+    tabSidebar.state.mode === "inline" &&
+    tabSidebar.state.open;
+  const sidebarToggle = tabSidebar
+    ? { label: tabSidebar.label, storageKey: tabSidebar.key }
+    : null;
+
   useEffect(() => {
     if (!visibleTabIds.includes(activeTab)) {
       setActiveTab("planning");
@@ -304,10 +334,13 @@ export function ProjectDetailPage() {
         portalDropdownOpen={portalDropdownOpen}
         portalEnabled={!!project?.portal_enabled}
         portalUrl={id ? `${window.location.origin}/portal/${id}` : ""}
+        sidebarToggle={sidebarToggle}
         viewMode={viewMode}
       />
     ),
     [
+      sidebarToggle?.storageKey,
+      sidebarToggle?.label,
       project?.portal_enabled,
       viewMode,
       portalDropdownOpen,
@@ -430,6 +463,175 @@ export function ProjectDetailPage() {
     activeContributedTab || effectiveActiveTab === "timeplan"
   );
 
+  // Contributed tabs (e.g. the files manager) are workspace tools — let them
+  // use the full content width instead of the narrow reading column used by
+  // the native tabs. The Gantt is the same kind of surface: more width means
+  // more visible weeks. An open inline sidebar widens the row to the header's
+  // 6xl, so the reading column keeps roughly its measure beside it. Notes
+  // span the header's width so the page lines up under the title.
+  const rowWidth = () => {
+    if (wideTab) {
+      return "max-w-[100rem]";
+    }
+    if (sidebarInlineOpen) {
+      return "max-w-6xl";
+    }
+    return effectiveActiveTab === "notes" ? "max-w-5xl" : "max-w-3xl";
+  };
+  const rowClassName = cn("px-page pt-2 pb-24 sm:pt-4 md:pt-5", rowWidth());
+
+  const tabBody = (
+    <div className="space-y-4">
+      {effectiveActiveTab === "planning" && (
+        <ProjectPlanningTab
+          activeTask={activeTask}
+          dateLocale={dateLocale}
+          filteredGeneralTasks={filteredGeneralTasks}
+          filteredPhases={filteredPhases}
+          onAddTaskToPhase={(phaseId) => {
+            setAddTaskPhaseId(phaseId);
+            setNewTaskOpen(true);
+          }}
+          onDragEnd={handleDragEnd}
+          onDragStart={handleDragStart}
+          onPhaseCreate={handlePhaseCreate}
+          onPhaseEdit={(p) => {
+            setEditingPhase(p);
+            setPhaseFormOpen(true);
+          }}
+          onPhaseFormOpen={() => {
+            setEditingPhase(null);
+            setPhaseFormOpen(true);
+          }}
+          onPhaseTitleUpdate={handlePhaseTitleUpdate}
+          onPhaseUpdate={handlePhaseUpdate}
+          onPhaseVisibilityToggle={handlePhaseVisibilityToggle}
+          onTaskAdd={() => {
+            setAddTaskPhaseId(null);
+            setNewTaskOpen(true);
+          }}
+          onTaskDelete={handleTaskDelete}
+          onTaskEdit={(task, phaseId) => {
+            setEditingTask(task);
+            setAddTaskPhaseId(phaseId ?? null);
+            setTaskFormOpen(true);
+          }}
+          onTaskStatusChange={handleTaskStatusChange}
+          onTaskVisibilityToggle={handleTaskVisibilityToggle}
+          project={project}
+          projectId={id}
+          sensors={sensors}
+          taskStatusDefinitions={taskStatusDefinitions}
+          teamMembersEnabled={teamMembersEnabled}
+          viewMode={viewMode}
+        />
+      )}
+
+      {effectiveActiveTab === "timeplan" && (
+        <div className="mt-4">
+          <ProjectTimeplanSection
+            dateLocale={dateLocale}
+            endDate={project.end_date}
+            onPhaseCreate={handlePhaseCreate}
+            onPhaseFormOpen={() => {
+              setEditingPhase(null);
+              setPhaseFormOpen(true);
+            }}
+            onPhaseTitleUpdate={handlePhaseTitleUpdate}
+            onPhaseUpdate={handlePhaseUpdate}
+            phases={filteredPhases}
+            startDate={project.start_date}
+            viewMode={viewMode}
+          />
+        </div>
+      )}
+
+      {/* Tabs other modules contribute to `projects.detail` (e.g. files,
+              time-tracking) render their own body here. They only appear when
+              the owning module is installed — projects no longer hard-imports
+              their UI. */}
+      {activeContributedTab?.component && (
+        <activeContributedTab.component
+          params={{ projectId: id, viewMode }}
+          surface={PROJECTS_DETAIL_SURFACE}
+        />
+      )}
+
+      <ProjectTabsConfigDialog
+        availableTabs={allTabs}
+        enabledTabs={enabledTabs}
+        onClose={() => setOpenTabsConfig(false)}
+        onTabsChange={handleTabsChange}
+        open={openTabsConfig}
+      />
+
+      <PhaseFormDialog
+        onDelete={handlePhaseDelete}
+        onOpenChange={(open) => {
+          setPhaseFormOpen(open);
+          if (!open) {
+            setEditingPhase(null);
+          }
+        }}
+        onSubmit={handlePhaseSubmit}
+        open={phaseFormOpen}
+        phase={editingPhase}
+        portalEnabled={Boolean(project.portal_enabled)}
+        projectName={project.title}
+        targetPhases={
+          project.phases
+            ?.filter((p) => p.id !== editingPhase?.id)
+            .map((p) => ({ id: p.id, title: p.title })) ?? []
+        }
+        taskCount={
+          project.phases?.find((p) => p.id === editingPhase?.id)?.tasks
+            .length ?? 0
+        }
+      />
+
+      <NewTaskDialog
+        defaultPhaseId={addTaskPhaseId}
+        onOpenChange={(open) => {
+          setNewTaskOpen(open);
+          if (!open) {
+            setAddTaskPhaseId(null);
+          }
+        }}
+        onSubmit={handleNewTaskSubmit}
+        open={newTaskOpen}
+        project={newTaskProject}
+        teamMembersCatalog={teamMembersCatalog}
+        teamMembersEnabled={teamMembersEnabled}
+      />
+
+      <TaskFormDialog
+        onDelete={handleTaskDelete}
+        onOpenChange={(open) => {
+          setTaskFormOpen(open);
+          if (!open) {
+            setEditingTask(null);
+            setAddTaskPhaseId(null);
+          }
+        }}
+        onSubmit={handleTaskSubmit}
+        open={taskFormOpen}
+        phaseId={addTaskPhaseId}
+        phases={
+          project.phases?.map((p) => ({ id: p.id, title: p.title })) ?? []
+        }
+        portalEnabled={Boolean(project.portal_enabled)}
+        projectMemberIds={project.project_team?.map((m) => m.user_id) ?? []}
+        projectName={project.title}
+        task={editingTask}
+        taskStatusDefinitions={taskStatusDefinitions}
+        teamMembersCatalog={teamMembersCatalog}
+        teamMembersEnabled={teamMembersEnabled}
+        teamMembersError={teamMembersError}
+        teamMembersLoading={teamMembersLoading}
+      />
+    </div>
+  );
+
   return (
     <Tabs
       className="flex h-full flex-col overflow-hidden"
@@ -464,233 +666,61 @@ export function ProjectDetailPage() {
         }
         titleValue={titleValue}
         visibleTabs={visibleTabs}
-        // An open inline settings column widens the content row; the header
-        // spans the same width so the cover sits over both.
-        wide={wideTab || settingsInlineOpen}
+        // An open inline sidebar widens the content row; the header spans
+        // the same width so the cover sits over both.
+        wide={wideTab || sidebarInlineOpen}
       />
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {/* Settings sit beside the content as the offer draft's do: an inline
-            column when there is room, an overlay sheet when not. */}
-        <DocSidebarLayout
-          className={cn(
-            "px-page pt-2 pb-24 sm:pt-4 md:pt-5",
-            // Contributed tabs (e.g. the files manager) are workspace tools — let
-            // them use the full content width instead of the narrow reading
-            // column used by the native tabs. The Gantt is the same kind of
-            // surface: more width means more visible weeks. An open inline
-            // sidebar widens the row to the header's 6xl, so the reading
-            // column keeps roughly its measure beside it.
-            wideTab
-              ? "max-w-[100rem]"
-              : settingsInlineOpen
-                ? "max-w-6xl"
-                : "max-w-3xl"
-          )}
-          inlineMinWidth={1100}
-          resizable
-          sidebar={
-            <ProjectSettingsPanel
-              clientId={project.client_id}
-              clientName={project.client_name}
-              endDate={project.end_date}
-              onSave={handleProjectSettingsSave}
-              portalEnabled={project.portal_enabled}
-              portalPassword={project.portal_password ?? null}
-              projectId={id}
-              startDate={project.start_date}
-              team={
-                teamMembersEnabled ? (
-                  <ProjectTeamMembersSection
-                    catalog={teamMembersCatalog}
-                    defaultExpanded
-                    onProjectUpdated={loadProject}
-                    projectId={id}
-                    projectTeamMembers={project.project_team ?? []}
-                    variant="sidebar"
-                  />
-                ) : null
-              }
-              timeplanEnabled={timeplanEnabled}
-            />
-          }
-          sidebarLabel={t("detail.projectSettings.title")}
-          storageKey={PROJECT_SETTINGS_SIDEBAR_KEY}
-        >
-          <div className="space-y-4">
-            {effectiveActiveTab === "planning" && (
-              <ProjectPlanningTab
-                activeTask={activeTask}
-                dateLocale={dateLocale}
-                filteredGeneralTasks={filteredGeneralTasks}
-                filteredPhases={filteredPhases}
-                onAddTaskToPhase={(phaseId) => {
-                  setAddTaskPhaseId(phaseId);
-                  setNewTaskOpen(true);
-                }}
-                onBriefingSave={handleBriefingSave}
-                onDragEnd={handleDragEnd}
-                onDragStart={handleDragStart}
-                onPhaseCreate={handlePhaseCreate}
-                onPhaseEdit={(p) => {
-                  setEditingPhase(p);
-                  setPhaseFormOpen(true);
-                }}
-                onPhaseFormOpen={() => {
-                  setEditingPhase(null);
-                  setPhaseFormOpen(true);
-                }}
-                onPhaseTitleUpdate={handlePhaseTitleUpdate}
-                onPhaseUpdate={handlePhaseUpdate}
-                onPhaseVisibilityToggle={handlePhaseVisibilityToggle}
-                onTaskAdd={() => {
-                  setAddTaskPhaseId(null);
-                  setNewTaskOpen(true);
-                }}
-                onTaskDelete={handleTaskDelete}
-                onTaskEdit={(task, phaseId) => {
-                  setEditingTask(task);
-                  setAddTaskPhaseId(phaseId ?? null);
-                  setTaskFormOpen(true);
-                }}
-                onTaskStatusChange={handleTaskStatusChange}
-                onTaskVisibilityToggle={handleTaskVisibilityToggle}
-                onViewNotes={
-                  visibleTabIds.includes("notes")
-                    ? () => setActiveTab("notes")
-                    : undefined
-                }
-                project={project}
+        {hasSettingsSidebar ? (
+          // Settings sit beside the planning tabs as the offer draft's do: an
+          // inline column when there is room, an overlay sheet when not.
+          <DocSidebarLayout
+            className={rowClassName}
+            inlineMinWidth={1100}
+            resizable
+            sidebar={
+              <ProjectSettingsPanel
+                clientId={project.client_id}
+                clientName={project.client_name}
+                endDate={project.end_date}
+                onSave={handleProjectSettingsSave}
+                portalEnabled={project.portal_enabled}
+                portalPassword={project.portal_password ?? null}
                 projectId={id}
-                sensors={sensors}
-                taskStatusDefinitions={taskStatusDefinitions}
-                teamMembersEnabled={teamMembersEnabled}
-                viewMode={viewMode}
+                startDate={project.start_date}
+                team={
+                  teamMembersEnabled ? (
+                    <ProjectTeamMembersSection
+                      catalog={teamMembersCatalog}
+                      defaultExpanded
+                      onProjectUpdated={loadProject}
+                      projectId={id}
+                      projectTeamMembers={project.project_team ?? []}
+                      variant="sidebar"
+                    />
+                  ) : null
+                }
+                timeplanEnabled={timeplanEnabled}
               />
-            )}
-
-            {effectiveActiveTab === "timeplan" && (
-              <div className="mt-4">
-                <ProjectTimeplanSection
-                  dateLocale={dateLocale}
-                  endDate={project.end_date}
-                  onPhaseCreate={handlePhaseCreate}
-                  onPhaseFormOpen={() => {
-                    setEditingPhase(null);
-                    setPhaseFormOpen(true);
-                  }}
-                  onPhaseTitleUpdate={handlePhaseTitleUpdate}
-                  onPhaseUpdate={handlePhaseUpdate}
-                  phases={filteredPhases}
-                  startDate={project.start_date}
-                  viewMode={viewMode}
-                />
-              </div>
-            )}
-
-            {effectiveActiveTab === "notes" && (
-              <div className="mt-4">
-                <InlineEditableRichText
-                  content={project.briefing ?? ""}
-                  disabled={viewMode === "external"}
-                  filledPreviewEditLabel={t("detail.briefing.editAria")}
-                  onSave={(html: string) =>
-                    handleBriefingSave(
-                      html.trim() === "" || html === "<p></p>" ? null : html
-                    )
-                  }
-                  placeholder={t("detail.briefing.placeholder")}
-                  readOnlyFilledPreview
-                />
-              </div>
-            )}
-
-            {/* Tabs other modules contribute to `projects.detail` (e.g. files,
-              time-tracking) render their own body here. They only appear when
-              the owning module is installed — projects no longer hard-imports
-              their UI. */}
-            {activeContributedTab?.component && (
-              <activeContributedTab.component
-                params={{ projectId: id, viewMode }}
-                surface={PROJECTS_DETAIL_SURFACE}
-              />
-            )}
-
-            <ProjectTabsConfigDialog
-              availableTabs={allTabs}
-              enabledTabs={enabledTabs}
-              onClose={() => setOpenTabsConfig(false)}
-              onTabsChange={handleTabsChange}
-              open={openTabsConfig}
+            }
+            sidebarLabel={t("detail.projectSettings.title")}
+            storageKey={PROJECT_SETTINGS_SIDEBAR_KEY}
+          >
+            {tabBody}
+          </DocSidebarLayout>
+        ) : effectiveActiveTab === "notes" ? (
+          <>
+            <ProjectNotesTab
+              alignToCover={Boolean(project.cover)}
+              className={rowClassName}
+              editable={viewMode === "internal"}
+              projectId={id}
             />
-
-            <PhaseFormDialog
-              onDelete={handlePhaseDelete}
-              onOpenChange={(open) => {
-                setPhaseFormOpen(open);
-                if (!open) {
-                  setEditingPhase(null);
-                }
-              }}
-              onSubmit={handlePhaseSubmit}
-              open={phaseFormOpen}
-              phase={editingPhase}
-              portalEnabled={Boolean(project.portal_enabled)}
-              projectName={project.title}
-              targetPhases={
-                project.phases
-                  ?.filter((p) => p.id !== editingPhase?.id)
-                  .map((p) => ({ id: p.id, title: p.title })) ?? []
-              }
-              taskCount={
-                project.phases?.find((p) => p.id === editingPhase?.id)?.tasks
-                  .length ?? 0
-              }
-            />
-
-            <NewTaskDialog
-              defaultPhaseId={addTaskPhaseId}
-              onOpenChange={(open) => {
-                setNewTaskOpen(open);
-                if (!open) {
-                  setAddTaskPhaseId(null);
-                }
-              }}
-              onSubmit={handleNewTaskSubmit}
-              open={newTaskOpen}
-              project={newTaskProject}
-              teamMembersCatalog={teamMembersCatalog}
-              teamMembersEnabled={teamMembersEnabled}
-            />
-
-            <TaskFormDialog
-              onDelete={handleTaskDelete}
-              onOpenChange={(open) => {
-                setTaskFormOpen(open);
-                if (!open) {
-                  setEditingTask(null);
-                  setAddTaskPhaseId(null);
-                }
-              }}
-              onSubmit={handleTaskSubmit}
-              open={taskFormOpen}
-              phaseId={addTaskPhaseId}
-              phases={
-                project.phases?.map((p) => ({ id: p.id, title: p.title })) ?? []
-              }
-              portalEnabled={Boolean(project.portal_enabled)}
-              projectMemberIds={
-                project.project_team?.map((m) => m.user_id) ?? []
-              }
-              projectName={project.title}
-              task={editingTask}
-              taskStatusDefinitions={taskStatusDefinitions}
-              teamMembersCatalog={teamMembersCatalog}
-              teamMembersEnabled={teamMembersEnabled}
-              teamMembersError={teamMembersError}
-              teamMembersLoading={teamMembersLoading}
-            />
-          </div>
-        </DocSidebarLayout>
+            {tabBody}
+          </>
+        ) : (
+          <div className={cn("mx-auto w-full", rowClassName)}>{tabBody}</div>
+        )}
       </div>
     </Tabs>
   );

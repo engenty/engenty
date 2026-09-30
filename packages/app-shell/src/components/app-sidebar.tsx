@@ -77,8 +77,8 @@ interface AppSidebarProps {
    */
   railCopilotSlot?: ReactNode;
   /**
-   * Rendered in the compact rail immediately above the personal avatar —
-   * the notification bell. Passed in like `spacesZone`: the app owns the data.
+   * Rendered right after the module icons (beside Plan) — the notification
+   * bell. Passed in like `spacesZone`: the app owns the data.
    */
   railEndSlot?: ReactNode;
   sections: NavigationSection[];
@@ -457,6 +457,19 @@ export function AppSidebar({
                   </div>
                 );
               })}
+              {/* Right after the module icons (beside Plan) — the bell. It
+                  closes the module row whether or not any module is mounted. */}
+              {railEndSlot ? (
+                <div
+                  className={cn(
+                    "flex",
+                    extended ? "justify-stretch" : "justify-center",
+                    isHorizontal ? "items-center" : "w-full"
+                  )}
+                >
+                  {railEndSlot}
+                </div>
+              ) : null}
             </nav>
           </div>
 
@@ -564,21 +577,7 @@ export function AppSidebar({
               </div>
             )}
 
-            {railEndSlot ? (
-              <div
-                className={cn(
-                  "flex",
-                  extended ? "justify-stretch" : "justify-center",
-                  isHorizontal ? "px-1.5" : "w-full",
-                  compact ? (isHorizontal ? "" : "px-1.5 pb-1") : "px-2 pb-1"
-                )}
-              >
-                {railEndSlot}
-              </div>
-            ) : null}
-
-            {/* One `--shell-footer` row, no rule above it: the bell sits just
-              above the avatar so both read as personal chrome. */}
+            {/* One `--shell-footer` row, no rule above it. */}
             <div
               className={cn(
                 "flex shrink-0 items-center overflow-visible px-2",

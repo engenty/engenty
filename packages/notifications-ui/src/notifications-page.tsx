@@ -14,9 +14,9 @@ import {
   ListToolbarSummary,
   uiPageScrollClassName,
 } from "@engenty/ui-core";
-import { usePageConfig } from "@engenty/ui-plugin-sdk";
+import { type PageBreadcrumb, usePageConfig } from "@engenty/ui-plugin-sdk";
 import { CheckCheck, LayoutGrid, Loader2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import type { NotificationDto } from "./api.js";
 import {
@@ -30,7 +30,21 @@ import { NotificationsLaneFilter } from "./notifications-lane-filter.js";
 import { useMarkAllSeenMutation, useNotificationsQuery } from "./queries.js";
 import { useStreamsQuery } from "./streams-api.js";
 
-export function NotificationsPage() {
+/**
+ * A module that shows this list as one of its own pages (Plan's
+ * notifications) keeps its sidebar and root crumb around it.
+ */
+export interface NotificationsPageShell {
+  moduleRootCrumb?: PageBreadcrumb | null;
+  secondaryNavAfterItems?: ReactNode;
+  secondaryNavHeaderSlot?: ReactNode;
+}
+
+export function NotificationsPage({
+  shell,
+}: {
+  shell?: NotificationsPageShell;
+} = {}) {
   const { t, i18n } = useTranslation("common");
   const locale = i18n.language || "en";
   const { spaceKey } = useParams<{ spaceKey?: string }>();
@@ -73,7 +87,16 @@ export function NotificationsPage() {
 
   usePageConfig({
     actions,
-    breadcrumbs: [{ label: title }],
+    breadcrumbs: [
+      ...(shell?.moduleRootCrumb ? [shell.moduleRootCrumb] : []),
+      { label: title },
+    ],
+    ...(shell?.secondaryNavAfterItems
+      ? { secondaryNavAfterItems: shell.secondaryNavAfterItems }
+      : {}),
+    ...(shell?.secondaryNavHeaderSlot
+      ? { secondaryNavHeaderSlot: shell.secondaryNavHeaderSlot }
+      : {}),
     contentStackBackground: "paper",
     topbarOverlap: true,
   });

@@ -447,8 +447,9 @@ describe("navigation", () => {
       expect(adminRail).toEqual([
         "/admin/engenty",
         "/admin/files",
-        "/settings",
+        // Setup sits before Team (130) and Settings.
         "/setup",
+        "/settings",
       ]);
 
       const memberTop =

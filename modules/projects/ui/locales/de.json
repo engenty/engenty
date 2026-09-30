@@ -90,15 +90,45 @@
     "sortByCreatedAt": "Erstellt"
   },
   "detail": {
-    "briefing": {
-      "emptyDescription": "Kontext, Ziele oder Notizen für dieses Projekt ergänzen.",
-      "emptyTitle": "Kurze Projektbeschreibung hinzufügen",
-      "editAria": "Projektbeschreibung bearbeiten",
-      "heading": "Briefing",
-      "placeholder": "Klicken Sie, um eine kurze Projektbeschreibung oder Notizen hinzuzufügen…",
-      "placeholderIntro": "Einführung schreiben…",
-      "addNotes": "Notizen hinzufügen",
-      "viewNotes": "Notizen anzeigen"
+    "notes": {
+      "pages": "Seiten",
+      "newPage": "Neue Seite",
+      "untitled": "Ohne Titel",
+      "titleLabel": "Seitentitel",
+      "contentPlaceholder": "Schreiben oder „/“ für Befehle eingeben…",
+      "pageActions": "Seitenaktionen",
+      "deletePage": "Seite löschen",
+      "deleteTitle": "„{{title}}“ löschen?",
+      "deleteDescription": "Die Seite und ihr Inhalt werden dauerhaft gelöscht.",
+      "empty": "Noch keine Notizen.",
+      "blockMenu": {
+        "search": "Aktionen suchen…",
+        "turnInto": "Umwandeln in",
+        "text": "Text",
+        "heading1": "Überschrift 1",
+        "heading2": "Überschrift 2",
+        "heading3": "Überschrift 3",
+        "bulletList": "Aufzählung",
+        "orderedList": "Nummerierte Liste",
+        "quote": "Zitat",
+        "duplicate": "Duplizieren",
+        "delete": "Löschen",
+        "addBlock": "Block hinzufügen",
+        "dragHandle": "Zum Verschieben ziehen"
+      },
+      "bubble": {
+        "link": "Link",
+        "unlink": "Link entfernen",
+        "applyUrl": "Übernehmen",
+        "urlPlaceholder": "URL oder Seitenname",
+        "bold": "Fett",
+        "italic": "Kursiv",
+        "underline": "Unterstrichen",
+        "strike": "Durchgestrichen",
+        "code": "Code",
+        "searchPlaceholder": "Seiten suchen…",
+        "noResults": "Keine Seite gefunden"
+      }
     },
     "clientInfo": {
       "contactPersonEmpty": "—",
@@ -285,8 +315,7 @@
     "saveFailed": "Projekt konnte nicht gespeichert werden.",
     "quickAdd": {
       "client": "Kunde",
-      "team": "Team",
-      "notes": "Notizen"
+      "team": "Team"
     }
   },
   "create": {

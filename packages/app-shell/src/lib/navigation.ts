@@ -51,8 +51,8 @@ function resolveSettingsItemIcon(
 
 /** Synthetic admin rows (after contribution items). */
 const ADMIN_NAV_ORDER_SETTINGS = 140;
-/** Install-owner setup area — after Settings, superadmin only. */
-const ADMIN_NAV_ORDER_SETUP = 150;
+/** Install-owner setup area — before Team (130), superadmin only. */
+const ADMIN_NAV_ORDER_SETUP = 125;
 
 /**
  * Canonical order for core admin menu contributions (by stable `id`).

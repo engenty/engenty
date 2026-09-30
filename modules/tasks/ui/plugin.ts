@@ -12,7 +12,12 @@ import {
   teamMembersCatalogQueryKey,
   teamMembersCatalogQueryOptions,
 } from "./hooks/use-team-catalog-query.js";
-import { tasksPaths, tasksRoutePatterns } from "./lib/tasks-routes.js";
+import {
+  tasksGlobalPaths,
+  tasksGlobalRoutePatterns,
+  tasksPaths,
+  tasksRoutePatterns,
+} from "./lib/tasks-routes.js";
 import { buildTaskAssigneeMemberOptions } from "./lib/team-catalog-ui.js";
 import {
   registerTasksListColumn,
@@ -20,10 +25,15 @@ import {
   resetTasksListHooks,
 } from "./list-hooks.js";
 import { BriefingPage } from "./pages/briefing-page.js";
+import {
+  GlobalPlanRedirectPage,
+  WorkRedirectPage,
+} from "./pages/global-plan-redirects.js";
 import { OperationsPage } from "./pages/operations-page.js";
 import { TaskDetailPage } from "./pages/task-detail-page.js";
 import { TaskEditPage } from "./pages/task-edit-page.js";
 import { TasksListPage } from "./pages/tasks-list-page.js";
+import { TasksNotificationsPage } from "./pages/tasks-notifications-page.js";
 import { TasksRedirectPage } from "./pages/tasks-redirect-page.js";
 import { TasksSettingsPage } from "./pages/tasks-settings-page.js";
 import { WorkOverviewPage } from "./pages/work-overview-page.js";
@@ -43,6 +53,7 @@ const UUID_PATTERN =
 const RESERVED_SEGMENTS = new Set([
   "briefing",
   "inbox",
+  "notifications",
   "list",
   "settings",
   "operations",
@@ -86,13 +97,41 @@ export default function plugin(engenty: EngentyPluginContext) {
   // rendered into the shell's notification list for records of that kind.
   registerNotificationRenderer("tool_approval", ToolApprovalNotification);
 
-  // The one Tasks surface that spans spaces. An absolute path, not `/mdl/tasks/…`:
-  // the shell mirrors module paths into every space and redirects the legacy
-  // form into one, and this page is the opposite of that.
+  // The global Plan — the viewer's own, across every space. Absolute paths, not
+  // `/mdl/tasks/…`: the shell mirrors module paths into every space and
+  // redirects the legacy form into one, and this Plan is the opposite of that.
+  engenty.UI.registerRoute({
+    id: "tasks_global_root",
+    path: tasksGlobalRoutePatterns.root,
+    component: GlobalPlanRedirectPage,
+    order: 134,
+  });
+
+  engenty.UI.registerRoute({
+    id: "tasks_global_briefing",
+    path: tasksGlobalRoutePatterns.briefing,
+    component: BriefingPage,
+    order: 135,
+  });
+
+  engenty.UI.registerRoute({
+    id: "tasks_global_notifications",
+    path: tasksGlobalRoutePatterns.inbox,
+    component: TasksNotificationsPage,
+    order: 136,
+  });
+
   engenty.UI.registerRoute({
     id: "tasks_work_overview",
-    path: "/work",
+    path: tasksGlobalRoutePatterns.list,
     component: WorkOverviewPage,
+    order: 137,
+  });
+
+  engenty.UI.registerRoute({
+    id: "tasks_work_legacy",
+    path: "/work",
+    component: WorkRedirectPage,
     order: 138,
   });
 
@@ -108,6 +147,14 @@ export default function plugin(engenty: EngentyPluginContext) {
     path: tasksRoutePatterns.briefing,
     component: BriefingPage,
     order: 140,
+  });
+
+  // A space's notifications, inside its Plan (`/s/<key>/tasks/notifications`).
+  engenty.UI.registerRoute({
+    id: "tasks_module_notifications",
+    path: tasksRoutePatterns.inbox,
+    component: TasksNotificationsPage,
+    order: 142,
   });
 
   engenty.UI.registerRoute({
@@ -190,16 +237,16 @@ export default function plugin(engenty: EngentyPluginContext) {
     useBadgeCount: () => useInboxAttentionCountQuery().data?.total,
   });
 
-  // On the app rail beside the tools carried between spaces — hence the
-  // per-row `placement`, overriding this module's space placement. Every
-  // work tab registered through `registerWorkTab` shows up on this page.
+  // The global Plan on the app rail, beside the tools carried between spaces —
+  // hence the per-row `placement`, overriding this module's space placement.
   engenty.UI.registerAdminMenuItem({
     id: "tasks_work_menu",
     section: "modules",
-    label: "All work",
-    labelKey: "tasks:work.title",
+    label: "Plan",
+    labelKey: "tasks:menu.tasks",
     icon: ListTodo,
-    to: "/work",
+    // The root, so the row stays lit on every global Plan page.
+    to: tasksGlobalPaths.root,
     order: 10,
     placement: "global",
   });

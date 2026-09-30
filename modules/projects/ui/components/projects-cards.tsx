@@ -23,16 +23,6 @@ function formatDate(d: string | null) {
   return d ? new Date(d).toLocaleDateString() : "-";
 }
 
-function stripHtml(html: string | null | undefined): string {
-  if (!html) {
-    return "";
-  }
-  return html
-    .replace(/<[^>]*>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 interface ProjectCardProps {
   isSelected: boolean;
   memberProfileMap: Map<string, AvatarStackProfile>;
@@ -72,7 +62,7 @@ function ProjectCard({
   const clientUrl = project.client_id?.trim()
     ? `/mdl/contacts/${project.client_id}`
     : null;
-  const briefingText = stripHtml(project.briefing);
+  const subtitle = project.subtitle?.trim();
   const teamProfiles = showTeamMembers
     ? getProjectDisplayProfiles(project, teamMemberCatalog, memberProfileMap)
     : [];
@@ -194,10 +184,9 @@ function ProjectCard({
         {project.title}
       </p>
 
-      {/* Briefing */}
-      {briefingText ? (
+      {subtitle ? (
         <p className="mt-1.5 line-clamp-3 break-words text-muted-foreground text-sm">
-          {briefingText}
+          {subtitle}
         </p>
       ) : null}
 

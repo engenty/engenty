@@ -150,7 +150,6 @@ describe("registerProjectsApi", () => {
         body: JSON.stringify({
           client_id: "client-1",
           title: "Test Project",
-          briefing: null,
           start_date: null,
           end_date: null,
         }),
@@ -159,7 +158,6 @@ describe("registerProjectsApi", () => {
         client_id: "client-1",
         lead_id: null,
         title: "Test Project",
-        briefing: null,
         start_date: null,
         end_date: null,
         portal_enabled: false,
@@ -233,7 +231,6 @@ describe("registerProjectsApi", () => {
         body: JSON.stringify({
           client_id: "client-1",
           title: "Team project",
-          briefing: null,
           start_date: null,
           end_date: null,
           team_member_ids: [tmId],
@@ -243,7 +240,6 @@ describe("registerProjectsApi", () => {
         client_id: "client-1",
         lead_id: null,
         title: "Team project",
-        briefing: null,
         start_date: null,
         end_date: null,
         portal_enabled: false,
@@ -315,7 +311,6 @@ describe("registerProjectsApi", () => {
         body: JSON.stringify({
           client_id: "client-1",
           title: "P",
-          briefing: null,
           start_date: null,
           end_date: null,
         }),
@@ -324,7 +319,6 @@ describe("registerProjectsApi", () => {
         client_id: "client-1",
         lead_id: null,
         title: "P",
-        briefing: null,
         start_date: null,
         end_date: null,
         portal_enabled: false,
@@ -426,7 +420,6 @@ describe("registerProjectsApi", () => {
         body: JSON.stringify({
           client_id: "client-1",
           title: "P2",
-          briefing: null,
           start_date: null,
           end_date: null,
           team_member_ids: [tmId],
@@ -436,7 +429,6 @@ describe("registerProjectsApi", () => {
         client_id: "client-1",
         lead_id: null,
         title: "P2",
-        briefing: null,
         start_date: null,
         end_date: null,
         portal_enabled: false,

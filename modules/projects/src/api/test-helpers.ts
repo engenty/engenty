@@ -92,7 +92,6 @@ export function makeMockProjectRepo() {
         client_name: fields.client_name ?? null,
         lead_id: fields.lead_id ?? null,
         title: fields.title,
-        briefing: fields.briefing ?? null,
         start_date: fields.start_date ?? null,
         end_date: fields.end_date ?? null,
         portal_enabled: fields.portal_enabled ?? false,

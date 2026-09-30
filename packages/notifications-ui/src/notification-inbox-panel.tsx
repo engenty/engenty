@@ -56,9 +56,11 @@ const INBOX_TABS: {
 ];
 
 export interface NotificationInboxPanelProps {
+  /** Opening scope; without it, a space narrows the panel to itself. */
+  defaultScope?: "space" | "tenant";
   /** Opened for a lane / one actor (`openNotificationInbox`). */
   initial?: InboxOpenRequest | null;
-  /** Standing in a space: the panel opens narrowed to it, with a way out. */
+  /** Standing in a space: the Space side of the switch is offered. */
   inSpace: boolean;
   onNavigate: () => void;
   /**
@@ -71,6 +73,7 @@ export interface NotificationInboxPanelProps {
 }
 
 export function NotificationInboxPanel({
+  defaultScope,
   inSpace,
   initial,
   onNavigate,
@@ -84,7 +87,7 @@ export function NotificationInboxPanel({
   const spaceKey = paramSpaceKey ?? spaceKeyFromPathname(pathname) ?? undefined;
   const standingInSpace = inSpace || Boolean(spaceKey);
   const [scope, setScope] = useState<"space" | "tenant">(
-    scopeLocked ?? (inSpace ? "space" : "tenant")
+    scopeLocked ?? defaultScope ?? (inSpace ? "space" : "tenant")
   );
   const [lane, setLane] = useState<InboxLane>(initial?.lane ?? "attention");
   const [actor, setActor] = useState(initial?.actor ?? null);
@@ -292,7 +295,7 @@ function InboxSkeleton() {
   );
 }
 
-const SCOPE_OPTIONS = ["space", "tenant"] as const;
+const SCOPE_OPTIONS = ["tenant", "space"] as const;
 
 function InboxScopeSwitch({
   locked,

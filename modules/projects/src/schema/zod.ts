@@ -47,7 +47,6 @@ export const projectSchema = z.object({
   client_name: z.string().nullable(),
   lead_id: z.string().uuid().nullable(),
   title: z.string().min(1),
-  briefing: z.string().nullable(),
   start_date: z.string().nullable(),
   end_date: z.string().nullable(),
   portal_enabled: z.boolean(),
@@ -80,10 +79,9 @@ export const projectInputSchema = projectSchema
   // same way scope_id and the timestamps are server-owned.
   .extend({ space_id: z.string().uuid().optional() });
 
-/** Create payload: portal/lead/created_by/briefing/dates/client_name are optional; API/DAL apply defaults. */
+/** Create payload: portal/lead/created_by/dates/client_name are optional; API/DAL apply defaults. */
 export const projectCreateInputSchema = projectInputSchema.extend({
   client_name: z.string().nullable().default(null),
-  briefing: z.string().nullable().default(null),
   start_date: z.string().nullable().default(null),
   end_date: z.string().nullable().default(null),
   lead_id: z.string().uuid().nullable().optional(),
@@ -299,3 +297,31 @@ export const projectKvSetRequestSchema = z
         "Value must match type (value_string for string, value_numeric for numeric, etc.)",
     }
   );
+
+const noteContentJsonSchema = z.record(z.string(), z.unknown()).nullable();
+
+export const projectNoteSchema = z.object({
+  id: z.string(),
+  project_id: z.string(),
+  title: z.string(),
+  content_json: noteContentJsonSchema,
+  content_markdown: z.string().nullable(),
+  order_index: z.number().int(),
+  created_by: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+
+export const projectNotesListResponseSchema = z.object({
+  notes: z.array(projectNoteSchema),
+});
+
+export const projectNoteCreateSchema = z.object({
+  title: z.string().max(300).optional(),
+  content_json: noteContentJsonSchema.optional(),
+  content_markdown: z.string().nullable().optional(),
+});
+
+export const projectNoteUpdateSchema = projectNoteCreateSchema.extend({
+  order_index: z.number().int().min(0).optional(),
+});

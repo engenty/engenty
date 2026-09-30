@@ -1,9 +1,8 @@
 /**
- * `/work` — every piece of work across the spaces the viewer may see.
+ * `/tasks/list` — every piece of work across the spaces the viewer may see,
+ * the global Plan's list (formerly `/work`).
  *
- * Lives on the app rail, not inside a space: it is the one Tasks surface that
- * spans spaces, which is why its menu row overrides the module's space
- * placement. Grouped by space, because the space is the answer to "where does
+ * Lives on the global Plan, not inside a space. Grouped by space, because the space is the answer to "where does
  * this row live"; a click lands on the record inside its own space. The rows
  * arrive already narrowed by the server; this page only groups and filters.
  */
@@ -30,8 +29,9 @@ import {
 } from "@engenty/ui-core";
 import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { getSpaces, type SpaceRef } from "../api.js";
+import { useTasksModuleSecondaryShellNav } from "../hooks/use-tasks-module-secondary-shell-nav.js";
 import { tasksPathsForSpace } from "../lib/tasks-routes.js";
 import { getWorkTabs, type WorkTab } from "../work-tabs.js";
 
@@ -79,10 +79,17 @@ export function WorkOverviewPage() {
   const [status, setStatus] = useState<string>(ALL);
   const [mine, setMine] = useState(false);
 
+  const { moduleRootCrumb, secondaryNavAfterItems, secondaryNavHeaderSlot } =
+    useTasksModuleSecondaryShellNav();
   usePageConfig({
     actions: null,
-    breadcrumbs: [{ label: t("work.title") }],
+    breadcrumbs: [
+      ...(moduleRootCrumb ? [moduleRootCrumb] : []),
+      { label: t("work.title") },
+    ],
     contentStackBackground: "paper",
+    secondaryNavAfterItems,
+    secondaryNavHeaderSlot,
   });
 
   const spacesQuery = useQuery({
@@ -139,8 +146,18 @@ export function WorkOverviewPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <p className="text-muted-foreground text-sm">{t("work.description")}</p>
+    <section
+      className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto p-page"
+      data-engenty-region="list"
+    >
+      {/* The page names itself: with Plan's sidebar open the crumb row is
+          empty. */}
+      <header className="space-y-1">
+        <h1 className="font-heading font-semibold text-xl tracking-tight">
+          {t("work.title")}
+        </h1>
+        <p className="text-muted-foreground text-sm">{t("work.description")}</p>
+      </header>
 
       <div className="flex flex-wrap items-center gap-2">
         {tabs.length > 1 ? (
@@ -183,7 +200,7 @@ export function WorkOverviewPage() {
               </SelectItem>
               {statuses.map((entry) => (
                 <SelectItem key={entry} value={entry}>
-                  {entry}
+                  {tab.StatusLabel ? <tab.StatusLabel status={entry} /> : entry}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -237,7 +254,7 @@ export function WorkOverviewPage() {
           {t("work.capped", { shown: allRows.length, total })}
         </p>
       ) : null}
-    </div>
+    </section>
   );
 }
 
@@ -276,6 +293,7 @@ function WorkTable<T>({
   tab: WorkTab<T>;
 }) {
   const { t } = useTranslation("tasks");
+  const navigate = useNavigate();
   return (
     <Table>
       <TableHeader>
@@ -293,7 +311,17 @@ function WorkTable<T>({
         {rows.map((row) => {
           const href = space ? tab.href(row, space.key) : null;
           return (
-            <TableRow key={tab.rowKey(row)}>
+            // The whole row opens the record; the linked cell stays a real
+            // link for keyboard and middle-click.
+            <TableRow
+              className={cn(href && "cursor-pointer")}
+              key={tab.rowKey(row)}
+              onClick={(event) => {
+                if (href && !(event.target as HTMLElement).closest("a")) {
+                  navigate(href);
+                }
+              }}
+            >
               {tab.columns.map((column) => (
                 <TableCell className={cn(column.className)} key={column.key}>
                   {column.link && href ? (

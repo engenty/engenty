@@ -12,6 +12,7 @@ import { BriefingModeToggle } from "../components/briefing-mode-toggle.js";
 import { useTasksBriefingAgentUiSlice } from "../hooks/use-tasks-agent-ui-slice.js";
 import { useTasksModuleSecondaryShellNav } from "../hooks/use-tasks-module-secondary-shell-nav.js";
 import { useTasksTopbarActions } from "../hooks/use-tasks-topbar-actions.js";
+import { useIsGlobalPlan } from "../lib/use-tasks-paths.js";
 import {
   useTaskSettingsQuery,
   useTasksBriefingQuery,
@@ -21,11 +22,19 @@ export function BriefingPage() {
   const { t, i18n } = useTranslation("tasks");
   const locale = i18n.language || "en";
   const { setCopilotContext } = useCopilotShell();
-  const [mode, setMode] = useState<TasksBriefingMode>("oversight");
+  // The global Plan is the viewer's own: it opens on "personal", across every
+  // space. A space's Plan opens on the space's overview.
+  const global = useIsGlobalPlan();
+  const [mode, setMode] = useState<TasksBriefingMode>(
+    global ? "personal" : "oversight"
+  );
   const { openCreateTask, pageActions, topbarDialogs } =
     useTasksTopbarActions();
   const settingsQuery = useTaskSettingsQuery();
-  const briefingQuery = useTasksBriefingQuery(mode);
+  const briefingQuery = useTasksBriefingQuery(
+    mode,
+    global ? { scope: "tenant" } : {}
+  );
 
   const taskStatusDefinitions =
     settingsQuery.data?.task_status_definitions ??
@@ -42,7 +51,8 @@ export function BriefingPage() {
   );
 
   usePageConfig({
-    actions: pageActions,
+    // A new task needs a space — none on the global Plan yet.
+    actions: global ? null : pageActions,
     breadcrumbs,
     contentStackBackground: "paper",
     secondaryNavAfterItems,

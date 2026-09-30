@@ -14,6 +14,7 @@
  * create and edit are one write path rather than two that drift.
  */
 
+import { coverSchema } from "@engenty/covers";
 import {
   COMPANY_FILES_MANAGE_CAPABILITY,
   COMPUTER_EGRESS_HOSTS_MAX,
@@ -200,6 +201,12 @@ const createSpaceBodySchema = z.object({
   mounts: z.array(setupMountSchema).max(400).optional(),
   name: z.string().min(1).max(200),
   visibility: z.enum(["open", "private"]).optional(),
+});
+
+/** What the space's home header edits in place (`PATCH /details`). */
+const spaceDetailsBodySchema = z.object({
+  cover: coverSchema.nullable().optional(),
+  description: z.string().max(500).nullable().optional(),
 });
 
 const spaceSetupBodySchema = z.object({
@@ -1425,6 +1432,48 @@ export function registerSpacesRoutes(params: {
         space: updated,
         surface,
       });
+    } catch (error) {
+      return setupFailure(c, error);
+    }
+  });
+
+  /**
+   * The home header's own fields — the description under the title and the
+   * cover behind it — without resending the whole setup (`PUT /setup` needs
+   * every mount). Same access as setup.
+   */
+  app.patch("/api/spaces/:spaceId/details", async (c) => {
+    const authResult = await requireAuth(c, config);
+    if ("error" in authResult) {
+      return authResult.error;
+    }
+    const tenantId = authResult.auth.tenantId;
+    if (!tenantId) {
+      return jsonApiError(c, 403, { message: "No tenant" });
+    }
+    const parsed = spaceDetailsBodySchema.safeParse(await c.req.json());
+    if (!parsed.success) {
+      return jsonApiError(c, 400, { message: "Invalid space details" });
+    }
+    const access = await requireSpaceSetupAccess(
+      c,
+      tenantId,
+      authResult.auth,
+      c.req.param("spaceId")
+    );
+    if ("error" in access) {
+      return access.error;
+    }
+    try {
+      const space = await updateSpace(db(tenantId), tenantId, access.space.id, {
+        ...(parsed.data.cover === undefined
+          ? {}
+          : { cover: parsed.data.cover }),
+        ...(parsed.data.description === undefined
+          ? {}
+          : { description: parsed.data.description }),
+      });
+      return jsonApiSuccess(c, { space });
     } catch (error) {
       return setupFailure(c, error);
     }

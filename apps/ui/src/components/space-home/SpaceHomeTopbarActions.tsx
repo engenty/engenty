@@ -10,6 +10,7 @@ import { useTranslation } from "@engenty/i18n/ui";
 import {
   Button,
   cn,
+  DocSidebarToggle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -39,6 +40,9 @@ const iconButtonClassName = cn(
   topbarIconButtonClassName,
   "!size-7 !w-7 !min-w-7 !px-0"
 );
+
+/** The home's rail (artifacts, files, modules, …) as a doc sidebar. */
+export const SPACE_HOME_SIDEBAR_KEY = "spaces.home.sidebar";
 
 export function SpaceHomeTopbarActions({ space }: { space: Space }) {
   const { t } = useTranslation("common");
@@ -81,6 +85,13 @@ export function SpaceHomeTopbarActions({ space }: { space: Space }) {
           <Settings aria-hidden className="size-4" />
         </Link>
       </Button>
+      <DocSidebarToggle
+        className={iconButtonClassName}
+        label={t("spaces.home.sidebarLabel", {
+          defaultValue: "In this space",
+        })}
+        storageKey={SPACE_HOME_SIDEBAR_KEY}
+      />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button

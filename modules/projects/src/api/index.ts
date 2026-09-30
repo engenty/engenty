@@ -28,6 +28,7 @@ async function ensureClientRoleOnEntity(
 import { z } from "@hono/zod-openapi";
 import type { createPortalDAL } from "../dal/portal-supabase.js";
 import type { ProjectKvRepo } from "../dal/project-kv.js";
+import type { ProjectNotesRepo } from "../dal/project-notes.js";
 import {
   deleteProjectResponseSchema,
   notFoundSchema,
@@ -57,6 +58,7 @@ import { registerProjectsGatewayMethods } from "./gateway-methods.js";
 import { getRepo, type RepoOrFactory } from "./gateway-shared.js";
 import { registerProjectCoverRoutes } from "./project-cover-routes.js";
 import { registerProjectKvRoutes } from "./project-kv-routes.js";
+import { registerProjectNotesRoutes } from "./project-notes-routes.js";
 
 /** UUID v4 pattern to avoid /api/projects/tasks matching /api/projects/:id */
 const UUID_PARAM =
@@ -70,6 +72,8 @@ type PortalDAL = ReturnType<typeof createPortalDAL>;
 interface RegisterProjectsApiOpts {
   /** Per-project key/value store (`/api/projects/:id/kv`). */
   kvRepoFor?: (auth: PluginAuthContext) => ProjectKvRepo;
+  /** Note pages (`/api/projects/:id/notes`). */
+  notesRepoFor?: (auth: PluginAuthContext) => ProjectNotesRepo;
   portalDAL?: PortalDAL;
 }
 
@@ -292,7 +296,6 @@ export function registerProjectsApi(
         ...raw,
         client_id: raw.client_id ?? null,
         client_name: raw.client_name ?? null,
-        briefing: raw.briefing ?? null,
         start_date: raw.start_date ?? null,
         end_date: raw.end_date ?? null,
         lead_id: raw.lead_id ?? null,
@@ -828,5 +831,8 @@ export function registerProjectsApi(
   registerProjectCoverRoutes(api, repoOrFactory);
   if (opts?.kvRepoFor) {
     registerProjectKvRoutes(api, repoOrFactory, opts.kvRepoFor);
+  }
+  if (opts?.notesRepoFor) {
+    registerProjectNotesRoutes(api, repoOrFactory, opts.notesRepoFor);
   }
 }

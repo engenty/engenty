@@ -56,7 +56,6 @@ function project(
   overrides: Partial<ProjectWithPhasesAndTasks> = {}
 ): ProjectWithPhasesAndTasks {
   return {
-    briefing: null,
     client_id: null,
     client_name: null,
     created_at: "2026-09-01T09:00:00.000Z",

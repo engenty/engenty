@@ -343,19 +343,8 @@ export function useProjectDetailHandlers({
     [id, updateProjectMutation]
   );
 
-  const handleBriefingSave = useCallback(
-    (briefing: string | null) => {
-      if (!id) {
-        return;
-      }
-      updateProjectMutation.mutate({ briefing: briefing ?? null });
-    },
-    [id, updateProjectMutation]
-  );
-
   return {
     activeTask,
-    handleBriefingSave,
     handleCoverChange,
     handleSubtitleChange,
     handleClientChange,

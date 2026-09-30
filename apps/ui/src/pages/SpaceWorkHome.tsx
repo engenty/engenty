@@ -16,28 +16,38 @@
  */
 import { useTranslation } from "@engenty/i18n/ui";
 import { useSpaceAttention } from "@engenty/notifications-ui";
-import { Button, cn, uiPageScrollClassName } from "@engenty/ui-core";
-import { type PageBreadcrumb, usePageConfig } from "@engenty/ui-plugin-sdk";
+import {
+  cn,
+  DocSidebarLayout,
+  uiPageScrollClassName,
+  useDocSidebar,
+} from "@engenty/ui-core";
+import {
+  type PageBreadcrumb,
+  usePageConfig,
+  useWorkspaceContext,
+} from "@engenty/ui-plugin-sdk";
 import { useCurrentUserProfile } from "@engenty/user-management-ui";
-import { Pencil } from "lucide-react";
 import { useMemo } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { SpaceHomeArtifacts } from "@/components/space-home/SpaceHomeArtifacts";
 import { SpaceHomeAttention } from "@/components/space-home/SpaceHomeAttention";
-import { SpaceHomeAudience } from "@/components/space-home/SpaceHomeAudience";
 import { SpaceHomeCard } from "@/components/space-home/SpaceHomeCard";
 import { SpaceHomeExtensions } from "@/components/space-home/SpaceHomeExtensions";
 import { SpaceHomeFiles } from "@/components/space-home/SpaceHomeFiles";
+import { SpaceHomeHeader } from "@/components/space-home/SpaceHomeHeader";
 import { SpaceHomeHireEmptyCard } from "@/components/space-home/SpaceHomeHireEmptyCard";
 import { SpaceHomeModules } from "@/components/space-home/SpaceHomeModules";
 import { SpaceHomeQuietLine } from "@/components/space-home/SpaceHomeQuietLine";
 import { SpaceHomeSectionHeading } from "@/components/space-home/SpaceHomeSectionHeading";
 import { SpaceHomeSkills } from "@/components/space-home/SpaceHomeSkills";
-import { SpaceHomeTopbarActions } from "@/components/space-home/SpaceHomeTopbarActions";
+import {
+  SPACE_HOME_SIDEBAR_KEY,
+  SpaceHomeTopbarActions,
+} from "@/components/space-home/SpaceHomeTopbarActions";
 import { SpaceHomeWorkflows } from "@/components/space-home/SpaceHomeWorkflows";
 import { SpacePluginHomeSections } from "@/components/spaces/space-plugin-sections";
 import type { SpaceHomeCard as SpaceHomeCardModel } from "@/lib/space-home-cards";
-import { spaceSettingsPath } from "@/lib/space-routes";
 import { useSpacesQuery } from "@/lib/spaces-queries";
 import { useEnsureHireWelcome } from "@/lib/use-ensure-hire-welcome";
 import { useSpaceHome } from "@/lib/use-space-home";
@@ -60,18 +70,19 @@ const GREETINGS = {
   morning: "Good morning",
 } as const;
 
-/**
- * Two columns when THIS pane is wide enough for the 322px rail plus a
- * card column — not when the viewport is. The space sidebar already ate
- * width, so viewport `lg:` split while the cards and the rail overlapped.
- */
-const HOME_SPLIT_CLASS = "@min-[52rem]:flex-row";
-/** Right column on home — header audience and Module/Extensions share this. */
-const HOME_RAIL_CLASS = "w-full shrink-0 @min-[52rem]:w-[322px]";
-
 export function SpaceWorkHome() {
   const { t } = useTranslation("common");
   const { spaceKey = "" } = useParams();
+  const { isSuperAdmin, isTenantAdmin } = useWorkspaceContext();
+  const canManage = Boolean(isTenantAdmin || isSuperAdmin);
+  const sidebar = useDocSidebar(SPACE_HOME_SIDEBAR_KEY);
+  // The rail beside the cards, as the project settings sit beside a project:
+  // an inline column when there is room, an overlay sheet when not. Open, the
+  // row (and the header over it) widens so the cards keep their measure.
+  const rowClassName = cn(
+    "mx-auto w-full px-page",
+    sidebar.mode === "inline" && sidebar.open ? "max-w-6xl" : "max-w-4xl"
+  );
   const spacesQuery = useSpacesQuery();
   const space = useMemo(
     () => spacesQuery.data?.find((entry) => entry.key === spaceKey) ?? null,
@@ -120,38 +131,38 @@ export function SpaceWorkHome() {
     <div className={uiPageScrollClassName}>
       {space ? (
         <div className="@container w-full min-w-0">
-          <div
-            className={cn(
-              "mx-auto flex w-full max-w-6xl shrink-0 flex-col gap-5 px-page pt-7 pb-6",
-              HOME_SPLIT_CLASS,
-              "@min-[52rem]:items-end"
-            )}
-          >
-            <div className="group min-w-0 flex-1">
-              <div className="flex min-w-0 items-center gap-1.5">
-                <p className="truncate text-muted-foreground text-sm">
-                  {t("spaces.home.workingIn", {
-                    defaultValue: "Working in {{name}}",
-                    name: space.name,
-                  })}
-                </p>
-                <Button
-                  asChild
-                  className="shrink-0 opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
-                  size="icon-sm"
-                  variant="ghost"
-                >
-                  <Link
-                    aria-label={t("navigation.settings", {
-                      defaultValue: "Settings",
-                    })}
-                    to={spaceSettingsPath(space.key)}
-                  >
-                    <Pencil aria-hidden className="size-3.5" />
-                  </Link>
-                </Button>
+          <SpaceHomeHeader
+            canManage={canManage}
+            className={rowClassName}
+            space={space}
+          />
+          <DocSidebarLayout
+            className={cn(rowClassName, "pt-5 pb-6")}
+            resizable
+            sidebar={
+              <div className="flex min-w-0 flex-col gap-5">
+                <SpaceHomeArtifacts spaceId={space.id} spaceKey={space.key} />
+                <SpaceHomeWorkflows spaceKey={space.key} />
+                <SpaceHomeFiles spaceId={space.id} spaceKey={space.key} />
+                <SpacePluginHomeSections
+                  slot="space.home.aside"
+                  spaceId={space.id}
+                  spaceKey={space.key}
+                />
+                <SpaceHomeModules spaceId={space.id} spaceKey={space.key} />
+                <SpaceHomeExtensions spaceId={space.id} spaceKey={space.key} />
+                <SpaceHomeSkills space={space} />
               </div>
-              <h1 className="font-semibold @min-[52rem]:text-3xl text-2xl tracking-tight">
+            }
+            sidebarLabel={t("spaces.home.sidebarLabel", {
+              defaultValue: "In this space",
+            })}
+            storageKey={SPACE_HOME_SIDEBAR_KEY}
+          >
+            <div className="flex min-w-0 flex-col">
+              {/* The hello sits under the header: the header names the space,
+                  the greeting names the person. */}
+              <p className="font-semibold text-lg tracking-tight">
                 {firstName
                   ? t(`spaces.home.greetingNamed.${greeting}`, {
                       defaultValue: `${GREETINGS[greeting]}, {{name}}.`,
@@ -160,25 +171,7 @@ export function SpaceWorkHome() {
                   : t(`spaces.home.greeting.${greeting}`, {
                       defaultValue: `${GREETINGS[greeting]}.`,
                     })}
-              </h1>
-              {space.description?.trim() ? (
-                <p className="mt-1 line-clamp-2 text-[13px] text-muted-foreground leading-relaxed">
-                  {space.description}
-                </p>
-              ) : null}
-            </div>
-            <div className={HOME_RAIL_CLASS}>
-              <SpaceHomeAudience space={space} />
-            </div>
-          </div>
-          <div
-            className={cn(
-              "mx-auto flex w-full max-w-6xl shrink-0 flex-col gap-5 px-page",
-              HOME_SPLIT_CLASS,
-              "@min-[52rem]:items-start"
-            )}
-          >
-            <div className="flex min-w-0 flex-1 flex-col">
+              </p>
               {/* What waits for a person comes before every conversation. */}
               <SpaceHomeAttention
                 items={attention.items}
@@ -245,22 +238,7 @@ export function SpaceWorkHome() {
                 spaceKey={space.key}
               />
             </div>
-            <aside
-              className={cn("flex min-w-0 flex-col gap-5", HOME_RAIL_CLASS)}
-            >
-              <SpaceHomeArtifacts spaceId={space.id} spaceKey={space.key} />
-              <SpaceHomeWorkflows spaceKey={space.key} />
-              <SpaceHomeFiles spaceId={space.id} spaceKey={space.key} />
-              <SpacePluginHomeSections
-                slot="space.home.aside"
-                spaceId={space.id}
-                spaceKey={space.key}
-              />
-              <SpaceHomeModules spaceId={space.id} spaceKey={space.key} />
-              <SpaceHomeExtensions spaceId={space.id} spaceKey={space.key} />
-              <SpaceHomeSkills space={space} />
-            </aside>
-          </div>
+          </DocSidebarLayout>
         </div>
       ) : null}
     </div>

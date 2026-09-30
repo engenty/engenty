@@ -17,7 +17,6 @@ describe("projects schema", () => {
         client_id: null,
         start_date: null,
         end_date: null,
-        briefing: null,
       });
       expect(fromModal.success).toBe(true);
 
@@ -26,7 +25,6 @@ describe("projects schema", () => {
         client_id: null,
         start_date: "2025-01-01",
         end_date: "2025-12-31",
-        briefing: "Brief",
       });
       expect(withDates.success).toBe(true);
     });
@@ -42,7 +40,6 @@ describe("projects schema", () => {
         created_by: "550e8400-e29b-41d4-a716-446655440002",
         start_date: null,
         end_date: null,
-        briefing: null,
       });
       expect(full.success).toBe(true);
     });
@@ -90,7 +87,6 @@ describe("projects schema", () => {
         client_id: null,
         start_date: null,
         end_date: null,
-        briefing: null,
         team_member_ids: [
           "550e8400-e29b-41d4-a716-446655440099",
           "660e8400-e29b-41d4-a716-446655440088",
@@ -106,7 +102,6 @@ describe("projects schema", () => {
       client_name: null,
       lead_id: null,
       title: "My Project",
-      briefing: null,
       start_date: null,
       end_date: null,
       portal_enabled: false,

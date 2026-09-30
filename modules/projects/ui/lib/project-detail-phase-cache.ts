@@ -182,7 +182,7 @@ export function reconcilePhase(
 }
 
 /**
- * Project-level field edits (settings, briefing). The API answers with the
+ * Project-level field edits (header, settings). The API answers with the
  * project row alone, so only its own fields are merged — phases and general
  * tasks stay as the document has them.
  */

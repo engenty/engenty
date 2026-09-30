@@ -8,6 +8,7 @@ import { projectsAiRegistration } from "../ai/registrar.js";
 import { registerProjectsApi } from "./api/index.js";
 import { createPortalDAL } from "./dal/portal-supabase.js";
 import { createProjectKvRepo } from "./dal/project-kv.js";
+import { createProjectNotesRepo } from "./dal/project-notes.js";
 import { createProjectRepoSupabase } from "./dal/supabase.js";
 import { createProjectVisibilityPolicy } from "./policies.js";
 
@@ -91,6 +92,8 @@ const registerProjectsPlugin: EngentyPluginFactory = (engenty) => {
   registerProjectsApi(server, repoOrFactory, {
     kvRepoFor: (auth) =>
       createProjectKvRepo(getDb(auth), auth.tenantId, auth.scopeId),
+    notesRepoFor: (auth) =>
+      createProjectNotesRepo(getDb(auth), auth.tenantId, auth.scopeId),
     portalDAL,
   });
 };

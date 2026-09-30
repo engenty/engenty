@@ -51,11 +51,12 @@
     "dueThisWeek": "Due this week",
     "dueLater": "Due later",
     "dueOverdue": "Overdue",
-    "inbox": "Inbox"
+    "inbox": "Notifications",
+    "comingSoon": "Soon"
   },
   "tabs": {
     "briefing": "Briefing",
-    "inbox": "Inbox",
+    "inbox": "Notifications",
     "tasks": "Tasks"
   },
   "briefing": {

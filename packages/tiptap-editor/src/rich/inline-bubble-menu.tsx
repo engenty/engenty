@@ -26,6 +26,9 @@ import type {
 const EMPTY_LINK_SOURCES: LinkSearchSource[] = [];
 const EMPTY_CUSTOM_ITEMS: InlineBubbleMenuCustomItem[] = [];
 
+/** Plugin key, so `hide` meta reaches this bubble (per editor). */
+const BUBBLE_PLUGIN_KEY = "richInlineBubbleMenu";
+
 const DEFAULT_LABELS: Required<InlineBubbleMenuLabels> = {
   link: "Link",
   unlink: "Remove link",
@@ -83,15 +86,25 @@ type BubbleShouldShowArgs = Parameters<
   NonNullable<BubbleMenuProps["shouldShow"]>
 >[0];
 
-/** Match TipTap default: keep bubble visible while focus is inside the menu (inputs, etc.). */
-function bubbleShouldShowSelection(props: BubbleShouldShowArgs): boolean {
-  const { editor, element } = props;
+/**
+ * Like TipTap's default: only while the editor or the menu (its inputs) has
+ * focus. Shows for a selection, a caret inside a link, or an open link panel.
+ */
+function bubbleShouldShowSelection(
+  props: BubbleShouldShowArgs,
+  linkOpen: boolean
+): boolean {
+  const { editor, element, view } = props;
   if (!editor.isEditable) {
     return false;
   }
   const active =
     typeof document === "undefined" ? null : document.activeElement;
-  if (active instanceof Node && element.contains(active)) {
+  const focusInMenu = active instanceof Node && element.contains(active);
+  if (!(view.hasFocus() || focusInMenu)) {
+    return false;
+  }
+  if (linkOpen || focusInMenu) {
     return true;
   }
   const { empty } = editor.state.selection;
@@ -290,6 +303,11 @@ export function RichInlineBubbleMenu({
 }: RichInlineBubbleMenuProps) {
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkPanelEpoch, setLinkPanelEpoch] = useState(0);
+  const innerRef = useRef<HTMLDivElement>(null);
+  const linkOpenRef = useRef(linkOpen);
+  linkOpenRef.current = linkOpen;
+  /** Escape hides the bubble until the selection moves or the editor is clicked. */
+  const dismissedRef = useRef(false);
 
   const resolved = useMemo(() => {
     if (options === false) {
@@ -320,14 +338,78 @@ export function RichInlineBubbleMenu({
   const shouldShowBubble = useCallback<
     NonNullable<BubbleMenuProps["shouldShow"]>
   >(
-    (props) => {
-      if (linkOpen) {
-        return true;
-      }
-      return bubbleShouldShowSelection(props);
-    },
-    [linkOpen]
+    (props) =>
+      !dismissedRef.current &&
+      bubbleShouldShowSelection(props, linkOpenRef.current),
+    []
   );
+
+  /** The plugin only re-checks `shouldShow` on selection/doc changes; hide explicitly. */
+  const hideBubble = useCallback(() => {
+    if (!editor.isDestroyed) {
+      editor.view.dispatch(editor.state.tr.setMeta(BUBBLE_PLUGIN_KEY, "hide"));
+    }
+  }, [editor]);
+
+  useEffect(() => {
+    const onSelectionUpdate = () => {
+      dismissedRef.current = false;
+    };
+    editor.on("selectionUpdate", onSelectionUpdate);
+    return () => {
+      editor.off("selectionUpdate", onSelectionUpdate);
+    };
+  }, [editor]);
+
+  // Escape closes the bubble; a click outside it closes the link panel, and
+  // the bubble too once focus has left the editor.
+  useEffect(() => {
+    if (!resolved) {
+      return;
+    }
+    const focusInside = () =>
+      editor.view.hasFocus() ||
+      (innerRef.current?.contains(document.activeElement) ?? false);
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || dismissedRef.current || !focusInside()) {
+        return;
+      }
+      const { empty } = editor.state.selection;
+      if (empty && !linkOpenRef.current && !editor.isActive("link")) {
+        return;
+      }
+      e.preventDefault();
+      e.stopPropagation();
+      dismissedRef.current = true;
+      setLinkOpen(false);
+      editor.commands.focus();
+      hideBubble();
+    };
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as Node;
+      if (editor.view.dom.contains(target)) {
+        dismissedRef.current = false;
+      }
+      // Only while shown (the plugin detaches the menu element when hidden).
+      if (!innerRef.current?.isConnected || innerRef.current.contains(target)) {
+        return;
+      }
+      // After focus has moved to whatever was clicked. TipTap's own blur
+      // hide is skipped once after any click inside the menu, so hide here.
+      window.setTimeout(() => {
+        setLinkOpen(false);
+        if (!focusInside()) {
+          hideBubble();
+        }
+      }, 0);
+    };
+    document.addEventListener("keydown", onKeyDown, true);
+    document.addEventListener("pointerdown", onPointerDown, true);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown, true);
+      document.removeEventListener("pointerdown", onPointerDown, true);
+    };
+  }, [editor, hideBubble, resolved]);
 
   if (!resolved) {
     return null;
@@ -337,12 +419,14 @@ export function RichInlineBubbleMenu({
     <BubbleMenu
       className="tiptap-inline-bubble"
       editor={editor}
+      pluginKey={BUBBLE_PLUGIN_KEY}
       shouldShow={shouldShowBubble}
       updateDelay={100}
     >
       <div
         className="tiptap-inline-bubble__inner"
         onMouseDown={bubbleChromeMouseDown}
+        ref={innerRef}
       >
         <div className="tiptap-inline-bubble__marks">
           <MarkBtn

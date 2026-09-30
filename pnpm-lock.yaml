@@ -369,6 +369,9 @@ importers:
       '@engenty/cli':
         specifier: workspace:*
         version: link:../../packages/cli
+      '@engenty/covers':
+        specifier: workspace:*
+        version: link:../../packages/covers
       '@engenty/dashboard-core':
         specifier: workspace:*
         version: link:../../packages/dashboard-core
@@ -624,6 +627,9 @@ importers:
       '@engenty/context-graph':
         specifier: workspace:*
         version: link:../../modules/context-graph
+      '@engenty/covers':
+        specifier: workspace:*
+        version: link:../../packages/covers
       '@engenty/dashboard-core':
         specifier: workspace:*
         version: link:../../packages/dashboard-core

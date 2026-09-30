@@ -83,7 +83,10 @@ export {
   localizedSummary,
   notificationBodyText,
 } from "./notification-text.js";
-export { NotificationsPage } from "./notifications-page.js";
+export {
+  NotificationsPage,
+  type NotificationsPageShell,
+} from "./notifications-page.js";
 export {
   notificationKeys,
   type SpaceAttention,

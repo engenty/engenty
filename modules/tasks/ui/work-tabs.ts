@@ -1,5 +1,5 @@
 /**
- * The cross-space work overview (`/work`) is a list of TABS, and every module
+ * The cross-space work overview (`/tasks/list`) is a list of TABS, and every module
  * with work to show registers its own — the way projects registers a column
  * into the tasks list. Tasks owns the page and its first tab; the page itself
  * never names another module, so a tenant without Projects simply has one tab.
@@ -46,6 +46,8 @@ export interface WorkTab<T = unknown> {
   ) => Promise<WorkTabRows<T>>;
   order?: number;
   rowKey: (row: T) => string;
+  /** How a status id reads in the status filter; the raw id without it. */
+  StatusLabel?: (props: { status: string }) => ReactNode;
   spaceIdOf: (row: T) => string | null;
   /** The row's status; present when the tab offers a status filter. */
   statusOf?: (row: T) => string;

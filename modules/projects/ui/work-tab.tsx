@@ -1,5 +1,5 @@
 /**
- * Projects' tab on the cross-space work overview Tasks owns (`/work`).
+ * Projects' tab on the cross-space work overview Tasks owns (`/tasks/list`).
  */
 import { formatWorkDate, type WorkTab } from "@engenty/tasks/ui/work-tabs";
 import { getProjects, type ProjectListItem } from "./api.js";

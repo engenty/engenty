@@ -5,7 +5,7 @@ import {
   createCoverMediaHttpAdapter,
 } from "@engenty/covers/ui";
 import { useTranslation } from "@engenty/i18n/ui";
-import { Button, cn, DetailPageHeader } from "@engenty/ui-core";
+import { Button, cn, DetailPageHeader, EditableText } from "@engenty/ui-core";
 import { ImageIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { ProjectListItem, ProjectTeamMemberRow } from "../api.js";
@@ -15,7 +15,6 @@ import type { ProjectClientSelection } from "./project-client-topline.js";
 import { ProjectClientTopline } from "./project-client-topline.js";
 import { ProjectStarButton } from "./project-pin-button.js";
 import { ProjectSubNav } from "./project-sub-nav.js";
-import { ProjectSubtitleEditable } from "./project-subtitle-editable.js";
 import { ProjectTeamHeaderButton } from "./project-team-header-button.js";
 import { ProjectTitleEditable } from "./project-title-editable.js";
 
@@ -133,14 +132,31 @@ export function ProjectDetailHeader({
   );
   // Under the title: set, it reads as text; unset, "Add subtitle…" shows on
   // header hover and while the title is being edited.
-  const subtitleLine = (
-    <ProjectSubtitleEditable
-      onSave={onSubtitleChange}
-      reveal={editingTitle}
-      revealClassName="group-hover/header:opacity-60"
-      subtitle={project.subtitle}
+  const subtitle = project.subtitle?.trim() || null;
+  const subtitleLine = onSubtitleChange ? (
+    <EditableText
+      aria-label={t("detail.subtitle.label")}
+      as="p"
+      className={cn(
+        "min-w-0 transition-opacity",
+        !subtitle &&
+          (editingTitle
+            ? "opacity-60"
+            : "opacity-0 focus:opacity-100 group-hover/header:opacity-60")
+      )}
+      onSave={(next: string) => {
+        const value = next.trim() || null;
+        if (value !== subtitle) {
+          onSubtitleChange(value);
+        }
+      }}
+      placeholder={t("detail.subtitle.add")}
+      value={subtitle ?? ""}
+      variant="plain"
     />
-  );
+  ) : subtitle ? (
+    <p className="truncate">{subtitle}</p>
+  ) : null;
   const title = (
     <ProjectTitleEditable
       editingTitle={editingTitle}

@@ -1327,7 +1327,9 @@
         "linkCopied": "Link copied",
         "linkCopyFailed": "Could not copy link"
       },
-      "workingIn": "Working in {{name}}",
+      "addDescription": "Add a description…",
+      "descriptionLabel": "Description",
+      "sidebarLabel": "In this space",
       "teamMembers": "Team Members",
       "teamSpace": {
         "title": "Team Space",

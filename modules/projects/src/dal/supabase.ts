@@ -67,7 +67,6 @@ function rowToProject(row: Record<string, unknown>): Project {
     client_name: (row.client_name as string | null) ?? null,
     lead_id: (row.lead_id as string | null) ?? null,
     title: String(row.title ?? ""),
-    briefing: (row.briefing as string | null) ?? null,
     start_date: (row.start_date as string | null) ?? null,
     end_date: (row.end_date as string | null) ?? null,
     portal_enabled: Boolean(row.portal_enabled),
@@ -386,7 +385,6 @@ export function createProjectRepoSupabase(
         client_name: projectFields.client_name ?? null,
         lead_id: projectFields.lead_id ?? null,
         title: projectFields.title,
-        briefing: projectFields.briefing ?? null,
         start_date: projectFields.start_date ?? null,
         end_date: projectFields.end_date ?? null,
         portal_enabled: portalEnabled,
@@ -407,7 +405,15 @@ export function createProjectRepoSupabase(
         subtitle: projectFields.subtitle ?? null,
         timeplan_enabled: projectFields.timeplan_enabled ?? false,
       };
-      await writeProjectKvFields(kv, id, kvFields);
+      // A new project has no KV rows: write only what is set, delete nothing.
+      await writeProjectKvFields(kv, id, {
+        ...(kvFields.cover ? { cover: kvFields.cover } : {}),
+        ...(kvFields.enabled_tabs
+          ? { enabled_tabs: kvFields.enabled_tabs }
+          : {}),
+        ...(kvFields.subtitle ? { subtitle: kvFields.subtitle } : {}),
+        ...(kvFields.timeplan_enabled ? { timeplan_enabled: true } : {}),
+      });
       const created: Project = {
         ...rowToProject((data ?? row) as Record<string, unknown>),
         ...kvFields,

@@ -73,15 +73,45 @@
     "sortByCreatedAt": "Created"
   },
   "detail": {
-    "briefing": {
-      "emptyDescription": "Add context, goals, or notes for this project.",
-      "emptyTitle": "Add a short project brief",
-      "editAria": "Edit project brief",
-      "heading": "Brief",
-      "placeholder": "Click to add a short project brief or notes…",
-      "placeholderIntro": "Write an introduction…",
-      "addNotes": "Add notes",
-      "viewNotes": "View notes"
+    "notes": {
+      "pages": "Pages",
+      "newPage": "New page",
+      "untitled": "Untitled",
+      "titleLabel": "Page title",
+      "contentPlaceholder": "Write, or type '/' for commands…",
+      "pageActions": "Page actions",
+      "deletePage": "Delete page",
+      "deleteTitle": "Delete “{{title}}”?",
+      "deleteDescription": "The page and its content are deleted for good.",
+      "empty": "No notes yet.",
+      "blockMenu": {
+        "search": "Search actions…",
+        "turnInto": "Turn into",
+        "text": "Text",
+        "heading1": "Heading 1",
+        "heading2": "Heading 2",
+        "heading3": "Heading 3",
+        "bulletList": "Bullet list",
+        "orderedList": "Numbered list",
+        "quote": "Quote",
+        "duplicate": "Duplicate",
+        "delete": "Delete",
+        "addBlock": "Add block",
+        "dragHandle": "Drag to move"
+      },
+      "bubble": {
+        "link": "Link",
+        "unlink": "Remove link",
+        "applyUrl": "Apply",
+        "urlPlaceholder": "URL or page name",
+        "bold": "Bold",
+        "italic": "Italic",
+        "underline": "Underline",
+        "strike": "Strikethrough",
+        "code": "Inline code",
+        "searchPlaceholder": "Search pages…",
+        "noResults": "No page found"
+      }
     },
     "clientInfo": {
       "contactPersonEmpty": "—",
@@ -268,8 +298,7 @@
     "saveFailed": "Could not save the project.",
     "quickAdd": {
       "client": "Client",
-      "team": "Team",
-      "notes": "Notes"
+      "team": "Team"
     }
   },
   "create": {

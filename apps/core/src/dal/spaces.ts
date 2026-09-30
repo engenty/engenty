@@ -7,6 +7,8 @@
  * also keep the queries correct when a service-role client is passed (fixtures,
  * the superadmin console).
  */
+
+import type { Cover } from "@engenty/covers";
 import {
   type AgentApprovalMode,
   COMPUTER_EGRESS_HOSTS_MAX,
@@ -16,6 +18,11 @@ import {
   parseComputerNetworkTier,
 } from "@engenty/plugin-sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  SPACE_SETTINGS_EMBED,
+  spaceCoverFromEmbed,
+  writeSpaceCover,
+} from "./space-settings.js";
 
 export interface Space {
   /**
@@ -35,6 +42,8 @@ export interface Space {
    * over stdio — it only removes the open internet.
    */
   computerNetworkTier: ComputerNetworkTier | null;
+  /** The home header's cover (`core.space_settings`); null = none. */
+  cover: Cover | null;
   createdAt: string;
   /**
    * When set, the space is marked for deletion and hidden from every list.
@@ -81,6 +90,8 @@ export interface UpdateSpaceInput {
   /** Replaces the whole list; each entry must pass `parseComputerEgressHost`. */
   computerEgressHosts?: string[];
   computerNetworkTier?: ComputerNetworkTier | null;
+  /** The home header's cover (`core.space_settings`); `null` removes it. */
+  cover?: Cover | null;
   /** Empty string clears it; undefined leaves it alone. */
   description?: string | null;
   icon?: string | null;
@@ -105,8 +116,7 @@ export interface GetSpaceOptions {
   includeDeleted?: boolean;
 }
 
-const SPACE_COLUMN_LIST =
-  "id, tenant_id, key, name, description, icon, color, is_default, visibility, agent_approval_mode, computer_network_tier, computer_egress_hosts, publish_to_company, created_at, deleted_at, purge_after";
+const SPACE_COLUMN_LIST = `id, tenant_id, key, name, description, icon, color, is_default, visibility, agent_approval_mode, computer_network_tier, computer_egress_hosts, publish_to_company, created_at, deleted_at, purge_after, ${SPACE_SETTINGS_EMBED}`;
 
 /**
  * A space's egress hosts as stored: each one parsed, duplicates dropped,
@@ -157,6 +167,8 @@ export interface SpaceRow {
   name: string;
   publish_to_company?: boolean | null;
   purge_after?: string | null;
+  /** Embedded `core.space_settings` rows (see `space-settings.ts`). */
+  space_settings?: unknown;
   tenant_id: string;
   visibility: string;
 }
@@ -167,6 +179,7 @@ export function mapSpace(row: SpaceRow): Space {
     color: row.color,
     computerNetworkTier: parseComputerNetworkTier(row.computer_network_tier),
     computerEgressHosts: row.computer_egress_hosts ?? [],
+    cover: spaceCoverFromEmbed(row.space_settings),
     createdAt: row.created_at,
     deletedAt: row.deleted_at ? String(row.deleted_at) : null,
     description: row.description ?? null,
@@ -456,6 +469,9 @@ export async function updateSpace(
   }
   if (input.publishToCompany !== undefined) {
     patch.publish_to_company = input.publishToCompany;
+  }
+  if (input.cover !== undefined) {
+    await writeSpaceCover(client, tenantId, spaceId, input.cover);
   }
   if (Object.keys(patch).length === 0) {
     const current = await getSpaceById(client, tenantId, spaceId);
