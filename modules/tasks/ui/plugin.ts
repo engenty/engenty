@@ -208,7 +208,6 @@ export default function plugin(engenty: EngentyPluginContext) {
   // space that has this module mounted — the strip does not hard-code "tasks".
   engenty.UI.registerSpaceTab({
     id: "plan",
-    embedOnHome: true,
     icon: ListTodo,
     label: "Plan",
     labelKey: "tasks:menu.tasks",

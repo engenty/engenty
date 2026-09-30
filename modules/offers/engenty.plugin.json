@@ -5,6 +5,7 @@
   "description": "Offer management with draft editor, metadata, blocks, phases, taxes, and billing settings",
   "version": "0.0.1",
   "kind": "module",
+  "stage": "beta",
   "category": "commercial",
   "provides": [
     "module.offers",

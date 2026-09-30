@@ -155,14 +155,19 @@ function parseOwnMessage(raw: string): OwnMessage | null {
 /**
  * Run Mastra's `browser_tabs` for the view. Returns the tab list after the
  * action (a list, or the state a switch/new/close left behind); null when
- * the browser is not up. Never throws: the strip just keeps what it has.
+ * the browser is not connected — the tool would relaunch the connection, and
+ * a poll only looks. Never throws: the strip just keeps what it has.
  */
 async function runTabs(
   identity: BrowserWindowIdentity,
   input: { action: TabsMessage["action"]; index?: number; url?: string }
 ): Promise<TabInfo[] | null> {
   try {
-    const tool = getUserBrowser(identity).getTools().browser_tabs;
+    const browser = getUserBrowser(identity);
+    if (!browser.isBrowserRunning()) {
+      return null;
+    }
+    const tool = browser.getTools().browser_tabs;
     if (!tool?.execute) {
       return null;
     }
@@ -176,6 +181,26 @@ async function runTabs(
     return Array.isArray(listed?.tabs) ? listed.tabs : null;
   } catch {
     return null;
+  }
+}
+
+/**
+ * A view that joins a screencast already running gets frames only when the
+ * page next repaints — a still page would stay black. Send it the page as it
+ * is now, in the frame format (base64 JPEG). Never throws.
+ */
+async function sendFirstFrame(
+  identity: BrowserWindowIdentity,
+  ws: { send(data: string): void }
+): Promise<void> {
+  try {
+    const page = (
+      await getUserBrowser(identity).getManagerForThread()
+    ).getPage();
+    const image = await page.screenshot({ quality: 80, type: "jpeg" });
+    ws.send(Buffer.from(image).toString("base64"));
+  } catch {
+    // The screencast's own frames follow.
   }
 }
 
@@ -269,6 +294,7 @@ export function registerBrowserStreamWs(
               await startUserBrowser(identity);
               await ensureBrowserWindow(identity);
             }
+            await sendFirstFrame(identity, ws);
             await pushTabs(ws, await runTabs(identity, { action: "list" }));
             tabsTimer = setInterval(() => {
               void runTabs(identity, { action: "list" }).then((tabs) =>

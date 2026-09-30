@@ -73,7 +73,7 @@ function HoverCardContent({
       <PreviewCardPrimitive.Positioner
         align={align}
         alignOffset={alignOffset}
-        className="isolate z-50"
+        className="isolate z-[130]"
         side={side}
         sideOffset={sideOffset}
       >

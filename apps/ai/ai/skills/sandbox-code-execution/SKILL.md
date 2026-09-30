@@ -27,7 +27,7 @@ the tree into `/sandbox` to look something up.
 4. Run with `mastra_workspace_execute_command`. Say in one line what the command does before you run it.
 5. Register generated files with `artifact_write { title, file: { key } }` (tenant storage keys, not `/sandbox` paths) so the user can preview and download them.
 6. Shared run context: `/space` is this Space's working folder (read-write).
-   `/company` is read-only — `/company/files` is the company drive and
+   `/company` is read-only — `/company/files` is the organisation drive and
    `/company/spaces/<key>/` what each Space published, `/company/apps/<slug>/`
    the source of those Spaces' Apps. Writing to
    `/space/public` publishes to the whole company and asks the person first;

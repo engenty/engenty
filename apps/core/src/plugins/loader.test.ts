@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { loadPlugins } from "./loader.js";
 
 function makeTempDir(): string {
@@ -46,9 +46,42 @@ describe("loadPlugins", () => {
   let tmpRoot: string;
 
   afterEach(() => {
+    vi.unstubAllEnvs();
     if (tmpRoot && fs.existsSync(tmpRoot)) {
       fs.rmSync(tmpRoot, { recursive: true, force: true });
     }
+  });
+
+  it("loads only the modules the install's stage has", () => {
+    tmpRoot = makeTempDir();
+    const modulesDir = path.join(tmpRoot, "modules");
+    const packagesDir = path.join(tmpRoot, "packages");
+    fs.mkdirSync(packagesDir, { recursive: true });
+    for (const [id, stage] of [
+      ["released", undefined],
+      ["pilot", "alpha"],
+      ["unfinished", "dev"],
+    ] as const) {
+      const dir = path.join(modulesDir, id);
+      fs.mkdirSync(dir, { recursive: true });
+      writeFakePlugin({
+        body: "export default function register() {}",
+        dir,
+        id,
+        manifest: stage ? { stage } : {},
+      });
+    }
+    const loadedIds = (stage: string) => {
+      vi.stubEnv("ENGENTY_MODULE_STAGE", stage);
+      return loadPlugins({ modulesDir, packagesDir, logger: silent })
+        .plugins.map((plugin) => plugin.id)
+        .sort();
+    };
+
+    // A normal install: the dev module does not exist, the alpha one does
+    // (off per tenant until a superadmin turns it on).
+    expect(loadedIds("beta")).toEqual(["pilot", "released"]);
+    expect(loadedIds("dev")).toEqual(["pilot", "released", "unfinished"]);
   });
 
   it("rejects non-function default export (object uiPlugin)", () => {

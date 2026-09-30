@@ -100,3 +100,47 @@ export async function listGatewayModelOptions(
     }
   );
 }
+
+/** A model on the platform's Custom list, as the composer flyout offers it. */
+export interface CustomModelOption extends GatewayModelOption {
+  /** Whether a reasoning level can be set on it (catalog tag + known knob). */
+  reasoning_effort: boolean;
+  /** The stored ref — what the composer sends as `model_id`. */
+  ref: string;
+}
+
+/** The model behind Normal or Extra, as the composer menu names it. */
+export interface ComposerModeModel {
+  display_name: string | null;
+  model_id: string;
+  price_tier: GatewayModelPriceTier | null;
+  provider: string | null;
+  /** True = the model takes a reasoning level (show the level control). */
+  reasoning_effort: boolean;
+  ref: string;
+}
+
+/** What the composer menu offers, from `GET /ai/v1/gateway/composer-options`. */
+export interface ComposerOptions {
+  /** Empty when the platform's Custom switch is off. */
+  custom_models: CustomModelOption[];
+  modes: {
+    extra: { allowed: boolean; model: ComposerModeModel | null };
+    normal: { model: ComposerModeModel | null };
+  };
+}
+
+export async function getComposerOptions(signal?: AbortSignal) {
+  const baseUrl = getAiServiceBaseUrl();
+  if (!baseUrl) {
+    throw new Error("Missing VITE_ENGENTY_AI_BASE_URL");
+  }
+  return await requestApiJson<ComposerOptions>(
+    "/ai/v1/gateway/composer-options",
+    {
+      authToken: (await getCurrentAccessToken()) ?? undefined,
+      baseUrl,
+      signal,
+    }
+  );
+}

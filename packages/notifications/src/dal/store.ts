@@ -7,6 +7,7 @@ import {
   type DeliveryStatus,
   isAttention,
   type NotificationActorKind,
+  type NotificationAttachment,
   type NotificationAudienceKind,
   type NotificationClass,
   type NotificationDelivery,
@@ -27,6 +28,7 @@ export interface NotificationsDbSource {
 export interface InsertNotificationRow {
   actor_id: string | null;
   actor_kind: NotificationActorKind | null;
+  attachments: NotificationAttachment[];
   audience_id: string | null;
   audience_kind: NotificationAudienceKind;
   body: string | null;
@@ -190,8 +192,8 @@ export function createNotificationsStore(source: NotificationsDbSource) {
     },
 
     /**
-     * Open attention rows the viewer may see (`isAttention`), seen or not:
-     * an attention row counts until it is handled.
+     * Open attention rows the viewer may see (`isAttention`): decisions and
+     * todos until handled, alerts and FYIs until this person saw them.
      */
     async countAttention(
       input: AudienceScope & {
@@ -209,15 +211,23 @@ export function createNotificationsStore(source: NotificationsDbSource) {
       if (error) {
         throw new Error(`notifications: count failed: ${error.message}`);
       }
-      const rows = (
-        (data ?? []) as {
-          class: NotificationClass;
-          id: string;
-          priority: NotificationPriority;
-          space_id: string | null;
-          status: NotificationStatus;
-        }[]
-      ).filter(isAttention);
+      const open = (data ?? []) as {
+        class: NotificationClass;
+        id: string;
+        priority: NotificationPriority;
+        space_id: string | null;
+        status: NotificationStatus;
+      }[];
+      const seenIds = input.userId
+        ? await listSeenIds({
+            notificationIds: open.map((row) => row.id),
+            tenantId: input.tenantId,
+            userId: input.userId,
+          })
+        : new Set<string>();
+      const rows = open.filter((row) =>
+        isAttention({ ...row, seen: seenIds.has(row.id) })
+      );
       const total = rows.length;
       const inSpace = input.spaceId
         ? rows.filter((row) => row.space_id === input.spaceId).length
@@ -560,6 +570,7 @@ export function createNotificationsStore(source: NotificationsDbSource) {
        * its dedupe key the row's, so that request's own repeat is a no-op.
        */
       patch?: {
+        attachments?: NotificationAttachment[];
         body?: string | null;
         dedupe_key?: string | null;
         metadata?: Record<string, unknown> | null;

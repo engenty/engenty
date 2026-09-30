@@ -11,6 +11,7 @@ import {
   type GatewayModelAvailabilityPurpose,
   type GatewayModelPriceTier,
   type GatewayModelUseCase,
+  getComposerOptions,
   listGatewayModelOptions,
 } from "./gateway-model-options-api";
 import { listModelRoleBindings } from "./model-bindings-api";
@@ -23,6 +24,7 @@ import { getAiUsageMe, getAiUsageTenant } from "./usage-report-api";
 
 export const aiSettingsKeys = {
   all: ["ai-settings"] as const,
+  composerOptions: ["ai-settings", "composer-options"] as const,
   effective: ["ai-settings", "effective"] as const,
   modelOptions: (filters: GatewayModelOptionFilters) =>
     [...aiSettingsKeys.all, "model-options", filters] as const,
@@ -88,6 +90,20 @@ export function useGatewayModelOptionsQuery(
       queryKey: aiSettingsKeys.modelOptions(filters),
       queryFn: ({ signal }) => listGatewayModelOptions(filters, signal),
       staleTime: 60_000,
+    })
+  );
+}
+
+/**
+ * The composer menu: the models behind Normal and Extra, whether the plan
+ * allows Extra, and the platform's Custom list. Member-readable.
+ */
+export function useComposerOptionsQuery() {
+  return useQuery(
+    queryOptions({
+      queryKey: aiSettingsKeys.composerOptions,
+      queryFn: ({ signal }) => getComposerOptions(signal),
+      staleTime: 5 * 60_000,
     })
   );
 }

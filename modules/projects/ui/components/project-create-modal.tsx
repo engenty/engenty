@@ -52,7 +52,7 @@ export function ProjectCreateModal({
 
   // Time planning is opt-in per project: switching it off creates a lean
   // project room (notes, files, tasks) with no phases, dates or Gantt.
-  const [timeplanEnabled, setTimeplanEnabled] = useState(true);
+  const [timeplanEnabled, setTimeplanEnabled] = useState(false);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
@@ -75,7 +75,7 @@ export function ProjectCreateModal({
     setClientDisplayName("");
     setCreateNewEntity(false);
     setNewEntityName("");
-    setTimeplanEnabled(true);
+    setTimeplanEnabled(false);
     setStartDate("");
     setEndDate("");
     clearErrors();

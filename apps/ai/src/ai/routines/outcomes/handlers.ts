@@ -201,11 +201,20 @@ async function emitRoutineOutcome(
     audience: { kind: "space", spaceId },
     dedupeKey: `routine_outcome:${ctx.envelope.run_id}:${ctx.binding.id}`,
     kind: "routine_outcome",
+    // The result the run stored opens from the card; the card opens the
+    // routine's chat with the run beside it.
+    ...(ctx.envelope.artifact && ctx.envelope.status !== "failed"
+      ? {
+          attachments: [
+            {
+              id: ctx.envelope.artifact.id,
+              kind: "artifact" as const,
+              label: ctx.envelope.artifact.title,
+            },
+          ],
+        }
+      : {}),
     metadata: {
-      // The row opens the result itself when the run stored one.
-      ...(ctx.envelope.artifact
-        ? { artifact_id: ctx.envelope.artifact.id }
-        : {}),
       outcome_id: ctx.binding.id,
       provider_id: ctx.binding.provider_id,
       routine_id: ctx.routine.id,

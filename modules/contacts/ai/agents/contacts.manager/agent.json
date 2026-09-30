@@ -17,6 +17,17 @@
     "extractContactFromEmail",
     "web_search"
   ],
+  "workspace": {
+    "enabled": true,
+    "preset": "staff",
+    "sandbox": {
+      "enabled": true,
+      "lifecycle": "run",
+      "mountPath": "/sandbox",
+      "network": "none",
+      "requireApproval": false
+    }
+  },
   "starters": [
     {
       "id": "contacts-find",
@@ -25,7 +36,7 @@
       "locales": {
         "de": {
           "label": "Kontakt finden",
-          "prompt": "Hilf mir, den richtigen Kontakt f\u00fcr einen neuen Lead zu finden und den Datensatz zu \u00f6ffnen."
+          "prompt": "Hilf mir, den richtigen Kontakt für einen neuen Lead zu finden und den Datensatz zu öffnen."
         }
       }
     },
@@ -36,7 +47,7 @@
       "locales": {
         "de": {
           "label": "Firma anreichern",
-          "prompt": "Recherchiere eine Firma aus \u00f6ffentlichen Quellen und schlage Feld\u00e4nderungen vor, die ich pr\u00fcfen kann."
+          "prompt": "Recherchiere eine Firma aus öffentlichen Quellen und schlage Feldänderungen vor, die ich prüfen kann."
         }
       }
     },

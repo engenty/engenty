@@ -146,13 +146,7 @@ function partText(part: unknown): string {
   if (!isRecord(part)) {
     return "";
   }
-  if (typeof part.text === "string") {
-    return part.text;
-  }
-  if (part.type === "text" && typeof part.text === "string") {
-    return part.text;
-  }
-  return "";
+  return typeof part.text === "string" ? part.text : "";
 }
 
 function messageText(message: ThreadContextMessageLike): string {

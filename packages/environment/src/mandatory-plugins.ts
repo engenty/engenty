@@ -34,6 +34,20 @@ export const ENGENTY_HOST_MANDATORY_PLUGINS = [
     reason:
       "The copilot is the core AI assistant surface; apps/ai and the apps/ui shell depend on it.",
   },
+  {
+    capabilities: ["module.engenty-specialists"],
+    hostHealthRelevant: true,
+    pluginId: "engenty-specialists",
+    reason:
+      "The floor, playbooks and prompt appendix of every hired engenty; apps/ai imports it directly.",
+  },
+  {
+    capabilities: ["module.connections"],
+    hostHealthRelevant: true,
+    pluginId: "connections",
+    reason:
+      "Accounts every Space mounts data through; the apps/ui shell imports it and files, inbox, browser-bridge and every connector provider require it.",
+  },
 ] as const satisfies MandatoryPluginDeclaration[];
 
 const MANDATORY_PLUGIN_DECLARATIONS: ReadonlyMap<

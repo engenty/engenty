@@ -1,22 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
-  extractCopilotMessageCopyText,
   formatCopilotThreadCopyText,
   formatCopilotThreadMarkdown,
 } from "./copilot-thread-copy.js";
 
 describe("copilot thread copy", () => {
-  it("joins text and reasoning parts", () => {
-    expect(
-      extractCopilotMessageCopyText([
-        { type: "text", text: "Hello" },
-        { type: "reasoning", text: " thinking " },
-        { type: "dynamic-tool", toolName: "search" },
-        { type: "text", text: "World" },
-      ])
-    ).toBe("Hello\n\nthinking\n\nWorld");
-  });
-
   it("formats a thread for paste", () => {
     expect(
       formatCopilotThreadCopyText([

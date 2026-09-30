@@ -26,6 +26,7 @@ import { getProjectDisplayProfiles } from "../lib/project-display-members.js";
 import type { ProjectsListGroup } from "../lib/project-list-grouping.js";
 import type { ProjectTaskProgressSummary } from "../lib/project-task-progress.js";
 import type { TeamMemberCatalogRow } from "../plugins.js";
+import { ProjectPinMenuItem } from "./project-pin-button.js";
 import { ProjectTasksProgressCell } from "./project-tasks-progress-cell.js";
 import { ProjectsDeleteConfirmDialog } from "./projects-delete-confirm-dialog.js";
 import type {
@@ -303,6 +304,7 @@ export function ProjectsTable({
                           <ExternalLink className="mr-2 h-4 w-4" />
                           {t("viewProject", { defaultValue: "View project" })}
                         </DropdownMenuItem>
+                        <ProjectPinMenuItem projectId={p.id} />
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           className="text-destructive focus:text-destructive"

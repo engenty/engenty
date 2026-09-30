@@ -3,6 +3,7 @@ import { FOCUS_FIELD_TOOL as focusFieldTool } from "./focus-field/definition.js"
 import { SET_LOCALE_TOOL as setLocaleTool } from "./i18n-set-locale/definition.js";
 import { NAVIGATE_TOOL as navigateTool } from "./navigate/definition.js";
 import { OPEN_DIALOG_TOOL as openDialogTool } from "./open-dialog/definition.js";
+import { OPEN_VIEW_TOOL as openViewTool } from "./open-view/definition.js";
 import { SET_COPILOT_DOCK_MODE_TOOL as setCopilotDockModeTool } from "./set-copilot-dock-mode/definition.js";
 import { SET_SHELL_THEME_TOOL as setShellThemeTool } from "./shell-set-theme/definition.js";
 import { SHOW_UI_GUIDE_TOOL as showUiGuideTool } from "./ui-guide/definition.js";
@@ -12,6 +13,7 @@ export { FOCUS_FIELD_TOOL } from "./focus-field/definition.js";
 export { SET_LOCALE_TOOL } from "./i18n-set-locale/definition.js";
 export { NAVIGATE_TOOL } from "./navigate/definition.js";
 export { OPEN_DIALOG_TOOL } from "./open-dialog/definition.js";
+export { OPEN_VIEW_TOOL } from "./open-view/definition.js";
 export { SET_COPILOT_DOCK_MODE_TOOL } from "./set-copilot-dock-mode/definition.js";
 export { SET_SHELL_THEME_TOOL } from "./shell-set-theme/definition.js";
 export {
@@ -23,6 +25,7 @@ export {
 export function getCopilotBaseFrontendTools(): FrontendToolDefinition[] {
   return [
     navigateTool,
+    openViewTool,
     setShellThemeTool,
     setLocaleTool,
     setCopilotDockModeTool,

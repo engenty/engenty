@@ -4,8 +4,8 @@
 // to the run-event-bus.
 //
 // Covers text + tools + real cancel + usage + runtime-context, native sub-agent
-// cards, frontend-tool HITL (native suspend/resume), decision/feedback artifacts,
-// and the execute-boundary tool-approval gate. Recall flows through
+// cards, and every human-in-the-loop pause as a native suspend/resume: frontend
+// tools, decision/feedback cards, and the execute-boundary tool-approval gate. Recall flows through
 // EngentySessionMemoryStorage.
 import {
   type AGUIEvent,
@@ -42,6 +42,10 @@ import {
   createEngentyMastraResourceId,
   createEngentySessionMemoryRuntime,
 } from "../memory/invocation-options.js";
+import {
+  isPrivateLine,
+  memoryPlaceFromResolution,
+} from "../memory/memory-scopes.js";
 import { resolveSharedObservationsScope } from "../memory/shared-observational-memory.js";
 import {
   type AiRegistry,
@@ -155,28 +159,27 @@ export interface StartConversationRunInput {
     filename?: string;
     mediaType: string;
   }>;
-  /**
-   * Auto sized this turn — emit `engenty.effort.resolved` so the composer can
-   * toast and briefly flash the resolved tier. Omitted for explicit picks.
-   */
-  autoEffortResolved?: {
-    effort: AiEffort;
-    modelId?: string | null;
-    reason?: string;
-    source?: string;
-  } | null;
   /** The run's "Your computer" prompt section, from its workspace. */
   computeInstructions?: string;
   /**
-   * The tier this run's model was resolved from, however it was chosen — the
-   * user's explicit pick or the auto sizing. Distinct from
-   * `autoEffortResolved`, which is only set when Auto did the choosing and
-   * exists to drive the composer toast.
+   * The tier this run's model was resolved from, however it was chosen.
+   * Distinct from `effortResolved`, which carries the why for the composer.
    *
    * Persisted onto the open interrupt when the run suspends, so the resume
    * lands on the same model. See AgUiOpenInterruptMetadata.effort.
    */
   effort?: AiEffort | null;
+  /**
+   * The tier this turn runs at and why — emitted as `engenty.effort.resolved`
+   * so the composer shows the thread's mode (a Normal pick on a thread still
+   * on high comes back as `high`, source `sticky`). Omitted for a model pin.
+   */
+  effortResolved?: {
+    effort: AiEffort;
+    modelId?: string | null;
+    reason?: string;
+    source?: string;
+  } | null;
   /**
    * Singleton Mastra instance (Postgres workflow storage when configured).
    * Must be attached to the assembled agent so frontend-tool suspend snapshots
@@ -186,11 +189,6 @@ export interface StartConversationRunInput {
   mastra?: Mastra;
   modelConfig?: RuntimeModelConfig | null;
   modelId?: string | null;
-  /**
-   * Persist sendMessage as a visible user row / stream echo. False when the
-   * prompt is a synthetic artifact-resume nudge (tool approval / decision).
-   */
-  persistCurrentUserTurn?: boolean;
   prompt: string;
   registry: AiRegistry;
   // Resolve a delegated agent's own workspace + sandbox for a child run (Phase 3
@@ -333,20 +331,19 @@ export async function startConversationRun(
     },
     { emit }
   );
-  // Auto-sized turns: tell the composer which tier (and model) won so it can
-  // toast + briefly flash the effort control. Explicit picks stay silent.
-  if (input.autoEffortResolved?.effort) {
+  // Tell the composer which tier (and model) this turn runs on.
+  if (input.effortResolved?.effort) {
     emit({
       name: ENGENTY_EFFORT_RESOLVED_EVENT,
       type: EventType.CUSTOM,
       value: {
-        effort: input.autoEffortResolved.effort,
-        model_id: input.autoEffortResolved.modelId ?? input.modelId ?? null,
-        ...(input.autoEffortResolved.reason
-          ? { reason: input.autoEffortResolved.reason }
+        effort: input.effortResolved.effort,
+        model_id: input.effortResolved.modelId ?? input.modelId ?? null,
+        ...(input.effortResolved.reason
+          ? { reason: input.effortResolved.reason }
           : {}),
-        ...(input.autoEffortResolved.source
-          ? { source: input.autoEffortResolved.source }
+        ...(input.effortResolved.source
+          ? { source: input.effortResolved.source }
           : {}),
       },
     } as AGUIEvent);
@@ -360,13 +357,8 @@ export async function startConversationRun(
   // the message: that client already holds this id, and TEXT_MESSAGE_START
   // means "begin a new message", so a spec-compliant client appends and doubles
   // the user's text. The originating SSE stream filters it out — see
-  // `isOwnUserTurnEcho` in api/thread-run-routes.ts. Artifact resume nudges skip
-  // this — they are not a user utterance.
-  if (
-    input.persistCurrentUserTurn !== false &&
-    input.userMessageId &&
-    input.prompt
-  ) {
+  // `isOwnUserTurnEcho` in api/thread-run-routes.ts.
+  if (input.userMessageId && input.prompt) {
     emit({
       messageId: input.userMessageId,
       role: "user",
@@ -483,6 +475,11 @@ export async function startConversationRun(
         agentId: input.agentId,
         alterEgo,
         ...(rootConfig?.name ? { agentName: rootConfig.name } : {}),
+        memory: {
+          agentScope: rootConfig?.agentScope,
+          place: memoryPlaceFromResolution(spaceResolution),
+          privateLine: isPrivateLine({ sharedRoom, thread: threadRow }),
+        },
         observationalModelId: input.modelConfig?.fastTextModelId,
         scope: input.scope,
         sharedObservations: rootConfig
@@ -504,9 +501,6 @@ export async function startConversationRun(
           ? { userAttachmentParts: input.attachmentParts }
           : {}),
         ...(input.userMessageId ? { userMessageId: input.userMessageId } : {}),
-        ...(input.persistCurrentUserTurn === false
-          ? { persistCurrentUserTurn: false }
-          : {}),
       });
     const resolveChildWorkspace = input.resolveChildWorkspace;
     const rootDelegation = resolveChildWorkspace
@@ -556,7 +550,7 @@ export async function startConversationRun(
             emit({ name, type: EventType.CUSTOM, value } as AGUIEvent),
           headless: false,
           tenantId: input.scope.tenantId,
-          textModelId: input.modelConfig?.gradedModelIds?.low ?? null,
+          textModelId: input.modelConfig?.gradedModelIds?.normal ?? null,
           classifierModelId: input.modelConfig?.classifierModelId ?? null,
         }),
         toolsSpacePromise,
@@ -682,9 +676,9 @@ export async function startConversationRun(
       // result to a canonical AG-UI interrupt. A native suspension it can.
       approvalPolicy: "suspend" as const,
       // This run parks on a suspend and a human answer resumes it, so
-      // `requestDecision` may suspend natively instead of returning an artifact
-      // the executor has to abort on. Headless/child runs leave this unset and
-      // keep the artifact behaviour (nothing there could answer a suspend).
+      // `requestDecision` / `requestFeedback` may suspend. Headless/child runs
+      // leave this unset and get a "nobody was asked" result instead (nothing
+      // there could answer a suspend).
       canSuspendForInteraction: true,
       goalId: input.threadId,
       // Thread-scoped tools (e.g. artifacts) read the active thread from here.
@@ -737,13 +731,6 @@ export async function startConversationRun(
           // Without this the loop halts at Mastra's own default (5 steps) —
           // a survey-heavy first turn ended mid tool-chain with no reply.
           maxSteps: resolveAgentMaxSteps(rootConfig?.limits?.max_steps),
-          // `requestFeedback` returns its artifact as a tool RESULT rather than
-          // suspending (`requestDecision` suspends — see
-          // native-request-decision.ts), and the model would answer straight past
-          // it. Recognising it stops the run from inside the stream.
-          isStopOnResult: (result: unknown) =>
-            isDecisionArtifactPayload(result) ||
-            isFeedbackArtifactPayload(result),
           prompt: input.prompt,
           requestContext,
           resourceId,
@@ -768,7 +755,7 @@ export async function startConversationRun(
     const runError = turn.runError;
 
     // A suspend surfaced — the execute tool's approval gate, `requestDecision`,
-    // or a browser-executed frontend tool. Persist the open interrupt keyed by
+    // `requestFeedback`, or a browser-executed frontend tool. Persist the open interrupt keyed by
     // the SUSPENDED run id and emit the RUN_FINISHED interrupt outcome. Nothing
     // is parked in memory: the answer resumes from Mastra's snapshot.
     const sus = turn.suspended;
@@ -806,9 +793,12 @@ export async function startConversationRun(
             sus.suspendPayload.requireToolApproval
           ),
         });
-      } else if (isDecisionArtifactPayload(sus.suspendPayload)) {
-        // `requestDecision` suspends natively, so its card arrives as a SUSPEND
-        // payload rather than a tool result.
+      } else if (
+        isDecisionArtifactPayload(sus.suspendPayload) ||
+        isFeedbackArtifactPayload(sus.suspendPayload)
+      ) {
+        // `requestDecision` / `requestFeedback` (and the publish/hire cards)
+        // hand their card over as the SUSPEND payload.
         await emitArtifactInterrupt({ ...common, result: sus.suspendPayload });
       } else {
         handled = await emitFrontendToolInterrupt({
@@ -826,33 +816,6 @@ export async function startConversationRun(
         threadStatus = "waiting";
         return { runId: input.runId };
       }
-    }
-
-    // A `requestFeedback` artifact surfaced and STOPPED the run. Persist the open
-    // interrupt + emit the RUN_FINISHED outcome so the chat shows the form. Resume
-    // re-runs via the route's artifact branch — there is no snapshot to continue,
-    // because the tool returned rather than suspending.
-    const art = turn.artifact;
-    if (art) {
-      await emitArtifactInterrupt({
-        busRunId: input.runId,
-        ...(input.effort ? { effort: input.effort } : {}),
-        emit,
-        ...(typeof input.registry?.getAgentConfig === "function"
-          ? {
-              getAgentConfig: (agentId: string) =>
-                input.registry.getAgentConfig(agentId),
-            }
-          : {}),
-        result: art.result,
-        scope: input.scope,
-        sessionMetadata: input.sessionMetadata ?? {},
-        store: input.store,
-        threadId: input.threadId,
-        toolCallId: art.toolCallId,
-      });
-      threadStatus = "waiting";
-      return { runId: input.runId };
     }
 
     // No `finish()`: the accumulator is a sink, and the driver closes its own text
@@ -938,7 +901,7 @@ export async function startConversationRun(
   } finally {
     // Shared teardown: persist this turn on EVERY exit path. Memory flushes at
     // end-of-generation and when a run suspends natively; on the paths it misses
-    // (an artifact that aborts the run, a mid-stream failure, a cancel) nothing
+    // (a mid-stream failure, a cancel) nothing
     // else writes the turn, so the thread would be left with no messages at all
     // and the next turn would re-ask a question the user already answered.
     //
@@ -966,9 +929,6 @@ export async function startConversationRun(
         ? { attachmentParts: input.attachmentParts }
         : {}),
       ...(input.userMessageId ? { userMessageId: input.userMessageId } : {}),
-      ...(input.persistCurrentUserTurn === false
-        ? { persistCurrentUserTurn: false }
-        : {}),
     });
     if (failureNotice) {
       // The durable copy of the silent-stop bubble emitted above — without it a
@@ -984,7 +944,7 @@ export async function startConversationRun(
     await patchThreadStatus({ ...input, status: threadStatus });
     if (tracker) {
       // Close the durable run row so recovery/other windows see a settled run.
-      // "waiting" (parked suspend or decision/feedback artifact) maps to
+      // "waiting" (a run parked on a suspend) maps to
       // requires_action: the turn ended awaiting human input — recovery must
       // NOT treat it as in-flight (the interrupt card re-renders from thread
       // metadata, not from an attached stream).

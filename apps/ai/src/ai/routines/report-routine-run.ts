@@ -469,9 +469,6 @@ export async function reportRoutineRun(
       notify: input.awaitingReview
         ? false
         : {
-            ...(input.artifact && input.status !== "failed"
-              ? { artifactId: input.artifact.id }
-              : {}),
             summary: `Routine · ${routine.name}: ${input.status === "failed" ? "run failed" : input.summary?.trim() || "finished"}`,
           },
       ownerUserId: routine.created_by_user_id,

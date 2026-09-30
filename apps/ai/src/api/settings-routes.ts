@@ -65,7 +65,9 @@ function resolveModelEntry(
   };
 }
 
-async function loadTenantSettings(tenantId: string): Promise<TenantAiSettings> {
+export async function loadTenantAiSettings(
+  tenantId: string
+): Promise<TenantAiSettings> {
   // Phase A seam: core.tenant_settings is tenant-keyed — read on a
   // tenant-locked handle minted for the requesting scope's tenant.
   const factory = getTenantDbFactoryFromEnv();
@@ -99,7 +101,7 @@ export function registerAiSettingsRoutes(
       return resolved.response;
     }
 
-    const settings = await loadTenantSettings(resolved.scope.tenantId);
+    const settings = await loadTenantAiSettings(resolved.scope.tenantId);
 
     const models: Record<string, ResolvedModelEntry> = {};
     for (const purpose of AI_MODEL_PURPOSES) {

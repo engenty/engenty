@@ -1,0 +1,18 @@
+{
+  "id": "context-graph",
+  "name": "Context Graph",
+  "emoji": "🕸️",
+  "description": "Typed cross-module entity and edge store with graph explorer UI.",
+  "version": "0.0.1",
+  "kind": "module",
+  "stage": "alpha",
+  "category": "platform",
+  "provides": ["context-graph", "module.context-graph"],
+  "capabilities": {
+    "ai": false,
+    "frontendTools": false,
+    "operations": false,
+    "ui": true
+  },
+  "supporting": true
+}

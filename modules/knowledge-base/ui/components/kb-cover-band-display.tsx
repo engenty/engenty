@@ -3,39 +3,27 @@
  * Shared by category view pages and articles with inherited category covers.
  */
 
+import { COVER_H, COVER_H_EMPTY, type Cover } from "@engenty/covers";
+import { coverPaintStyle, useResolvedCoverImageUrl } from "@engenty/covers/ui";
 import { cn } from "@engenty/ui-core";
-import type { CSSProperties, ReactNode } from "react";
-import type { KbCover } from "../../src/schema/types.js";
+import type { ReactNode } from "react";
 import { kbModuleHubCoverInnerClassName } from "../lib/kb-page-shell.js";
-import { KB_COVER_H, KB_COVER_H_EMPTY } from "./kb-hub-cover-constants.js";
-import { useResolvedKbCoverImageUrl } from "./kb-hub-cover-image-url.js";
 
 export function KbCoverBandDisplay({
   cover,
   className,
   header,
-  minHeightWhenEmpty = KB_COVER_H_EMPTY,
+  minHeightWhenEmpty = COVER_H_EMPTY,
 }: {
-  cover: KbCover;
+  cover: Cover;
   className?: string;
   header?: ReactNode;
   /** Min height when `header` is set but cover paint is missing (should not happen). */
   minHeightWhenEmpty?: number;
 }) {
-  const resolvedImageUrl = useResolvedKbCoverImageUrl(cover);
+  const resolvedImageUrl = useResolvedCoverImageUrl(cover);
 
-  const coverStyle: CSSProperties =
-    cover.type === "image" && resolvedImageUrl
-      ? {
-          backgroundImage: `url(${resolvedImageUrl})`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }
-      : cover.type === "color"
-        ? { backgroundColor: cover.value }
-        : cover.type === "gradient"
-          ? { background: cover.value }
-          : {};
+  const coverStyle = coverPaintStyle(cover, resolvedImageUrl);
 
   return (
     <div
@@ -43,7 +31,7 @@ export function KbCoverBandDisplay({
         "relative flex min-h-0 w-full shrink-0 flex-col overflow-hidden",
         className
       )}
-      style={{ minHeight: header ? minHeightWhenEmpty : KB_COVER_H }}
+      style={{ minHeight: header ? minHeightWhenEmpty : COVER_H }}
     >
       <div aria-hidden className="absolute inset-0 z-0" style={coverStyle} />
       {cover.type === "image" ? (

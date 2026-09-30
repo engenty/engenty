@@ -195,6 +195,19 @@ registerToolClip("space_setup", ({ input }) => {
   return null;
 });
 
+registerToolClip("working_memory_set", ({ input, output }) => {
+  if (output.set !== true) {
+    return null;
+  }
+  const field = text(input.field);
+  const value = text(input.value);
+  return {
+    ...(field ? { details: [value ? `${field}: ${value}` : field] } : {}),
+    icon: Bookmark,
+    textKey: value ? "toolClip.workingSet" : "toolClip.workingCleared",
+  };
+});
+
 registerToolClip("memory_note", ({ input, output }) => {
   if (output.kept !== true) {
     return null;

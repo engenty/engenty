@@ -14,7 +14,9 @@ Concretely, for every kind that is not `update`:
 
 1. **Origin** — actor label, space, and a summary written for a person.
 2. **Action** — an inline body that decides it, or a deep link to the surface
-   that does. Never neither.
+   that does. Never neither. The card itself opens the agent's context (the
+   conversation, the run, the task — `target`); a result the work produced
+   opens from its own chip (`attachments`).
 3. **Closure** — the seam that handles the subject resolves the record.
    "Seen" hides an FYI; it never stands in for a decision.
 4. **One row per open question** — re-asks coalesce into the open row.
@@ -72,27 +74,47 @@ Origin rides `metadata` under fixed keys the list reads:
 | `todo` | `task_assigned`, `task_review_requested`, `stream_escalation` | yes |
 | `update` | `agent_message_received`, `agent_work_completed`, `agent_hired`, `records_written`, `task_completed`, `stream_update`, `team_chat.message`, `routine_outcome` | no — except `priority` `high` or `urgent` |
 
-An `update` stays in the Updates lane, never Fehler. Alerts remain failures.
-High and urgent updates also need attention; ordinary updates do not.
+Alerts remain failures. High and urgent updates need attention and list
+under Notifications; ordinary updates list under Updates.
 `routine_outcome` is class `update`: the row a routine destination binding
 delivers (`notification.update` / `notification.high`).
 
-### Attention (Wichtig)
+### Attention (Notifications)
 
 One rule, `isAttention` (`contracts.ts`, mirrored in
 `notifications-ui/src/classification.ts`): an **open** (`pending`) record that
-is a `decision`, `todo` or `alert`, or an `update` with `priority` `high` or
-`urgent` — **seen or not**. An attention record nags until it is handled: a
-decision until it is resolved, a todo until its subject closes it, an alert
-or an FYI until someone dismisses it (✕).
+is a `decision` or `todo`, or an `alert` or an `update` with `priority`
+`high` or `urgent` this person has **not seen yet**. A decision nags until it
+is resolved, a todo until its subject closes it; an alert or an FYI until the
+person saw it (✓ on the card, or opening it) — seeing is handling it.
 
 Every number and list reads it: the rail bell, the Work and Plan tabs, the
 space dashboard bell, the desktop dock badge (`GET …/attention-count`); the
-bell's first tab **Wichtig** (all attention rows, newest first, optionally
-narrowed to one agent); the space dashboard's Wichtig block and the per-agent
-"2 wichtig" pills on desk cards and sidebar rows (`useSpaceAttention`, over
-the space list). A newly arrived, unseen attention record is handed to the
-client channels (browser, desktop, the in-app toast).
+bell's first tab **Notifications** (all attention rows, stacked per agent,
+optionally narrowed to one agent); the space dashboard's one collapsed stack
+and the per-agent pills on desk cards and sidebar rows (`useSpaceAttention`,
+over the space list). Seen rows (`core.notification_seen`) are in the realtime publication like
+`core.notifications`, so seeing a record anywhere — the card, opening its
+conversation, another tab — updates every count at once. A newly arrived,
+unseen attention record is handed to
+the client channels (the in-app banner, the browser while the tab is in the
+background, the desktop shell's native banner — focusing the app shortly
+after one opens the bell).
+
+### The bell: cards and stacks
+
+Two tabs: **Notifications** (`isAttention`) and **Updates** (ordinary
+updates this person has not cleared). Each is a column of stacks, one per
+agent (`stackKeyOf`, like macOS stacks by app): the newest card on top, the
+rest peeking out, a click opens the stack in place. A card reads who (the
+agent's face and name), what (the title — without the name the header
+already says: `notifications.headlines.<title_key>`), one line; clicking it opens the
+agent's context, a result chip opens the result, the verb button goes where
+it is decided. Every clearing action marks rows seen for this person
+(`POST …/seen-all { ids }`): ✓ on a card (on hover, bottom right), "Mark all
+seen" on a section. An open stack is just its cards; the section heading
+folds every stack again. A decision is never marked seen that way — it
+is answered.
 
 A module registers its own kinds with `engenty.server.notifications.registerKinds({ "<module>.<kind>": "<class>" })`.
 
@@ -124,8 +146,8 @@ A module registers its own kinds with `engenty.server.notifications.registerKind
   writes `app_release_proposed` when a version is built and still inert,
   subject `app_release:<appId>:<version>`. A space conversation is addressed
   to the space (`apps.approve` is a space act); a conversation outside any
-  space fans out to its people. The review banner lives in the artifact pane,
-  so watchers are not pre-seen — they stay on the badge until someone
+  space fans out to its people. The card opens the conversation it was built
+  in; the build is its attachment. Watchers are not pre-seen — they stay on the badge until someone
   activates or rejects. The AI review POST resolves the row.
 - **Agents talking** — `message_agent` emits `agent_message_received` for a
   hand-off, an ask and the reply, and `agent_work_completed` when a notified
@@ -159,9 +181,8 @@ rows of every space they may enter (the route's `accessibleSpaceIds`; the
 RLS select policy says the same for realtime). Inside a space
 (`scope=space`): the space's own rows only. Tenant-wide rows live under
 `scope=tenant`. Inside a space the bell badge is that space's attention
-count (the tenant total is one click away under Tenant). High/urgent updates
-stay in the Updates lane, not Fehler. "Mark all seen" is the caller's own
-view and never touches decisions — nor the badge.
+count (the tenant total is one click away under Tenant). "Mark all seen" is
+the caller's own view and never touches decisions — nor the badge.
 
 ## Registering a body (what a kind can DO)
 
@@ -191,6 +212,10 @@ outright.
 - **Channels** are registered per process; delivery is a ledger
   (`core.notification_deliveries`) claimed by compare-and-swap, so two
   processes never double-send.
+- **Closed app** — push and mail carry what a routine's outcome binding asked
+  for (`notification.high` → urgent → web push) and people writing to people
+  (team-chat mentions and DMs). Agent decisions, alerts and todos wait in the
+  bell and, while the app is open, its banners (`channelsFor`).
 - **Preferences** — `notifications.<class>.<channel>` = `on` | `off` | `digest`
   and quiet hours on `core.user_settings`, applied at emit.
 
@@ -198,7 +223,8 @@ outright.
 
 `GET /api/notifications` (query `scope`, `status`, `class`, `kind`, `source`,
 `actor`, `stream`, `subject_*`, `priority`, `limit`), `GET …/attention-count`
-(`{ total, in_space }` — open attention rows, seen or not),
-`POST …/seen-all`, `POST …/:id/seen` (the caller's view), `POST …/:id/dismiss`
-(the row; 422 for a decision), streams and routes
+(`{ total, in_space }` — open attention rows, `isAttention`),
+`POST …/seen-all` (`{ ids? }` — the caller's view of every open row, or one
+stack), `POST …/:id/seen` (the caller's view), `POST …/:id/dismiss` (the row;
+422 for a decision), streams and routes
 under `…/streams`, push subscriptions under `…/push`.

@@ -160,8 +160,8 @@ export interface SpaceRoomRow {
     route_context?: Record<string, unknown>;
     /**
      * Null on exactly one DM: the river, the viewer's conversation with their
-     * copilot, which has no space because the copilot follows them everywhere.
-     * It is listed in every space's conversations.
+     * copilot, which has no space. It is not listed in a space's
+     * conversations — the app bar opens it.
      */
     space_id: string | null;
     title: string | null;

@@ -1,5 +1,6 @@
 import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
+import type { Cover } from "@engenty/covers";
 import { useCallback, useState } from "react";
 import type {
   PhaseTask,
@@ -312,6 +313,16 @@ export function useProjectDetailHandlers({
     [id, updateProjectMutation]
   );
 
+  const handleCoverChange = useCallback(
+    (cover: Cover | null) => {
+      if (!id) {
+        return;
+      }
+      updateProjectMutation.mutate({ cover });
+    },
+    [id, updateProjectMutation]
+  );
+
   const handleBriefingSave = useCallback(
     (briefing: string | null) => {
       if (!id) {
@@ -325,6 +336,7 @@ export function useProjectDetailHandlers({
   return {
     activeTask,
     handleBriefingSave,
+    handleCoverChange,
     handleDragEnd,
     handleDragStart,
     handlePhaseSubmit,

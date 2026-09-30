@@ -7,6 +7,7 @@ export {
 } from "./chapter-ranges.js";
 export {
   buildChapterTranscript,
+  type ChapterMemory,
   compactRiver,
   compactRiverNow,
   ensureScheduledChapters,

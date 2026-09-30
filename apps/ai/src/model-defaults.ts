@@ -1,10 +1,13 @@
 import {
   AI_PLATFORM_ROLES,
   type AiUsageStore,
+  type CustomModelsConfig,
   isStockPlatformBindings,
   listRegisteredModelRoles,
   type ModelPricingRecord,
   mergeDeclaredRoles,
+  parseCustomModelsConfig,
+  parseModelRef,
 } from "@engenty/ai-core";
 import { createLogger } from "@engenty/telemetry";
 import { z } from "zod";
@@ -103,8 +106,14 @@ export const availableModelsSchema = z.object({
   models: z.array(modelDefaultSchema),
 });
 
-/** Role → `{ gateway, model_id }`: each role names its own gateway. */
+/**
+ * Role → `{ gateway, model_id }` (each role names its own gateway), and the
+ * composer's Custom list: `{ enabled, models: [ref…] }`.
+ */
 export const defaultBindingsSchema = z.object({
+  custom_models: z
+    .object({ enabled: z.boolean(), models: z.array(z.string().min(1)) })
+    .optional(),
   roles: z.record(
     z.string().min(1),
     z.object({ gateway: z.string().min(1), model_id: z.string().min(1) })
@@ -116,6 +125,8 @@ export type DefaultBindings = z.infer<typeof defaultBindingsSchema>;
 
 export interface ModelDefaults {
   bindings: BindingDefault[];
+  /** Null when the file does not set the Custom list. */
+  customModels: CustomModelsConfig | null;
   models: ModelDefault[];
 }
 export type ModelDefault = z.infer<typeof modelDefaultSchema>;
@@ -131,11 +142,16 @@ let parsedShipped: ModelDefaults | null = null;
 
 /** The committed defaults. Throws on a malformed file — it is code, not input. */
 export function shippedModelDefaults(): ModelDefaults {
-  parsedShipped ??= {
+  if (parsedShipped) {
+    return parsedShipped;
+  }
+  const bindingsFile = defaultBindingsSchema.parse(shippedBindings);
+  parsedShipped = {
     models: availableModelsSchema.parse(shippedAvailable).models,
-    bindings: bindingsFromDefaults(
-      defaultBindingsSchema.parse(shippedBindings)
-    ),
+    bindings: bindingsFromDefaults(bindingsFile),
+    customModels: bindingsFile.custom_models
+      ? parseCustomModelsConfig(bindingsFile.custom_models)
+      : null,
   };
   return parsedShipped;
 }
@@ -359,7 +375,28 @@ export async function applyBindingDefaults(
   return result;
 }
 
-/** Apply both parts unconditionally — manage's "Restore defaults". */
+/**
+ * Save the committed Custom list, keeping only models the catalog has — the
+ * same rule the console's save enforces.
+ */
+export async function applyCustomModelsDefault(
+  store: AiGatewayModelStore,
+  config: CustomModelsConfig,
+  catalog: readonly GatewayModelRecord[]
+): Promise<CustomModelsConfig> {
+  const inCatalog = new Set(
+    catalog.map((row) => catalogKey(row.gateway, row.model_id))
+  );
+  return await store.setCustomModelsConfig({
+    enabled: config.enabled,
+    models: config.models.filter((ref) => {
+      const { gateway, modelId } = parseModelRef(ref);
+      return inCatalog.has(catalogKey(gateway, modelId));
+    }),
+  });
+}
+
+/** Apply every part unconditionally — manage's "Restore defaults". */
 export async function restoreModelDefaults(
   store: AiGatewayModelStore,
   defaults: ModelDefaults = shippedModelDefaults()
@@ -374,10 +411,15 @@ export async function restoreModelDefaults(
   );
   // Re-read: the availability step may have added models the bindings name.
   const catalog = await store.listGatewayModels({});
-  return {
-    availability,
-    bindings: await applyBindingDefaults(store, defaults.bindings, catalog),
-  };
+  const bindings = await applyBindingDefaults(
+    store,
+    defaults.bindings,
+    catalog
+  );
+  if (defaults.customModels) {
+    await applyCustomModelsDefault(store, defaults.customModels, catalog);
+  }
+  return { availability, bindings };
 }
 
 /**
@@ -405,16 +447,20 @@ export async function applyModelDefaultsIfFresh(
     modelId: row.model_id,
     role: row.role,
   }));
-  const bindings = isStockPlatformBindings(
+  const fresh = isStockPlatformBindings(
     current,
     AI_PLATFORM_ROLES.map((spec) => spec.role)
-  )
-    ? await applyBindingDefaults(
-        store,
-        defaults.bindings,
-        availability?.inserted ? await store.listGatewayModels({}) : catalog
-      )
+  );
+  const freshCatalog = availability?.inserted
+    ? await store.listGatewayModels({})
+    : catalog;
+  const bindings = fresh
+    ? await applyBindingDefaults(store, defaults.bindings, freshCatalog)
     : null;
+  // Same freshness rule as the bindings: nobody has decided anything yet.
+  if (fresh && defaults.customModels) {
+    await applyCustomModelsDefault(store, defaults.customModels, freshCatalog);
+  }
 
   if (availability || bindings) {
     logger.info("Applied committed model defaults", {

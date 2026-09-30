@@ -55,6 +55,9 @@ export function ProjectTitleEditable({
     }
   }, [editingTitle]);
 
+  // Distinct keys: both states are a <span> in the same slot, and React would
+  // reuse the element. The text typed into the contentEditable is not React's,
+  // so it would survive into the display state beside the rendered title.
   if (editingTitle) {
     return (
       <span
@@ -62,6 +65,7 @@ export function ProjectTitleEditable({
         className="block min-w-[200px] outline-none focus:outline-none"
         contentEditable
         dir="ltr"
+        key="editing"
         onBlur={() => {
           window.setTimeout(onSaveTitle, 0);
         }}
@@ -84,7 +88,7 @@ export function ProjectTitleEditable({
   }
 
   return (
-    <span className="group inline-flex items-center gap-2">
+    <span className="group inline-flex items-center gap-2" key="display">
       <button
         className="cursor-pointer text-left"
         onClick={onStartEditTitle}

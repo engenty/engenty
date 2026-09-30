@@ -169,14 +169,12 @@ export function registerRoomRoutes(
       }
       const tenantId = scope.scope.tenantId;
       const userId = scope.scope.userId;
-      const [rooms, spaceDms, everywhereDms] = await Promise.all([
+      // The copilot's river has no Space and is not listed here: it lives in
+      // the app bar only.
+      const [rooms, dms] = await Promise.all([
         store.listRoomsForSpace({ spaceId, tenantId, viewerUserId: userId }),
         store.listDmsForUser({ spaceId, tenantId, userId }),
-        store.listDmsForUser({ spaceId: null, tenantId, userId }),
       ]);
-      // A tenant-wide DM — the copilot's river — is this person's in every
-      // Space, so it heads the list wherever they stand.
-      const dms = [...everywhereDms, ...spaceDms];
       return c.json({
         dms: dms.map((thread) => ({
           agent_id: thread.agent_id,

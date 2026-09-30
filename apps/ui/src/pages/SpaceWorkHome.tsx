@@ -8,9 +8,8 @@
  *
  * Beside the cards, the lists of nouns: the artifacts this person pinned,
  * the files they keep at hand, the modules the space mounts, and the extra
- * accounts those modules use.
- * Below those — when a mounted plugin opted in via
- * `registerSpaceTab({ embedOnHome })` — that module's landing page.
+ * accounts those modules use. A module's own landing page (the Tasks
+ * briefing, …) stays under its space tab, not here.
  *
  * Copilot stays the dock. The one composer here belongs to a pinned card with
  * nothing to answer, and it writes into that conversation, not to the Space.
@@ -18,12 +17,7 @@
 import { useTranslation } from "@engenty/i18n/ui";
 import { useSpaceAttention } from "@engenty/notifications-ui";
 import { Button, cn, uiPageScrollClassName } from "@engenty/ui-core";
-import {
-  type PageBreadcrumb,
-  PageHeaderProvider,
-  usePageConfig,
-  useUiContributions,
-} from "@engenty/ui-plugin-sdk";
+import { type PageBreadcrumb, usePageConfig } from "@engenty/ui-plugin-sdk";
 import { useCurrentUserProfile } from "@engenty/user-management-ui";
 import { Pencil } from "lucide-react";
 import { useMemo } from "react";
@@ -41,14 +35,12 @@ import { SpaceHomeSectionHeading } from "@/components/space-home/SpaceHomeSectio
 import { SpaceHomeSkills } from "@/components/space-home/SpaceHomeSkills";
 import { SpaceHomeTopbarActions } from "@/components/space-home/SpaceHomeTopbarActions";
 import { SpaceHomeWorkflows } from "@/components/space-home/SpaceHomeWorkflows";
+import { SpacePluginHomeSections } from "@/components/spaces/space-plugin-sections";
 import type { SpaceHomeCard as SpaceHomeCardModel } from "@/lib/space-home-cards";
-import { spaceTabModuleId } from "@/lib/space-nav";
-import { MODULE_ROUTE_PREFIX } from "@/lib/space-route-mirrors";
 import { spaceSettingsPath } from "@/lib/space-routes";
 import { useSpacesQuery } from "@/lib/spaces-queries";
 import { useEnsureHireWelcome } from "@/lib/use-ensure-hire-welcome";
 import { useSpaceHome } from "@/lib/use-space-home";
-import { useSpaceModules } from "@/lib/use-space-modules";
 import { useSpaceRosterAgents } from "@/lib/use-space-roster-agents";
 
 /** Stable identity — a fresh array each render would re-set the slot forever. */
@@ -77,27 +69,14 @@ const HOME_SPLIT_CLASS = "@min-[52rem]:flex-row";
 /** Right column on home — header audience and Module/Extensions share this. */
 const HOME_RAIL_CLASS = "w-full shrink-0 @min-[52rem]:w-[322px]";
 
-function spaceTabRoutePath(tab: {
-  moduleId?: string;
-  path?: string;
-  pluginId: string;
-}): string {
-  const moduleId = spaceTabModuleId(tab);
-  return tab.path
-    ? `${MODULE_ROUTE_PREFIX}${moduleId}/${tab.path}`
-    : `${MODULE_ROUTE_PREFIX}${moduleId}`;
-}
-
 export function SpaceWorkHome() {
   const { t } = useTranslation("common");
   const { spaceKey = "" } = useParams();
   const spacesQuery = useSpacesQuery();
-  const { contributions } = useUiContributions();
   const space = useMemo(
     () => spacesQuery.data?.find((entry) => entry.key === spaceKey) ?? null,
     [spaceKey, spacesQuery.data]
   );
-  const { modules } = useSpaceModules(space?.id ?? null);
   const { agents, isPending: rosterPending } = useSpaceRosterAgents(
     space?.id ?? null
   );
@@ -122,21 +101,6 @@ export function SpaceWorkHome() {
   const firstName = displayName.trim().split(/\s+/)[0] ?? "";
   const pinnedCards = home.cards.filter((card) => card.pinned);
   const otherCards = home.cards.filter((card) => !card.pinned);
-  const HomePage = useMemo(() => {
-    const mounted = new Set(modules.map((module) => module.id));
-    const homeTab = [...(contributions.spaceTabs ?? [])]
-      .filter((tab) => tab.embedOnHome && mounted.has(spaceTabModuleId(tab)))
-      .sort((left, right) => (left.order ?? 100) - (right.order ?? 100))[0];
-    if (!homeTab) {
-      return null;
-    }
-    const routePath = spaceTabRoutePath(homeTab);
-    return (
-      contributions.routes.find((route) => route.path === routePath)
-        ?.component ?? null
-    );
-  }, [contributions.routes, contributions.spaceTabs, modules]);
-
   // Memoized: the shell compares action nodes by identity, so a fresh element
   // every render is an update loop.
   const pageActions = useMemo(
@@ -146,7 +110,6 @@ export function SpaceWorkHome() {
 
   const greeting = greetingKey(new Date().getHours());
 
-  // This page owns the shell chrome; a module embedded in it does not.
   usePageConfig({
     actions: pageActions,
     breadcrumbs: NO_BREADCRUMBS,
@@ -154,13 +117,7 @@ export function SpaceWorkHome() {
   });
 
   return (
-    <div
-      className={cn(
-        uiPageScrollClassName,
-        // The embed is its own `.ui-page-scroll`; keep one safe area, not two.
-        HomePage ? "pb-0" : null
-      )}
-    >
+    <div className={uiPageScrollClassName}>
       {space ? (
         <div className="@container w-full min-w-0">
           <div
@@ -225,7 +182,7 @@ export function SpaceWorkHome() {
               {/* What waits for a person comes before every conversation. */}
               <SpaceHomeAttention
                 items={attention.items}
-                rosterById={rosterById}
+                spaceKey={space.key}
               />
               {!rosterPending && agents.length === 0 ? (
                 <SpaceHomeHireEmptyCard space={space} />
@@ -282,6 +239,11 @@ export function SpaceWorkHome() {
                   <SpaceHomeQuietLine items={home.quiet} spaceKey={space.key} />
                 </>
               ) : null}
+              <SpacePluginHomeSections
+                slot="space.home.main"
+                spaceId={space.id}
+                spaceKey={space.key}
+              />
             </div>
             <aside
               className={cn("flex min-w-0 flex-col gap-5", HOME_RAIL_CLASS)}
@@ -289,30 +251,17 @@ export function SpaceWorkHome() {
               <SpaceHomeArtifacts spaceId={space.id} spaceKey={space.key} />
               <SpaceHomeWorkflows spaceKey={space.key} />
               <SpaceHomeFiles spaceId={space.id} spaceKey={space.key} />
+              <SpacePluginHomeSections
+                slot="space.home.aside"
+                spaceId={space.id}
+                spaceKey={space.key}
+              />
               <SpaceHomeModules spaceId={space.id} spaceKey={space.key} />
               <SpaceHomeExtensions spaceId={space.id} spaceKey={space.key} />
               <SpaceHomeSkills space={space} />
             </aside>
           </div>
         </div>
-      ) : null}
-      {HomePage ? (
-        // A page-config BOUNDARY, not a styling wrapper. The embedded page
-        // calls `usePageConfig` — crumb, module sidebar, "New" menu — which
-        // belongs to that module's own page, not to the space root. Those
-        // writes go through this context, so a second provider parks them in a
-        // store nothing renders.
-        //
-        // `shrink-0` keeps the embed out of the flex leftover: plugin pages
-        // ship the DESIGN.md scroll shell (`flex-1 min-h-0 overflow-y-auto`),
-        // which would otherwise fill the remaining viewport and scroll on
-        // their own while the greeting stayed pinned. This dashboard is the
-        // only scroller; the embed sizes to content.
-        <PageHeaderProvider>
-          <div className="mt-6 w-full shrink-0">
-            <HomePage />
-          </div>
-        </PageHeaderProvider>
       ) : null}
     </div>
   );

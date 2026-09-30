@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { NotificationDto } from "./api.js";
 import {
+  canMarkSeen,
   groupAttentionByAgent,
+  groupIntoStacks,
   isAttention,
   isDismissible,
   isError,
   matchesLaneFilter,
 } from "./classification.js";
+import { readableActorLabel } from "./notification-face.js";
 
 function dto(
   overrides: Partial<NotificationDto> & Pick<NotificationDto, "kind">
@@ -14,6 +17,7 @@ function dto(
   return {
     actor_id: null,
     actor_kind: null,
+    attachments: [],
     audience_id: null,
     audience_kind: "space",
     body: null,
@@ -57,21 +61,24 @@ describe("isAttention", () => {
     ).toBe(true);
   });
 
-  it("takes every open decision, todo and alert, seen or not", () => {
-    expect(isAttention(dto({ class: "decision", kind: "tool_approval" }))).toBe(
-      true
-    );
+  it("keeps a decision or todo until handled, an alert or FYI until seen", () => {
+    expect(
+      isAttention(dto({ class: "decision", kind: "tool_approval", seen: true }))
+    ).toBe(true);
     expect(
       isAttention(dto({ class: "todo", kind: "task_assigned", seen: true }))
     ).toBe(true);
+    expect(isAttention(dto({ class: "alert", kind: "task_failed" }))).toBe(
+      true
+    );
     expect(
       isAttention(dto({ class: "alert", kind: "task_failed", seen: true }))
-    ).toBe(true);
+    ).toBe(false);
     expect(
       isAttention(
         dto({ kind: "agent_desk_post", priority: "high", seen: true })
       )
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("drops resolved and dismissed rows", () => {
@@ -93,12 +100,12 @@ describe("isAttention", () => {
 });
 
 describe("matchesLaneFilter", () => {
-  it("keeps a high-priority update in Updates and in Wichtig, not in Fehler", () => {
+  it("lists a high-priority update under Notifications only, never twice or under errors", () => {
     const highUpdate = dto({
       kind: "agent_desk_post",
       priority: "urgent",
     });
-    expect(matchesLaneFilter(highUpdate, "updates")).toBe(true);
+    expect(matchesLaneFilter(highUpdate, "updates")).toBe(false);
     expect(matchesLaneFilter(highUpdate, "attention")).toBe(true);
     expect(matchesLaneFilter(highUpdate, "errors")).toBe(false);
     expect(matchesLaneFilter(highUpdate, "hitl")).toBe(false);
@@ -193,5 +200,64 @@ describe("groupAttentionByAgent", () => {
     expect(byAgent.get("a1")?.map((n) => n.id)).toEqual(["n1", "n3"]);
     expect(byAgent.get("a2")?.map((n) => n.id)).toEqual(["n2"]);
     expect(byAgent.has("u1")).toBe(false);
+  });
+});
+
+describe("groupIntoStacks", () => {
+  it("stacks by agent within a space, newest stack first, a record without an actor by kind", () => {
+    const rows = [
+      dto({
+        actor_id: "a1",
+        actor_kind: "agent",
+        id: "n1",
+        kind: "agent_desk_post",
+      }),
+      dto({
+        actor_id: "a2",
+        actor_kind: "agent",
+        id: "n2",
+        kind: "routine_outcome",
+      }),
+      dto({
+        actor_id: "a1",
+        actor_kind: "agent",
+        id: "n3",
+        kind: "routine_outcome",
+      }),
+      dto({
+        actor_id: "a1",
+        actor_kind: "agent",
+        id: "n4",
+        kind: "agent_desk_post",
+        space_id: "s2",
+      }),
+      dto({ id: "n5", kind: "records_written" }),
+    ];
+    expect(
+      groupIntoStacks(rows).map((stack) => stack.items.map((n) => n.id))
+    ).toEqual([["n1", "n3"], ["n2"], ["n4"], ["n5"]]);
+  });
+});
+
+describe("canMarkSeen", () => {
+  it("marks an unseen alert or update seen, never a decision or a row already seen", () => {
+    expect(canMarkSeen(dto({ class: "decision", kind: "tool_approval" }))).toBe(
+      false
+    );
+    expect(canMarkSeen(dto({ class: "alert", kind: "task_failed" }))).toBe(
+      true
+    );
+    expect(canMarkSeen(dto({ kind: "task_completed" }))).toBe(true);
+    expect(canMarkSeen(dto({ kind: "task_completed", seen: true }))).toBe(
+      false
+    );
+  });
+});
+
+describe("readableActorLabel", () => {
+  it("says an agent key as words and leaves a real name alone", () => {
+    expect(readableActorLabel("offers.manager")).toBe("Offers Manager");
+    expect(readableActorLabel("Angebots-Assistent")).toBe("Angebots-Assistent");
+    expect(readableActorLabel("Matthias Platzer")).toBe("Matthias Platzer");
   });
 });

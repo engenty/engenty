@@ -81,7 +81,7 @@ export function useAttentionCountQuery() {
 }
 
 /**
- * The badge number: open attention rows (`isAttention`), seen or not. Space
+ * The badge number: open attention rows (`isAttention`). Space
  * scope is that space's rows only — tenant-wide rows live under Tenant.
  */
 export function useAttentionCount(scope: "space" | "tenant"): number {
@@ -138,6 +138,19 @@ export function useMarkAllSeenMutation() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => markAllSeen(),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: notificationKeys.all });
+    },
+  });
+}
+
+/** Mark rows seen — one stack or one section; the server skips decisions. */
+export function useMarkSeenMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (ids: readonly string[]): Promise<void> => {
+      await markAllSeen(ids);
+    },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: notificationKeys.all });
     },

@@ -6,7 +6,7 @@
 // Two markdown assets, edited like an AGENTS.md: SPECIALIST.md is the body,
 // REPORT.md the section a non-coordinator gets on top. The memory and tasks
 // instructions are composed in by the caller (they are apps/ai's, bound to
-// its MEMORY.md / TASKS.md mounts) at the `{{MEMORY_AND_TASKS}}` mark.
+// its memory entries and TASKS.md) at the `{{MEMORY_AND_TASKS}}` mark.
 import reportMarkdown from "./REPORT.md";
 import specialistMarkdown from "./SPECIALIST.md";
 

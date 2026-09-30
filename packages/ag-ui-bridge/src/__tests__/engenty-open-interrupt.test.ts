@@ -98,14 +98,14 @@ describe("engenty open interrupt metadata", () => {
     const open = readAgUiOpenInterrupt({
       ag_ui_open_interrupt: {
         artifact_id: "a",
-        effort: "low",
+        effort: "normal",
         interrupt_id: "i",
         run_id: "r1",
         title: "t",
         tool_call_id: "tc",
       },
     });
-    expect(open?.effort).toBe("low");
+    expect(open?.effort).toBe("normal");
   });
 
   it("drops an effort value that is not a tier", () => {

@@ -20,8 +20,10 @@ interface TasksModuleTask {
   collaborator_user_ids?: string[];
   created_at: string;
   description: string | null;
+  due_date?: string | null;
   id: string;
   identifier: string;
+  primary_assignee_user_id?: string | null;
   scope_id: string;
   status: string;
   tenant_id: string;
@@ -75,6 +77,8 @@ export function mapTasksModuleTaskToPhaseTask(
         ? null
         : Number(meta.hours),
     status: task.status,
+    due_date: task.due_date ?? null,
+    primary_assignee_user_id: task.primary_assignee_user_id ?? null,
     is_public: Boolean(meta.is_public),
     order_index: Number(meta.order_index ?? 0),
     created_at: task.created_at,

@@ -2,7 +2,7 @@
  * One channel turn answered by a specific Engenty — not the front door.
  *
  * The agent is assembled the way its desk assembles it: registry config
- * (tools, skills, instructions) and its own memory (MEMORY.md, TASKS.md,
+ * (tools, skills, instructions) and its own memory (memory entries, TASKS.md,
  * observations). What differs from a desk turn is the surface: no browser, so
  * no frontend tools; a messenger, so the reply is plain text posted back; and
  * no workspace mounts yet — a channel turn has no run to root a sandbox or
@@ -118,12 +118,18 @@ export async function runRemoteAgentTurn(
   const memoryRuntime = createEngentySessionMemoryRuntime({
     agentId: input.agent.id,
     agentName: input.agent.name,
+    // A messenger thread sits outside any Space, and others read it.
+    memory: {
+      agentScope: input.agent.agentScope,
+      place: { kind: "company" },
+      privateLine: false,
+    },
     scope: { tenantId: input.tenantId, userId: input.userId },
     store: input.threadStore,
     threadId,
   });
 
-  // `memory_note` / `todo_edit` — the pads the desk turn also carries.
+  // `memory_note` / `todo_edit` — the memory and pad the desk turn also carries.
   const extraTools = { ...memoryRuntime.memoryTools };
   const agent = await assembleDynamicAgent(input.registry, input.agent.id, {
     ...(Object.keys(extraTools).length > 0 ? { extraTools } : {}),

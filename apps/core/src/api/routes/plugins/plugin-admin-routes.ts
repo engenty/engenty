@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { unregisterAiRegistration } from "@engenty/ai-core";
 import { getMandatoryPluginDeclaration } from "@engenty/environment";
+import { isPluginOnForTenant } from "@engenty/plugin-sdk";
 import type { OpenAPIHono } from "@hono/zod-openapi";
 import type { Context } from "hono";
 import { createPackagesDal } from "../../../dal/packages.js";
@@ -306,8 +307,11 @@ export function registerPluginAdminRoutes(params: {
         tenantId,
         tenantPluginOverrides: overrides,
       });
+      // Stage-aware: a module below the install's stage is off unless the
+      // tenant was opted in, whatever its global switch says.
       const enabled =
-        plugin.id in overrides ? overrides[plugin.id] : plugin.enabled;
+        (plugin.id in overrides ? overrides[plugin.id] : plugin.enabled) &&
+        isPluginOnForTenant(plugin.tenantDefault, overrides[plugin.id]);
       const mandatoryDeclaration = getMandatoryPluginDeclaration(plugin.id);
       return {
         id: plugin.id,
@@ -318,6 +322,9 @@ export function registerPluginAdminRoutes(params: {
         kind: plugin.kind,
         category: plugin.category,
         placement: plugin.placement,
+        stage: plugin.stage ?? "stable",
+        supporting: plugin.supporting === true,
+        tenantDefault: plugin.tenantDefault ?? "on",
         sourceType: plugin.sourceType,
         source: plugin.source,
         rootDir: plugin.rootDir,

@@ -5,6 +5,7 @@
   "description": "Team directory, org structure, groups, and taxonomies",
   "version": "0.0.1",
   "kind": "module",
+  "stage": "beta",
   "category": "work",
   "provides": [
     "module.team",
@@ -21,5 +22,6 @@
     "frontendTools": false
   },
   "optional": ["module.projects", "module.tasks"],
-  "placement": "settings"
+  "placement": "settings",
+  "supporting": true
 }

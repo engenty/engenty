@@ -5,6 +5,7 @@
   "description": "Legal entity profile and business identity settings",
   "version": "0.0.1",
   "kind": "module",
+  "stage": "beta",
   "category": "commercial",
   "provides": [
     "module.company-profile",
@@ -32,5 +33,6 @@
         ]
       }
     ]
-  }
+  },
+  "supporting": true
 }

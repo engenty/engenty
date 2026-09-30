@@ -3,7 +3,7 @@
 //
 // An App lives on the host at `<space drive>/apps/<slug>/{src,data}` —
 // app-host's tree, the one the owning Space's computer binds read-write at
-// `/sandbox/apps`. Everyone else in the company reads `src/`; `data/` is the
+// `/space/apps`. Everyone else in the company reads `src/`; `data/` is the
 // running App's own state and stays with its Space. The same switch that
 // shares a Space's `public/` folder shares its Apps: a private Space's Apps
 // stay out until it publishes.

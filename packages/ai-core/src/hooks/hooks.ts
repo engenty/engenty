@@ -25,8 +25,7 @@ export function useModel(modelId: string): void {
 }
 
 /**
- * Run on the tenant's graded model for an effort tier (`low`, `medium`,
- * `high`) whenever nobody pinned one for the turn. Writes `effort`, same as a
+ * Run on the tenant's graded model for an effort tier (`normal`, `high`) whenever nobody pinned one for the turn. Writes `effort`, same as a
  * data config. Mutually exclusive with `useModel` in one render.
  */
 export function useEffort(effort: NonNullable<AgentConfig["effort"]>): void {

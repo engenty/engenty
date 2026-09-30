@@ -21,9 +21,8 @@ export interface EffortGrant {
 }
 
 const ORDER: Readonly<Record<AiEffort, number>> = {
-  low: 0,
-  medium: 1,
-  high: 2,
+  normal: 0,
+  high: 1,
 };
 
 function normalize(
@@ -55,8 +54,8 @@ export function isEffortAllowed(effort: AiEffort, grant: EffortGrant): boolean {
 /**
  * The effort actually available to a tenant that asked for `requested`.
  *
- * Degrades downward rather than refusing: a tenant on a low-only plan who asks
- * for high gets low and an answer, not an error. Refusing would make the plan
+ * Degrades downward rather than refusing: a tenant on a Normal-only plan who asks
+ * for high gets normal and an answer, not an error. Refusing would make the plan
  * boundary a failure mode instead of a product tier — and the request is
  * already paid for by the time we know the tier is too high.
  *
@@ -84,7 +83,7 @@ export function clampEffort(
     }
   }
   // Nothing at or below the request: the plan is high-only and the caller asked
-  // for low. Give them the cheapest they are entitled to rather than nothing.
+  // for normal. Give them the cheapest they are entitled to rather than nothing.
   if (best === null) {
     for (const candidate of allowed) {
       if (best === null || ORDER[candidate] < ORDER[best]) {
@@ -95,13 +94,13 @@ export function clampEffort(
   return best;
 }
 
-/** Highest tier the plan allows, for "auto" routing to size against. */
+/** Highest tier the plan allows — whether Auto may offer high at all. */
 export function ceilingEffort(grant: EffortGrant): AiEffort {
   const allowed = normalize(grant.allowed_efforts);
   if (allowed === null) {
     return "high";
   }
-  let best: AiEffort = "low";
+  let best: AiEffort = "normal";
   for (const candidate of allowed) {
     if (ORDER[candidate] > ORDER[best]) {
       best = candidate;

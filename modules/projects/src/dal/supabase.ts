@@ -71,6 +71,7 @@ function rowToProject(row: Record<string, unknown>): Project {
     // Pre-lean-projects rows (and any row read before the column landed) are
     // full-featured projects, so an absent value means "timeplan on".
     timeplan_enabled: row.timeplan_enabled !== false,
+    cover: (row.cover as Project["cover"]) ?? null,
     enabled_tabs: (row.enabled_tabs as string[] | null) ?? null,
     created_by: (row.created_by as string | null) ?? null,
     created_at: String(row.created_at),
@@ -386,7 +387,8 @@ export function createProjectRepoSupabase(
         portal_password: projectFields.portal_password ?? null,
         portal_intro_text: projectFields.portal_intro_text ?? null,
         visibility,
-        timeplan_enabled: projectFields.timeplan_enabled ?? true,
+        timeplan_enabled: projectFields.timeplan_enabled ?? false,
+        cover: projectFields.cover ?? null,
         enabled_tabs: projectFields.enabled_tabs ?? null,
         created_by: projectFields.created_by ?? null,
         created_at: now,

@@ -39,6 +39,14 @@ export const CONNECTOR_IMPORT_SUBJECT = "connector_import";
 const CONNECTOR_IMPORT_ROUTE = "/setup/connectors";
 
 /** The grant an approval of this import writes — one per server URL. */
+function hostOf(url: string): string {
+  try {
+    return new URL(url).host || url;
+  } catch {
+    return url;
+  }
+}
+
 export function connectorImportOperationId(url: string): string {
   return `connector_import:${url}`;
 }
@@ -209,7 +217,8 @@ export const connectorImportRequestTool = createTool({
       const proposedBy = ctx.agentTypeKey ?? ctx.agentId ?? null;
       await emitInboxNotification({
         actor: { id: proposedBy, kind: proposedBy ? "agent" : "system" },
-        body: server.url,
+        // Where it lives, said as a host — the full URL is on the review.
+        body: hostOf(server.url),
         dedupeKey: `connector-import:${tenantId}:${server.url}`,
         kind: "connector_import_requested",
         metadata: {

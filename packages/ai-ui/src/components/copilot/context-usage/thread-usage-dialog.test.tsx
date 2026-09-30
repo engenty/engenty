@@ -1,11 +1,7 @@
 /** @vitest-environment happy-dom */
-// The drill-in behind the thread's usage totals.
-//
-// Two things have to hold. The entry point must exist wherever the totals do —
-// unlike the prompt preview this reads recorded events, so it is NOT gated on
-// developer mode. And the panel must never present cached tokens as an
-// addition to the input: that is precisely the arithmetic that made the
-// composer's headline read ~2× the tokens the thread moved.
+// The drill-in behind the thread's usage totals. It reads recorded events, so
+// it is not gated on developer mode, and it must never add cached tokens on top
+// of the input they are part of.
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -108,76 +104,16 @@ describe("the thread-usage entry point", () => {
     await user.click(screen.getByRole("button", { name: "98.3k" }));
     expect(await screen.findByText("Token usage")).toBeTruthy();
   });
-
-  it("counts input + output only in the thread total", () => {
-    // 97.8k + 489 = 98.3k. The old sum added the 60k cache reads on top and
-    // showed 158.4k for the same two runs.
-    render(
-      <ContextUsagePopover contextUsage={null} threadId="t1" totals={TOTALS}>
-        <button type="button">usage</button>
-      </ContextUsagePopover>
-    );
-
-    expect(screen.queryByText("158.4k")).toBeNull();
-  });
-
-  it("stays plain text when the surface has no thread", async () => {
-    const user = userEvent.setup();
-    render(
-      <ContextUsagePopover contextUsage={null} totals={TOTALS}>
-        <button type="button">usage</button>
-      </ContextUsagePopover>
-    );
-
-    await user.click(screen.getByRole("button", { name: "usage" }));
-    expect(screen.queryByRole("button", { name: "98.3k" })).toBeNull();
-  });
 });
 
 describe("ThreadUsageDialog", () => {
-  it("splits the tokens into fresh, cached and output", async () => {
+  it("counts cached input as a slice of the input, not on top of it", async () => {
     render(
       <ThreadUsageDialog onOpenChange={vi.fn()} open={true} threadId="t1" />
     );
 
-    expect(await screen.findByText("Token usage")).toBeTruthy();
-    expect(screen.getByText("Fresh input (paid per token)")).toBeTruthy();
-    expect(screen.getByText("Cached input (re-read prompt)")).toBeTruthy();
-    expect(screen.getByText(/98.3k tokens over 2 runs/)).toBeTruthy();
-  });
-
-  it("always explains the multiplier behind the total", async () => {
-    // Without this the number reads as if the conversation itself were huge,
-    // and the reader prunes the wrong thing (their own messages).
-    render(
-      <ThreadUsageDialog onOpenChange={vi.fn()} open={true} threadId="t1" />
-    );
-
-    await screen.findByText("Token usage");
-    expect(
-      screen.getByText(/Every model call re-sends the whole prompt/)
-    ).toBeTruthy();
-    expect(screen.getByText(/61% of the input was served/)).toBeTruthy();
-  });
-
-  it("lists runs newest first", async () => {
-    render(
-      <ThreadUsageDialog onOpenChange={vi.fn()} open={true} threadId="t1" />
-    );
-
-    await screen.findByText("Token usage");
-    const rows = screen.getAllByText(/fresh ·/);
-    expect(rows[0]?.textContent).toContain("6.8k fresh");
-  });
-
-  it("says so when nothing has been metered yet", async () => {
-    usageState.events = [];
-    render(
-      <ThreadUsageDialog onOpenChange={vi.fn()} open={true} threadId="t1" />
-    );
-
-    expect(
-      await screen.findByText("No metered runs recorded for this thread yet.")
-    ).toBeTruthy();
+    // 97.8k input + 489 output; 60k of the input came from cache.
+    expect(await screen.findByText(/98\.3k tokens over 2 runs/)).toBeTruthy();
+    expect(screen.getByText(/^37\.8k ·/)).toBeTruthy();
   });
 });

@@ -861,12 +861,12 @@ export class EngentySessionMemoryStorage extends ObservationalMemoryDelegatingSt
     );
   }
 
-  // --- Resources (working memory) -------------------------------------------
+  // --- Resources ---------------------------------------------------------------
   //
-  // Resource records back RESOURCE-scoped working memory. Personal Copilot
-  // keys `${tenantId}:${userId}`; shared specialist rooms key
-  // `${tenantId}:${spaceId}` so every chat with that agent in the Space shares
-  // one profile. ThreadId remains the no-space fallback.
+  // Resource records back Mastra's resource-scoped state and TASKS.md
+  // (agent-tasks.ts). Personal Copilot keys `${tenantId}:${userId}`; shared
+  // specialist rooms key `${tenantId}:${spaceId}`. ThreadId remains the
+  // no-space fallback. Kept facts are memory entries, not resource rows.
 
   #resourceKey(resourceId: string): string {
     return `${this.#scope.tenantId}:${resourceId}`;

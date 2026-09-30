@@ -223,7 +223,12 @@ export function AppLocationChrome({
         }
         secondaryNavHeaderOverride={
           spaceNav ? (
-            <SpaceNavTitleSlot spaceKey={spaceNav.spaceKey} />
+            <SpaceNavTitleSlot
+              moduleLevelId={
+                spaceColumnLevel === "module" ? spaceNav.moduleId : undefined
+              }
+              spaceKey={spaceNav.spaceKey}
+            />
           ) : undefined
         }
         secondaryNavLeadingSlot={

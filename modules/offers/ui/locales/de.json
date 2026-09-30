@@ -321,7 +321,7 @@
     "loading": "Lädt...",
     "dragToReorder": "Zum Neuordnen ziehen"
   },
-  "senderCompanyFallback": "[Ihr Firmenname]",
+  "senderCompanyFallback": "[Name Ihrer Organisation]",
   "recipient": "Empfänger",
   "changeClient": "Kunde ändern",
   "refreshFromClient": "Aus Kunde aktualisieren",

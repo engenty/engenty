@@ -88,13 +88,16 @@ host boot without building plugin `dist/` (plugins load from source via jiti).
 
 When a plugin needs to expose shared services to the host, it **installs a host
 provider** at load time and core delegates to it lazily. The context graph works
-this way: `@engenty/context-graph` owns its singletons and calls
+this way: the optional `context-graph` module owns its singletons and calls
 `engenty.server.registerContextGraphHost(...)`; core holds only the
-`@engenty/plugin-sdk` contract.
+`@engenty/plugin-sdk` contract. Without the module, `server.contextGraph` is
+`undefined` and the schema/source hooks do nothing; for an Organisation that
+has it off, core answers `server.contextGraph` like an empty graph.
 
 **Sanctioned exception — mandatory platform plugins.** A small set of plugins are
 declared mandatory in `ENGENTY_HOST_MANDATORY_PLUGINS` (`tenant-settings`,
-`user-settings`, `engenty-copilot`): always enabled, not user-toggleable. Core
+`user-settings`, `notifications`, `engenty-copilot`, `engenty-specialists`,
+`connections`): always enabled, not user-toggleable. Core
 may depend on the **DAL primitives** of mandatory *platform* plugins
 (`tenant-settings`, `user-settings`) because they are effectively core
 infrastructure. "Plugins-free" means free of *optional / business* plugins —
@@ -113,7 +116,8 @@ Every plugin declares itself with an `engenty.plugin.json` at its root:
   "kind": "module",               // "module" (modules/*) or "package" (packages/*)
   "category": "work",             // optional catalog group (see below)
   "emoji": "👋",                  // optional; catalogs + the README module table
-  "stability": "experimental",    // optional; hides it from the README until ready
+  "stage": "alpha",               // optional; dev | alpha | beta | stable (default)
+  "supporting": true,             // optional; never offered as an app of its own
   "provides": ["module.hello-world", "ui.route.module.hello-world"],
   "requires": [],                 // capabilities this plugin needs from others
   "capabilities": { "ui": true, "ai": false, "operations": true },
@@ -132,9 +136,39 @@ Every plugin declares itself with an `engenty.plugin.json` at its root:
   `agents`, `integrations`, `platform`. Use `engenty` for first-party Engenty
   product modules. Distinct from `kind` (source location) and `tier` (trust
   ceiling).
-- **`stability`** (optional) — `stable` (default) or `experimental`. An
-  experimental module loads like any other; the README module table and
-  catalogs leave it out until it is ready for someone who did not build it.
+- **`stage`** (optional) — `dev`, `alpha`, `beta` or `stable` (default).
+  An install sets its own stage with `ENGENTY_MODULE_STAGE` (default `beta`):
+
+  | Module stage | Install below it | Install at or above it |
+  |---|---|---|
+  | `dev` | not installed: not loaded, not in the UI bundle | on |
+  | `alpha` | installed, off until a superadmin turns it on for a tenant (Manage → tenant → Modules) | on |
+  | `beta` | not installed (only a `stable` install is below it) | on |
+
+  A left-out module's migrations are held back too: a fresh database never
+  gets its tables. A database that applied them earlier keeps its tables, and
+  the migrate step writes a no-op placeholder for exactly those versions so
+  `supabase db push` accepts the history (`scripts/held-migration-placeholders.mjs`;
+  `engenty deploy migrate` does the same). Promoting the module later runs its
+  migrations as pending ones (`--include-all`). Images are built at one stage
+  (unset = `beta`): the UI bundle, the migrate image and core's
+  `ENGENTY_MODULE_STAGE` must match. The README module table lists `beta` and `stable` only. Set
+  `ENGENTY_MODULE_STAGE=dev` in a dev `.env.local` to work on every module;
+  after changing it, run `pnpm engenty generate` and restart.
+- **`purge`** (optional) — `{ "sql": "supabase/uninstall.sql" }`, only for a
+  module whose tables live in another module's schema. Everything else is purged the same way:
+  `pnpm engenty plugins purge <slug>` drops the schema the module's migrations
+  create, empties and deletes its storage buckets, deletes its space mounts,
+  tenant switches, instruction overrides and approval grants, and removes its
+  migrations from the history, so installing it again starts empty. Audit
+  events, approval requests, routines and workflows stay. It refuses a module
+  the install still has, and one whose tables other modules reference (it
+  asks the database: offers has foreign keys into `module_contacts`). Run it
+  while the module's code is still on disk; `--dry-run` shows the SQL,
+  `--db-url` (+ `--supabase-url` for files) targets a remote database.
+- **`supporting`** (optional) — the module works for others (settings,
+  templates, the copilot, connections) and is never offered as an app in the
+  space catalog.
 - **`emoji`** (optional) — one emoji for catalogs and the README module table.
 - **`server.entry`** is the backend factory; **`ui.entry`** is the UI plugin.
 - **`env`** contributes feature gates and env vars to the `env` wizard
@@ -159,7 +193,8 @@ slug is the manifest **`id`** (not its dirname), so it must declare an explicit
 in `engenty.plugins` while grouping related connectors on disk.
 
 **Mandatory plugins** (`ENGENTY_HOST_MANDATORY_PLUGINS`: `engenty-copilot`,
-`tenant-settings`, `user-settings`) are force-enabled by the loader. A mandatory
+`engenty-specialists`, `connections`, `tenant-settings`, `user-settings`,
+`notifications`) are force-enabled by the loader. A mandatory
 *module* still needs a manifest entry to be discovered; mandatory *packages* load
 automatically. Plugins are loaded from source via `jiti`, so they need no build.
 
@@ -215,8 +250,6 @@ engenty.UI.registerSpaceTab({
   icon: ListTodo,
   order: 30,
   path: "briefing",     // /s/<key>/tasks/briefing
-  embedOnHome: true,    // also show this page below the space-home composer
-                        // (same scroller as the composer — not a nested pane)
 });
 ```
 

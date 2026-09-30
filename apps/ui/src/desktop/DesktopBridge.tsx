@@ -3,6 +3,7 @@ import type { NavigationSection } from "@engenty/app-shell";
 import { getEngentyI18nApi } from "@engenty/i18n/ui";
 import {
   notificationDisplayText,
+  openNotificationInbox,
   registerClientChannel,
   useAttentionCount,
 } from "@engenty/notifications-ui";
@@ -61,6 +62,14 @@ function translateTitle(key: string, options: Record<string, unknown>): string {
     : String(options.defaultValue ?? key);
 }
 
+/**
+ * A native banner cannot carry a route on the desktop (clicking it only
+ * brings the app forward), so the app coming forward shortly after one is
+ * read as that click: the bell opens on Notifications.
+ */
+const BANNER_CLICK_WINDOW_MS = 60_000;
+let lastNativeBannerAt = 0;
+
 // Registered once per process: the bell's arrival watcher hands new records
 // to every client channel; this one turns them into native notifications
 // while the window is not focused.
@@ -83,6 +92,7 @@ registerClientChannel({
       for (const record of records.slice(0, 3)) {
         sendNotification(notificationDisplayText(record, translateTitle));
       }
+      lastNativeBannerAt = Date.now();
       if (records.length > 3) {
         sendNotification({
           body: `…and ${records.length - 3} more new notifications.`,
@@ -143,6 +153,17 @@ function DesktopBridgeInner({ sections }: DesktopBridgeProps) {
         console.warn("[desktop] failed to sync navigation menu", error)
       );
   }, [sections]);
+
+  useEffect(() => {
+    const onFocus = () => {
+      if (Date.now() - lastNativeBannerAt < BANNER_CLICK_WINDOW_MS) {
+        lastNativeBannerAt = 0;
+        openNotificationInbox({ lane: "attention" });
+      }
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
 
   // Native menu / hotkey events → SPA actions.
   useEffect(() => {

@@ -1,23 +1,5 @@
 {
   "chat": {
-    "modelChooserLabel": "Choose model",
-    "effortExpertToggle": "Expert: choose a model",
-    "modelChooser": {
-      "searchPlaceholder": "Search models…",
-      "emptyMessage": "No models match your search.",
-      "pricingIn": "in",
-      "pricingOut": "out",
-      "pricingPerMtok": "/ Mtok",
-      "pricingUnknown": "Pricing unknown",
-      "priceTier": {
-        "cheap": "Cheap",
-        "low": "Low",
-        "medium": "Medium",
-        "high": "High",
-        "expensive": "Expensive",
-        "unknown": "Other"
-      }
-    },
     "artifactReady": "Artifact ready",
     "openArtifact": "Open"
   },

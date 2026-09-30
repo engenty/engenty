@@ -240,18 +240,14 @@ describe("engenty-plugins manifest", () => {
     expect(() => listWorkspaceModulesOnDisk(root)).toThrow(/package name/);
   });
 
-  it("writes updated plugin object", () => {
+  it("reads back what it writes", () => {
     const root = createRepo(["engenty-copilot"]);
     writeEngentyPluginsManifest(root, ["engenty-copilot", "company-profile"]);
-    const pkg = JSON.parse(
-      fs.readFileSync(path.join(root, "package.json"), "utf8")
-    ) as { engenty: { plugins: Record<string, { source: string }> } };
-    expect(Object.keys(pkg.engenty.plugins).sort()).toEqual([
+    const manifest = readEngentyPluginsManifest(root);
+    expect([...manifest.slugs].sort()).toEqual([
       "company-profile",
       "engenty-copilot",
     ]);
-    expect(pkg.engenty.plugins["company-profile"]).toEqual({
-      source: "workspace",
-    });
+    expect(manifest.plugins["company-profile"]?.source).toBe("workspace");
   });
 });

@@ -87,7 +87,7 @@ export interface CopilotCompactComposerShellProps {
   /** Whether the textarea has wrapped to multiple lines. Controls the
    *  card's rounding and padding (capsule ↔ rounded rectangle). */
   isMultiline?: boolean;
-  labels?: AgentStatusTickerLabels;
+  labels?: Partial<AgentStatusTickerLabels>;
   messages?: readonly AgentTurnMessageLike[];
   onCompactStatusFlapHeightChange?: (height: number) => void;
   /** Optimistic user text while a run is in flight (not yet in `messages`) —
@@ -250,6 +250,7 @@ function isComposerChromeFocusTarget(
         [
           '[data-slot="select-content"]',
           '[data-slot="dropdown-menu-content"]',
+          '[data-slot="dropdown-menu-sub-content"]',
           '[data-slot="popover-content"]',
         ].join(",")
       )
@@ -424,9 +425,23 @@ export function CopilotCompactComposerShell({
         className
       )}
       onBlur={(e) => {
-        if (!isComposerChromeFocusTarget(shellRef.current, e.relatedTarget)) {
-          setIsFocused(false);
+        if (isComposerChromeFocusTarget(shellRef.current, e.relatedTarget)) {
+          return;
         }
+        // Opening a menu from the controls row blurs to <body> for a moment
+        // (`relatedTarget` null) before focus lands in the portaled popup.
+        // Deciding now collapses the row and re-expands it a frame later —
+        // the composer visibly jumps. Decide once focus has settled.
+        requestAnimationFrame(() => {
+          if (
+            !isComposerChromeFocusTarget(
+              shellRef.current,
+              document.activeElement
+            )
+          ) {
+            setIsFocused(false);
+          }
+        });
       }}
       onFocus={() => setIsFocused(true)}
       ref={shellRef}
@@ -602,6 +617,8 @@ export function CopilotCompactComposerShell({
               ? "rounded-[1.35rem] px-2 py-1"
               : "rounded-[1.7rem] px-4 py-[0.7rem]"
           )}
+          // The composer's file-drop state covers this whole card.
+          data-drop-overlay-host
           data-variant={variant}
           onInput={(e) => {
             const textarea = e.currentTarget.querySelector("textarea");

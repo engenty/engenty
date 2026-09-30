@@ -110,7 +110,7 @@ It is a directory on the apps/ai host, not Supabase:
 | `cache/{npm,uv,bun}` | `/cache/*` | package caches, for every run in the Space |
 | `browser/profile/` | the browser's `/profile` | cookies and logins |
 | `browser/downloads/` | `/downloads`, `/sandbox/browser-downloads` | what the browser saved |
-| `apps/` | `/sandbox/apps` | the Space's App repositories and databases (app-host) |
+| `apps/` | `/space/apps` | the Space's App repositories and databases (app-host) |
 | `ai/…` | — | staged copies of the Space's object-storage mounts; a file pulled at run start and missing at push is deleted in storage (`sandbox-sync.ts`) |
 
 **Rule:** work lives in object storage (`/space`, `/company`, `/home`, …) and
@@ -248,7 +248,7 @@ and the agent does that one step with the normal `browser_*` tools and calls
 `browser_run_fast` again. Field values come from the goal's own words first:
 the classifier picks, per typeable field, which span of the goal (a date, a
 name, a quoted string) is its value, or none; only a value that has to be
-rewritten goes to the run's low-tier model (`model.low`, with minimal
+rewritten goes to the run's Normal model (`model.normal`, with minimal
 reasoning effort). Both are asked once per page and goal, for every field at
 once, as soon as a page with a field is observed — alongside the decision, not
 after it. `ENGENTY_BROWSER_FAST_MAX_STEPS` (60) bounds one call. Every inner
@@ -283,7 +283,7 @@ It runs as uid 1000 (`ENGENTY_SANDBOX_UID`) with `HOME=/opt/sandbox` — *not*
 | `/home` | the agent's or person's own mount — per-run sandboxes only, never a space computer |
 | `/data` | the Space's module records, staged (below) — per-run sandboxes only, never a space computer |
 | `/cache/{uv,bun,npm}` | per-Space package caches; each tool's cache env var points here |
-| `/sandbox/apps/<slug>/{src,data}` | the Space's Apps — the same files the running App reads; `app-host` owns the tree |
+| `/space/apps/<slug>/{src,data}` | the Space's Apps — the same files the running App reads; `app-host` owns the tree |
 | `/sandbox/browser-downloads/` | the Space's browser downloads (space computer only) |
 
 The caches, `/data` and the Apps and downloads binds carry an **empty storage

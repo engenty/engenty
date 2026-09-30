@@ -111,6 +111,7 @@ function makeStore(): AiUsageStore & AiGatewayModelStore {
     insertModelPricing: vi.fn(async (record) => pricingRow(record.model_id)),
     listGatewayModelSyncRuns: vi.fn(async () => []),
     listGatewayModels: vi.fn(async () => []),
+    getCustomModelsConfig: vi.fn(async () => ({ enabled: false, models: [] })),
     listModelBindings: vi.fn(async () => []),
     listModelPricing: vi.fn(async () => []),
     listUsedModelPricing: vi.fn(async () => []),
@@ -137,6 +138,7 @@ function makeStore(): AiUsageStore & AiGatewayModelStore {
       inserted: models.length,
       total: models.length,
     })),
+    setCustomModelsConfig: vi.fn(async (config) => config),
     upsertModelBinding: vi.fn(async (row) => ({
       ...row,
       updated_at: "2026-05-17T00:00:00.000Z",

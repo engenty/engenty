@@ -21,6 +21,10 @@ Contacts are one tenant address book. A Space mount grants access to that shared
 - Never say the internal contact search is unavailable unless the Contacts search operation returned an explicit error in this turn. For names such as "Alois", companies, roles, professions, cities, email domains, or IDs, search Contacts first.
 - Do not offer web search as a substitute for searching stored contacts. Web tools can enrich or research public data after an internal contact search, but they cannot verify what is stored in the tenant contacts database.
 
+## Import
+
+When the person wants to import contacts (a file, an export, Google Contacts), follow the `contacts-import` skill: open the import page beside the chat with `open_view`, handing over the attached file, and coach from there. Do not promise to dedupe, preview or import a file yourself.
+
 ## Enrichment workflow
 
 When you run `contacts.enhance-contact`:

@@ -7,7 +7,7 @@ import { useTranslation } from "@engenty/i18n/ui";
 import { Button } from "@engenty/ui-core";
 import { Plus } from "lucide-react";
 import type { PhaseTask, ProjectTaskStatusDefinition } from "../api.js";
-import { TaskCard } from "./task-card.js";
+import { TASK_LIST_CARD_CLASS, TaskCard } from "./task-card.js";
 
 interface GeneralTasksSectionProps {
   onAddTask?: () => void;
@@ -65,20 +65,22 @@ export function GeneralTasksSection({
             strategy={verticalListSortingStrategy}
           >
             <div className="space-y-2">
-              {tasks.map((task) => (
-                <TaskCard
-                  key={task.id}
-                  onDelete={onTaskDelete}
-                  onEdit={onTaskEdit}
-                  onStatusChange={onTaskStatusChange}
-                  onVisibilityToggle={onTaskVisibilityToggle}
-                  showAssignees={showAssignees}
-                  showVisibility={viewMode === "internal"}
-                  task={task}
-                  taskStatusDefinitions={taskStatusDefinitions}
-                  viewMode={viewMode}
-                />
-              ))}
+              <div className={TASK_LIST_CARD_CLASS}>
+                {tasks.map((task) => (
+                  <TaskCard
+                    key={task.id}
+                    onDelete={onTaskDelete}
+                    onEdit={onTaskEdit}
+                    onStatusChange={onTaskStatusChange}
+                    onVisibilityToggle={onTaskVisibilityToggle}
+                    showAssignees={showAssignees}
+                    showVisibility={viewMode === "internal"}
+                    task={task}
+                    taskStatusDefinitions={taskStatusDefinitions}
+                    viewMode={viewMode}
+                  />
+                ))}
+              </div>
               {addTaskButton}
             </div>
           </SortableContext>

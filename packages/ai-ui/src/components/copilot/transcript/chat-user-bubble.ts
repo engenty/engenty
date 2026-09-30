@@ -13,7 +13,7 @@ export interface ChatBubbleCluster {
 const LONG_INLINE_TOKEN_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export function isLongInlineToken(text: string): boolean {
+function isLongInlineToken(text: string): boolean {
   const value = text.trim();
   if (value.length >= 24) {
     return true;

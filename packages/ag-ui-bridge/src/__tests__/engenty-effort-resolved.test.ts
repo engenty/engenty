@@ -8,12 +8,12 @@ describe("readEngentyEffortResolvedEventValue", () => {
   it("parses a valid Auto resolution payload", () => {
     expect(
       readEngentyEffortResolvedEventValue({
-        effort: "medium",
+        effort: "normal",
         model_id: "openai/gpt-5-mini",
         source: "heuristic",
       })
     ).toEqual({
-      effort: "medium",
+      effort: "normal",
       model_id: "openai/gpt-5-mini",
       source: "heuristic",
     });

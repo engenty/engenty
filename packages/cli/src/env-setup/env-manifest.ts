@@ -298,6 +298,23 @@ export const CORE_ENV_MANIFEST: EnvVarSpec[] = [
     secret: false,
   },
 
+  // ── Modules ──
+  {
+    description:
+      "Module stage of this install: dev, alpha, beta or stable. Unset means beta. dev modules exist only at dev (not loaded, not in the UI bundle otherwise). alpha modules are always installed; below alpha they are off until a superadmin turns them on per tenant. Set dev in a development checkout to work on every module. The UI bundle is built with the stage at build time; core applies it at boot.",
+    exampleValue: "dev",
+    group: "Modules",
+    key: "ENGENTY_MODULE_STAGE",
+    obtain: { kind: "manual" },
+    required: "optional",
+    scopes: ["root", "deploy"],
+    secret: false,
+    validate: (value) =>
+      ["dev", "alpha", "beta", "stable"].includes(value)
+        ? undefined
+        : "Use dev, alpha, beta or stable",
+  },
+
   // ── Dev login ──
   {
     description: "Dev auto-login email (core dev-login routes).",

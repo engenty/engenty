@@ -4,6 +4,7 @@
 // in docs/content/wip/roadmap/enhancing-copilot/reasoning-vertical.md.
 "use client";
 
+import { readDecisionResumeAnswer } from "@engenty/ai-core/browser";
 import { useTranslation } from "@engenty/i18n/ui";
 import { cn } from "@engenty/ui-core";
 import { type ReactNode, useContext, useMemo } from "react";
@@ -24,7 +25,6 @@ import {
 import { formatElapsedSeconds } from "../composer/agent-status-ticker/format-elapsed-seconds.js";
 import { useElapsedSeconds } from "../composer/agent-status-ticker/use-elapsed-seconds.js";
 import { parseDecisionResolution } from "../interrupts/decision-artifact.js";
-import { parseFeedbackResolution } from "../interrupts/feedback-artifact.js";
 import { ToolCallCard } from "../tool-call/tool-call-card";
 import type { ToolCallCardProps } from "../tool-call/tool-call-card.types";
 import { hasStandaloneToolCallUi } from "../tool-call/tool-call-ui-registry";
@@ -61,6 +61,7 @@ import { MentionInlineText } from "./mention-inline-text.js";
 import { PersonThoughtDisclosure } from "./person-turn-status.js";
 import { ToolClipRows } from "./tool-clip-rows.js";
 import { resolveToolClip } from "./tool-clips.js";
+import { useTurnStartedAt } from "./turn-started-at.js";
 
 // Assistant messages that streamed during this page session. A tool part only
 // enters the transcript once its output is complete, so a card can never
@@ -71,26 +72,23 @@ import { resolveToolClip } from "./tool-clips.js";
 // already set when a card's first effect runs; the set is an idempotent cache.
 const liveRunMessageIds = new Set<string>();
 
-export function clearLiveRunMessagesForTests() {
-  liveRunMessageIds.clear();
-}
-
 // Tool-timeline header label — tool-oriented wording ("Used N tools") so the
 // block reads as tool use rather than the generic "Thinking…". While the turn
 // is live the header IS the status line: the running step's own label, or
 // "Thinking…" between two steps — one truncated line, the list one click away.
-export function toolTimelineLabel(
+function toolTimelineLabel(
+  t: (key: string, options?: Record<string, unknown>) => string,
   count: number,
   liveLabel: string | null = null
 ): (isStreaming: boolean, duration?: number) => string {
   return (isStreaming, duration) => {
     if (isStreaming) {
-      return liveLabel ?? "Thinking…";
+      return liveLabel ?? t("transcript.thinking");
     }
     if (typeof duration === "number") {
-      return `Worked for ${duration}s`;
+      return t("transcript.workedFor", { seconds: duration });
     }
-    return count === 1 ? "Used 1 tool" : `Used ${count} tools`;
+    return t("transcript.usedTools", { count });
   };
 }
 
@@ -120,7 +118,7 @@ function isInteractiveDecisionToolResolved(part: ToolPartLike): boolean {
     return parseDecisionResolution(part.output) !== null;
   }
   if (toolName === "requestFeedback") {
-    return parseFeedbackResolution(part.output) !== null;
+    return readDecisionResumeAnswer(part.output) !== null;
   }
   if (toolName === "workflow_propose") {
     // Any output means the call is past its park: the publish decision came
@@ -170,6 +168,40 @@ export function isChainOfThoughtToolPart(part: unknown): boolean {
   return !(
     isInteractiveDecisionToolPart(c.part) ||
     isStandaloneCardToolPart(c.part, c.toolName)
+  );
+}
+
+/**
+ * Whether the collapsed tool timeline shows a streaming turn's status — its
+ * header's step label and timer. True while a step runs, and through the
+ * turn's tool phase: the last thing it did is a step, or reasoning after
+ * one, with no answer text yet. The transcript's trailing status line steps
+ * aside exactly then; at every other moment it is the only status on screen
+ * (reasoning has no renderer of its own).
+ */
+export function toolTimelineCarriesStatus(parts: readonly unknown[]): boolean {
+  let hasStep = false;
+  let lastMeaningful: unknown = null;
+  for (const part of parts) {
+    const kind = classifyPart(part).kind;
+    if (kind === "skip") {
+      continue;
+    }
+    lastMeaningful = part;
+    if (!isChainOfThoughtToolPart(part)) {
+      continue;
+    }
+    hasStep = true;
+    const state = getToolState(part as ToolPartLike);
+    if (state === "running" || state === "pending") {
+      return true;
+    }
+  }
+  return (
+    hasStep &&
+    lastMeaningful !== null &&
+    (isChainOfThoughtToolPart(lastMeaningful) ||
+      isReasoningPart(lastMeaningful))
   );
 }
 
@@ -619,14 +651,10 @@ export function CopilotMessageContent({
     }
     return false;
   });
-  const lastMeaningfulIndex = classified.findLastIndex(
-    (c) => c.kind !== "skip"
-  );
-  const lastThought = toolThoughtParts.at(-1);
   const isThoughtStreaming =
     isCurrentlyStreaming &&
-    (runningThought !== undefined ||
-      (lastThought !== undefined && lastThought.index === lastMeaningfulIndex));
+    toolThoughtParts.length > 0 &&
+    toolTimelineCarriesStatus(parts);
   const liveLabel =
     runningThought &&
     (runningThought.kind.kind === "tool" ||
@@ -634,7 +662,12 @@ export function CopilotMessageContent({
       runningThought.kind.kind === "skill")
       ? resolveThoughtStepLabel(runningThought.kind)
       : null;
-  const thoughtElapsed = useElapsedSeconds(isThoughtStreaming);
+  // The turn's clock, not the timeline's: handing the status between this
+  // header and the transcript's trailing line must not restart the count.
+  const thoughtElapsed = useElapsedSeconds(
+    isThoughtStreaming,
+    useTurnStartedAt()
+  );
 
   const showChainOfThought =
     toolDetail === "developer" && toolThoughtParts.length > 0;
@@ -661,7 +694,7 @@ export function CopilotMessageContent({
           isStreaming={isThoughtStreaming}
         >
           <ChainOfThoughtHeader
-            getLabel={toolTimelineLabel(toolThoughtParts.length, liveLabel)}
+            getLabel={toolTimelineLabel(t, toolThoughtParts.length, liveLabel)}
             trailing={
               isThoughtStreaming
                 ? `${toolThoughtParts.length > 1 ? `${toolThoughtParts.length} · ` : ""}${formatElapsedSeconds(thoughtElapsed)}`

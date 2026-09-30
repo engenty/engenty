@@ -8,6 +8,7 @@ export {
   isLocalDbReachable,
   restartLocalDb,
 } from "./db/local-db.js";
+export { resolveSupabaseCliBin } from "./db/supabase-cli-bin.js";
 export { registerDeployCommands } from "./deploy/deploy-commands.js";
 export { registerDevCommands } from "./dev/dev-commands.js";
 export { registerDoctorCommands } from "./doctor/doctor-commands.js";

@@ -7,7 +7,7 @@ import {
 } from "../platform-bindings-snapshot.js";
 
 const bindings = bindingsFromList([
-  { gateway: "vercel", modelId: "bound/medium", role: "model.medium" },
+  { gateway: "vercel", modelId: "bound/medium", role: "model.normal" },
   { gateway: "openrouter", modelId: "bound/fast", role: "fast_text" },
 ]);
 
@@ -52,7 +52,7 @@ describe("resolveChatModelId", () => {
     );
     setPlatformBindings(
       bindingsFromList([
-        { gateway: "vercel", modelId: "x", role: "model.medium" },
+        { gateway: "vercel", modelId: "x", role: "model.normal" },
       ])
     );
     expect(() => resolveChatModelId({ purpose: "fast_text" })).toThrow(

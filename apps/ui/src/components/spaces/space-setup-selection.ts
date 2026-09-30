@@ -298,21 +298,3 @@ export function selectionToPayload(selection: SpaceSelection): Array<{
       : {}),
   }));
 }
-
-/** `Kunde Müller GmbH` → `kunde-mueller-gmbh`, matching `spaces_key_format_check`. */
-export function spaceKeyFromName(name: string): string {
-  const folded = name
-    .trim()
-    .toLowerCase()
-    .replace(/ä/g, "ae")
-    .replace(/ö/g, "oe")
-    .replace(/ü/g, "ue")
-    .replace(/ß/g, "ss")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-  return folded
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 63)
-    .replace(/-+$/, "");
-}

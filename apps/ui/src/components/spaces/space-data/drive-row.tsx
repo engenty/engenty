@@ -140,7 +140,7 @@ function Indented({
   );
 }
 
-function ChildRows({
+export function ChildRows({
   context,
   depth,
   nodes,
@@ -168,11 +168,14 @@ function ChildRows({
 function DataChildren({
   context,
   depth,
+  hideEmpty = false,
   moduleId,
   path,
 }: {
   context: DriveRowContext;
   depth: number;
+  /** Rows above already fill the section; an empty folder adds nothing. */
+  hideEmpty?: boolean;
   moduleId: string;
   path: string;
 }) {
@@ -197,7 +200,7 @@ function DataChildren({
   return (
     <>
       <ChildRows context={context} depth={depth} nodes={nodes} />
-      {nodes.length === 0 ? (
+      {nodes.length === 0 && !hideEmpty ? (
         <Indented depth={depth}>{t("spaces.data.emptyFolder")}</Indented>
       ) : null}
       {truncated ? (
@@ -218,11 +221,14 @@ function FolderChildren({
   context,
   depth,
   folderId,
+  hideEmpty = false,
   node,
 }: {
   context: DriveRowContext;
   depth: number;
   folderId: string | null;
+  /** Rows above already fill the section; an empty folder adds nothing. */
+  hideEmpty?: boolean;
   node: DriveNode;
 }) {
   const { t } = useTranslation("common");
@@ -245,7 +251,7 @@ function FolderChildren({
   return (
     <>
       <ChildRows context={context} depth={depth} nodes={nodes} />
-      {nodes.length === 0 ? (
+      {nodes.length === 0 && !hideEmpty ? (
         <Indented depth={depth}>{t("spaces.data.emptyFolder")}</Indented>
       ) : null}
     </>
@@ -544,37 +550,67 @@ export function RootSectionBody({
   context: DriveRowContext;
   section: {
     children: DriveNode[];
+    extra?: DriveNode[];
     root: DriveNode | null;
   };
 }) {
+  const extra = section.extra ?? [];
+  const extraRows = extra.map((node) =>
+    node.dataPath && node.moduleId ? (
+      <DataChildren
+        context={context}
+        depth={-1}
+        hideEmpty
+        key={node.id}
+        moduleId={node.moduleId}
+        path={node.dataPath}
+      />
+    ) : null
+  );
   if (!section.root) {
-    return <ChildRows context={context} depth={-1} nodes={section.children} />;
+    return (
+      <>
+        {extraRows}
+        <ChildRows context={context} depth={-1} nodes={section.children} />
+      </>
+    );
   }
   const expansion = expansionOf(section.root);
   if (expansion?.kind === "eager") {
     return (
-      <ChildRows context={context} depth={-1} nodes={expansion.children} />
+      <>
+        {extraRows}
+        <ChildRows context={context} depth={-1} nodes={expansion.children} />
+      </>
     );
   }
   if (expansion?.kind === "data") {
     return (
-      <DataChildren
-        context={context}
-        depth={-1}
-        moduleId={expansion.moduleId}
-        path={expansion.path}
-      />
+      <>
+        {extraRows}
+        <DataChildren
+          context={context}
+          depth={-1}
+          hideEmpty={extra.length > 0}
+          moduleId={expansion.moduleId}
+          path={expansion.path}
+        />
+      </>
     );
   }
   if (expansion?.kind === "files") {
     return (
-      <FolderChildren
-        context={context}
-        depth={-1}
-        folderId={expansion.folderId}
-        node={section.root}
-      />
+      <>
+        {extraRows}
+        <FolderChildren
+          context={context}
+          depth={-1}
+          folderId={expansion.folderId}
+          hideEmpty={extra.length > 0}
+          node={section.root}
+        />
+      </>
     );
   }
-  return null;
+  return extraRows;
 }

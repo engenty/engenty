@@ -13,6 +13,7 @@ import type {
   UiPluginSummary,
   UiRouteContribution,
   UiSettingsItemContribution,
+  UiSpaceSectionContribution,
   UiSpaceTabContribution,
   UiTabContribution,
 } from "@engenty/ui-plugin-sdk";
@@ -487,6 +488,30 @@ function normalizeTabs(items: UiTabContribution[]) {
   };
 }
 
+function normalizeSpaceSections(items: UiSpaceSectionContribution[]) {
+  const sorted = [...items].sort(byOrderThenLabel);
+  // Section ids are unique per plugin, not globally — two modules may each
+  // ship a "pinned" section.
+  const dedupe = dedupeByKey({
+    items: sorted,
+    key: (item) => `${item.pluginId}::${item.id}`,
+  });
+
+  return {
+    items: dedupe.deduped,
+    diagnostics: dedupe.duplicates.map((item) =>
+      diagnostic({
+        code: "plugin.registration.duplicate_space_section",
+        level: "warn",
+        message: `duplicate space section "${item.id}" from plugin "${item.pluginId}" was ignored.`,
+        pluginId: item.pluginId,
+        remediation: "Register each space section id once per plugin.",
+        sourceInfo: sourceInfoFor(item),
+      })
+    ),
+  };
+}
+
 /** Host-owned space sections — a plugin cannot claim these ids. */
 const RESERVED_SPACE_TAB_IDS = new Set(["work", "data", "settings"]);
 
@@ -822,6 +847,13 @@ export async function resolveUiPlugins(params: {
     ...cleanupParams,
     kind: "space tab",
   });
+  const spaceSections = removeStaleOwnedContributions(
+    filtered.spaceSections ?? [],
+    {
+      ...cleanupParams,
+      kind: "space section",
+    }
+  );
   const chatCommands = removeStaleOwnedContributions(
     filtered.chatCommands ?? [],
     {
@@ -898,6 +930,7 @@ export async function resolveUiPlugins(params: {
   });
   const tabsNormalized = normalizeTabs(tabs);
   const spaceTabsNormalized = normalizeSpaceTabs(spaceTabs);
+  const spaceSectionsNormalized = normalizeSpaceSections(spaceSections);
   const chatCommandsNormalized = normalizeChatCommands(chatCommands);
 
   diagnostics.push(
@@ -910,6 +943,7 @@ export async function resolveUiPlugins(params: {
     ...settingsNormalized.diagnostics,
     ...tabsNormalized.diagnostics,
     ...spaceTabsNormalized.diagnostics,
+    ...spaceSectionsNormalized.diagnostics,
     ...chatCommandsNormalized.diagnostics
   );
 
@@ -928,6 +962,7 @@ export async function resolveUiPlugins(params: {
       liveBindings,
       navigationPrefetch: navigationPrefetchNormalized.items,
       settingsItems: settingsItemsWithCategory,
+      spaceSections: spaceSectionsNormalized.items,
       spaceTabs: spaceTabsNormalized.items,
       tabs: tabsNormalized.items,
     },

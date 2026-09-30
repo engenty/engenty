@@ -416,7 +416,7 @@
       "agent": "Den Arbeitsplatz eines anderen Agenten in diesem Space öffnen (auch /engenty, /bot)",
       "context": "Anzeigen, was der Agent in diesem Chat sieht",
       "copilot": "Deinen Copilot öffnen oder ihm die dahinter getippte Nachricht schicken",
-      "effort": "Festlegen, wie gründlich die nächsten Antworten nachdenken",
+      "effort": "Die nächsten Antworten auf Normal oder Extra stellen",
       "help": "Alle Befehle anzeigen",
       "learn": "Was in diesem Gespräch funktioniert hat, als Skill festhalten",
       "remember": "Eine Notiz im Gedächtnis dieses Agenten ablegen",
@@ -443,14 +443,6 @@
       "connectorsDescription": "Externe Dienste, die dieser Agent erreichen kann.",
       "managedByLabel": "Zuständiges Modul",
       "mandateTitle": "Was er macht",
-      "memoryTitle": "Gedächtnis",
-      "memoryDescription": "MEMORY.md — die Notizen, die sich dieser Engenty hier selbst macht, eine datierte Zeile pro Fakt. Er schreibt und vergisst selbst; du kannst korrigieren.",
-      "memoryEmpty": "Noch nichts gemerkt.",
-      "memoryPlaceholder": "- 2026-09-03: ein Fakt pro Zeile",
-      "memorySave": "Speichern",
-      "memoryClear": "Leeren",
-      "memoryCount": "{{count}} / {{max}} Zeichen",
-      "memoryTooLarge": "Zu lang — höchstens {{max}} Zeichen.",
       "tasksTitle": "Aufgaben (TASKS.md)",
       "tasksDescription": "TASKS.md — die eigenen offenen Punkte und Ziele dieses Engenty. Privat: nichts davon wird delegiert oder ist für andere sichtbar; Arbeit für andere gehört in die Aufgaben-App. Erledigtes verschwindet nach 7 Tagen.",
       "tasksEmpty": "Nichts offen.",
@@ -462,7 +454,7 @@
       "padEdit": "Bearbeiten",
       "padCancel": "Abbrechen",
       "instructionsTitle": "Anweisungen (AGENTS.md)",
-      "instructionsDescription": "AGENTS.md — wer dieser Engenty ist und wie er arbeitet, so wie jeder Lauf es liest. Änderungen hier gelten für das ganze Unternehmen; der eigene Text des Moduls bzw. der Anstellung bleibt darunter erhalten und lässt sich wiederherstellen.",
+      "instructionsDescription": "AGENTS.md — wer dieser Engenty ist und wie er arbeitet, so wie jeder Lauf es liest. Änderungen hier gelten für die ganze Organisation; der eigene Text des Moduls bzw. der Anstellung bleibt darunter erhalten und lässt sich wiederherstellen.",
       "instructionsEmpty": "Keine Anweisungen.",
       "instructionsPlaceholder": "# Rolle\n…",
       "instructionsSave": "Speichern",
@@ -609,6 +601,10 @@
         "copyJson": "Als JSON kopieren",
         "copyMarkdown": "Als Markdown kopieren",
         "copyId": "ID kopieren"
+      },
+      "rail": {
+        "dismiss": "Ausblenden",
+        "waiting": "Wartet auf dich"
       }
     },
     "subAgent": {
@@ -667,7 +663,7 @@
       "workspace": "Arbeitsbereich"
     },
     "memory": {
-      "hint": "Was dieser Engenty sich merkt — pro Space. Der Lauf schreibt es; du kannst korrigieren oder leeren.",
+      "hint": "Was dieser Engenty sich merkt — pro Space. Der Lauf schreibt es; du kannst korrigieren oder entfernen.",
       "loading": "Spaces werden geladen…",
       "noSpaces": "Kein Space, dessen Gedächtnis gelesen werden könnte.",
       "space": "Space"
@@ -707,7 +703,7 @@
     "saveFailed": "Der Agent konnte nicht gespeichert werden.",
     "saving": "Wird gespeichert…",
     "scopeField": "Agentenbereich",
-    "scopeHint": "Persönliche Agenten speichern benutzereigenen Zustand. Gemeinsame Agenten speichern Unternehmenszustand pro aktivem Bereich.",
+    "scopeHint": "Persönliche Agenten speichern benutzereigenen Zustand. Gemeinsame Agenten speichern Organisationszustand pro aktivem Bereich.",
     "scopePersonal": "Persönlich — ein Benutzer",
     "scopeShared": "Gemeinsam — ein Bereich",
     "spacesEmpty": "Es sind keine Spaces verfügbar, auf denen dieser Agent montiert werden kann.",
@@ -920,6 +916,8 @@
     "untitled": "Artefakt"
   },
   "artifacts": {
+    "viewOpenFullPage": "Vollständige Seite öffnen",
+    "viewNoPage": "Diese Seite kann hier nicht angezeigt werden.",
     "paneLabel": "Artefakte",
     "empty": "In dieser Sitzung veröffentlichte Artefakte werden hier angezeigt.",
     "liveSurface": "Dashboard",
@@ -1127,40 +1125,61 @@
   "effort": {
     "ariaLabel": "Aufwand wählen",
     "label": "Aufwand",
-    "notInPlan": "Nicht in deinem Tarif enthalten",
+    "notInPlan": "Nicht im Plan",
     "choice": {
       "auto": {
-        "label": "Automatisch",
-        "desc": "Engenty bestimmt den Aufwand pro Anfrage."
+        "label": "Erben",
+        "desc": "Übernimmt den Standard des Workspaces."
       },
-      "low": {
-        "label": "Niedrig",
-        "desc": "Schnelle Abfragen und kurze Änderungen."
-      },
-      "medium": {
-        "label": "Mittel",
-        "desc": "Alltagsarbeit — der ausgewogene Standard."
+      "normal": {
+        "label": "Normal",
+        "desc": "Schnelles Modell für die meiste Arbeit."
       },
       "high": {
-        "label": "Hoch",
-        "desc": "Schwierige Aufgaben, die mehr Nachdenken wert sind."
+        "label": "Extra",
+        "desc": "Stärkeres Modell für schwierige Arbeit."
       }
     },
     "tiers": {
-      "title": "Aufwandsstufen",
-      "description": "Wie viel Nachdenken dieser Workspace einkaufen darf. Nutzer wählen eine Stufe, nie eine Modell-ID; die Plattform bindet jede Stufe an ein Modell.",
-      "managedNote": "Dein Tarif bestimmt, welche Aufwandsstufen dieser Workspace nutzen kann.",
-      "keepOne": "Mindestens eine Stufe muss verfügbar bleiben.",
-      "save": "Stufen speichern",
-      "loadError": "Aufwandsstufen konnten nicht geladen werden."
+      "title": "Extra",
+      "description": "Mit Extra antwortet ein stärkeres, teureres Modell. Normal ist immer verfügbar.",
+      "extraAllowed": "Extra erlaubt",
+      "extraAllowedHint": "Nutzer können einen Chat auf Extra stellen, und Engenty bietet es bei größeren Aufgaben an.",
+      "managedNote": "Dein Tarif bestimmt, ob dieser Workspace Extra nutzen kann.",
+      "loadError": "Aufwandseinstellungen konnten nicht geladen werden."
     },
     "expert": {
       "toggle": "Expertenmodus: Modelle per ID festpinnen",
       "hint": "Self-Hosted- und Experten-Installationen können weiterhin ein Modell je Zweck festpinnen. Ein gepinntes Modell schlägt die Aufwandsstufe.",
       "pickModel": "Modell wählen…"
     },
-    "autoResolvedInline": "Auto: {{effort}}",
-    "autoActiveHint": "derzeit aktiv"
+    "mode": {
+      "normal": {
+        "label": "Normal",
+        "desc": "Für die meisten Aufgaben."
+      },
+      "extra": {
+        "label": "Extra",
+        "desc": "Stärkeres Modell für schwierige Aufgaben."
+      },
+      "custom": {
+        "label": "Individuell",
+        "desc": "Ein bestimmtes Modell wählen."
+      }
+    },
+    "reasoning": {
+      "label": "Denkaufwand",
+      "default": "Standard",
+      "low": "Niedrig",
+      "medium": "Mittel",
+      "high": "Hoch"
+    },
+    "offer": {
+      "title": "Das sieht nach einer größeren Aufgabe aus",
+      "body": "Mit Extra antwortet das stärkere Modell. Der Chat bleibt bis zum nächsten Kapitel auf Extra.",
+      "extra": "Mit Extra senden",
+      "normal": "Mit Normal senden"
+    }
   },
   "fields": {
     "chatModel": "Chat-Modell",
@@ -2138,7 +2157,21 @@
     "loadOlder": "Ältere Nachrichten laden",
     "loadingOlder": "Lädt…",
     "showMore": "Mehr anzeigen",
-    "showLess": "Weniger anzeigen"
+    "showLess": "Weniger anzeigen",
+    "thinking": "Denkt nach…",
+    "workedFor": "{{seconds}} s gearbeitet",
+    "usedTools_one": "{{count}} Tool verwendet",
+    "usedTools_other": "{{count}} Tools verwendet"
+  },
+  "statusTicker": {
+    "collapseSteps": "Letzte Schritte ausblenden",
+    "done": "Fertig",
+    "error": "Fehler",
+    "expandSteps": "Letzte Schritte anzeigen",
+    "somethingWentWrong": "Etwas ist schiefgelaufen.",
+    "stale": "Nicht aktuell",
+    "thinking": "Denkt nach…",
+    "waiting": "Wartet…"
   },
   "appReview": {
     "headline": "Release {{version}} ({{sha}}) wartet auf dich.",
@@ -2231,6 +2264,31 @@
       "caption": "Browser von {{name}}",
       "open": "Browser öffnen",
       "absentHint": "Noch kein Browser läuft. Starte ihn, damit dieser Engenty im Web arbeiten kann – du siehst hier live zu."
+    },
+    "chat": {
+      "title": "Browser",
+      "watchLive": "Live ansehen",
+      "openPane": "Im Browser-Panel öffnen",
+      "screenshotAlt": "Screenshot von {{page}}",
+      "enlarge": "Größer anzeigen",
+      "screenshotTitle": "Was der Engenty sieht"
+    },
+    "credentials": {
+      "goesTo": "Geht direkt in die Seite auf",
+      "private": "Was du eingibst, landet nur in der Seite. Der Engenty sieht es nie, und es wird nicht gespeichert.",
+      "fill": "In die Seite eintragen",
+      "filling": "Wird eingetragen…",
+      "decline": "Nicht jetzt",
+      "filled": "Eingetragen",
+      "errors": {
+        "origin_changed": "Die Seite ist inzwischen auf einer anderen Website. Es wurde nichts eingetragen.",
+        "field_missing": "Ein Feld ist nicht mehr auf der Seite. Es wurde nichts weiter eingetragen – bitte den Engenty, es erneut zu versuchen.",
+        "not_a_password_field": "Das Passwortfeld ist kein Passwort-Eingabefeld. Es wurde nichts eingetragen.",
+        "not_an_input": "Ein markiertes Feld ist kein Eingabefeld. Es wurde nichts eingetragen.",
+        "not_found": "Diese Anfrage ist abgelaufen. Frag den Engenty noch einmal.",
+        "expired": "Diese Anfrage ist abgelaufen. Frag den Engenty noch einmal.",
+        "fill_failed": "Eintragen fehlgeschlagen. Versuch es erneut oder übernimm im Browser."
+      }
     }
   },
   "gateSurface": {
@@ -2296,7 +2354,6 @@
     "nothingToCompact": "Nichts Neues seit dem letzten Eintrag.",
     "empty": "Noch kein Verlauf. Die Unterhaltung wird täglich und wöchentlich zusammengefasst – oder jetzt, wenn du es sagst.",
     "weekOf": "Woche vom {{date}}",
-    "keepInMind": "Im Kopf behalten",
     "backToNow": "Zurück zu jetzt",
     "everywhere": "Außerhalb eines Space",
     "kind": {
@@ -2309,12 +2366,54 @@
     "label": "{{name}}s Copilot",
     "labelSibilant": "{{name}}' Copilot"
   },
-  "workingMemory": {
-    "title": "Gedächtnis",
-    "subtitle": "Das stets verfügbare Profil, das der Copilot über dich pflegt. Es aktualisiert sich selbst; Zurücksetzen ist die einzige Bearbeitung.",
-    "reset": "Zurücksetzen",
+  "memoryEntries": {
     "loading": "Lädt…",
-    "empty": "Noch kein Profil."
+    "empty": "Noch nichts gemerkt.",
+    "add": "Hinzufügen",
+    "addPlaceholder": "Ein Fakt, ein Satz",
+    "edit": "Bearbeiten",
+    "save": "Speichern",
+    "remove": "Entfernen",
+    "count": "{{count}} / {{max}} Zeichen",
+    "saveFailed": "Speichern fehlgeschlagen.",
+    "agentTitle": "Gedächtnis",
+    "agentDescription": "Was sich dieser Engenty für seine Arbeit hier merkt, eine Zeile pro Fakt. Er merkt und vergisst selbst; du kannst korrigieren.",
+    "userTitle": "Was deine Assistenten über dich wissen",
+    "userDescription": "Fakten über dich, die jeder Assistent sieht, wenn du allein mit ihm sprichst — nie in Räumen oder geteilten Threads.",
+    "spaceTitle": "Space-Gedächtnis",
+    "spaceDescription": "Was jeder Agent in diesem Space in jedem Zug erfährt.",
+    "companyTitle": "Organisations-Gedächtnis",
+    "companyDescription": "Was jeder Agent in jedem Space erfährt. Ein Agent fragt um Freigabe, bevor er hier etwas ergänzt.",
+    "working": {
+      "title": "Jetzt",
+      "hint": "Wie es gerade ist. Ein neuer Wert ersetzt den alten; Agenten halten ihn aus Gesprächen aktuell.",
+      "empty": "Nicht gesetzt",
+      "save": "Speichern",
+      "edit": "{{field}} bearbeiten",
+      "clear": "Leeren",
+      "fields": {
+        "user": {
+          "language": "Sprache",
+          "role": "Rolle",
+          "timezone": "Zeitzone",
+          "current_focus": "Aktueller Fokus"
+        },
+        "space": {
+          "purpose": "Zweck",
+          "current_focus": "Aktueller Fokus",
+          "language": "Sprache"
+        },
+        "company": {
+          "about": "Über uns",
+          "language": "Sprache",
+          "priorities": "Prioritäten"
+        },
+        "agent": {
+          "job": "Aufgabe hier",
+          "style": "Wie liefern"
+        }
+      }
+    }
   },
   "uiGuideFollowUp": {
     "withTitle": "{{action}} — Guide: {{title}}",
@@ -2344,7 +2443,9 @@
       "rooms": "Raum",
       "settings": "Einstellungen",
       "other": "Seite"
-    }
+    },
+    "workingSet": "Arbeitsgedächtnis aktualisiert",
+    "workingCleared": "Feld im Arbeitsgedächtnis geleert"
   },
   "messageActions": {
     "openInPane": "In Seitenleiste öffnen",
@@ -2440,5 +2541,14 @@
     "tools": "Werkzeuge",
     "loadFailed": "Der Skill konnte nicht geladen werden.",
     "empty": "Dieser Skill hat keine Anleitung."
+  },
+  "chatCommandsHelp": {
+    "title": "Chat-Befehle",
+    "description": "Alle Befehle, die dieser Chat anbietet.",
+    "search": "Befehle suchen …",
+    "empty": "Keine Befehle gefunden.",
+    "hintSlash": "Befehlsmenü",
+    "hintMention": "Agenten, Personen, Einträge erwähnen",
+    "close": "Schließen"
   }
 }

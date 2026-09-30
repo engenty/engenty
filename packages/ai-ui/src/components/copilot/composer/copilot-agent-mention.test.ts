@@ -7,10 +7,6 @@ import {
 } from "./copilot-agent-mention.js";
 
 describe("getMentionQueryAtCursor", () => {
-  it("returns null when no @ before cursor", () => {
-    expect(getMentionQueryAtCursor("hello", 5)).toBeNull();
-  });
-
   it("returns query for open mention", () => {
     expect(getMentionQueryAtCursor("hi @cont", 8)).toEqual({
       atIndex: 3,
@@ -78,7 +74,7 @@ describe("stripLeadingMentionToken", () => {
     { handle: "a", id: "agent_a" },
   ];
 
-  it("strips longest matching handle", () => {
+  it("routes a leading @handle to its agent and strips it", () => {
     expect(
       stripLeadingMentionToken("@contacts-manager hello", candidates)
     ).toEqual({

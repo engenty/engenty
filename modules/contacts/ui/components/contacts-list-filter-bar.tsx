@@ -1,10 +1,4 @@
-import {
-  ListFilterSelectTrigger,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectValue,
-} from "@engenty/ui-core";
+import { Tabs, TabsList, TabsTrigger } from "@engenty/ui-core";
 import type { ContactRole } from "../api.js";
 
 const ROLE_ALL_VALUE = "__all__";
@@ -17,6 +11,7 @@ export interface ContactsListFilterBarProps {
   roleOptions: Array<{ value: string; label: string }>;
 }
 
+/** Role filter as a button group: All, then the tenant's visible roles. */
 export function ContactsListFilterBar({
   filterByRoleLabel,
   onRoleChange,
@@ -24,37 +19,28 @@ export function ContactsListFilterBar({
   roleFilter,
   roleOptions,
 }: ContactsListFilterBarProps) {
-  const options = roleOptions.some((opt) => opt.value === roleFilter)
-    ? roleOptions
-    : roleFilter
+  // A role from the URL that the menu hides still gets its button.
+  const options =
+    roleFilter && !roleOptions.some((opt) => opt.value === roleFilter)
       ? [...roleOptions, { value: roleFilter, label: roleFilter }]
       : roleOptions;
 
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-2">
-      <Select
-        onValueChange={(v) =>
-          onRoleChange(v === ROLE_ALL_VALUE ? "" : (v as ContactRole))
-        }
-        value={roleFilter && roleFilter !== "" ? roleFilter : ROLE_ALL_VALUE}
-      >
-        <ListFilterSelectTrigger className="w-[min(100%,11rem)] shrink-0 sm:w-[140px]">
-          <SelectValue placeholder={filterByRoleLabel}>
-            {roleFilter && roleFilter !== ""
-              ? (options.find((o) => o.value === roleFilter)?.label ??
-                roleFilter)
-              : roleAllLabel}
-          </SelectValue>
-        </ListFilterSelectTrigger>
-        <SelectContent align="start" side="bottom" sideOffset={4}>
-          <SelectItem value={ROLE_ALL_VALUE}>{roleAllLabel}</SelectItem>
-          {options.map((opt) => (
-            <SelectItem key={opt.value} value={opt.value}>
-              {opt.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
+    <Tabs
+      className="min-w-0 max-w-full overflow-x-auto"
+      onValueChange={(v) =>
+        onRoleChange(v === ROLE_ALL_VALUE ? "" : (v as ContactRole))
+      }
+      value={roleFilter || ROLE_ALL_VALUE}
+    >
+      <TabsList aria-label={filterByRoleLabel} className="w-fit">
+        <TabsTrigger value={ROLE_ALL_VALUE}>{roleAllLabel}</TabsTrigger>
+        {options.map((opt) => (
+          <TabsTrigger key={opt.value} value={opt.value}>
+            {opt.label}
+          </TabsTrigger>
+        ))}
+      </TabsList>
+    </Tabs>
   );
 }

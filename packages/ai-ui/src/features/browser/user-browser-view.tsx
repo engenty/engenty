@@ -15,7 +15,7 @@
  * and the strip is portalled there, leaving the view itself borderless.
  */
 import { useTranslation } from "@engenty/i18n/ui";
-import { useMutation } from "@engenty/query-client";
+import { useMutation, useQueryClient } from "@engenty/query-client";
 import { Button, cn } from "@engenty/ui-core";
 import {
   ArrowLeft,
@@ -34,6 +34,7 @@ import type { BrowserTarget } from "./browser-target.js";
 import {
   mintUserBrowserTicket,
   resolveUserBrowserWsUrl,
+  userBrowserQueryKey,
 } from "./user-browser-api.js";
 
 export type UserBrowserSeat = "agent" | "free" | "user";
@@ -60,6 +61,14 @@ const MOD_META = 4;
 const MOD_SHIFT = 8;
 /** The page is laid out as a desktop window, whatever the pane's width. */
 const VIEWPORT_WIDTH = 1280;
+/**
+ * A view whose browser closed or whose socket dropped (apps/ai restarted)
+ * reconnects: opening a view is what brings a dropped connection back, and
+ * the container may well still run. Backed off (a restart takes seconds) and
+ * bounded, so a browser that really is gone does not spin.
+ */
+const RECONNECT_DELAY_MS = 2000;
+const RECONNECT_ATTEMPTS = 5;
 
 /** What a tab chip says: the title, else the host, else "new tab". */
 function tabLabel(tab: TabInfo, untitled: string): string {
@@ -99,6 +108,7 @@ export function UserBrowserView({
   onSeatChange,
   onStop,
   preview = false,
+  resizePage = true,
   stopPending,
   target,
 }: {
@@ -117,11 +127,19 @@ export function UserBrowserView({
    * the agent's screen. The person takes over in the full view.
    */
   preview?: boolean;
+  /**
+   * Lay the page out to this view's box. One view should: the browser pane.
+   * A second view (the chat's) watches at whatever size the page has, or the
+   * two would resize it back and forth.
+   */
+  resizePage?: boolean;
   stopPending?: boolean;
   /** The Space's browser and the agent window to show. */
   target: BrowserTarget;
 }) {
   const { t } = useTranslation("ai-ui");
+  const queryClient = useQueryClient();
+  const { spaceId } = target;
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const boxRef = useRef<HTMLDivElement | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
@@ -133,6 +151,7 @@ export function UserBrowserView({
   // The address bar shows the page's URL until the person starts editing.
   const [draft, setDraft] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const reconnects = useRef(0);
 
   const send = useCallback((message: Record<string, unknown>) => {
     const socket = socketRef.current;
@@ -144,6 +163,11 @@ export function UserBrowserView({
   const connect = useMutation({
     mutationFn: () => mintUserBrowserTicket(target),
     onError: () => {
+      // Mid-reconnect, apps/ai may still be coming back: try again.
+      if (reconnects.current > 0) {
+        setStatus("closed");
+        return;
+      }
       setStatus("error");
       setError(t("browser.view.unavailable"));
     },
@@ -233,13 +257,45 @@ export function UserBrowserView({
     };
   }, [connectMutate]);
 
+  // The browser closed or the socket dropped under an open view: drop the
+  // stale tabs, re-check the container (stopped → the panel swaps to Start)
+  // and reconnect.
+  useEffect(() => {
+    if (status === "streaming") {
+      reconnects.current = 0;
+      return;
+    }
+    if (status !== "browser_closed" && status !== "closed") {
+      return;
+    }
+    setTabs((prev) => (prev.length === 0 ? prev : []));
+    if (reconnects.current >= RECONNECT_ATTEMPTS) {
+      return;
+    }
+    const timer = setTimeout(
+      () => {
+        reconnects.current += 1;
+        queryClient.invalidateQueries({
+          queryKey: userBrowserQueryKey({ spaceId }),
+        });
+        const socket = socketRef.current;
+        socketRef.current = null;
+        socket?.close();
+        setStatus("connecting");
+        connectMutate();
+      },
+      RECONNECT_DELAY_MS * (reconnects.current + 1)
+    );
+    return () => clearTimeout(timer);
+  }, [connectMutate, queryClient, spaceId, status]);
+
   // The page is always a desktop-wide window; its height follows the box's
   // shape, and the canvas scales it down to fit. Re-sent whenever the box
   // changes (pane resize, split, expand) and once the stream is up. A preview
   // only watches — it never resizes the page.
   const requestViewport = useCallback(() => {
     const box = boxRef.current;
-    if (!box || preview) {
+    if (!box || preview || !resizePage) {
       return;
     }
     const { clientHeight, clientWidth } = box;
@@ -250,7 +306,7 @@ export function UserBrowserView({
         width: VIEWPORT_WIDTH,
       });
     }
-  }, [preview, send]);
+  }, [preview, resizePage, send]);
   useEffect(() => {
     const box = boxRef.current;
     if (!box) {
@@ -309,12 +365,24 @@ export function UserBrowserView({
     });
   };
 
-  const canDrive = status !== "error" && status !== "closed";
+  const canDrive =
+    status !== "error" && status !== "closed" && status !== "browser_closed";
   const tabAction = (action: "close" | "new" | "switch", index?: number) => {
     if (!holding) {
       return;
     }
     send({ action, type: "tabs", ...(index === undefined ? {} : { index }) });
+  };
+  // Closing a tab is how a person stops something going wrong, so it does
+  // not wait for "take over": the click takes the seat, then closes.
+  const closeTab = (index: number) => {
+    if (!canDrive) {
+      return;
+    }
+    if (!holding) {
+      send({ action: "take", type: "seat" });
+    }
+    send({ action: "close", index, type: "tabs" });
   };
   const navAction = (action: "back" | "reload") => {
     if (holding) {
@@ -332,8 +400,8 @@ export function UserBrowserView({
   const embedded = Boolean(chromeSlot);
 
   // The tabs: chips in the pane's top bar when embedded, otherwise a strip
-  // above the toolbar. Switching, opening and closing need the seat, like
-  // any other input.
+  // above the toolbar. Switching and opening need the seat, like any other
+  // input; closing takes it.
   const tabStrip = (
     <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto">
       {tabs.map((tab) => (
@@ -359,11 +427,11 @@ export function UserBrowserView({
           >
             {tabLabel(tab, t("browser.view.tabs.untitled"))}
           </button>
-          {holding && tabs.length > 1 ? (
+          {canDrive && tabs.length > 1 ? (
             <button
               aria-label={t("browser.view.tabs.close")}
               className="shrink-0 rounded-sm p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
-              onClick={() => tabAction("close", tab.index)}
+              onClick={() => closeTab(tab.index)}
               type="button"
             >
               <X aria-hidden className="size-3" />
@@ -494,7 +562,7 @@ export function UserBrowserView({
   );
 
   return (
-    <div className={cn("flex min-h-0 flex-col", className)}>
+    <div className={cn("flex min-h-0 flex-col", className)} data-browser-view>
       {chromeSlot && !preview ? createPortal(tabStrip, chromeSlot) : null}
       {preview ? null : embedded ? (
         toolbar

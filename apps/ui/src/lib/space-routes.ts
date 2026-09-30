@@ -201,7 +201,7 @@ export function spaceDataFolderPath(
 }
 
 /**
- * The Artifacts / Ablage root: `/s/<key>/data?as=artifacts`.
+ * The Artifacts / Dokumente root: `/s/<key>/data?as=artifacts`.
  *
  * Artifacts have no data path and no DriveNode that stands for the section —
  * they nest by `parent_id`. This listing is that missing folder: the same

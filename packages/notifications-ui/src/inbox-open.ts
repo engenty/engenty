@@ -1,10 +1,10 @@
 // Open the rail bell's inbox from anywhere — the dashboard's "All (n)", a
-// per-agent "2 important" pill. The rail bell is mounted once per shell and
+// per-agent pill, the desktop shell after a native banner. The rail bell is mounted once per shell and
 // is the only listener, so a request opens exactly one popover.
 import { useEffect, useRef } from "react";
-import type { NotificationLaneFilter } from "./classification.js";
 
-export type InboxLane = Exclude<NotificationLaneFilter, "all">;
+/** The bell's two tabs: what needs a person, and FYI. */
+export type InboxLane = "attention" | "updates";
 
 export interface InboxOpenRequest {
   /** Narrow the list to one actor (an agent's id). */

@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { AuthScreenLayout } from "../components/auth-screen-layout";
 import { useInitialSetupGateCheck } from "../hooks/use-initial-setup-gate-check";
+import { LIVE_SERVER_SETUP_API } from "../lib/setup-api";
 import { InitialSetupWizard } from "./initial-setup-wizard";
 
 export function InitialSetupPage() {
@@ -13,5 +14,10 @@ export function InitialSetupPage() {
     return <AuthScreenLayout message="Checking..." />;
   }
 
-  return <InitialSetupWizard onComplete={(path) => navigate(path)} />;
+  return (
+    <InitialSetupWizard
+      api={LIVE_SERVER_SETUP_API}
+      onComplete={(path) => navigate(path)}
+    />
+  );
 }

@@ -105,14 +105,14 @@ export function readEngentyPluginsManifest(repoRoot) {
     rawPlugins = engenty.plugins;
   } else if (Array.isArray(engenty.plugins)) {
     throw new Error(
-      'engenty.plugins must be an object map — use { "my-plugin": { "source": "workspace" } }'
+      'engenty.plugins must be an object map — use { "my-plugin": "workspace" }'
     );
   } else if (Array.isArray(engenty.modules)) {
     // The pre-plugins manifest shape. Accepted silently until 2026-08-04; no
     // manifest in the repo used it, so it fails loudly now rather than quietly
     // reading a format nothing writes. Mirrors packages/environment.
     throw new Error(
-      'engenty.modules (array) is no longer supported — use engenty.plugins: { "my-plugin": { "source": "workspace" } }'
+      'engenty.modules (array) is no longer supported — use engenty.plugins: { "my-plugin": "workspace" }'
     );
   } else {
     rawPlugins = {};
@@ -424,6 +424,112 @@ export function resolveEnabledModules(repoRoot, options = {}) {
   return modules;
 }
 
+/** Release stages, lowest first — twin of PLUGIN_STAGES in @engenty/plugin-sdk. */
+const MODULE_STAGES = ["dev", "alpha", "beta", "stable"];
+
+/**
+ * The install's stage: `ENGENTY_MODULE_STAGE` from the environment, else from
+ * the repo-root `.env` / `.env.local` (these scripts run before anything loads
+ * them; core applies the same layers at boot, env first). Unset means `beta`.
+ */
+export function installModuleStage(repoRoot) {
+  let value = process.env.ENGENTY_MODULE_STAGE?.trim();
+  if (!value) {
+    for (const file of [".env", ".env.local"]) {
+      const filePath = path.join(repoRoot, file);
+      if (!fs.existsSync(filePath)) {
+        continue;
+      }
+      const match = fs
+        .readFileSync(filePath, "utf8")
+        .match(
+          /^\s*(?:export\s+)?ENGENTY_MODULE_STAGE\s*=\s*["']?([^"'\s#]*)/m
+        );
+      if (match?.[1]) {
+        value = match[1];
+      }
+    }
+  }
+  if (!value) {
+    return "beta";
+  }
+  if (!MODULE_STAGES.includes(value)) {
+    throw new Error(
+      `ENGENTY_MODULE_STAGE must be one of: ${MODULE_STAGES.join(", ")} (got "${value}")`
+    );
+  }
+  return value;
+}
+
+/** Twin of isModuleStageInstalled in @engenty/plugin-sdk. */
+function isModuleStageInstalled(stage, installStage) {
+  const resolved = stage ?? "stable";
+  return (
+    resolved === "alpha" ||
+    MODULE_STAGES.indexOf(resolved) >= MODULE_STAGES.indexOf(installStage)
+  );
+}
+
+/**
+ * The enabled modules split by `ENGENTY_MODULE_STAGE`: `installed` (what this
+ * install has) and `leftOut` (below its stage and not alpha, see
+ * isModuleStageInstalled). The UI bundle and the migrations are built from
+ * `installed`; `leftOut` migrations are held back.
+ *
+ * Throws when an installed module `requires` a left-out one: that install
+ * would load a module whose dependency is missing.
+ */
+export function partitionModulesByStage(repoRoot, options = {}) {
+  const installStage = installModuleStage(repoRoot);
+  const installed = [];
+  const leftOut = [];
+  for (const mod of resolveEnabledModules(repoRoot, options)) {
+    if (isModuleStageInstalled(mod.manifest.stage, installStage)) {
+      installed.push(mod);
+    } else {
+      leftOut.push(mod);
+    }
+  }
+  const leftOutByCapability = new Map();
+  for (const mod of leftOut) {
+    const provides = Array.isArray(mod.manifest.provides)
+      ? mod.manifest.provides
+      : [];
+    for (const capability of [mod.slug, `module.${mod.slug}`, ...provides]) {
+      leftOutByCapability.set(capability, mod);
+    }
+  }
+  const broken = [];
+  for (const mod of installed) {
+    const requires = Array.isArray(mod.manifest.requires)
+      ? mod.manifest.requires
+      : [];
+    for (const capability of requires) {
+      const missing = leftOutByCapability.get(capability);
+      if (missing) {
+        broken.push(
+          `${mod.slug} requires ${capability}, but ${missing.slug} is stage "${missing.manifest.stage}"`
+        );
+      }
+    }
+  }
+  if (broken.length > 0) {
+    throw new Error(
+      [
+        `Modules left out at ENGENTY_MODULE_STAGE=${installStage} are required by installed ones:`,
+        ...broken.map((line) => `  - ${line}`),
+        "Raise the required module's stage, or lower the dependent one's.",
+      ].join("\n")
+    );
+  }
+  return { installStage, installed, leftOut };
+}
+
+/** The enabled modules this install has — see partitionModulesByStage. */
+export function resolveInstalledModules(repoRoot, options = {}) {
+  return partitionModulesByStage(repoRoot, options).installed;
+}
+
 export function enabledModuleSlugSet(repoRoot) {
   return new Set(readEngentyPluginsManifest(repoRoot).slugs);
 }
@@ -438,8 +544,9 @@ export function filterModuleDirectoryNames(repoRoot, directoryNames) {
 }
 
 function serializePluginEntry(spec) {
+  // The short form: a plain workspace module is one line.
   if (spec.source === "workspace" && Object.keys(spec.config).length === 0) {
-    return { source: "workspace" };
+    return "workspace";
   }
   return { source: spec.source, ...spec.config };
 }
@@ -456,10 +563,7 @@ export function writeEngentyPluginsObject(repoRoot, plugins) {
   const nextPlugins = {};
   for (const [rawSlug, value] of Object.entries(plugins)) {
     const slug = parsePluginSlug(rawSlug);
-    nextPlugins[slug] =
-      typeof value === "string"
-        ? serializePluginEntry(parsePluginEntry(slug, value))
-        : serializePluginEntry(parsePluginEntry(slug, value));
+    nextPlugins[slug] = serializePluginEntry(parsePluginEntry(slug, value));
   }
 
   const next = {
@@ -486,7 +590,7 @@ export function enablePluginsInManifest(repoRoot, slugs) {
   }
   for (const rawSlug of slugs) {
     const slug = parsePluginSlug(rawSlug);
-    next[slug] = { source: "workspace" };
+    next[slug] = "workspace";
   }
   writeEngentyPluginsObject(
     repoRoot,

@@ -21,7 +21,10 @@ import {
   type AgentEngentyKind,
   resolveAgentEngenty,
 } from "@engenty/ai-core/browser";
-import { useEffectiveAiSettingsQuery } from "@engenty/ai-ui";
+import {
+  MemoryEntriesSection,
+  useEffectiveAiSettingsQuery,
+} from "@engenty/ai-ui";
 import { SpaceIconFace } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
@@ -1086,6 +1089,17 @@ export function SpaceSettingsPage() {
               rows={skillRows}
             />
           </SettingsFormSection>
+
+          {/* What every Engenty in this space is told on every turn: its
+              working memory (purpose, focus, language) and the facts kept for
+              it. Any member may change it; agents write it too. */}
+          {spaceId ? (
+            <MemoryEntriesSection
+              description={t("spaces.settings.memoryHint")}
+              entryKey={{ scope: "space", spaceId }}
+              title={t("spaces.settings.memoryTitle")}
+            />
+          ) : null}
 
           <SettingsFormSection
             cardVariant="flush"

@@ -3,13 +3,14 @@
  * keeps (read-only — not on the row, applied at every run) and, once a
  * template is picked, the tools and skills that template adds on top.
  */
+
+import type { SpaceAgentHireTemplate } from "@engenty/ai-core/browser";
 import {
   LIVE_HIRE_SKILL_IDS,
   LIVE_HIRE_TOOL_IDS,
 } from "@engenty/ai-core/browser";
 import { useTranslation } from "@engenty/i18n/ui";
 import { Badge } from "@engenty/ui-core";
-import type { SpaceAgentHireTemplate } from "./space-agent-hire";
 
 const FLOOR_TOOLS = new Set<string>(LIVE_HIRE_TOOL_IDS);
 const FLOOR_SKILLS = new Set<string>(LIVE_HIRE_SKILL_IDS);

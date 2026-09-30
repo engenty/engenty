@@ -15,6 +15,7 @@ import {
   text,
 } from "@clack/prompts";
 import { resolveSupabaseCliBin } from "../db/supabase-cli-bin.js";
+import { isInteractiveTerminal } from "../select-loop.js";
 import { needsAttention, renderScopeReport } from "./env-check.js";
 import { diffScope, generatableGaps, type ScopeReport } from "./env-diff.js";
 import { renderExampleFile } from "./env-example-render.js";
@@ -54,6 +55,8 @@ interface WizardState {
   docs: Map<EnvScope, EnvDocument>;
   features: Set<string>;
   scopes: EnvScope[];
+  /** No TTY: take every default and skip the prompts instead of hanging on them. */
+  unattended: boolean;
   workspaceRoot: string;
 }
 
@@ -152,6 +155,10 @@ async function selectFeatures(
     )
     .map((feature) => feature.id);
 
+  if (state.unattended) {
+    state.features = new Set(preselected);
+    return;
+  }
   const picked = await multiselect({
     initialValues: preselected,
     message:
@@ -187,10 +194,12 @@ async function generateSecrets(
   }
 
   const keys = [...new Set(gaps.map((gap) => gap.spec.key))].join(", ");
-  const go = await confirm({
-    initialValue: true,
-    message: `Generate missing secrets locally (${keys})?`,
-  });
+  const go = state.unattended
+    ? true
+    : await confirm({
+        initialValue: true,
+        message: `Generate missing secrets locally (${keys})?`,
+      });
   if (isCancel(go)) {
     return CANCELLED;
   }
@@ -319,10 +328,12 @@ async function harvestSupabase(
         `${spec.key} (${scope}) = ${spec.secret ? maskSecret(value) : value}`
     )
     .join("\n");
-  const go = await confirm({
-    initialValue: true,
-    message: `Write these Supabase values?\n${preview}`,
-  });
+  const go = state.unattended
+    ? true
+    : await confirm({
+        initialValue: true,
+        message: `Write these Supabase values?\n${preview}`,
+      });
   if (isCancel(go)) {
     return CANCELLED;
   }
@@ -393,24 +404,26 @@ async function chooseDevUrls(
   const portlessInstalled = fs.existsSync(
     path.join(state.workspaceRoot, "node_modules", ".bin", "portless")
   );
-  const choice = await select({
-    initialValue: "localhost",
-    message: "How will you open engenty?",
-    options: [
-      {
-        hint: "pnpm dev · the default; nothing else to install",
-        label: "http://localhost:5173",
-        value: "localhost",
-      },
-      {
-        hint: portlessInstalled
-          ? "pnpm dev:portless · HTTPS via the Portless proxy, several checkouts side by side"
-          : "not available — the portless CLI is not installed in this checkout",
-        label: "https://engenty.localhost (Portless)",
-        value: "portless",
-      },
-    ],
-  });
+  const choice = state.unattended
+    ? "localhost"
+    : await select({
+        initialValue: "localhost",
+        message: "How will you open engenty?",
+        options: [
+          {
+            hint: "pnpm dev · the default; nothing else to install",
+            label: "http://localhost:5173",
+            value: "localhost",
+          },
+          {
+            hint: portlessInstalled
+              ? "pnpm dev:portless · HTTPS via the Portless proxy, several checkouts side by side"
+              : "not available — the portless CLI is not installed in this checkout",
+            label: "https://engenty.localhost (Portless)",
+            value: "portless",
+          },
+        ],
+      });
   if (isCancel(choice)) {
     return CANCELLED;
   }
@@ -465,6 +478,9 @@ async function chooseDevUrls(
 async function promptProviderVars(
   state: WizardState
 ): Promise<typeof CANCELLED | undefined> {
+  if (state.unattended) {
+    return;
+  }
   const pending = specsFor(state).filter(
     ({ scope, spec }) =>
       (spec.obtain.kind === "provider" || spec.obtain.kind === "manual") &&
@@ -587,6 +603,7 @@ export async function runEnvInitWizard(
     docs: new Map(),
     features: new Set(),
     scopes,
+    unattended: !isInteractiveTerminal(),
     workspaceRoot: resolveWorkspaceRoot(),
   };
 

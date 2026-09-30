@@ -53,7 +53,6 @@ async function drive(agent: unknown, overrides: Record<string, unknown> = {}) {
     agent,
     agentId: "engenty.copilot",
     emit: (e) => emitted.push(e as never as Record<string, unknown>),
-    isStopOnResult: () => false,
     prompt: "go",
     resourceId: "resource-1",
     runId: "run-1",
@@ -214,89 +213,6 @@ describe("I3/16: the resume correlation key", () => {
     // A parked call is legitimately resultless — closing it with an error would
     // settle the very approval card the user is about to answer.
     expect(accumulator.getUnresolvedToolCalls()).toEqual([]);
-  });
-});
-
-describe("I3/17: stopping on a tool RESULT", () => {
-  it("aborts the run and withholds the result", async () => {
-    // `requestFeedback` returns its artifact as a RESULT rather than suspending,
-    // and the model would answer straight past it. The caller renders the
-    // interactive interrupt instead, so the plain result must not reach the wire.
-    const feedback = createTool({
-      id: "requestFeedback",
-      description: "ask",
-      inputSchema: z.object({}),
-      execute: async () => ({
-        artifact_id: "art-1",
-        artifact_type: "feedback",
-        title: "What do you think?",
-      }),
-    });
-    let call = 0;
-    const agent = new Agent({
-      name: "start-fixture",
-      instructions: "test",
-      model: new MockLanguageModelV3({
-        doStream: async () => {
-          call += 1;
-          return call === 1
-            ? {
-                stream: simulateReadableStream({
-                  chunks: [
-                    { type: "stream-start", warnings: [] },
-                    {
-                      type: "tool-call",
-                      toolCallId: "call-fb",
-                      toolName: "requestFeedback",
-                      input: "{}",
-                    },
-                    { type: "finish", finishReason: "tool-calls", usage },
-                  ],
-                }),
-              }
-            : {
-                stream: simulateReadableStream({
-                  chunks: [
-                    { type: "stream-start", warnings: [] },
-                    { type: "text-start", id: "t2" },
-                    {
-                      type: "text-delta",
-                      id: "t2",
-                      delta: "talking past the question",
-                    },
-                    { type: "text-end", id: "t2" },
-                    { type: "finish", finishReason: "stop", usage },
-                  ],
-                }),
-              };
-        },
-      } as never) as never,
-      storage: new InMemoryStore(),
-      tools: { requestFeedback: feedback },
-    } as never);
-
-    const { accumulator, emitted, outcome } = await drive(agent, {
-      isStopOnResult: (result: unknown) =>
-        (result as { artifact_type?: string })?.artifact_type === "feedback",
-    });
-
-    expect(outcome.artifact?.toolCallId).toBe("call-fb");
-    expect(outcome.runError).toBeNull();
-    // The plain result never reached the wire...
-    expect(
-      emitted.filter((e) => e.type === EventType.TOOL_CALL_RESULT)
-    ).toHaveLength(0);
-    // ...but the durable part DID record it, or the next turn cannot see what
-    // was asked.
-    expect(JSON.stringify(accumulator.getTranscriptParts())).toContain(
-      "What do you think?"
-    );
-    // And the model did not get to answer past it.
-    expect(
-      emitted.some((e) =>
-        String(e.delta ?? "").includes("talking past the question")
-      )
-    ).toBe(false);
   });
 });
 

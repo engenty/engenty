@@ -25,6 +25,7 @@ import {
   setUserBrowserStopListener,
   type UserBrowserIdentity,
 } from "../sandbox/space-browser.js";
+import { readWindowTab, writeWindowTab } from "./browser-window-tabs.js";
 
 const logger = createLogger({ name: "apps/ai/user-browser-registry" });
 
@@ -58,9 +59,17 @@ export interface BrowserWindowIdentity extends UserBrowserIdentity {
 
 interface Entry {
   browser: AgentBrowser | null;
+  /** A tab claim in flight: two views opening at once claim one tab. */
+  claiming: Promise<void> | null;
   identity: BrowserWindowIdentity;
-  /** The agent's own tab has been opened on the current connection. */
-  ownTab: boolean;
+  /** The connection (`sharedManager`) the own tab was claimed on. */
+  ownTabManager: unknown;
+  /**
+   * The CDP target of the agent's own tab. It outlives a dropped connection
+   * (the tab stays open in Chromium), so a reconnect finds it again instead
+   * of opening another.
+   */
+  ownTargetId: string | null;
   sandboxId: string;
   seat: Seat;
   windowKey: string;
@@ -114,8 +123,10 @@ function entryFor(identity: BrowserWindowIdentity): Entry {
   if (!entry) {
     entry = {
       browser: null,
+      claiming: null,
       identity,
-      ownTab: false,
+      ownTabManager: null,
+      ownTargetId: null,
       sandboxId: buildUserBrowserSandboxId(identity),
       seat: newSeat(),
       windowKey,
@@ -180,27 +191,88 @@ export function getUserBrowser(identity: BrowserWindowIdentity): AgentBrowser {
         viewport: { height: 900, width: 1440 },
       })
     );
-    entry.browser.onBrowserClosed(() => {
-      // The container went away underneath us (stop, idle, crash). Drop the
-      // handle so the next use reconnects instead of reusing a dead socket.
-      const current = entries.get(entry.windowKey);
-      if (current?.browser === entry.browser) {
-        current.browser = null;
-        current.ownTab = false;
-        releaseSeatEntirely(current);
-      }
-    });
+    // The connection dropped (container stop, idle, crash). The handle is
+    // kept: Mastra relaunches it on the next `ensureReady`, and live views
+    // (`ViewerRegistry`) are subscribed to THIS object's ready/closed events —
+    // a new handle would leave them showing "closed" forever.
+    entry.browser.onBrowserClosed(() => releaseSeatEntirely(entry));
   }
   return entry.browser;
 }
 
+/** The slice of agent-browser's `BrowserManager` a window needs. */
+interface WindowManager {
+  getPages(): CdpPage[];
+  newTab(): Promise<{ index: number }>;
+  switchTo(index: number): Promise<unknown>;
+}
+interface CdpPage {
+  context(): {
+    newCDPSession(page: CdpPage): Promise<{
+      detach(): Promise<void>;
+      send(method: "Target.getTargetInfo"): Promise<{
+        targetInfo: { targetId: string };
+      }>;
+    }>;
+  };
+}
+
+async function targetIdOf(page: CdpPage | undefined): Promise<string | null> {
+  if (!page) {
+    return null;
+  }
+  try {
+    const session = await page.context().newCDPSession(page);
+    try {
+      return (await session.send("Target.getTargetInfo")).targetInfo.targetId;
+    } finally {
+      await session.detach().catch(() => undefined);
+    }
+  } catch {
+    return null;
+  }
+}
+
 /**
- * Connect this window and make sure it has a tab of its own. A CDP connection
- * sees every page of the browser and starts on the first one — another
- * agent's — so the first use opens a fresh tab and keeps driving it.
- * `sharedManager` is not in the provider's public types; it is the
- * `agent-browser` manager Mastra's own tools drive, and `newTab()` is how
- * its `browser_tabs` tool opens one.
+ * Switch to the window's tab if it is still open, else open a new one. The
+ * tab is known from this process, or — after a restart, the browser having
+ * outlived it — from the record beside the Space's profile.
+ */
+async function claimOwnTab(
+  entry: Entry,
+  manager: WindowManager
+): Promise<void> {
+  entry.ownTargetId ??= await readWindowTab(
+    entry.identity,
+    entry.identity.agentId
+  );
+  if (entry.ownTargetId) {
+    const pages = manager.getPages();
+    for (const [index, page] of pages.entries()) {
+      if ((await targetIdOf(page)) === entry.ownTargetId) {
+        await manager.switchTo(index);
+        return;
+      }
+    }
+  }
+  const opened = await manager.newTab();
+  entry.ownTargetId = await targetIdOf(manager.getPages()[opened.index]);
+  if (entry.ownTargetId) {
+    await writeWindowTab(
+      entry.identity,
+      entry.identity.agentId,
+      entry.ownTargetId
+    );
+  }
+}
+
+/**
+ * Connect this window and make sure it drives a tab of its own. A CDP
+ * connection sees every page of the browser and starts on the first one —
+ * another agent's — so each new connection claims the window's tab: the one
+ * it had, if the browser still has it, else a fresh one. `sharedManager` is
+ * not in the provider's public types; it is the `agent-browser` manager
+ * Mastra's own tools drive, and a relaunch replaces it.
  */
 export async function ensureBrowserWindow(
   identity: BrowserWindowIdentity
@@ -208,22 +280,22 @@ export async function ensureBrowserWindow(
   const entry = entryFor(identity);
   const browser = getUserBrowser(identity);
   await browser.ensureReady();
-  if (!entry.ownTab) {
-    const manager = (
-      browser as unknown as { sharedManager?: { newTab(): Promise<unknown> } }
-    ).sharedManager;
-    if (!manager) {
-      throw new Error("browser_window_unavailable: no browser manager");
-    }
-    await manager.newTab();
-    entry.ownTab = true;
+  const manager = (browser as unknown as { sharedManager?: WindowManager })
+    .sharedManager;
+  if (!manager) {
+    throw new Error("browser_window_unavailable: no browser manager");
+  }
+  if (entry.ownTabManager !== manager) {
+    entry.claiming ??= claimOwnTab(entry, manager)
+      .then(() => {
+        entry.ownTabManager = manager;
+      })
+      .finally(() => {
+        entry.claiming = null;
+      });
+    await entry.claiming;
   }
   return browser;
-}
-
-/** The registry's browser for a window, if one is connected. */
-export function peekUserBrowser(windowKey: string): AgentBrowser | null {
-  return entries.get(windowKey)?.browser ?? null;
 }
 
 export function getSeat(windowKey: string): {
@@ -349,7 +421,8 @@ export function releaseUserSeat(windowKey: string): void {
 /**
  * Close every window's CDP session for a container that is about to stop (or
  * has). The container's stop is not this module's job — `space-browser.ts`
- * owns it and calls here first through the stop listener below.
+ * owns it and calls here first through the stop listener below. The handles
+ * stay (see `getUserBrowser`); the tabs go with the container.
  */
 export async function closeUserBrowserSession(
   sandboxId: string
@@ -358,10 +431,10 @@ export async function closeUserBrowserSession(
     if (entry.sandboxId !== sandboxId) {
       continue;
     }
-    const browser = entry.browser;
-    entry.browser = null;
-    entry.ownTab = false;
+    entry.ownTargetId = null;
+    entry.ownTabManager = null;
     releaseSeatEntirely(entry);
+    const browser = entry.browser;
     if (!browser) {
       continue;
     }

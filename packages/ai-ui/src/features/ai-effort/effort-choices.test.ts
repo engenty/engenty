@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   buildEffortChoiceOptions,
   isEffortRestricted,
-  resolveEffortChoice,
   toEffortGrant,
 } from "./effort-choices.js";
 
@@ -13,56 +12,31 @@ function allowedValues(allowedEfforts: string[] | null) {
 }
 
 describe("buildEffortChoiceOptions", () => {
-  it("offers every tier when the plan places no restriction", () => {
-    expect(allowedValues(null)).toEqual(["auto", "low", "medium", "high"]);
-    expect(allowedValues([])).toEqual(["auto", "low", "medium", "high"]);
+  it("offers Normal and Extra when the plan places no restriction", () => {
+    expect(allowedValues(null)).toEqual(["auto", "normal", "high"]);
+    expect(allowedValues([])).toEqual(["auto", "normal", "high"]);
   });
 
-  it("does not offer high on a plan that grants only low", () => {
-    const options = buildEffortChoiceOptions(["low"]);
-    expect(allowedValues(["low"])).toEqual(["auto", "low"]);
-    // Withheld tiers stay visible (disabled) so the plan boundary is legible.
+  it("keeps Extra visible but not offered on a Normal-only plan", () => {
+    const options = buildEffortChoiceOptions(["normal"]);
+    expect(allowedValues(["normal"])).toEqual(["auto", "normal"]);
     expect(options.map((option) => option.value)).toEqual([
       "auto",
-      "low",
-      "medium",
+      "normal",
       "high",
     ]);
-    expect(options.find((option) => option.value === "high")?.allowed).toBe(
-      false
-    );
   });
 
-  it("ignores tiers a newer service invented", () => {
-    expect(allowedValues(["low", "extreme"])).toEqual(["auto", "low"]);
-    expect(toEffortGrant(["extreme"]).allowed_efforts).toBeNull();
-  });
-});
-
-describe("resolveEffortChoice", () => {
-  it("keeps a granted choice", () => {
-    expect(resolveEffortChoice("high", ["low", "medium", "high"])).toBe("high");
-    expect(resolveEffortChoice("medium", null)).toBe("medium");
-  });
-
-  it("degrades downward rather than refusing", () => {
-    expect(resolveEffortChoice("high", ["low"])).toBe("low");
-    expect(resolveEffortChoice("high", ["low", "medium"])).toBe("medium");
-  });
-
-  it("gives the cheapest granted tier when nothing sits at or below", () => {
-    expect(resolveEffortChoice("low", ["high"])).toBe("high");
-  });
-
-  it("leaves auto alone — the router sizes it inside the grant", () => {
-    expect(resolveEffortChoice("auto", ["low"])).toBe("auto");
+  it("ignores tiers it does not know (the retired low / medium)", () => {
+    expect(allowedValues(["normal", "medium"])).toEqual(["auto", "normal"]);
+    expect(toEffortGrant(["low"]).allowed_efforts).toBeNull();
   });
 });
 
 describe("isEffortRestricted", () => {
-  it("is true only when a tier is withheld", () => {
+  it("is true only when Extra is withheld", () => {
     expect(isEffortRestricted(null)).toBe(false);
-    expect(isEffortRestricted(["low", "medium", "high"])).toBe(false);
-    expect(isEffortRestricted(["low", "medium"])).toBe(true);
+    expect(isEffortRestricted(["normal", "high"])).toBe(false);
+    expect(isEffortRestricted(["normal"])).toBe(true);
   });
 });

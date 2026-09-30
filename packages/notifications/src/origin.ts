@@ -42,8 +42,10 @@ export interface ResolvedOrigin {
 
 /**
  * Resolve an actor + space into labels. An unknown agent id stays an agent
- * (the gate said so) with the id as its label, so the row still says
- * something rather than nothing.
+ * (the gate said so) with the id as its label, so the title keeps its
+ * `{actor}` — a module agent has no registry row here. The UI says the
+ * agent's name from its space roster when it knows one
+ * (`registerNotificationActorName`).
  */
 export async function resolveOrigin(
   input: {

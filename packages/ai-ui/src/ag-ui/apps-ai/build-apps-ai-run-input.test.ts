@@ -206,7 +206,7 @@ describe("buildAppsAiRunInput", () => {
 describe("buildAppsAiResumeRunInput", () => {
   it("builds RunAgentInput with official resume entries only", () => {
     const input = buildAppsAiResumeRunInput({
-      effort: "low",
+      effort: "normal",
       frontendTools: [],
       modelId: "openai/gpt-4.1-mini",
       pathname: "/mdl/engenty-copilot/chat/session-1",
@@ -229,7 +229,7 @@ describe("buildAppsAiResumeRunInput", () => {
     expect(RunAgentInputSchema.parse(input)).toEqual(input);
     expect(input.messages).toEqual([]);
     expect(input.forwardedProps).toMatchObject({
-      engenty: { effort: "low", model_id: "openai/gpt-4.1-mini" },
+      engenty: { effort: "normal", model_id: "openai/gpt-4.1-mini" },
     });
     expect(input.resume).toEqual([
       {

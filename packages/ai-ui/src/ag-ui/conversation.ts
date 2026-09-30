@@ -53,6 +53,7 @@ type Action =
   | { type: "append_user_message"; message: Message }
   | { type: "event"; event: EngentyAgUiEvent }
   | { type: "hydrate"; messages: Message[]; state?: EngentyAgUiState }
+  | { type: "remove_message"; messageId: string }
   | { type: "reset" };
 
 const EMPTY_STATE: EngentyAgUiState = {};
@@ -617,6 +618,13 @@ export function applyEngentyAgUiConversationAction(
         messages: keepUnchangedMessages(current.messages, action.messages),
         ...(action.state ? { state: action.state } : {}),
       };
+    case "remove_message":
+      return {
+        ...current,
+        messages: current.messages.filter(
+          (message) => message.id !== action.messageId
+        ),
+      };
     case "reset":
       return createInitialState();
   }
@@ -854,6 +862,10 @@ export function useEngentyAgUiConversation(
     }, []),
     applyEvent: useCallback((event: EngentyAgUiEvent) => {
       dispatch({ type: "event", event });
+    }, []),
+    /** Take back a user turn the server refused before recording it. */
+    removeMessage: useCallback((messageId: string) => {
+      dispatch({ type: "remove_message", messageId });
     }, []),
     reset: useCallback(() => {
       dispatch({ type: "reset" });

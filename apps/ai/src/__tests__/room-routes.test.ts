@@ -220,7 +220,7 @@ describe("room routes", () => {
     expect(people.has(otherUserId)).toBe(false);
   });
 
-  it("lists only the caller's rooms and DMs", async () => {
+  it("lists only the caller's rooms and DMs, never the copilot's river", async () => {
     const { app, store } = harness();
     const res = await app.request(
       `http://x/ai/spaces/${spaceId}/conversations`
@@ -236,11 +236,10 @@ describe("room routes", () => {
       tenantId,
       userId,
     });
-    expect(store.listDmsForUser).toHaveBeenCalledWith({
-      spaceId: null,
-      tenantId,
-      userId,
-    });
+    // The river has no Space; it lives in the app bar, not in a Space's list.
+    expect(store.listDmsForUser).not.toHaveBeenCalledWith(
+      expect.objectContaining({ spaceId: null })
+    );
   });
 
   it("opens a DM once: the same private row on every call", async () => {

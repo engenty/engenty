@@ -1,7 +1,703 @@
 [
   {
+    "version": "v0.2.24",
+    "timestamp": 1790745770,
+    "commits": [
+      {
+        "id": "a98e548",
+        "message": "regenerate the README module table",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "bf6221c",
+        "message": "allow a module's ops scripts a real Supabase client",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "33f3038",
+        "message": "use the soft line token in the sidebar search and task card",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "154d8a1",
+        "message": "sidebar search below the nav and tabs, with the module's Engentys",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "1e7a1a9",
+        "message": "sidebar filters and add menu next to the search",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "7b01c6c",
+        "message": "sidebar nav above the search, search right above its list",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "f170bd4",
+        "message": "sidebar search sits right above the contacts list it searches",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "f499359",
+        "message": "the Space's Module list leaves out supporting modules",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "6a57cf0",
+        "message": "the agent's browser in the chat — setup, marked-up screenshots, live view, logins",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "65752fa",
+        "message": "keep the Space browser and its live view alive across restarts",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "62f5c75",
+        "message": "space tabs inside modules, animated level change",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "ea0486c",
+        "message": "briefing only under Plan, not on the space home",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "1011dc5",
+        "message": "no doubled title after an inline edit",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "67abb2c",
+        "message": "covers for projects",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "ae7f061",
+        "message": "share the knowledge base's covers as @engenty/covers",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "732c478",
+        "message": "a partial update no longer resets visibility and time planning",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "6fc9e66",
+        "message": "a calmer project overview and sidebar",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "c647614",
+        "message": "link the project context for tasks without a phase",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "872fe53",
+        "message": "one header row for a module opened in a space",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "14f73c3",
+        "message": "put the account choice first in the create member dialog",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "ad4826f",
+        "message": "lean projects by default, settings save on change",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "a2fe4d5",
+        "message": "pin projects to the space sidebar and home",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "522cb42",
+        "message": "let modules add sections to the space sidebar and home",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "b180d79",
+        "message": "create project tasks with the tasks dialog",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "f5bbb4f",
+        "message": "role filter shows plural role names",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "a96c972",
+        "message": "role filter as a button group on the list; agent rows look like Space desk rows",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "caed229",
+        "message": "sidebar shows one Contacts row and the module's Engentys",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "a62cc47",
+        "message": "agent folders sit directly in Dateien, named after the agent",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "7c57e89",
+        "message": "the Data search field matches the module sidebars",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "4f959ec",
+        "message": "make the context graph an optional alpha module",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "0372b42",
+        "message": "search the Data tab from the sidebar",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "787c309",
+        "message": "show Speicher and Kontextgraph to superadmins in developer mode only",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "a729301",
+        "message": "the Dateien page lists Engentys first, like the tree",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "8b88244",
+        "message": "Engentys live in Dateien; the Data tab hides empty sections",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "70e3ae7",
+        "message": "call the tenant \"Organisation\" in pro modules and the website",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "b37f628",
+        "message": "call the tenant \"Organisation\", never Firma or Company",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "12a8ab2",
+        "message": "label the Space's public folder \"Für die Firma\" in the Data tab",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "2dd68d9",
+        "message": "Documents are the AI-made documents only; Dateien stays the Files module",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "db56c39",
+        "message": "a Space computer's Apps live at /space/apps",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "58012d4",
+        "message": "Data tab shows the Space's folder — Documents, Apps, Engentys, Public",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "77ddae4",
+        "message": "pass the attachment folder to the shared upload helper",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "37ad919",
+        "message": "chat uploads land in the agent's Space folder",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "8449380",
+        "message": "rename the Space data section Ablage to Dokumente (Documents)",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "9f1766d",
+        "message": "files module moves to beta",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "a5ec8a5",
+        "message": "contacts manager runs computer commands without approval cards",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "28305fd",
+        "message": "contacts manager gets a computer; import skill checks and repairs files there",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "5efae2c",
+        "message": "file chat attachments under their thread",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "9519c94",
+        "message": "chat attachments on the computer, workspace_file_publish",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "b27bfbd",
+        "message": "import skill checks the file and says how to repair it",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "1a93dc1",
+        "message": "drop state covers the composer card, attachment errors can be closed",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "22ca8a3",
+        "message": "drop state in the composer, screen dropped files before they attach",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "930b84e",
+        "message": "drop files anywhere on the chat to attach them",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "6056610",
+        "message": "view pane re-renders when its page changes",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "1a1ed0c",
+        "message": "tell agents to open work pages with open_view, not navigate",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "206cef0",
+        "message": "keep a module agent's uiTools on the way into apps/ai",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "1364ad1",
+        "message": "move from alpha to beta",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "4d14427",
+        "message": "import skill opens the wizard beside the chat",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "fd766ed",
+        "message": "view pane and open_view tool",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "504845a",
+        "message": "open the wizard from a stored file and report its state",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "fa86744",
+        "message": "Normal / Extra composer with ask-before-high and a platform Custom list",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "2257a8f",
+        "message": "setup no longer hangs without a TTY, restarts Supabase on a stale schema cache, and dev syncs the URL block itself",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "0b60ddf",
+        "message": "engenty reset asks once after the checklist",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "9be93ab",
+        "message": "engenty reset checklist lists only positive actions",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "bc33d50",
+        "message": "engenty reset --bak backs up env files, and offers its options as a checklist",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "e435c09",
+        "message": "service-token commands run without booting plugins",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "d7cc6a2",
+        "message": "setup ends with pnpm dev:portless when the dev URLs are HTTPS",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "217c728",
+        "message": "stage roster for 0.3 — beta baseline, pro-only modules at dev, mandatory specialists and connections",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "e3154fb",
+        "message": "ship as alpha",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "aacd67e",
+        "message": "purge only its own tables in module_team",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "888f3b5",
+        "message": "purge an uninstalled module's data",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "e008889",
+        "message": "drop the per-tenant off state for dev modules",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "3507609",
+        "message": "dev modules are not installed below the install's stage",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "42d3672",
+        "message": "write engenty.plugins in the short form",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "8bb6969",
+        "message": "drop the agent-driven Pull new mail routine",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "18df671",
+        "message": "keep the copilot in the app bar only, not in the space sidebar",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "98cef5c",
+        "message": "show module stage and block dev modules per tenant",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "f3d017c",
+        "message": "hide modules by stage and mark supporting modules",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "dc816bf",
+        "message": "introduce tenant default handling for plugins and update plugin stage management",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "fcf3281",
+        "message": "offer engenty Apps in the space setup catalog",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "ed79f2f",
+        "message": "redesign the tenant setup wizard with live mockups and a done marker",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "f8eb14a",
+        "message": "Space memory lives in Space settings, not on the home",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "71e2154",
+        "message": "render next-themes' boot script as an inert data block",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "f67dc4f",
+        "message": "render next-themes' boot script as an inert data block",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "35679a4",
+        "message": "read shortcut registrations once instead of subscribing",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "95b1a1e",
+        "message": "memory as scoped rows plus per-scope working memory",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "da04342",
+        "message": "keep the reasoning marker's label light while its row is hovered",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "d329914",
+        "message": "an attached run whose process died no longer leaves the lane working",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "c1f95a3",
+        "message": "model access concept names the composer-options endpoint",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "a43f18c",
+        "message": "composer menu shows what each mode costs; sliding reasoning control",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "e0b77f2",
+        "message": "reasoning level on the model row, no model ids in the Custom flyout",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "7a1cc21",
+        "message": "the desk follows the run a Space home card started",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "474c698",
+        "message": "concept for model access and packages in the managed setup",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "3e47499",
+        "message": "Normal / Extra / Custom model choice in the composer",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "7cc3700",
+        "message": "keep the turn's status line while the agent works",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "7baf67f",
+        "message": "drop the scrapped hosted-coder note from the sandbox doctrine",
+        "group": "Docs",
+        "breaking": false
+      },
+      {
+        "id": "7ee7f8d",
+        "message": "the rail signal reads the reply from AG-UI message content",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "66da305",
+        "message": "requestFeedback suspends natively, like requestDecision",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "2b35498",
+        "message": "remove the drawer layout hook's dead floating-window code",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "4812b9c",
+        "message": "show the chat's status lines in the person's language",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "b930bd1",
+        "message": "remove the unrendered snap overlays, ticker snapshot prop and date-fns",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "9d17e5d",
+        "message": "accept only exact https/wss origins in an app frame's CSP",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "92b13de",
+        "message": "remove dead copilot code",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "0a3cca5",
+        "message": "remove dead chat-search health, tenant filters, MCP inventory and retired method stubs",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "1d753dc",
+        "message": "remove dead native-memory binders, revokeApp and isModelFeedableMime",
+        "group": "Changed",
+        "breaking": false
+      },
+      {
+        "id": "9531bb5",
+        "message": "the closed copilot signals from its blob in the app rail",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "128b325",
+        "message": "chat commands help dialog",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "535c55a",
+        "message": "explain team, spaces and copilot in the setup wizard",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "0609826",
+        "message": "live seen counts; open stacks without a controls row",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "4e2290d",
+        "message": "seen hands off alerts; mark-seen cards and a stable filter bar",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "55bf45c",
+        "message": "filter chip icon and classes; top scroll fade",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "7776994",
+        "message": "macOS hover actions on cards — close on the corner, arrow in place of the time",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "f703c6c",
+        "message": "expand every stack from a section heading; clear-all turns red on hover",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "01ce25c",
+        "message": "open a stack in place without a header row above the cards",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "9d9d5f5",
+        "message": "compact notification cards with agent stacks",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "ba9174b",
+        "message": "a wizards band that plays the offer wizard",
+        "group": "Added",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.2.23",
-    "timestamp": 1790499040,
+    "timestamp": 1790499052,
     "commits": [
       {
         "id": "ce726c6",

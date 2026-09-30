@@ -321,7 +321,7 @@
     "loading": "Loading...",
     "dragToReorder": "Drag to reorder"
   },
-  "senderCompanyFallback": "[Your company name]",
+  "senderCompanyFallback": "[Your organisation name]",
   "recipient": "Recipient",
   "changeClient": "Change client",
   "refreshFromClient": "Refresh from client",

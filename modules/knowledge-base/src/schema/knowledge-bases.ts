@@ -1,3 +1,4 @@
+import { type Cover, coverSchema } from "@engenty/covers";
 import { z } from "zod";
 import { type KbChunking, kbChunkingSchema } from "./chunking.js";
 import type { KbRootCommentsMode } from "./comments.js";
@@ -174,44 +175,7 @@ export function kbMergeArticlePropertyDefinitions(
   return merged;
 }
 
-/* ── Knowledge Base Cover ── */
-
 /** Attribution when the hub cover image came from Unsplash (stored with cover in KV). */
-export interface KbCoverImageSourceUnsplash {
-  kind: "unsplash";
-  photo_url: string;
-  photographer_name: string;
-  photographer_url: string;
-}
-
-export type KbCoverImageSource = KbCoverImageSourceUnsplash;
-
-/**
- * "color": solid hex/oklch; "gradient": CSS gradient string;
- * "image": HTTPS URL, or a vault object key (resolved to a signed URL in the hub UI).
- */
-export type KbCover =
-  | { type: "color"; value: string }
-  | { type: "gradient"; value: string }
-  | { type: "image"; value: string; source?: KbCoverImageSource };
-
-const kbCoverImageSourceSchema = z.object({
-  kind: z.literal("unsplash"),
-  photo_url: z.string().min(1).max(512),
-  photographer_name: z.string().min(1).max(128),
-  photographer_url: z.string().min(1).max(512),
-});
-
-export const kbCoverSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("color"), value: z.string().max(128) }),
-  z.object({ type: z.literal("gradient"), value: z.string().max(512) }),
-  z.object({
-    type: z.literal("image"),
-    value: z.string().min(1).max(2048),
-    source: kbCoverImageSourceSchema.optional(),
-  }),
-]);
-
 /* ── Knowledge Base ── */
 
 export interface KnowledgeBase {
@@ -228,7 +192,7 @@ export interface KnowledgeBase {
    * Optional cover — stored in `kb_settings` as KV row `kb.display` with
    * `context = { kb_id }`, not as a column on `knowledge_bases`. Populated by the API layer.
    */
-  cover: KbCover | null;
+  cover: Cover | null;
   created_at: string;
   created_by: string | null;
   deleted_at: string | null;
@@ -297,7 +261,7 @@ export const knowledgeBaseUpdateSchema = knowledgeBaseCreateSchema
     article_property_definitions: articlePropertyDefinitionsSchema.optional(),
     comments_mode: kbRootCommentsModeSchema.optional(),
     icon: z.string().max(10).nullable().optional(),
-    cover: kbCoverSchema.nullable().optional(),
+    cover: coverSchema.nullable().optional(),
     page_layout: kbPageLayoutSettingsSchema.optional(),
     /** `null` clears the library's own chunking so it follows the defaults again. */
     chunking: kbChunkingSchema.nullable().optional(),

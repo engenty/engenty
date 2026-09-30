@@ -85,6 +85,7 @@ import {
 } from "../security/auth-stores/index.js";
 import { createSupabaseClientFromConfig } from "../security/auth-stores/supabase.js";
 import { revokeTokenId } from "../security/token-revocation.js";
+import { createSpaceFolderAdapters } from "../space-data/space-folder-adapter.js";
 import { buildApiCatalog } from "./api-catalog.js";
 import { registerCoreApiCatalogProvider } from "./api-catalog-registration.js";
 import {
@@ -119,7 +120,11 @@ import { registerDesktopBootstrapRoutes } from "./routes/desktop-bootstrap-route
 import { registerEntitlementsRoutes } from "./routes/entitlements-routes.js";
 import { registerEvlogIngestRoutes } from "./routes/evlog-ingest-routes.js";
 import { registerFeatureFlagsRoutes } from "./routes/feature-flags-routes.js";
-import { registerFileStorageRoutes } from "./routes/file-storage-routes.js";
+import {
+  createFileStorageServiceFactory,
+  registerFileStorageRoutes,
+} from "./routes/file-storage-routes.js";
+import { FILE_EXPLORER_DEFAULT_BUCKET } from "./routes/file-storage-tenant-buckets.js";
 import { registerGatewayRoutes } from "./routes/gateway-routes.js";
 import { registerLogInspectorRoutes } from "./routes/log-inspector-routes.js";
 import { registerPlatformSettingsRoutes } from "./routes/platform-settings-routes.js";
@@ -715,14 +720,20 @@ export function createApiApp(params: CreateApiAppParams) {
     config,
     getTenantDb,
     registry: params.registry,
+    resolveTenantPluginOverrides: (tenantId) =>
+      tenantPluginOverrides.getOverrides(tenantId),
   });
   // The space Data tree (PLAN-space-data.md). Registered after the spaces
   // routes so `/api/spaces/:spaceId/data/*` sits under the same space
   // resolution, and given the same approval service + audit log the operation
   // pipeline uses — an adapter read is an operation call, not a shortcut.
+  const spaceFolderStorage = createFileStorageServiceFactory(config);
   registerSpaceDataRoutes({
     app,
     approvalService,
+    coreAdapters: createSpaceFolderAdapters(
+      () => spaceFolderStorage?.(FILE_EXPLORER_DEFAULT_BUCKET) ?? null
+    ),
     auditLog: securityAuditLog,
     authProvider,
     config,

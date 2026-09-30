@@ -115,6 +115,8 @@ Main copilot shell wiring — not for generic module embeds:
 
 `apps/ui/src/copilot/app-active-copilot-provider.tsx` mounts the provider above `AppLayout`. Full-page chat lives in `modules/engenty-copilot`.
 
+The river is reached from the app bar only. A Space's conversation list (`GET /ai/spaces/:spaceId/conversations`, the Work tab's sidebar) does not list it.
+
 ### Drawer injected session
 
 `CopilotDrawer` does not own a thread or a lane: its body reads the river host itself and draws the lane through `AgentDeskChatPanel` (companion trim), the same lane the copilot's page and a specialist's desk use. The app hands it placement, labels and the page's copilot contribution:

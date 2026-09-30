@@ -4,6 +4,7 @@ import type { AgUiOpenInterruptMetadata } from "@engenty/ag-ui-bridge";
 import type { ReactNode } from "react";
 import type { AgentHost } from "../../../agent-provider/types.js";
 import type { CopilotMessageQueue } from "../../../copilot/use-copilot-message-queue.js";
+import { EffortOfferCard } from "../../../features/ai-effort/effort-offer-card.js";
 import { CopilotMessageQueueSurface } from "../composer/copilot-message-queue-surface.js";
 import { CopilotOpenInterruptBanner } from "../interrupts/copilot-open-interrupt-banner.js";
 
@@ -16,9 +17,9 @@ export interface ChatLaneDockLabels {
 }
 
 /**
- * The flap behind a lane's composer: queued messages on top, then the step a
- * graph run is parked on, then the decision / approval chooser of the
- * conversation run.
+ * The flap behind a lane's composer: the Extra offer for a held turn, queued
+ * messages, then the step a graph run is parked on, then the decision /
+ * approval chooser of the conversation run.
  *
  * All three live outside the scrolling transcript because they are things the
  * human still has to answer — scrolling away from a parked run is how a thread
@@ -36,7 +37,10 @@ export function ChatLaneDock({
   wizardStep,
 }: {
   dockInterrupt: AgUiOpenInterruptMetadata | null;
-  host: Pick<AgentHost, "dismissInterrupt" | "respond">;
+  host: Pick<
+    AgentHost,
+    "answerEffortOffer" | "dismissInterrupt" | "effortOffer" | "respond"
+  >;
   labels: ChatLaneDockLabels;
   onEditQueued: (id: string) => void;
   onSandboxCommandApprove: (open: AgUiOpenInterruptMetadata) => void;
@@ -45,6 +49,14 @@ export function ChatLaneDock({
   /** The gate card of a parked graph run (`GateSurfaceCard`), if any. */
   wizardStep?: ReactNode;
 }): ReactNode {
+  const { answerEffortOffer, effortOffer } = host;
+  const offerCard =
+    effortOffer && answerEffortOffer ? (
+      <EffortOfferCard
+        onAnswer={answerEffortOffer}
+        reason={effortOffer.reason}
+      />
+    ) : null;
   const queueSurface = queue.hasQueued ? (
     <CopilotMessageQueueSurface
       labels={labels}
@@ -80,11 +92,12 @@ export function ChatLaneDock({
       open={dockInterrupt}
     />
   ) : null;
-  if (!(queueSurface || wizardStep || interruptBanner)) {
+  if (!(offerCard || queueSurface || wizardStep || interruptBanner)) {
     return null;
   }
   return (
     <div className="flex flex-col gap-2">
+      {offerCard}
       {queueSurface}
       {wizardStep}
       {interruptBanner}

@@ -1,4 +1,5 @@
 import { spaceRoomPathname } from "@engenty/ai-core/browser";
+import { useCopilotShellOrNull } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import type { PageBreadcrumb } from "@engenty/ui-plugin-sdk";
 import {
@@ -27,6 +28,7 @@ import {
   useChatVisibilityCopy,
 } from "../../components/copilot/chat-visibility.js";
 import type { MentionRefSearch } from "../../components/copilot/composer/use-copilot-composer-mention.js";
+import { openCopilotShell } from "../../components/copilot/drawer/copilot-drawer-utils.js";
 import {
   clearPendingHostMessage,
   pendingHostMessageFromState,
@@ -127,7 +129,26 @@ export function AgentDesk(props: {
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
+  const copilotShell = useCopilotShellOrNull();
   const hostKey = agentDeskHostKey(spaceId, agentId);
+  // The View Pane's page becomes the main content and this Engenty steps
+  // aside into the companion — same host, same thread, so the conversation
+  // is still there on the other side.
+  const openViewFullPage = useCallback(
+    (href: string) => {
+      if (copilotShell) {
+        copilotShell.setCompanionWho({ agentId, kind: "engenty" });
+        openCopilotShell({
+          mergeLayout: copilotShell.copilotLayout.mergeLayout,
+          preferredDockMode: copilotShell.preferredDockMode,
+          setOpen: copilotShell.setOpen,
+          setPreferredDockMode: copilotShell.setPreferredDockMode,
+        });
+      }
+      navigate(href);
+    },
+    [agentId, copilotShell, navigate]
+  );
   const pendingSubmit = resolvePendingHostMessage(hostKey, location.state);
   const deferredCreatedThreadId = useRef<string | null>(null);
   const bindCreatedThread = useCallback(
@@ -418,6 +439,7 @@ export function AgentDesk(props: {
         locale={locale}
         objectDisplayIntent={objectDisplayIntent}
         onClosePanel={closePanel}
+        onOpenViewFullPage={openViewFullPage}
         panel={panel}
         routeBreadcrumbAction={routeBreadcrumbAction}
         spaceAudience={spaceAudience}

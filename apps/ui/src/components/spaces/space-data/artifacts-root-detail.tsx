@@ -1,5 +1,5 @@
 /**
- * The Artifacts / Ablage root, listed like any other Data folder.
+ * The Artifacts / Dokumente root, listed like any other Data folder.
  *
  * There is no DriveNode for this section — artifacts nest by parent_id — so
  * the pane is a synthetic folder over the tree's Artifacts children.
@@ -37,13 +37,15 @@ export function ArtifactsRootDetail({
   });
   const children = useMemo(() => {
     const section = groupSpaceDataRootSections(drive.nodes, {
+      apps: t("spaces.data.appsSection", { defaultValue: "Apps" }),
       artifacts: sectionLabel,
+      files: t("spaces.data.filesSection", { defaultValue: "Files" }),
     }).find((entry) => entry.id === ARTIFACTS_SECTION_ID);
     return (section?.children ?? []).flatMap((node) => {
       const row = driveNodeToListRow(spaceKey, node);
       return row ? [row] : [];
     });
-  }, [drive.nodes, sectionLabel, spaceKey]);
+  }, [drive.nodes, sectionLabel, spaceKey, t]);
 
   const breadcrumbs = useMemo<PageBreadcrumb[]>(
     () => [

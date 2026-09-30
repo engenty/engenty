@@ -23,7 +23,7 @@
   "addRoleFailed": "Rolle konnte nicht hinzugefügt werden.",
   "removeRole": "Rolle entfernen",
   "filterByRole": "Nach Rolle filtern",
-  "roleAll": "Alle Rollen",
+  "roleAll": "Alle",
   "filterByType": "Nach Typ filtern",
   "typeOrganisation": "Organisationen",
   "typePerson": "Personen",
@@ -199,7 +199,12 @@
     "recentSection": "Aktuelle",
     "allContacts": "Alle Kontakte",
     "noRecent": "Noch keine Kontakte.",
-    "clearSearch": "Suche zurücksetzen"
+    "clearSearch": "Suche zurücksetzen",
+    "filters": "Filter",
+    "sortBy": "Sortieren nach",
+    "filterType": "Typ",
+    "filterRole": "Rolle",
+    "noMatches": "Keine Kontakte für diese Filter."
   },
   "addOrganisation": "Organisation hinzufügen",
   "addPerson": "Person hinzufügen",

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { AGENT_ENGENTY_KINDS } from "./agents/agent-engenty.js";
+import { AI_EFFORT_LEVELS } from "./config/model-roles.js";
 
 // The sandbox network union, shared with the SPACE-level setting that decides
 // the same thing for the space computer (`core.spaces.computer_network_tier`).
@@ -281,7 +282,7 @@ export const agentConfigSchema = z.object({
    * wins. Absent = sized from the turn, except that an agent holding a coding
    * tool defaults to high (`agentDefaultEffort`).
    */
-  effort: z.enum(["low", "medium", "high"]).nullish(),
+  effort: z.enum(AI_EFFORT_LEVELS).nullish(),
   guardrails: agentGuardrailsConfigSchema.optional(),
   id: z.string().min(1),
   instructions: z.string().min(1),

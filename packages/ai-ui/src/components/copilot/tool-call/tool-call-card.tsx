@@ -17,7 +17,6 @@ export function ToolCallCard(props: ToolCallCardProps) {
 export { registerDefaultToolCallUiCards } from "./tool-call-ui-defaults";
 export {
   buildToolCallUiMatchContext,
-  clearToolCallUiRegistrationsForTests,
   listToolCallUiRegistrations,
   registerToolCallUi,
   resolveToolCallUiCard,

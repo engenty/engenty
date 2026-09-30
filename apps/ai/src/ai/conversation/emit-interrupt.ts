@@ -1,16 +1,15 @@
-// Map a suspended/artifact tool signal to an AG-UI interrupt the chat client can
-// render. Shared by the conversation executor (start) and its resume leg.
+// Map a suspended tool to an AG-UI interrupt the chat client can render. Shared
+// by the conversation executor (start) and its resume leg.
 //
 // - A native frontend tool suspends the run (it calls `ctx.agent.suspend()` in
 //   `execute`); the suspend surfaces as a `tool_suspended` event. We persist the open
 //   interrupt (keyed by the suspended run id so the resume reattaches) and emit a
 //   RUN_FINISHED whose `outcome` tells the client which tool call is suspended.
-// - A decision/feedback artifact reaches us one of two ways. `requestDecision`
-//   SUSPENDS and hands its artifact over as the suspend payload; `requestFeedback`
-//   (and any run that cannot service an interrupt) still returns it as a tool
-//   RESULT. Either way we persist the open interrupt and emit RUN_FINISHED with the
-//   interrupt outcome so the chat shows the interactive picker/form (not a
-//   "submitted" final state).
+// - `requestDecision` / `requestFeedback` (and the publish/hire cards) SUSPEND
+//   and hand their decision/feedback artifact over as the suspend payload. We
+//   persist the open interrupt keyed by the suspended run id and emit
+//   RUN_FINISHED with the interrupt outcome so the chat shows the interactive
+//   picker/form (not a "submitted" final state).
 import type {
   AGUIEvent,
   AgUiOpenInterruptMetadata,
@@ -313,10 +312,11 @@ export function decisionArtifactHasDurableInbox(result: unknown): boolean {
 }
 
 /**
- * Detect a decision/feedback artifact in a tool result, persist the open interrupt,
- * and emit RUN_FINISHED with the interrupt outcome so the chat shows the interactive
- * picker/form. The caller STOPS the run. Resume is a fresh run (no parked agent).
- * Returns true if the result was a decision/feedback artifact.
+ * Map a decision/feedback artifact a tool SUSPENDED with to a parked interrupt:
+ * persist the open interrupt (`run_id` = the suspended run, so the answer
+ * continues that run in place) and emit RUN_FINISHED with the interrupt outcome
+ * so the chat shows the interactive picker/form. Returns true if the payload was
+ * a decision/feedback artifact (the caller parks).
  */
 export async function emitArtifactInterrupt(input: {
   busRunId: string;
@@ -328,14 +328,8 @@ export async function emitArtifactInterrupt(input: {
   emit: (event: AGUIEvent) => void;
   getAgentConfig?: InterruptNotifyDeps["getAgentConfig"];
   result: unknown;
-  /**
-   * Set when the artifact came from a native SUSPEND (requestDecision) rather
-   * than a tool result: it makes the persisted interrupt a PARKED one, which is
-   * how the resume route knows to continue this run in place instead of
-   * re-running the turn. Omitted for the artifact paths that still re-run
-   * (tool-approval cards, requestFeedback).
-   */
-  resumeRunId?: string;
+  // The suspended run id the resume reattaches to.
+  resumeRunId: string;
   scope: AiSessionScope;
   sessionMetadata: Record<string, unknown>;
   store: ThreadStore;
@@ -364,7 +358,7 @@ export async function emitArtifactInterrupt(input: {
   const open: AgUiOpenInterruptMetadata = {
     ...artifactOpenInterrupt(interrupt),
     ...(input.effort ? { effort: input.effort } : {}),
-    ...(input.resumeRunId ? { run_id: input.resumeRunId } : {}),
+    run_id: input.resumeRunId,
   };
   try {
     await input.store.mergeThreadMetadataForUser({
@@ -386,7 +380,7 @@ export async function emitArtifactInterrupt(input: {
       ...(input.getAgentConfig ? { getAgentConfig: input.getAgentConfig } : {}),
       interruptId: interrupt.interruptId,
       kind: "agent_question",
-      runId: input.resumeRunId ?? null,
+      runId: input.resumeRunId,
       scope: input.scope,
       store: input.store,
       threadId: input.threadId,
@@ -394,11 +388,10 @@ export async function emitArtifactInterrupt(input: {
     });
   }
   // The card's CONTENT only reaches a live client through this event. The
-  // RUN_FINISHED outcome carries an id and a title, not the choices, and the
-  // transcript fallback (`pendingInterruptFromTranscript`) reads the artifact
-  // off the tool RESULT — which a natively-suspended `requestDecision` never
-  // produces. Without this the chat shows a spinning "Decision needed" row and
-  // no chooser until (and unless) a session-metadata refetch lands.
+  // RUN_FINISHED outcome carries an id and a title, not the choices, and a
+  // suspended call has no tool RESULT to read them from. Without this the chat
+  // shows a spinning row and no card until (and unless) a session-metadata
+  // refetch lands.
   emitOpenInterruptEvent(input.emit, open);
   input.emit({
     outcome: buildSessionInterruptOutcome(interrupt),

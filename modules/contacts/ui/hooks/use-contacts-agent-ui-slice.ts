@@ -3,6 +3,7 @@ import {
   type JsonValue,
   useRegisterAgentUiSlice,
 } from "@engenty/app-shell";
+import type { ImportWizardSnapshot } from "@engenty/import";
 import { useMemo } from "react";
 import type { ContactListItem } from "../api.js";
 import {
@@ -169,19 +170,35 @@ export function useContactsSettingsAgentUiSlice() {
   useRegisterAgentUiSlice("contacts.settings", slice);
 }
 
-export function useContactsImportAgentUiSlice() {
-  const slice = useMemo(
-    () => ({
+export function useContactsImportAgentUiSlice(
+  wizard?: ImportWizardSnapshot | null
+) {
+  const slice = useMemo(() => {
+    const onMapping = wizard?.step === "mapping";
+    return {
       page: {
         ...buildAgentUiPageBrief({
           page_type: "import",
           page_title: "Import contacts",
-          page_description: "CSV import wizard for contacts.",
+          page_description: onMapping
+            ? `Import wizard, mapping step: ${wizard.filename ?? "file"} with ${wizard.rowCount ?? 0} rows and ${wizard.columnCount ?? 0} columns loaded.`
+            : "Import wizard, upload step: no file loaded yet (drop a CSV, paste from a spreadsheet, or pick a connection).",
         }),
+        ...(wizard
+          ? {
+              import_wizard: {
+                column_count: wizard.columnCount,
+                filename: wizard.filename,
+                mapped_fields: wizard.mappedFields,
+                row_count: wizard.rowCount,
+                step: wizard.step,
+                unmapped_required_fields: wizard.unmappedRequiredFields,
+              },
+            }
+          : {}),
       },
-    }),
-    []
-  );
+    };
+  }, [wizard]);
 
   useRegisterAgentUiSlice("contacts.import", slice);
 }

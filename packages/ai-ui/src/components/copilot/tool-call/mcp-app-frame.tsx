@@ -71,7 +71,3 @@ export function McpAppFrame({
     />
   );
 }
-
-// Re-exported from its original home: the CSP builder is covered by tests and
-// imported by name elsewhere.
-export { buildWidgetCsp } from "./bridged-frame.js";

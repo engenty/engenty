@@ -1,21 +1,13 @@
 import type { AgUiOpenInterruptMetadata } from "@engenty/ag-ui-bridge";
 import { resolveTranscriptToolDisplay } from "../../../ag-ui/resolve-transcript-tool-display.js";
-import { isChainOfThoughtToolPart } from "./copilot-message-content";
+import { toolTimelineCarriesStatus } from "./copilot-message-content";
 import {
   getToolName,
   getToolResolvedName,
   getToolState,
-  isReasoningPart,
   isToolPart,
   type ToolPartLike,
 } from "./copilot-message-parts";
-
-function messageHasStreamingReasoning(
-  parts: readonly unknown[] | undefined
-): boolean {
-  const lastPart = parts?.at(-1);
-  return lastPart != null && isReasoningPart(lastPart);
-}
 
 export function messageHasActiveToolParts(
   parts: readonly unknown[] | undefined
@@ -97,10 +89,10 @@ function transcriptHasPendingInteractiveTool(
 
 /**
  * The live turn's tool timeline carries the status line itself (the running
- * step, or "Thinking…" between two steps, with the elapsed time) whenever its
- * last part is a timeline step. Only for a message that is still being
- * streamed INTO — an older assistant turn ending on a tool says nothing about
- * the turn the person just sent.
+ * step, or "Thinking…" after one, with the turn's timer) — see
+ * `toolTimelineCarriesStatus`. Only for a message that is still being
+ * streamed INTO: an older assistant turn says nothing about the turn the
+ * person just sent.
  */
 function liveTimelineOwnsStatusLine(input: {
   lastAssistantIsLastMessage?: boolean;
@@ -110,12 +102,7 @@ function liveTimelineOwnsStatusLine(input: {
   if (input.status !== "streaming" || !input.lastAssistantIsLastMessage) {
     return false;
   }
-  const lastPart = input.lastAssistantParts?.at(-1);
-  return (
-    lastPart != null &&
-    isToolPart(lastPart) &&
-    isChainOfThoughtToolPart(lastPart)
-  );
+  return toolTimelineCarriesStatus(input.lastAssistantParts ?? []);
 }
 
 /**
@@ -137,18 +124,20 @@ export function shouldShowCopilotThinkingShimmer(input: {
   if (input.status !== "streaming" && input.status !== "submitted") {
     return false;
   }
-  if (
-    !input.personDetail &&
-    (messageHasStreamingReasoning(input.lastAssistantParts) ||
-      messageHasActiveToolParts(input.lastAssistantParts) ||
-      liveTimelineOwnsStatusLine(input))
-  ) {
+  // A developer's timeline shows the step and the timer while it is live;
+  // anywhere else this line is the only sign the turn is working.
+  if (!input.personDetail && liveTimelineOwnsStatusLine(input)) {
     return false;
   }
   if (input.awaitingInterrupt && input.openInterrupt) {
     return false;
   }
-  if (transcriptHasPendingInteractiveTool(input.lastAssistantParts)) {
+  // The question card is the status — but only a card in THIS turn: one
+  // left unanswered further up must not blank the turn after it.
+  if (
+    input.lastAssistantIsLastMessage &&
+    transcriptHasPendingInteractiveTool(input.lastAssistantParts)
+  ) {
     return false;
   }
   return true;

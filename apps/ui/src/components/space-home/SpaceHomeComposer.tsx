@@ -18,8 +18,10 @@ import {
   HOST_MESSAGE_HANDOFF_STATE,
   PromptInputProvider,
   registerInlineAskFocus,
+  type SubmitMessage,
   sendDeskMessageInPlace,
   spaceHomeQueryKey,
+  useAgentDeskSlashCommands,
   useEngentyAIContext,
   writePendingHostMessage,
 } from "@engenty/ai-ui";
@@ -30,6 +32,9 @@ import { useNavigate } from "react-router-dom";
 import { SpaceApprovalModeControl } from "@/components/spaces/SpaceApprovalModeControl";
 import type { Space } from "@/lib/api/spaces-client";
 import { spaceConversationSearch } from "@/lib/space-conversation-open";
+import { useSpaceMentionRefSearch } from "@/lib/use-space-mention-ref-search";
+
+type SubmitRefs = NonNullable<Parameters<SubmitMessage>[1]>["refs"];
 
 export function SpaceHomeComposer({
   agentId,
@@ -70,6 +75,17 @@ export function SpaceHomeComposer({
     [agentId, kind, spaceId, threadId]
   );
   const askRootRef = useRef<HTMLDivElement>(null);
+  // The desk's own `/` catalog and `@` search: what works on the desk works
+  // on its card. The card has no thread pane, so the built-ins that open one
+  // (`/settings`, `/runs`) are absent here.
+  const mentionRefSearch = useSpaceMentionRefSearch(space);
+  const { dialogs: slashDialogs, slashCommands } = useAgentDeskSlashCommands({
+    agentId: agentId ?? "",
+    hostKey,
+    skillIds: [],
+    spaceId,
+    threadId,
+  });
 
   useEffect(
     () =>
@@ -90,7 +106,7 @@ export function SpaceHomeComposer({
     navigate(`${target}${search}`, state ? { state } : undefined);
   };
 
-  const submit = async (text: string) => {
+  const submit = async (text: string, refs?: SubmitRefs) => {
     const message = text.trim();
     if (!(message && hostKey)) {
       return;
@@ -101,6 +117,7 @@ export function SpaceHomeComposer({
       const result = await sendDeskMessageInPlace({
         agentId: agentId ?? null,
         hostKey,
+        ...(refs?.length ? { refs } : {}),
         routeContext: {
           moduleId: "agent-desk",
           pathname: target,
@@ -175,15 +192,18 @@ export function SpaceHomeComposer({
             })}
             dense
             draft={draft}
+            mentionRefSearch={mentionRefSearch}
             setDraft={setDraft}
             showStarterPrompts={false}
+            {...(agentId ? { slashCommands } : {})}
             status={sent ? "submitted" : "ready"}
-            submitMessage={(text) => {
-              void submit(text);
+            submitMessage={(text, options) => {
+              void submit(text, options?.refs);
             }}
           />
         </CopilotCompactComposerShell>
       </PromptInputProvider>
+      {slashDialogs}
     </div>
   );
 }

@@ -21,7 +21,10 @@ import {
   readEngentyEffortResolvedEventValue,
   readEngentyUsageUpdateEventValue,
 } from "@engenty/ag-ui-bridge";
-import type { AiEffortChoice } from "@engenty/ai-core/browser";
+import type {
+  AiEffortChoice,
+  AiReasoningEffort,
+} from "@engenty/ai-core/browser";
 import { sortAgUiMessagesForTranscript } from "@engenty/ai-core/browser";
 import type { QueryClient } from "@engenty/query-client";
 import {
@@ -35,7 +38,20 @@ import {
 import type { SubmitMessageOptions } from "../../agent-provider/types.js";
 import { pendingInterruptFromTranscript } from "../../components/copilot/interrupts/pending-interrupt-from-transcript.js";
 import { useAutoResolveFrontendTool } from "../../copilot/use-auto-resolve-frontend-tool.js";
-import { notifyEffortResolved } from "../../features/ai-effort/notify-effort-resolved.js";
+import {
+  type ChatModeRunConfig,
+  chatModeRunConfig,
+  DECLINED_OFFER_RUN_CONFIG,
+} from "../../features/ai-effort/chat-mode.js";
+import {
+  baseChatModePick,
+  chatModeDraftKey,
+  moveChatModeDraft,
+  readChatModeDraft,
+  readExtraTakesReasoning,
+  setChatModeDraft,
+  settleChatModeDraft,
+} from "../../features/ai-effort/chat-mode-store.js";
 import type { ChatAttachmentPart } from "../../lib/chat-attachment-part.js";
 import {
   buildChatReferencePart,
@@ -126,6 +142,39 @@ function isResumeInProgressError(error: unknown): boolean {
   );
 }
 
+/** The server's "this looks like a job for Extra" answer to a Normal turn. */
+export interface EffortOffer {
+  proposed: "high";
+  reason: string;
+}
+
+/**
+ * The offer in a failed run POST: 409 `agent_threads.effortOffer`, returned
+ * before anything ran or was recorded. Null for any other failure.
+ */
+export function readEffortOffer(error: unknown): EffortOffer | null {
+  const withCode = error as {
+    body?: { offer?: { reason?: unknown } } | null;
+    code?: unknown;
+    status?: unknown;
+  } | null;
+  if (
+    withCode?.status !== 409 ||
+    withCode.code !== "agent_threads.effortOffer"
+  ) {
+    return null;
+  }
+  const reason = withCode.body?.offer?.reason;
+  return { proposed: "high", reason: typeof reason === "string" ? reason : "" };
+}
+
+/** The turn an offer holds back until the person answers it. */
+interface PendingEffortOffer {
+  message: EngentyAgUiMessage;
+  offer: EffortOffer;
+  threadId: string;
+}
+
 /** The open-interrupt id a resume feedback answers. */
 function interruptIdOfFeedback(
   feedback: ResumeInterruptFeedback
@@ -178,6 +227,8 @@ export interface UseEngentyAgUiAppsAiSessionOptions {
   queryClient?: QueryClient;
   /** Supabase realtime client for detecting when a second tab starts a run. */
   realtimeClient?: EngentyThreadsRealtimeClient | null;
+  /** How long a reasoning model thinks; absent = the model's own default. */
+  reasoningEffort?: AiReasoningEffort | null;
   routeContext: EngentyAgUiRouteContext;
   serviceBaseUrl: string;
   stableSessionKey?: string | null;
@@ -217,6 +268,21 @@ function createUserMessage(
       ? content
       : "") as EngentyAgUiMessage["content"],
   } as EngentyAgUiMessage;
+}
+
+/** The typed words of a user message (its first text part). */
+function userMessageText(message: EngentyAgUiMessage): string {
+  if (typeof message.content === "string") {
+    return message.content;
+  }
+  const part = (message.content as readonly unknown[]).find(
+    (item): item is { text: string; type: "text" } =>
+      Boolean(item) &&
+      typeof item === "object" &&
+      (item as { type?: unknown }).type === "text" &&
+      typeof (item as { text?: unknown }).text === "string"
+  );
+  return part?.text ?? "";
 }
 
 function isAbortError(error: unknown): boolean {
@@ -532,6 +598,11 @@ export function useEngentyAgUiAppsAiSession(
   );
 
   const [requestError, setRequestError] = useState<string | null>(null);
+  // A Normal turn the server would rather run on Extra: held here, unsent,
+  // until the person picks (`answerEffortOffer`).
+  const [effortOffer, setEffortOffer] = useState<PendingEffortOffer | null>(
+    null
+  );
   const [threadResetKey, setThreadResetKey] = useState(0);
   const [awaitingInterrupt, setAwaitingInterrupt] = useState(() =>
     resolveAwaitingInterruptFromOpenMetadata(options.openInterruptFromSession)
@@ -775,6 +846,7 @@ export function useEngentyAgUiAppsAiSession(
       setSubmitStatus("ready");
     }
     setRequestError(null);
+    setEffortOffer(null);
     setAwaitingInterrupt(
       resolveAwaitingInterruptFromOpenMetadata(options.openInterruptFromSession)
     );
@@ -821,6 +893,13 @@ export function useEngentyAgUiAppsAiSession(
   const runThreadStream = useCallback(
     async (params: {
       abortController: AbortController;
+      /**
+       * A new user turn (not a resume): the server records the thread's mode
+       * when it resolves one, so this chat's local pick steps back after it.
+       */
+      freshTurn?: boolean;
+      /** The run was refused with an Extra offer; nothing ran. */
+      onEffortOffer?: (offer: EffortOffer) => void;
       runInput: ReturnType<typeof buildAppsAiRunInput>;
       threadId: string;
     }) => {
@@ -900,23 +979,30 @@ export function useEngentyAgUiAppsAiSession(
                 if (usage) {
                   publishLiveRunUsage(params.threadId, usage);
                 }
-              } else if (
-                name === ENGENTY_EFFORT_RESOLVED_EVENT &&
-                options.hostKey
-              ) {
+              } else if (name === ENGENTY_EFFORT_RESOLVED_EVENT) {
                 const resolved = readEngentyEffortResolvedEventValue(
                   (event as { value?: unknown }).value
                 );
-                if (resolved) {
-                  notifyEffortResolved({
-                    effort: resolved.effort,
-                    hostKey: options.hostKey,
-                    modelId: resolved.model_id,
-                    reason: resolved.reason,
-                    source: resolved.source,
+                // The thread stayed on Extra from its last turn: show Extra
+                // now rather than after the run, when the metadata says so.
+                if (
+                  resolved?.effort === "high" &&
+                  resolved.source === "sticky"
+                ) {
+                  setChatModeDraft(params.threadId, {
+                    ...(readChatModeDraft(params.threadId)?.pick ??
+                      baseChatModePick()),
+                    mode: "extra",
                   });
                 }
               }
+            }
+            if (
+              params.freshTurn &&
+              (event.type === EventType.RUN_FINISHED ||
+                event.type === EventType.RUN_ERROR)
+            ) {
+              settleChatModeDraft(params.threadId);
             }
             if (event.type === EventType.RUN_FINISHED) {
               sawTerminalEvent = true;
@@ -1041,6 +1127,15 @@ export function useEngentyAgUiAppsAiSession(
           resumeActiveRunRef.current();
           return;
         }
+        const offer = params.onEffortOffer ? readEffortOffer(error) : null;
+        if (offer && params.onEffortOffer) {
+          // Not a failure: the server asks before running a big turn on
+          // Normal. The caller holds the turn and shows the question.
+          clearPendingSend();
+          setSubmitStatus("ready");
+          params.onEffortOffer(offer);
+          return;
+        }
         if (isResumeInProgressError(error)) {
           // Benign race: another resume already owns this parked run and will
           // drive it to completion (or re-open the next card). Surfacing an
@@ -1069,11 +1164,14 @@ export function useEngentyAgUiAppsAiSession(
     [clearPendingSend, invalidateQueries, options]
   );
 
-  const submitMessage = useCallback(
-    async (text: string, opts?: SubmitMessageOptions) => {
-      const trimmed = text.trim();
-      const attachments = opts?.attachments ?? [];
-      if ((!trimmed && attachments.length === 0) || submitInFlightRef.current) {
+  /**
+   * One user turn: creates the thread first when the lane has none, shows the
+   * message, runs it. `runConfig` replaces the composer's pick for this turn
+   * only — the answer to an Extra offer.
+   */
+  const sendUserTurn = useCallback(
+    async (userMessage: EngentyAgUiMessage, runConfig?: ChatModeRunConfig) => {
+      if (submitInFlightRef.current) {
         return;
       }
       if (!options.isTransportReady) {
@@ -1087,20 +1185,16 @@ export function useEngentyAgUiAppsAiSession(
       }
 
       submitInFlightRef.current = true;
+      const text = userMessageText(userMessage);
       logCopilotChatNew("submitMessage start", {
         threadId: options.threadId,
-        textLen: trimmed.length,
+        textLen: text.length,
       });
       abortRef.current?.abort();
       const abortController = new AbortController();
       abortRef.current = abortController;
 
       let threadId = resolveActiveThreadId();
-      const userMessage = createUserMessage(
-        trimmed,
-        attachments,
-        opts?.refs ?? []
-      );
       const extraParts = Array.isArray(userMessage.content)
         ? userMessage.content.filter(
             (part) =>
@@ -1110,17 +1204,18 @@ export function useEngentyAgUiAppsAiSession(
           )
         : [];
       logCopilotChatNew("pendingSend set", {
-        textLen: trimmed.length,
+        textLen: text.length,
         extraPartCount: extraParts.length,
         transcriptInsertIndex: messagesRef.current.length,
       });
       setPendingSend({
-        text: trimmed,
+        text,
         startedAt: Date.now(),
         transcriptInsertIndex: messagesRef.current.length,
         ...(extraParts.length > 0 ? { parts: extraParts } : {}),
       });
       setRequestError(null);
+      setEffortOffer(null);
       setSubmitStatus("submitted");
       // New user turn abandons any open interrupt chooser.
       setAwaitingInterrupt(false);
@@ -1146,6 +1241,13 @@ export function useEngentyAgUiAppsAiSession(
             });
             threadId = thread.id;
             runtimeThreadIdRef.current = thread.id;
+            // What the person picked for the new chat is now this thread's.
+            if (options.hostKey) {
+              moveChatModeDraft(
+                chatModeDraftKey(options.hostKey, null),
+                thread.id
+              );
+            }
             logCopilotChatNew("onThreadCreated", { threadId: thread.id });
             options.onThreadCreated?.(thread.id);
             if (options.queryClient && options.threadsListQueryKey) {
@@ -1183,15 +1285,38 @@ export function useEngentyAgUiAppsAiSession(
         }
 
         conversation.appendUserMessage(userMessage);
-        messagesRef.current = [...messagesRef.current, userMessage];
+        messagesRef.current = [
+          ...messagesRef.current.filter(
+            (message) => message.id !== userMessage.id
+          ),
+          userMessage,
+        ];
+        const turnThreadId = threadId;
 
         await runThreadStream({
           abortController,
+          freshTurn: true,
+          onEffortOffer: (offer) => {
+            // Nothing was recorded: take the message back out of the
+            // transcript and hold it for the answer, so it shows once.
+            conversation.removeMessage(userMessage.id);
+            messagesRef.current = messagesRef.current.filter(
+              (message) => message.id !== userMessage.id
+            );
+            setEffortOffer({
+              message: userMessage,
+              offer,
+              threadId: turnThreadId,
+            });
+          },
           runInput: buildAppsAiRunInput({
-            effort: options.effort,
+            effort: runConfig ? runConfig.effort : options.effort,
             frontendTools: options.frontendTools,
             message: userMessage,
-            modelId: options.modelId,
+            modelId: runConfig ? runConfig.modelId : options.modelId,
+            reasoningEffort: runConfig
+              ? runConfig.reasoningEffort
+              : options.reasoningEffort,
             pathname: readTurnContext(options).pathname,
             routeContext: readTurnContext(options).routeContext,
             threadId,
@@ -1205,6 +1330,48 @@ export function useEngentyAgUiAppsAiSession(
       }
     },
     [clearPendingSend, options, resolveActiveThreadId, runThreadStream]
+  );
+
+  const submitMessage = useCallback(
+    async (text: string, opts?: SubmitMessageOptions) => {
+      const trimmed = text.trim();
+      const attachments = opts?.attachments ?? [];
+      if (!trimmed && attachments.length === 0) {
+        return;
+      }
+      await sendUserTurn(
+        createUserMessage(trimmed, attachments, opts?.refs ?? [])
+      );
+    },
+    [sendUserTurn]
+  );
+
+  /**
+   * The person's answer to an Extra offer. Extra puts the chat on Extra and
+   * sends the held turn there; Normal sends it on Normal without asking again.
+   */
+  const answerEffortOffer = useCallback(
+    (choice: "extra" | "normal") => {
+      if (!effortOffer) {
+        return;
+      }
+      setEffortOffer(null);
+      let runConfig = DECLINED_OFFER_RUN_CONFIG;
+      if (choice === "extra") {
+        const pick = {
+          ...(readChatModeDraft(effortOffer.threadId)?.pick ??
+            baseChatModePick()),
+          mode: "extra" as const,
+        };
+        setChatModeDraft(effortOffer.threadId, pick);
+        runConfig = chatModeRunConfig(pick, {
+          extraTakesReasoning: readExtraTakesReasoning(),
+          threadHasServerMode: false,
+        });
+      }
+      void sendUserTurn(effortOffer.message, runConfig);
+    },
+    [effortOffer, sendUserTurn]
   );
 
   // Held in a ref so `drainNextResume` (stable) can call the latest dispatcher
@@ -1267,6 +1434,7 @@ export function useEngentyAgUiAppsAiSession(
         effort: options.effort,
         frontendTools: options.frontendTools,
         modelId: options.modelId,
+        reasoningEffort: options.reasoningEffort,
         pathname: readTurnContext(options).pathname,
         resume: [
           {
@@ -1415,6 +1583,7 @@ export function useEngentyAgUiAppsAiSession(
     pendingResumesRef.current = [];
     clearPendingSend();
     setRequestError(null);
+    setEffortOffer(null);
     // Return to idle from any non-ready state — including "error", which a 409
     // or a stranded resume can leave behind. Without this, Stop could not
     // recover a wedged thread and the message queue would never drain.
@@ -1464,6 +1633,7 @@ export function useEngentyAgUiAppsAiSession(
     resetConversationRef.current();
     clearPendingSend();
     setRequestError(null);
+    setEffortOffer(null);
     setSubmitStatus("ready");
     setAwaitingInterrupt(false);
     setPendingInterruptToolCallIds(new Set());
@@ -1499,6 +1669,7 @@ export function useEngentyAgUiAppsAiSession(
             frontendTools: options.frontendTools,
             message: userMessage,
             modelId: options.modelId,
+            reasoningEffort: options.reasoningEffort,
             pathname: readTurnContext(options).pathname,
             routeContext: readTurnContext(options).routeContext,
             steerOnly: true,
@@ -1592,6 +1763,7 @@ export function useEngentyAgUiAppsAiSession(
 
   return {
     activeThreadId,
+    answerEffortOffer,
     awaitingInterrupt,
     dismissInterrupt,
     openInterruptFromStream,
@@ -1602,6 +1774,7 @@ export function useEngentyAgUiAppsAiSession(
     cancel,
     clearPendingSend,
     copilotMessages,
+    effortOffer: effortOffer?.offer ?? null,
     error: requestError ? new Error(requestError) : null,
     events: conversation.events,
     messages: conversation.messages,

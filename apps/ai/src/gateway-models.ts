@@ -1,4 +1,4 @@
-import type { ModelPricingRecord } from "@engenty/ai-core";
+import type { CustomModelsConfig, ModelPricingRecord } from "@engenty/ai-core";
 import {
   listModelGateways,
   type ModelGateway,
@@ -187,6 +187,8 @@ export interface AiGatewayModelStore {
     at: string;
     model_id: string;
   }): Promise<ModelPricingRecord | null>;
+  /** The composer's Custom list (`ai.platform_config.custom_models`). */
+  getCustomModelsConfig(): Promise<CustomModelsConfig>;
   getGatewayModelSyncSettings(): Promise<GatewayModelSyncSettingsRecord | null>;
   insertGatewayModelSyncRun(input: {
     started_at: string;
@@ -212,6 +214,9 @@ export interface AiGatewayModelStore {
   seedModelBindings(
     rows: readonly Omit<ModelBindingRecord, "updated_at">[]
   ): Promise<number>;
+  setCustomModelsConfig(
+    config: CustomModelsConfig
+  ): Promise<CustomModelsConfig>;
   /**
    * Patch availability for a catalog row. Omitting `gateway` patches every
    * gateway serving the id, which is what a pricing-seed restore wants.

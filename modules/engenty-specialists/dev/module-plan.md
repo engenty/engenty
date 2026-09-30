@@ -137,10 +137,6 @@ turns `ui: true`.
    - `apps/ai/package.json` dependency
    - `apps/ui/vite.config.ts` builtin lists (lines ~44/50) and alias block —
      only `./ai/floor` needs a browser alias
-   - `apps/core/src/plugins/module-metadata-guardrails.test.ts`
-     (`PLUGIN_FACTORY_ENTRY_MODULES`, `UI_PLUGIN_MODULES` — this module is in
-     neither; add to whatever "builtin without factory" list the guardrail
-     expects, or extend the guardrail)
    - `apps/core/src/plugins/install-validation.test.ts` fixture if it
      enumerates builtins
    - `scripts/ai-check.mjs` — confirm it picks up `ai/skills/*/SKILL.md`

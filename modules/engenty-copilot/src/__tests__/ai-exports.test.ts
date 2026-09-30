@@ -60,6 +60,7 @@ describe("@engenty/engenty-copilot AI exports", () => {
   it("exports the Copilot base frontend tool catalog", () => {
     expect(getCopilotBaseFrontendTools().map((tool) => tool.name)).toEqual([
       "navigate",
+      "open_view",
       "shell_set_theme",
       "i18n_set_locale",
       "setCopilotDockMode",

@@ -189,6 +189,16 @@ export interface ConnectionImportConfig {
   sources: import("./import-sources.js").ConnectionImportSource[];
 }
 
+/** What the wizard shows right now — for a page to tell an agent beside it. */
+export interface ImportWizardSnapshot {
+  columnCount: number | null;
+  filename: string | null;
+  mappedFields: string[];
+  rowCount: number | null;
+  step: "upload" | "mapping";
+  unmappedRequiredFields: string[];
+}
+
 export interface CSVImportWizardProps {
   className?: string;
   /** When set, shows a connection catalog below upload/paste. */
@@ -216,6 +226,8 @@ export interface CSVImportWizardProps {
   onImportRows?: (rows: Record<string, string>[]) => Promise<void>;
   onInfo?: (message: string) => void;
   onMatchByConfigChange?: (config: MatchByConfig) => void;
+  /** Called when the step, file or mapping changes. */
+  onStateChange?: (snapshot: ImportWizardSnapshot) => void;
   onSuccess?: (message: string) => void;
   presetAdapter?: ImportPresetAdapter;
   previewColumns: PreviewColumn[];

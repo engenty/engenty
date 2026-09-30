@@ -1,90 +1,31 @@
 {
   "name": "engenty",
-  "version": "0.2.23",
+  "version": "0.2.24",
   "private": true,
   "license": "FSL-1.1-MIT",
   "type": "module",
   "packageManager": "pnpm@10.23.0",
   "engenty": {
     "plugins": {
-      "browser-bridge": {
-        "source": "workspace"
-      },
-      "commercial-settings": {
-        "source": "workspace"
-      },
-      "company-profile": {
-        "source": "workspace"
-      },
-      "connections": {
-        "source": "workspace"
-      },
-      "connections-external": {
-        "source": "workspace"
-      },
-      "connections-github": {
-        "source": "workspace"
-      },
-      "connections-google": {
-        "source": "workspace"
-      },
-      "connections-hubspot": {
-        "source": "workspace"
-      },
-      "connections-local-files": {
-        "source": "workspace"
-      },
-      "connections-microsoft": {
-        "source": "workspace"
-      },
-      "connections-s3": {
-        "source": "workspace"
-      },
-      "connections-slack": {
-        "source": "workspace"
-      },
-      "contacts": {
-        "source": "workspace"
-      },
-      "engenty-copilot": {
-        "source": "workspace"
-      },
-      "engenty-specialists": {
-        "source": "workspace"
-      },
-      "files": {
-        "source": "workspace"
-      },
-      "inbox": {
-        "source": "workspace"
-      },
-      "invoices": {
-        "source": "workspace"
-      },
-      "knowledge-base": {
-        "source": "workspace"
-      },
-      "offers": {
-        "source": "workspace"
-      },
-      "pdf-templates": {
-        "source": "workspace"
-      },
-      "projects": {
-        "source": "workspace"
-      },
-      "secrets": {
-        "source": "workspace"
-      },
-      "tasks": {
-        "source": "workspace"
-      },
-      "team": {
-        "source": "workspace"
-      },
-      "team-chat": {
-        "source": "workspace"
-      }
+      "commercial-settings": "workspace",
+      "company-profile": "workspace",
+      "connections": "workspace",
+      "connections-external": "workspace",
+      "connections-google": "workspace",
+      "connections-local-files": "workspace",
+      "contacts": "workspace",
+      "context-graph": "workspace",
+      "engenty-apps": "workspace",
+      "engenty-copilot": "workspace",
+      "engenty-specialists": "workspace",
+      "files": "workspace",
+      "invoices": "workspace",
+      "knowledge-base": "workspace",
+      "offers": "workspace",
+      "pdf-templates": "workspace",
+      "projects": "workspace",
+      "tasks": "workspace",
+      "team": "workspace"
     }
   },
   "scripts": {

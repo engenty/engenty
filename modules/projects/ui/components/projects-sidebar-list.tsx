@@ -20,6 +20,7 @@ import type { ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { ProjectListItem } from "../api.js";
 import type { ProjectsListGroup } from "../lib/project-list-grouping.js";
+import { ProjectPinMenuItem } from "./project-pin-button.js";
 
 // ---------------------------------------------------------------------------
 // Skeleton
@@ -101,6 +102,11 @@ export function ProjectSidebarRow({
               <ExternalLink className="mr-2 h-3.5 w-3.5" />
               {t("viewProject", { defaultValue: "View project" })}
             </DropdownMenuItem>
+            <ProjectPinMenuItem
+              className="h-8 justify-start text-xs"
+              iconClassName="mr-2 h-3.5 w-3.5"
+              projectId={project.id}
+            />
             <DropdownMenuItem
               className="h-8 justify-start text-destructive text-xs focus:bg-destructive/10 focus:text-destructive data-[highlighted]:bg-destructive/10 data-[highlighted]:text-destructive"
               onSelect={() => onDelete(project.id)}

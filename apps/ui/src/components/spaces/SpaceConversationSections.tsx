@@ -2,7 +2,7 @@
  * The conversation list of the Work tab (PLAN-agent-rooms.md §10): Favoriten
  * on top, then this person's sections, then the built-ins — Engenties (the
  * desks, which are the roster), Räume (the rooms they are in), Privat (their
- * DMs, headed by the river: their copilot). Every row is a conversation; an
+ * DMs; the copilot is in the app bar, not here). Every row is a conversation; an
  * agent is here through its desk.
  *
  * Owns what the rows share: the actions context, the drag context, the

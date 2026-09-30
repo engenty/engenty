@@ -1,75 +1,127 @@
 /**
- * The `toast` client channel: a sonner toast for every newly arrived
- * attention record (Wichtig) while the app is open — the title, where it
- * came from and one line under it, with one action that goes where it is
- * decided (the row's own target). Arrival detection
- * lives with the bell (`useClientChannels`: never on the first load, never a
- * row this person already saw); this only skips rows they caused themselves.
+ * The in-app side of notifications while the app is open:
  *
- * Renders nothing; mounted once per shell next to the desktop bridge.
+ * - the banner channel — a newly arrived attention record slides in top
+ *   right as the same card the bell shows (face, who, title, one line, the
+ *   result chip, the verb), one banner per agent with "+N" when it said more
+ *   than one thing at once;
+ * - the browser channel — a Web Notification while the tab is in the
+ *   background (the desktop shell has its own native one);
+ * - the agents' faces on every card.
+ *
+ * Arrival detection lives with the bell (`useClientChannels`: never on the
+ * first load, never a row this person already saw); this only skips rows
+ * they caused themselves. Mounted once per shell next to the desktop bridge.
  */
 import { useTranslation } from "@engenty/i18n/ui";
 import {
-  actionVerb,
-  localizedSummary,
-  notificationBodyText,
-  notificationHref,
-  notificationOrigin,
+  browserClientChannel,
+  groupIntoStacks,
+  NotificationCard,
+  type NotificationDto,
+  openNotificationInbox,
   registerClientChannel,
+  registerNotificationFace,
 } from "@engenty/notifications-ui";
-import { useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
-import { toast } from "sonner";
+import { useEffect } from "react";
+import { Toaster, toast } from "sonner";
+import { isDesktopShell } from "@/desktop/desktop-runtime";
+import { NotificationAgentFace } from "./NotificationAgentFace";
 
+const TOASTER_ID = "notifications";
 /** More at once is a flood, not news — the bell holds the rest. */
-const MAX_TOASTS = 3;
+const MAX_BANNERS = 3;
+const BANNER_MS = 8000;
+
+function NotificationBanner({
+  more,
+  notification,
+  toastId,
+}: {
+  more: number;
+  notification: NotificationDto;
+  toastId: number | string;
+}) {
+  const { t, i18n } = useTranslation("common");
+  const close = () => toast.dismiss(toastId);
+  return (
+    <div className="flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-1">
+      <NotificationCard
+        locale={i18n.language || "en"}
+        notification={notification}
+        onClose={close}
+        onNavigate={close}
+        showSpace
+        variant="banner"
+      />
+      {more > 0 ? (
+        <button
+          className="self-end px-2 text-muted-foreground text-xs hover:text-foreground"
+          onClick={() => {
+            close();
+            openNotificationInbox({ lane: "attention" });
+          }}
+          type="button"
+        >
+          {t("notifications.group.more", {
+            count: more,
+            defaultValue: "+{{count}} more",
+          })}
+        </button>
+      ) : null}
+    </div>
+  );
+}
 
 export function NotificationToastChannel({ userId }: { userId: string }) {
-  const { t } = useTranslation("common");
-  const navigate = useNavigate();
-  // Registered once; the ref reads the latest navigate / t / user.
-  const latest = useRef({ navigate, t, userId });
-  latest.current = { navigate, t, userId };
+  useEffect(() => registerNotificationFace(NotificationAgentFace), []);
+
+  useEffect(
+    () =>
+      isDesktopShell()
+        ? undefined
+        : registerClientChannel(browserClientChannel),
+    []
+  );
 
   useEffect(
     () =>
       registerClientChannel({
-        id: "toast",
+        id: "banner",
         onArrival(records) {
-          const { navigate: go, t: translate, userId: me } = latest.current;
           const others = records.filter(
             (record) =>
-              !(record.actor_kind === "user" && record.actor_id === me)
+              !(record.actor_kind === "user" && record.actor_id === userId)
           );
-          for (const record of others.slice(0, MAX_TOASTS)) {
-            const origin = notificationOrigin(record);
-            const title = localizedSummary(record, translate);
-            const href = notificationHref(record);
-            const source = [origin.spaceName, origin.actorLabel]
-              .filter(Boolean)
-              .join(" · ");
-            const body = notificationBodyText(record);
-            const description = [source, body].filter(Boolean).join(" — ");
-            toast(title, {
-              id: record.id,
-              ...(description ? { description } : {}),
-              ...(href
-                ? {
-                    action: {
-                      label:
-                        actionVerb(record, translate) ??
-                        translate("notifications.open", {
-                          defaultValue: "Open",
-                        }),
-                      onClick: () => go(href),
-                    },
-                  }
-                : {}),
-            });
+          for (const stack of groupIntoStacks(others).slice(0, MAX_BANNERS)) {
+            const [head, ...rest] = stack.items;
+            if (!head) {
+              continue;
+            }
+            toast.custom(
+              (id) => (
+                <NotificationBanner
+                  more={rest.length}
+                  notification={head}
+                  toastId={id}
+                />
+              ),
+              { duration: BANNER_MS, id: head.id, toasterId: TOASTER_ID }
+            );
           }
         },
       }),
-    []
+    [userId]
   );
-  return null;
+
+  return (
+    <Toaster
+      gap={8}
+      id={TOASTER_ID}
+      offset={{ right: 16, top: 56 }}
+      position="top-right"
+      toastOptions={{ unstyled: true }}
+      visibleToasts={MAX_BANNERS}
+    />
+  );
 }

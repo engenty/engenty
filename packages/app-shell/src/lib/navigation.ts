@@ -132,11 +132,16 @@ function buildAdminNavItems(
   return merged.map((row) => row.item);
 }
 
-const AGENTS_WORKSPACE_PATH = "/admin/engenty";
+/** Admin consoles for debugging: Engenty workspace, raw storage, context graph. */
+const DEVELOPER_ADMIN_PATHS = [
+  "/admin/engenty",
+  "/admin/files",
+  "/admin/context-graph",
+];
 
-function isAgentsWorkspaceEntry(to: string): boolean {
-  return (
-    to === AGENTS_WORKSPACE_PATH || to.startsWith(`${AGENTS_WORKSPACE_PATH}/`)
+function isDeveloperAdminEntry(to: string): boolean {
+  return DEVELOPER_ADMIN_PATHS.some(
+    (path) => to === path || to.startsWith(`${path}/`)
   );
 }
 
@@ -188,14 +193,14 @@ export function buildNavigationSections(
   // via ADMIN_MENU_SORT_RANK_BY_ID (not the primary top rail). Audit logs are
   // reachable from the Setup overview only; users from the Settings overview
   // (`/settings/users`) — neither gets a rail or secondary-nav slot.
-  // The Engenty workspace (/admin/engenty) is a debugging surface — superadmins
-  // with developer mode on only.
-  const showAgentsWorkspace = isSuperAdmin && developerModeEnabled;
+  // The Engenty workspace, Speicher (/admin/files) and the context graph are
+  // debugging surfaces — superadmins with developer mode on only.
+  const showDeveloperAdmin = isSuperAdmin && developerModeEnabled;
   const adminMenuEntries = isAdmin
     ? contributions.adminMenuItems.filter(
         (entry) =>
           entry.section === "admin" &&
-          (showAgentsWorkspace || !isAgentsWorkspaceEntry(entry.to))
+          (showDeveloperAdmin || !isDeveloperAdminEntry(entry.to))
       )
     : [];
   // Connections is a personal surface (`requiresAdmin: false`). Admins see it

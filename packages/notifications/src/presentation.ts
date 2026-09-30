@@ -10,7 +10,10 @@
 // the ids the producer already stamps, with the record's OWN space.
 //
 // Isomorphic and import-free (types only).
-import type { NotificationRecord } from "./contracts.js";
+import type {
+  NotificationAttachment,
+  NotificationRecord,
+} from "./contracts.js";
 
 /** Names a title may use. Missing names fall back to the producer's summary. */
 export type NotificationTitleParams = Record<string, string | number>;
@@ -164,8 +167,10 @@ function str(value: unknown): string | null {
 const enc = encodeURIComponent;
 
 /**
- * The in-app route of a record's subject — where the thing is decided or
- * read. Built from the record's own space (`metadata.space_key`), never the
+ * The in-app route of a record's context — the agent's conversation, the
+ * run, the task, the room — where the thing is decided or read. A result the
+ * work produced is an attachment (`notificationAttachments`), never the
+ * target. Built from the record's own space (`metadata.space_key`), never the
  * page the viewer happens to be on. Null when the record names nothing a
  * person can open.
  */
@@ -178,18 +183,6 @@ export function notificationTarget(record: TargetInput): string | null {
     record.subject_type === "task" ? record.subject_id : str(meta.task_id);
   if (taskId) {
     return inSpace(`tasks/${enc(taskId)}`) ?? `/mdl/tasks/${enc(taskId)}`;
-  }
-
-  // A result a run stored: the notification opens the result, not the chat
-  // it was made in. Review rows below still go to the decision.
-  const artifactId = str(meta.artifact_id);
-  if (artifactId && record.kind !== "routine_review") {
-    const artifact = inSpace(
-      `data?${new URLSearchParams({ artifact: artifactId }).toString()}`
-    );
-    if (artifact) {
-      return artifact;
-    }
   }
 
   // A routine held for review is released from its Engenty's desk (the run
@@ -286,16 +279,55 @@ export function notificationTarget(record: TargetInput): string | null {
   const agentId =
     str(meta.agent_id) ??
     (record.actor_kind === "agent" ? str(record.actor_id) : null);
-  switch (record.kind) {
-    case "agent_proposed":
-      return inSpace("agents");
-    case "skill_proposed":
-    case "agent_hired":
-    case "routine_failed":
-    case "routine_outcome":
-    case "routine_created":
-      return agentId ? inSpace(`agents/${enc(agentId)}`) : inSpace("agents");
-    default:
-      return null;
+  if (record.kind === "agent_proposed") {
+    return inSpace("agents");
   }
+  // Anything else an agent raised opens that agent's desk: the card is its
+  // context, even when the record names no conversation (a gated write, a
+  // record it wrote).
+  return agentId ? inSpace(`agents/${enc(agentId)}`) : null;
+}
+
+/**
+ * A result as a producer names it: an artifact by id (routed through the
+ * record's own space), or anything else by its in-app route.
+ */
+export type NotificationAttachmentInput =
+  | { id: string; kind: "artifact"; label: string }
+  | { kind: "file" | "record"; label: string; target: string };
+
+export const ATTACHMENTS_MAX = 3;
+const ATTACHMENT_LABEL_MAX = 60;
+
+/**
+ * The results a card opens directly, routed with the record's own space.
+ * An attachment without a label or a route is dropped: a chip that says
+ * nothing or goes nowhere is noise.
+ */
+export function notificationAttachments(
+  inputs: readonly NotificationAttachmentInput[] | null | undefined,
+  metadata: Record<string, unknown> | null | undefined
+): NotificationAttachment[] {
+  const space = str(metadata?.space_key);
+  const out: NotificationAttachment[] = [];
+  for (const input of inputs ?? []) {
+    const label = input.label.trim()
+      ? clip(input.label, ATTACHMENT_LABEL_MAX)
+      : null;
+    const target =
+      input.kind === "artifact"
+        ? space
+          ? `/s/${enc(space)}/data?${new URLSearchParams({ artifact: input.id }).toString()}`
+          : null
+        : input.target.startsWith("/")
+          ? input.target
+          : null;
+    if (label && target && !out.some((known) => known.target === target)) {
+      out.push({ kind: input.kind, label, target });
+    }
+    if (out.length === ATTACHMENTS_MAX) {
+      break;
+    }
+  }
+  return out;
 }

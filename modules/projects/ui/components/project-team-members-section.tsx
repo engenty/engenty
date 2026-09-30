@@ -48,6 +48,11 @@ const PROJECT_ROLES: ProjectMemberRole[] = [
 interface ProjectTeamMembersSectionProps {
   catalog: TeamMemberCatalogRow[];
   className?: string;
+  /**
+   * `"link"`: with nobody on the team, render only a quiet "+ Team" add
+   * trigger — the overview lines empty sections up in one row.
+   */
+  emptyAs?: "link" | "section";
   onProjectUpdated: () => void | Promise<void>;
   projectId: string;
   projectTeamMembers: ProjectTeamMemberRow[];
@@ -282,6 +287,7 @@ export function ProjectTeamMembersSection({
   catalog,
   onProjectUpdated,
   className,
+  emptyAs = "section",
 }: ProjectTeamMembersSectionProps) {
   const { t } = useTranslation("projects");
   const members = useMemo(
@@ -435,6 +441,42 @@ export function ProjectTeamMembersSection({
       }),
     [members, rowByKey]
   );
+
+  if (emptyAs === "link" && memberIds.length === 0) {
+    const label = (
+      <span className="inline-flex items-center gap-1">
+        <Plus className="size-3.5" />
+        {t("detail.quickAdd.team")}
+      </span>
+    );
+    return addOptions.length === 0 ? (
+      <Link
+        className="inline-flex items-center gap-1 text-muted-foreground text-sm transition-colors hover:text-foreground"
+        to="/mdl/team"
+      >
+        {label}
+      </Link>
+    ) : (
+      <MultiSelect
+        align="start"
+        className="inline-flex h-auto w-auto border-0 bg-transparent p-0 font-normal text-muted-foreground text-sm shadow-none hover:bg-transparent hover:text-foreground"
+        deduplicateOptions
+        defaultValue={[]}
+        disabled={saving}
+        hideSelectAll
+        onValueChange={(vals) => {
+          if (vals.length > 0) {
+            handleAddFromMultiSelect(vals);
+          }
+        }}
+        options={addOptions}
+        placeholder={t("detail.members.addPlaceholder")}
+        popoverClassName="w-64 max-w-full"
+        triggerElement={label}
+        variant="ghost"
+      />
+    );
+  }
 
   return (
     <div className={cn("mt-6 space-y-3", className)}>

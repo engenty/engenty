@@ -52,6 +52,8 @@
     "@engenty/api-contracts": "workspace:*",
     "@engenty/app-shell": "workspace:*",
     "@engenty/auth-ui": "workspace:*",
+    "@engenty/covers": "workspace:*",
+    "@engenty/file-storage": "workspace:*",
     "@engenty/i18n": "workspace:*",
     "@engenty/live-cache": "workspace:*",
     "@engenty/plugin-sdk": "workspace:*",

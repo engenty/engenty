@@ -147,7 +147,6 @@ export function ProjectsSidebarPanel() {
         onClearSearch={() => setSearch("")}
         onCreateProject={() => setCreateOpen(true)}
         onSearchChange={setSearch}
-        pathname={pathname}
         prefs={prefs}
         search={search}
         trimmed={trimmed}

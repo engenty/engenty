@@ -33,6 +33,14 @@ import {
   startUserBrowser,
 } from "../sandbox/space-browser.js";
 import {
+  BROWSER_REQUEST_CREDENTIALS_TOOL_ID,
+  createCredentialsRequestTool,
+} from "./browser-credentials.js";
+import {
+  BROWSER_SHOW_TOOL_ID,
+  createBrowserShowTool,
+} from "./browser-show-tool.js";
+import {
   BROWSER_SIGN_IN_TOOL_ID,
   createSignInTool,
 } from "./browser-sign-in-tool.js";
@@ -95,8 +103,8 @@ export interface UserBrowserToolsInput {
   headless: boolean;
   tenantId: string;
   /**
-   * The run's low-tier model (`modelConfig.gradedModelIds.low`) for the fast
-   * loop's field values; the `model.low` seed when the run resolved none.
+   * The run's Normal model (`modelConfig.gradedModelIds.normal`) for the fast
+   * loop's field values; the `model.normal` seed when the run resolved none.
    */
   textModelId?: string | null;
 }
@@ -216,9 +224,11 @@ function createRequestUserTool(input: {
       try {
         await ctx.agent?.suspend({
           ...artifact,
-          browser: {
+          // The card carries the live window: the person does it right there.
+          preview: {
             agent_id: input.identity.agentId,
-            sandbox_id: buildUserBrowserSandboxId(input.identity),
+            kind: "browser",
+            mode: "live",
             space_id: input.identity.spaceId,
           },
         });
@@ -365,7 +375,14 @@ function createStartTool(input: {
       try {
         await ctx.agent?.suspend({
           ...artifact,
-          browser: { start_request: true },
+          // The card carries the browser's setup: the Space's switches sit
+          // next to the question they answer for next time.
+          preview: {
+            agent_id: input.identity.agentId,
+            kind: "browser",
+            mode: "setup",
+            space_id: input.identity.spaceId,
+          },
         });
         releaseFrontendToolSuspendSlot(lockKey, ticket);
       } catch (error) {
@@ -678,11 +695,20 @@ export async function createUserBrowserTools(
     windowKey,
   }) as unknown as MastraToolDefinition;
   if (!input.headless) {
-    // Nobody at the keyboard can take the page in a headless run.
+    // Nobody at the keyboard can take the page in a headless run, or look
+    // at what the agent shows in the chat.
     tools[BROWSER_HAND_OVER_TOOL_ID] = createHandOverTool({
       emit: input.emit,
       identity,
       windowKey,
+    }) as unknown as MastraToolDefinition;
+    tools[BROWSER_SHOW_TOOL_ID] = createBrowserShowTool({
+      identity,
+      lockKey: suspendLockKey,
+    }) as unknown as MastraToolDefinition;
+    tools[BROWSER_REQUEST_CREDENTIALS_TOOL_ID] = createCredentialsRequestTool({
+      identity,
+      lockKey: suspendLockKey,
     }) as unknown as MastraToolDefinition;
   }
   const classifier = isFastLoopEnabled(input.classifierModelId)

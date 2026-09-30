@@ -10,13 +10,7 @@ export const API_SCHEMA_MARKER_BEGIN =
 export const API_SCHEMA_MARKER_END = "# <<< engenty:api-schemas";
 
 /** Always exposed — order is stable for diffs and docs. */
-export const BASE_API_SCHEMAS = [
-  "public",
-  "graphql_public",
-  "ai",
-  "context_graph",
-  "core",
-];
+export const BASE_API_SCHEMAS = ["public", "graphql_public", "ai", "core"];
 
 /** Created by migrations but never PostgREST-exposed. */
 export const INTERNAL_POSTGRES_SCHEMAS = new Set([

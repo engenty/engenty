@@ -205,6 +205,12 @@ export interface CopilotPanelContentProps {
   transcriptLoading?: boolean;
   /** Accessible label for {@link transcriptLoading} (visually hidden). */
   transcriptLoadingLabel?: string;
+  /**
+   * The transcript's status when it differs from the composer's: a run this
+   * window attached to (not one it started) keeps the composer a Send while
+   * the transcript still shows the turn working. Defaults to `status`.
+   */
+  transcriptStatus?: "ready" | "streaming" | "submitted" | "error";
   transcriptSurface?: "default" | "chat";
 
   voiceInputEnabled?: boolean;

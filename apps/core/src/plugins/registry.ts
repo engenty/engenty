@@ -15,13 +15,13 @@ import type {
   FeatureFlagDefinition,
   PluginAiRegistration,
   PluginCategory,
+  PluginContextGraphServerApi,
   PluginDiagnostic,
   PluginEventFilter,
   PluginEventInterceptor,
   PluginEventName,
   PluginEventObserver,
   PluginEventRegistrationReceipt,
-  PluginEventsApi,
   PluginEventsRuntime,
   PluginGatewayMethod,
   PluginHttpRoute,
@@ -34,6 +34,8 @@ import type {
   PluginServerOperation,
   PluginService,
   PluginSourceInfo,
+  PluginStage,
+  PluginTenantDefault,
   PluginTestDataRegistration,
   QueueDefinition,
   RoleProfile,
@@ -122,6 +124,12 @@ export interface PluginRecord {
   sourceType: "builtin" | "module" | "package";
   /** Space Data tree roots this plugin contributes (PLAN-space-data.md D2). */
   spaceDataAdapters?: string[];
+  /** Release stage from engenty.plugin.json — see PluginStage. Absent ⇒ stable. */
+  stage?: PluginStage;
+  /** Never offered as an app of its own (settings, templates, connections). */
+  supporting?: boolean;
+  /** From `stage` and ENGENTY_MODULE_STAGE at load — see PluginTenantDefault. */
+  tenantDefault?: PluginTenantDefault;
   testDataTypes: string[];
   /** Capability tier (see plugin-tier-policy). Defaults to "module" when unset. */
   tier?: PluginTier;
@@ -265,10 +273,13 @@ export interface PluginRegistry {
    * awaited by startApiServer before the port opens. */
   assertServerLanePreflight?: () => Promise<void>;
   cliRegistrars: CliRegistration[];
-  // Context-graph host installed by the `@engenty/context-graph` plugin via
+  /** `server.contextGraph` for other modules: the host's API, gated by the
+   * context-graph module's per-Organisation state (`context-graph-gate.ts`). */
+  contextGraphApi?: PluginContextGraphServerApi;
+  // Context-graph host installed by the optional `context-graph` module via
   // `engenty.server.registerContextGraphHost(...)`. Core delegates the
   // `contextGraph` / schema / source surfaces to it without importing the
-  // concrete package. Unset until the host plugin loads.
+  // concrete module. Unset until (or unless) that module loads.
   contextGraphHost?: ContextGraphHost;
   createApi?: (
     record: PluginRecord,
@@ -348,10 +359,9 @@ export interface PluginRegistry {
   // and consumed by the unified `/api/search-index/*` operator surface.
   /** The notifications host every plugin's `server.notifications` points at. */
   notificationsHost?: NotificationsHost;
-  // Schema registrations made by consumer plugins before the host loaded
-  // (modules discover before packages). Flushed when the host installs.
+  // Schema registrations made by consumer modules before the context-graph
+  // module loaded. Flushed when the host installs.
   pendingContextGraphSchemas?: Array<{
-    events: PluginEventsApi;
     moduleId: string;
     registration: ContextGraphSchemaRegistration;
   }>;

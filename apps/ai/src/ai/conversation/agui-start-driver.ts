@@ -1,7 +1,7 @@
 // The start lane: a fresh interactive turn, driven by `@ag-ui/mastra`.
 //
 // A person is watching this lane, which is why it owns an AbortController and
-// four concerns the headless and resume lanes never meet. Each is answered
+// three concerns the headless and resume lanes never meet. Each is answered
 // through `interceptMastraStream` (a proxy over OUR OWN agent) rather than by
 // reaching into `MastraAgent`'s private members.
 //
@@ -11,10 +11,6 @@
 //     the underlying stream. A local Mastra agent driven by stock `MastraAgent`
 //     cannot be cancelled at all, so the Stop button depends on the controller
 //     this driver owns.
-//   - STOPPING ON A TOOL RESULT. `requestFeedback` returns its artifact as a tool
-//     RESULT instead of suspending (`requestDecision` suspends — see
-//     native-request-decision.ts). The model would talk straight past it, so the
-//     run is aborted from inside the event stream, through that same controller.
 //   - THE RESUME CORRELATION KEY. A resume needs the MASTRA run id its snapshot
 //     is filed under. It arrives inside the interrupt id, which upstream builds
 //     as `${runId}::${toolCallId}` from the suspend chunk's own `runId`. The
@@ -47,8 +43,6 @@ export interface AgUiStartSuspension {
 }
 
 export interface AgUiStartOutcome {
-  /** A `requestFeedback` artifact that stopped the run. */
-  artifact?: { result: unknown; toolCallId: string };
   runError: string | null;
   suspended?: AgUiStartSuspension;
   /**
@@ -147,8 +141,6 @@ export async function runInteractiveViaMastraAgent(params: {
   agentId: string;
   attachments?: readonly MastraStreamAttachment[];
   emit: (event: AGUIEvent) => void;
-  /** Recognises the tool result that must stop the run. */
-  isStopOnResult: (result: unknown) => boolean;
   /** Reasoning-iteration cap — rides the intercept into `agent.stream()`. */
   maxSteps?: number;
   prompt: string;
@@ -162,8 +154,7 @@ export async function runInteractiveViaMastraAgent(params: {
     await import("../sessions/mastra-stream-failure.js");
   const outcome: AgUiStartOutcome = { runError: null };
 
-  // One controller serves both: the route's Stop and our own
-  // "a tool returned something the model must not talk past".
+  // The route's Stop, reaching a stream `MastraAgent` cannot cancel itself.
   const cancel = new AbortController();
   const onExternalAbort = () => cancel.abort();
   if (params.abortSignal?.aborted) {
@@ -237,33 +228,6 @@ export async function runInteractiveViaMastraAgent(params: {
         typeof (event as { message?: unknown }).message === "string"
           ? (event as { message: string }).message
           : "agent stream error";
-    }
-    if (event.type === EventType.TOOL_CALL_RESULT && !outcome.artifact) {
-      // The result arrives as a JSON STRING on the wire.
-      const raw = (event as { content?: unknown }).content;
-      let result: unknown = raw;
-      if (typeof raw === "string") {
-        try {
-          result = JSON.parse(raw);
-        } catch {
-          result = raw;
-        }
-      }
-      if (params.isStopOnResult(result)) {
-        outcome.artifact = {
-          result,
-          toolCallId: String(
-            (event as { toolCallId?: unknown }).toolCallId ?? ""
-          ),
-        };
-        // Stop the run so the model does not answer past the interrupt, and
-        // do NOT forward this result — the caller emits the interactive
-        // interrupt instead of a plain tool result. The durable part is already
-        // recorded by the accumulator above, so the next turn can still see what
-        // was asked.
-        cancel.abort();
-        return;
-      }
     }
     if (isCallerFramedEvent(event.type)) {
       return;
@@ -339,11 +303,8 @@ export async function runInteractiveViaMastraAgent(params: {
   } catch {
     outcome.windowInputTokens = null;
   }
-  // A run we stopped ourselves, or the user stopped, is not a failure.
-  if (
-    cancel.signal.aborted &&
-    (outcome.artifact || params.abortSignal?.aborted)
-  ) {
+  // A run the user stopped is not a failure.
+  if (cancel.signal.aborted && params.abortSignal?.aborted) {
     outcome.runError = null;
   }
 

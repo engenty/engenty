@@ -9,7 +9,6 @@ import {
   selectionFromMounts,
   selectionToPayload,
   setModuleAccess,
-  spaceKeyFromName,
   toggleModuleSelection,
   toggleSelection,
 } from "./space-setup-selection";
@@ -170,37 +169,6 @@ describe("selectionToPayload", () => {
     );
     expect(payload[0]).not.toHaveProperty("agent_access");
     expect(payload[0]).not.toHaveProperty("record_scope");
-  });
-});
-
-describe("spaceKeyFromName", () => {
-  it("produces a key the database's format CHECK accepts", () => {
-    const pattern = /^[a-z0-9][a-z0-9-]{0,62}$/;
-    for (const name of [
-      "Kunde Müller GmbH",
-      "Forschung & Entwicklung",
-      "  Marketing  ",
-      "Straße 1",
-      "Ünïcödé",
-    ]) {
-      expect(spaceKeyFromName(name), name).toMatch(pattern);
-    }
-  });
-
-  it("transliterates German umlauts rather than dropping them", () => {
-    expect(spaceKeyFromName("Kunde Müller GmbH")).toBe("kunde-mueller-gmbh");
-    expect(spaceKeyFromName("Straße 1")).toBe("strasse-1");
-  });
-
-  it("returns an empty key for a name with nothing usable, so save stays disabled", () => {
-    expect(spaceKeyFromName("!!!")).toBe("");
-    expect(spaceKeyFromName("   ")).toBe("");
-  });
-
-  it("truncates without leaving a trailing dash", () => {
-    const key = spaceKeyFromName(`${"a".repeat(62)} b`);
-    expect(key.length).toBeLessThanOrEqual(63);
-    expect(key.endsWith("-")).toBe(false);
   });
 });
 

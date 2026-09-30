@@ -1,8 +1,7 @@
+import { type Cover, coverSchema } from "@engenty/covers";
 import { z } from "zod";
 import type { KbCommentsModeBinding } from "./comments.js";
 import { kbCommentsModeBindingSchema } from "./comments.js";
-import type { KbCover } from "./knowledge-bases.js";
-import { kbCoverSchema } from "./knowledge-bases.js";
 import {
   KB_CATEGORY_PAGE_BLOCKS_DEFAULTS,
   type KbCategoryCollectionSortBy,
@@ -50,7 +49,7 @@ export function normalizeKbCoverInheritance(raw: unknown): KbCoverInheritance {
 
 export interface KbCategory {
   comments_mode: KbCommentsModeBinding;
-  cover: KbCover | null;
+  cover: Cover | null;
   /** When set with a cover, controls which articles inherit this category cover. */
   cover_inheritance: KbCoverInheritance;
   created_at: string;
@@ -252,7 +251,7 @@ export const categoryUpdateSchema = categoryCreateSchema
   .omit({ kb_id: true })
   .partial()
   .extend({
-    cover: kbCoverSchema.nullable().optional(),
+    cover: coverSchema.nullable().optional(),
     cover_inheritance: kbCoverInheritanceSchema.optional(),
     icon: z.string().max(10).nullable().optional(),
     intro_json: tiptapJsonSchema.nullable().optional(),

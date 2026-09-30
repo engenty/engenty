@@ -3,6 +3,10 @@
 // and `agent_remove` (a coordinator or the copilot, after a person approved
 // the card). Not undoable — the row, its routines and its own workflows go.
 import { createLogger } from "@engenty/telemetry";
+import {
+  getMemoryEntryStore,
+  getWorkingMemoryStore,
+} from "../../dal/memory/index.js";
 import type { RegistryStore } from "../../dal/registry/index.js";
 import type { EngentyCoreClient } from "../core-http-client.js";
 import {
@@ -161,6 +165,18 @@ export async function deleteRegistryAgent(
     } catch (err) {
       // The scheduler sweep disables unresolvable owners as backstop.
       logger.warn("agent routine cleanup failed", { agentId, err });
+    }
+  }
+  // Its own notes go with it; what it wrote for a person, a Space or the
+  // company stays — those belong to their readers.
+  for (const memory of [getMemoryEntryStore(), getWorkingMemoryStore()]) {
+    if (!memory) {
+      continue;
+    }
+    try {
+      await memory.deleteForAgent({ agentId, tenantId });
+    } catch (err) {
+      logger.warn("agent memory cleanup failed", { agentId, err });
     }
   }
   // The agent's own workflows go with it. Run history pins a version

@@ -71,6 +71,11 @@
       "file": "modules/files/ui/api.ts",
       "kind": "tenant-level",
       "reason": "The tenant file browser: builds and validates the tenant root itself. A space's file space is reached through module_files owners (fileSpaceOwnerPath), not through this path builder."
+    },
+    {
+      "file": "packages/ai-ui/src/lib/upload-chat-attachment.ts",
+      "kind": "tenant-level",
+      "reason": "Chat and Documents uploads: the folder key comes in already space-rooted (`spaces/<s>/ai/workspace/commons/agent/<agent>/uploads`, `\u2026/documents`); the tenant root here only checks that key and turns it into the listing prefix. Outside a Space the folder is the agent's own tenant-level home (`ai/workspace/agents/<agent>/uploads`), which is above every space by definition."
     }
   ]
 }

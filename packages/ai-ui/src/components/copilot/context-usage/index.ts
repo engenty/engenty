@@ -4,10 +4,6 @@ export {
   useCopilotContextUsage,
 } from "./context-usage-api.js";
 export {
-  ContextUsageIndicator,
-  type ContextUsageIndicatorProps,
-} from "./context-usage-indicator.js";
-export {
   type ContextUsageLevel,
   contextUsageCostUsd,
   contextUsageLevel,

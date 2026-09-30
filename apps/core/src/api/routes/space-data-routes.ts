@@ -12,7 +12,7 @@
  * `invokeOperation` still decides for module roots; this only stops the tree
  * from advertising what the caller could never open.
  *
- * Markdown pages are `ai.artifact` rows (mixed into Artifacts / Ablage), not a
+ * Markdown pages are `ai.artifact` rows (mixed into Artifacts / Dokumente), not a
  * module adapter. Knowledge Base is a mounted-module root over `module_kb`.
  */
 
@@ -51,6 +51,10 @@ import {
   InvokeOperationError,
   invokeOperation,
 } from "./plugins/module-operation-routes.js";
+
+/** Shorter queries match nearly everything and walk every folder. */
+const SEARCH_MIN_QUERY = 2;
+const SEARCH_LIMIT_PER_ROOT = 25;
 
 type ApprovalService = ReturnType<typeof createApprovalService>;
 /** Mirrors module-operation-routes' own (unexported) resolver shape. */
@@ -145,6 +149,8 @@ export interface SpaceDataRoutesParams {
   auditLog: SecurityAuditLogAdapter;
   authProvider: AuthProvider;
   config: Record<string, unknown>;
+  /** Core's own roots (the Space's folder), listed beside the modules'. */
+  coreAdapters?: readonly SpaceDataAdapter[];
   dataDir: string;
   getTenantDb?: ((auth: { tenantId: string }) => SupabaseClient) | null;
   registry: PluginRegistry;
@@ -228,6 +234,9 @@ export function resolveVisibleSpaceDataRoots(input: {
   const visible: Array<{ adapter: SpaceDataAdapter; root: SpaceDataRootDto }> =
     [];
   for (const adapter of input.adapters) {
+    if (adapter.peopleOnly && input.isAutonomous) {
+      continue;
+    }
     const mount = byModule.get(adapter.moduleId);
     if (!(mount || adapter.alwaysVisible)) {
       // Not mounted: the module's records are not part of this space. Records
@@ -418,7 +427,10 @@ export function registerSpaceDataRoutes(params: SpaceDataRoutesParams) {
   }
 
   function adapters(): SpaceDataAdapter[] {
-    return (registry.spaceDataAdapters ?? []).map((entry) => entry.adapter);
+    return [
+      ...(params.coreAdapters ?? []),
+      ...(registry.spaceDataAdapters ?? []).map((entry) => entry.adapter),
+    ];
   }
 
   async function visibleRoots(auth: PrincipalContext, spaceId: string) {
@@ -565,6 +577,65 @@ export function registerSpaceDataRoutes(params: SpaceDataRoutesParams) {
       c,
       roots.map((entry) => entry.root)
     );
+  });
+
+  /**
+   * Search every visible root that can search, by name or title.
+   *
+   * Roots answer independently: one that fails is named in `unavailable`
+   * rather than failing the whole search, the same way the tree degrades.
+   */
+  app.get("/api/spaces/:spaceId/data/search", async (c) => {
+    const principal = await requirePrincipal(c);
+    if ("error" in principal) {
+      return principal.error;
+    }
+    const access = await requireSpace(c, principal.auth);
+    if ("error" in access) {
+      return access.error;
+    }
+    const query = (c.req.query("q") ?? "").trim();
+    if (query.length < SEARCH_MIN_QUERY) {
+      return jsonApiSuccess(c, { roots: [], unavailable: [] });
+    }
+    const roots = (await visibleRoots(principal.auth, access.space.id)).filter(
+      (entry) => entry.adapter.search
+    );
+    const answers = await Promise.allSettled(
+      roots.map(async (entry) => {
+        const ctx = adapterContext(
+          principal.auth,
+          access.space.id,
+          entry.root.recordScope
+        );
+        const found = await entry.adapter.search?.(ctx, {
+          limit: SEARCH_LIMIT_PER_ROOT,
+          query,
+        });
+        const listing = rootedListing(entry.root.root, {
+          entries: found?.entries ?? [],
+          folders: found?.folders ?? [],
+        });
+        return {
+          entries: listing.entries,
+          folders: listing.folders,
+          moduleId: entry.root.moduleId,
+          root: entry.root.root,
+          ...(found?.truncated ? { truncated: true } : {}),
+        };
+      })
+    );
+    return jsonApiSuccess(c, {
+      roots: answers.flatMap((answer) =>
+        answer.status === "fulfilled" &&
+        answer.value.entries.length + answer.value.folders.length > 0
+          ? [answer.value]
+          : []
+      ),
+      unavailable: answers.flatMap((answer, index) =>
+        answer.status === "rejected" ? [roots[index]?.root.root ?? ""] : []
+      ),
+    });
   });
 
   app.get("/api/spaces/:spaceId/data/list", async (c) => {

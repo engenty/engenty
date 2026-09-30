@@ -11,6 +11,7 @@ import {
   CHAT_LANE_TRANSCRIPT_CLASS,
   CopilotPanelContent,
   type CopilotRouteContext,
+  EffortOfferCard,
   EngentyAgent,
   isAgUiOpenInterruptExpired,
   readAgUiOpenInterrupt,
@@ -406,6 +407,14 @@ function KbHubChatPageContent(props: {
         contentBodyGutter="flush"
         debugPayload={undefined}
         detachLabel={tc("copilot.position.window")}
+        dockedInterruptSurface={
+          session.effortOffer && session.answerEffortOffer ? (
+            <EffortOfferCard
+              onAnswer={session.answerEffortOffer}
+              reason={session.effortOffer.reason}
+            />
+          ) : undefined
+        }
         draft={draft}
         emptyStateSubtitle={t("hub.chat_empty_subtitle")}
         emptyStateTitle={kbName}

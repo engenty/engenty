@@ -26,7 +26,6 @@ const appShell = path.join(repoRoot, "packages", "app-shell", "src");
 const aiUi = path.join(repoRoot, "packages", "ai-ui", "src");
 const authUi = path.join(repoRoot, "packages", "auth-ui", "src");
 const auditLogsUi = path.join(repoRoot, "packages", "audit-logs", "src");
-const contextGraphUi = path.join(repoRoot, "packages", "context-graph", "ui");
 const userManagementUi = path.join(
   repoRoot,
   "packages",
@@ -43,12 +42,6 @@ const engentyCopilotAi = path.join(
   "modules",
   "engenty-copilot",
   "ai"
-);
-const engentyCopilotUi = path.join(
-  repoRoot,
-  "modules",
-  "engenty-copilot",
-  "ui"
 );
 const projectsUi = path.join(repoRoot, "modules", "projects", "ui");
 const uiCoreSrc = path.join(repoRoot, "packages", "ui-core", "src");
@@ -195,12 +188,6 @@ function discoverBareUiIndexAliases(workspaceRoots: string[]): ViteAlias[] {
 function buildResolveAlias(isDev: boolean): ViteAlias[] {
   const shared: Record<string, string> = {
     "@": path.join(appRoot, "src"),
-    "@engenty/engenty-copilot/ui/model-chooser-control": path.join(
-      engentyCopilotUi,
-      "components",
-      "chat",
-      "copilot-model-chooser-control.tsx"
-    ),
     "@engenty/engenty-copilot/ai/frontend-tools/register": path.join(
       engentyCopilotAi,
       "frontend-tools",
@@ -283,10 +270,6 @@ function buildResolveAlias(isDev: boolean): ViteAlias[] {
         "@engenty/auth-ui/plugin": path.join(authUi, "plugin.tsx"),
         "@engenty/auth-ui": path.join(authUi, "index.ts"),
         "@engenty/audit-logs/plugin": path.join(auditLogsUi, "plugin.tsx"),
-        "@engenty/context-graph/plugin": path.join(
-          contextGraphUi,
-          "plugin.tsx"
-        ),
         "@engenty/user-management-ui/plugin": path.join(
           userManagementUi,
           "plugin.tsx"

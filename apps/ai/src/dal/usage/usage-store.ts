@@ -6,6 +6,7 @@ import type {
   UsagePeriodTotalRecord,
   UserUsagePolicyRecord,
 } from "@engenty/ai-core";
+import { parseCustomModelsConfig } from "@engenty/ai-core";
 import type {
   AiGatewayModelStore,
   GatewayModelAvailabilityFlags,
@@ -454,6 +455,9 @@ export function createAiUsageStore(
   const totals = (tenantId: string) =>
     dbFor(tenantId).from("usage_period_total");
   const modelBindings = () => serviceDb.from("model_binding");
+  // Platform-level, no tenant: the service client, like the bindings.
+  const platformConfig = () => serviceDb.from("platform_config");
+  const CUSTOM_MODELS_CONFIG_KEY = "custom_models";
   const tenantPolicies = (tenantId: string) =>
     dbFor(tenantId).from("tenant_usage_policy");
   const userPolicies = (tenantId: string) =>
@@ -488,6 +492,33 @@ export function createAiUsageStore(
         throw new Error(`Failed to seed model bindings: ${error.message}`);
       }
       return (data ?? []).length;
+    },
+
+    async getCustomModelsConfig() {
+      const { data, error } = await platformConfig()
+        .select("value")
+        .eq("key", CUSTOM_MODELS_CONFIG_KEY)
+        .maybeSingle();
+      if (error) {
+        throw new Error(`Failed to read custom models: ${error.message}`);
+      }
+      return parseCustomModelsConfig(data?.value);
+    },
+
+    async setCustomModelsConfig(config) {
+      const value = parseCustomModelsConfig(config);
+      const { error } = await platformConfig().upsert(
+        {
+          key: CUSTOM_MODELS_CONFIG_KEY,
+          updated_at: new Date().toISOString(),
+          value,
+        },
+        { onConflict: "key" }
+      );
+      if (error) {
+        throw new Error(`Failed to save custom models: ${error.message}`);
+      }
+      return value;
     },
 
     async upsertModelBinding(row) {

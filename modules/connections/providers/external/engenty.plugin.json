@@ -4,6 +4,7 @@
   "description": "Import any external service as a connector from OpenAPI specs, MCP servers, or the integrations.sh registry",
   "version": "0.0.1",
   "kind": "module",
+  "stage": "beta",
   "category": "integrations",
   "provides": ["module.connections-external"],
   "capabilities": {

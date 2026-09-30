@@ -4,6 +4,7 @@
   "description": "Google connectors for the connections framework: Gmail, Drive, Calendar, Contacts",
   "version": "0.0.1",
   "kind": "module",
+  "stage": "beta",
   "category": "integrations",
   "provides": ["module.connections-google"],
   "capabilities": {

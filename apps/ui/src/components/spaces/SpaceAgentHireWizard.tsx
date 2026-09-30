@@ -5,6 +5,8 @@
  * name, description, then Get started. Role templates sit underneath as
  * Suggestions. No "label" field — we do not have a use for one yet.
  */
+
+import type { SpaceAgentHireDraft } from "@engenty/ai-core/browser";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
   Button,
@@ -20,7 +22,6 @@ import {
   SpaceAgentHireFields,
   useSpaceAgentHireForm,
 } from "./SpaceAgentHireForm";
-import type { SpaceAgentHireDraft } from "./space-agent-hire";
 
 export function SpaceAgentHireWizard({
   initial,

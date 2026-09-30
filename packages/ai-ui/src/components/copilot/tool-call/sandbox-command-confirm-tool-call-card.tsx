@@ -61,10 +61,7 @@ function isActiveSandboxCommandConfirmation(input: {
   return input.openInterrupt.tool_call_id === input.callId;
 }
 
-export function matchesSandboxCommandToolCall(
-  toolName: string,
-  _state: ToolCallCardProps["state"]
-): boolean {
+export function matchesSandboxCommandToolCall(toolName: string): boolean {
   // Own every state for the sandbox execute_command tool: `pending`/`running`
   // shows the approval card, `completed`/`error` shows the resolved command
   // output (so it never falls back to the generic "Command handled" card).

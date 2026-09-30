@@ -825,9 +825,9 @@ export function PhaseTimeline({
   const dueDateLinePos = getDueDateLinePosition();
 
   return (
-    <div className="mb-6 overflow-hidden rounded-lg border bg-muted/30">
+    <div className="ui-card-panel mb-6 overflow-hidden">
       {/* Navigation Header - simplified for readOnly */}
-      <div className="flex items-center justify-between border-b bg-background/50 px-4 py-2">
+      <div className="flex items-center justify-between border-b px-4 py-2">
         <div className="flex items-center gap-2">
           {readOnly ? (
             // Simplified header for public view - just show date range
@@ -958,7 +958,7 @@ export function PhaseTimeline({
       >
         {/* Phase Column - sticky on desktop, not on mobile; z-40 so it stays above today/due vertical lines */}
         <div
-          className="left-0 z-40 shrink-0 border-r bg-background md:sticky"
+          className="left-0 z-40 shrink-0 border-r bg-card md:sticky"
           style={{ width: PHASE_COL_WIDTH }}
         >
           {/* Header - ensure button stacks above timeline lines */}

@@ -11,16 +11,9 @@ import {
   EngentyCoreHttpError,
   getEngentyCoreBaseUrlFromEnv,
 } from "../ai/index.js";
-import type { AgentMemoryStore } from "../ai/memory/agent-memory.js";
-import {
-  AGENT_MEMORY_MAX_CHARS,
-  AgentMemoryTooLargeError,
-  agentMemoryResourceId,
-  readAgentMemory,
-  writeAgentMemory,
-} from "../ai/memory/agent-memory.js";
 import {
   AGENT_TASKS_MAX_CHARS,
+  type AgentTasksStore,
   AgentTasksTooLargeError,
   agentTasksResourceId,
   readAgentTasks,
@@ -72,7 +65,7 @@ export interface RegisterAgentDeskRoutesOptions {
   coreBaseUrl?: string;
   coreFetch?: typeof fetch;
   /** The `ai.mastra_resources` store; defaults to the process's Mastra storage. */
-  getMemoryStore?: () => Promise<AgentMemoryStore | null>;
+  getMemoryStore?: () => Promise<AgentTasksStore | null>;
   getRegistry: (tenantId: string) => AiRegistry;
   getStore?: () => RegistryStore | null;
   scopeResolver: AiScopeResolver;
@@ -248,25 +241,19 @@ export function registerAgentDeskRoutes(
     }
   });
 
-  // MEMORY.md — the agent's own notes for this Space, shown and edited on the
-  // Manage tab. Same row the run's `memory_note` tool writes; the human edit
-  // path applies the same cap. The storage prefixes the tenant like the run's
-  // adapter does (`#resourceKey`), so the two never read different rows.
+  // The `ai.mastra_resources` row an agent's TASKS.md lives on (agent-tasks.ts).
   const getMemoryStore = options.getMemoryStore ?? getMemoryResourceStore;
-  const memoryQuerySchema = z.object({
+  const padQuerySchema = z.object({
     agent_id: z.string().trim().min(1).max(128),
-    // A personal-scope agent's pads (the copilot's) are one row per person,
-    // wherever they stand; a shared agent's are per space and need it.
+    // A personal-scope agent's pad (the copilot's) is one row per person,
+    // wherever they stand; a shared agent's is per space and needs it.
     space_id: uuidString.optional(),
-  });
-  const memoryBodySchema = z.object({
-    memory: z.string().max(AGENT_MEMORY_MAX_CHARS * 4),
   });
 
   const resolvePadIdentity = async (
     tenantId: string,
     userId: string,
-    query: z.infer<typeof memoryQuerySchema>
+    query: z.infer<typeof padQuerySchema>
   ) => {
     const config = await options
       .getRegistry(tenantId)
@@ -282,119 +269,18 @@ export function registerAgentDeskRoutes(
       userId,
     };
   };
-  const resolveMemoryRow = async (
-    tenantId: string,
-    userId: string,
-    query: z.infer<typeof memoryQuerySchema>
-  ) => {
-    const identity = await resolvePadIdentity(tenantId, userId, query);
-    const resourceId = identity ? agentMemoryResourceId(identity) : null;
-    return resourceId ? `${tenantId}:${resourceId}` : null;
-  };
   const resolveTasksRow = async (
     tenantId: string,
     userId: string,
-    query: z.infer<typeof memoryQuerySchema>
+    query: z.infer<typeof padQuerySchema>
   ) => {
     const identity = await resolvePadIdentity(tenantId, userId, query);
     const resourceId = identity ? agentTasksResourceId(identity) : null;
     return resourceId ? `${tenantId}:${resourceId}` : null;
   };
 
-  app.get(`${AI_BASE_PATH}/v1/agent-desk/memory`, async (c) => {
-    const resolved = await resolveScope(c, options.scopeResolver);
-    if (!resolved.ok) {
-      return resolved.response;
-    }
-    const query = memoryQuerySchema.safeParse(c.req.query());
-    if (!query.success) {
-      return c.json(
-        { error: "agent_desk.invalidQuery", details: query.error.issues },
-        400
-      );
-    }
-    try {
-      const row = await resolveMemoryRow(
-        resolved.scope.tenantId,
-        resolved.scope.userId,
-        query.data
-      );
-      const store = row ? await getMemoryStore() : null;
-      const memory = row && store ? await readAgentMemory(store, row) : "";
-      return c.json({
-        enabled: row !== null,
-        max_chars: AGENT_MEMORY_MAX_CHARS,
-        memory,
-      });
-    } catch (error) {
-      return handleRouteError(
-        c,
-        "failed to read agent memory",
-        "agent_desk.internalError",
-        error
-      );
-    }
-  });
-
-  app.put(`${AI_BASE_PATH}/v1/agent-desk/memory`, async (c) => {
-    const resolved = await resolveScope(c, options.scopeResolver);
-    if (!resolved.ok) {
-      return resolved.response;
-    }
-    const query = memoryQuerySchema.safeParse(c.req.query());
-    if (!query.success) {
-      return c.json(
-        { error: "agent_desk.invalidQuery", details: query.error.issues },
-        400
-      );
-    }
-    const body = memoryBodySchema.safeParse(
-      await c.req.json().catch(() => null)
-    );
-    if (!body.success) {
-      return c.json(
-        { error: "agent_desk.invalidBody", details: body.error.issues },
-        400
-      );
-    }
-    try {
-      const row = await resolveMemoryRow(
-        resolved.scope.tenantId,
-        resolved.scope.userId,
-        query.data
-      );
-      const store = row ? await getMemoryStore() : null;
-      if (!(row && store)) {
-        return c.json({ error: "agent_desk.memoryUnavailable" }, 404);
-      }
-      const memory = await writeAgentMemory(store, row, body.data.memory);
-      return c.json({
-        enabled: true,
-        max_chars: AGENT_MEMORY_MAX_CHARS,
-        memory,
-      });
-    } catch (error) {
-      if (error instanceof AgentMemoryTooLargeError) {
-        return c.json(
-          {
-            error: "agent_desk.memoryTooLarge",
-            length: error.length,
-            max_chars: AGENT_MEMORY_MAX_CHARS,
-          },
-          413
-        );
-      }
-      return handleRouteError(
-        c,
-        "failed to write agent memory",
-        "agent_desk.internalError",
-        error
-      );
-    }
-  });
-
-  // TASKS.md — the agent's own open items and goals for this audience, on the
-  // same row as MEMORY.md (metadata). Private to the agent; a person may read
+  // TASKS.md — the agent's own open items and goals for this audience, on its
+  // resource row (metadata). Private to the agent; a person may read
   // and correct it here. Writes are parsed and re-rendered canonically.
   const tasksBodySchema = z.object({
     tasks: z.string().max(AGENT_TASKS_MAX_CHARS * 4),
@@ -405,7 +291,7 @@ export function registerAgentDeskRoutes(
     if (!resolved.ok) {
       return resolved.response;
     }
-    const query = memoryQuerySchema.safeParse(c.req.query());
+    const query = padQuerySchema.safeParse(c.req.query());
     if (!query.success) {
       return c.json(
         { error: "agent_desk.invalidQuery", details: query.error.issues },
@@ -440,7 +326,7 @@ export function registerAgentDeskRoutes(
     if (!resolved.ok) {
       return resolved.response;
     }
-    const query = memoryQuerySchema.safeParse(c.req.query());
+    const query = padQuerySchema.safeParse(c.req.query());
     if (!query.success) {
       return c.json(
         { error: "agent_desk.invalidQuery", details: query.error.issues },

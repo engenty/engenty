@@ -4,6 +4,123 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.2.24] - 2026-09-30
+- ADDED **[knowledge-base]** Sidebar search below the nav and tabs, with the module's Engentys
+- ADDED **[contacts]** Sidebar filters and add menu next to the search
+- ADDED **[offers,team]** Sidebar nav above the search, search right above its list
+- ADDED **[contacts]** Sidebar search sits right above the contacts list it searches
+- ADDED **[ai]** The agent's browser in the chat — setup, marked-up screenshots, live view, logins
+- ADDED **[ui]** Space tabs inside modules, animated level change
+- ADDED **[tasks]** Briefing only under Plan, not on the space home
+- ADDED **[projects]** Covers for projects
+- ADDED **[covers]** Share the knowledge base's covers as @engenty/covers
+- ADDED **[projects]** A calmer project overview and sidebar
+- ADDED **[ui]** One header row for a module opened in a space
+- ADDED **[team]** Put the account choice first in the create member dialog
+- ADDED **[projects]** Lean projects by default, settings save on change
+- ADDED **[projects]** Pin projects to the space sidebar and home
+- ADDED **[ui-plugin-sdk]** Let modules add sections to the space sidebar and home
+- ADDED **[tasks,projects]** Create project tasks with the tasks dialog
+- ADDED **[contacts]** Role filter as a button group on the list; agent rows look like Space desk rows
+- ADDED **[contacts]** Sidebar shows one Contacts row and the module's Engentys
+- ADDED **[ui]** Agent folders sit directly in Dateien, named after the agent
+- ADDED **[ui]** The Data search field matches the module sidebars
+- ADDED **[context-graph]** Make the context graph an optional alpha module
+- ADDED **[ui]** Search the Data tab from the sidebar
+- ADDED **[app-shell]** Show Speicher and Kontextgraph to superadmins in developer mode only
+- ADDED **[ui]** The Dateien page lists Engentys first, like the tree
+- ADDED **[ui]** Engentys live in Dateien; the Data tab hides empty sections
+- ADDED **[global]** Call the tenant "Organisation" in pro modules and the website
+- ADDED **[global]** Call the tenant "Organisation", never Firma or Company
+- ADDED **[ui]** Documents are the AI-made documents only; Dateien stays the Files module
+- ADDED **[ai]** A Space computer's Apps live at /space/apps
+- ADDED **[ui]** Data tab shows the Space's folder — Documents, Apps, Engentys, Public
+- ADDED **[ai]** Chat uploads land in the agent's Space folder
+- ADDED **[ui]** Rename the Space data section Ablage to Dokumente (Documents)
+- ADDED **[files]** Files module moves to beta
+- ADDED **[contacts]** Contacts manager runs computer commands without approval cards
+- ADDED **[contacts]** Contacts manager gets a computer; import skill checks and repairs files there
+- ADDED **[ai]** Chat attachments on the computer, workspace_file_publish
+- ADDED **[contacts]** Import skill checks the file and says how to repair it
+- ADDED **[ai-ui]** Drop state covers the composer card, attachment errors can be closed
+- ADDED **[ai-ui]** Drop state in the composer, screen dropped files before they attach
+- ADDED **[ai-ui]** Drop files anywhere on the chat to attach them
+- ADDED **[engenty-apps]** Move from alpha to beta
+- ADDED **[contacts]** Import skill opens the wizard beside the chat
+- ADDED **[ai-ui]** View pane and open_view tool
+- ADDED **[csv-import]** Open the wizard from a stored file and report its state
+- ADDED **[ai]** Normal / Extra composer with ask-before-high and a platform Custom list
+- ADDED **[cli]** Engenty reset --bak backs up env files, and offers its options as a checklist
+- ADDED **[plugin-sdk]** Stage roster for 0.3 — beta baseline, pro-only modules at dev, mandatory specialists and connections
+- ADDED **[expenses]** Ship as alpha
+- ADDED **[team-hr]** Purge only its own tables in module_team
+- ADDED **[core]** Purge an uninstalled module's data
+- ADDED **[manage]** Drop the per-tenant off state for dev modules
+- ADDED **[plugin-sdk]** Dev modules are not installed below the install's stage
+- ADDED **[environment]** Write engenty.plugins in the short form
+- ADDED **[ui]** Keep the copilot in the app bar only, not in the space sidebar
+- ADDED **[manage]** Show module stage and block dev modules per tenant
+- ADDED **[plugin-sdk]** Hide modules by stage and mark supporting modules
+- ADDED **[plugin-sdk]** Introduce tenant default handling for plugins and update plugin stage management
+- ADDED **[auth-ui]** Redesign the tenant setup wizard with live mockups and a done marker
+- ADDED **[ui]** Space memory lives in Space settings, not on the home
+- ADDED **[ai]** Memory as scoped rows plus per-scope working memory
+- ADDED **[ai-ui]** Composer menu shows what each mode costs; sliding reasoning control
+- ADDED **[ai-ui]** Normal / Extra / Custom model choice in the composer
+- ADDED **[ai-ui]** The closed copilot signals from its blob in the app rail
+- ADDED **[ai-ui]** Chat commands help dialog
+- ADDED **[auth-ui]** Explain team, spaces and copilot in the setup wizard
+- ADDED **[notifications]** Live seen counts; open stacks without a controls row
+- ADDED **[notifications]** Seen hands off alerts; mark-seen cards and a stable filter bar
+- ADDED **[ui-core]** Filter chip icon and classes; top scroll fade
+- ADDED **[notifications-ui]** MacOS hover actions on cards — close on the corner, arrow in place of the time
+- ADDED **[notifications-ui]** Expand every stack from a section heading; clear-all turns red on hover
+- ADDED **[notifications]** Compact notification cards with agent stacks
+- ADDED **[www]** A wizards band that plays the offer wizard
+- CHANGED **[ai-ui]** Remove the drawer layout hook's dead floating-window code
+- CHANGED **[ai-ui]** Remove the unrendered snap overlays, ticker snapshot prop and date-fns
+- CHANGED **[ai-ui]** Remove dead copilot code
+- CHANGED **[core]** Remove dead chat-search health, tenant filters, MCP inventory and retired method stubs
+- CHANGED **[ai]** Remove dead native-memory binders, revokeApp and isModelFeedableMime
+- DOCS **[global]** Regenerate the README module table
+- DOCS **[global]** Model access concept names the composer-options endpoint
+- DOCS **[global]** Concept for model access and packages in the managed setup
+- DOCS **[global]** Drop the scrapped hosted-coder note from the sandbox doctrine
+- FIXED **[context-graph]** Allow a module's ops scripts a real Supabase client
+- FIXED **[projects]** Use the soft line token in the sidebar search and task card
+- FIXED **[ui]** The Space's Module list leaves out supporting modules
+- FIXED **[ai]** Keep the Space browser and its live view alive across restarts
+- FIXED **[projects]** No doubled title after an inline edit
+- FIXED **[projects]** A partial update no longer resets visibility and time planning
+- FIXED **[tasks]** Link the project context for tasks without a phase
+- FIXED **[contacts]** Role filter shows plural role names
+- FIXED **[ui]** Label the Space's public folder "Für die Firma" in the Data tab
+- FIXED **[team-chat]** Pass the attachment folder to the shared upload helper
+- FIXED **[ai-ui]** File chat attachments under their thread
+- FIXED **[ai-ui]** View pane re-renders when its page changes
+- FIXED **[ai]** Tell agents to open work pages with open_view, not navigate
+- FIXED **[ai]** Keep a module agent's uiTools on the way into apps/ai
+- FIXED **[cli]** Setup no longer hangs without a TTY, restarts Supabase on a stale schema cache, and dev syncs the URL block itself
+- FIXED **[cli]** Engenty reset asks once after the checklist
+- FIXED **[cli]** Engenty reset checklist lists only positive actions
+- FIXED **[core]** Service-token commands run without booting plugins
+- FIXED **[cli]** Setup ends with pnpm dev:portless when the dev URLs are HTTPS
+- FIXED **[inbox]** Drop the agent-driven Pull new mail routine
+- FIXED **[core]** Offer engenty Apps in the space setup catalog
+- FIXED **[manage]** Render next-themes' boot script as an inert data block
+- FIXED **[ui]** Render next-themes' boot script as an inert data block
+- FIXED **[app-shell]** Read shortcut registrations once instead of subscribing
+- FIXED **[ai-ui]** Keep the reasoning marker's label light while its row is hovered
+- FIXED **[ai-ui]** An attached run whose process died no longer leaves the lane working
+- FIXED **[ai-ui]** Reasoning level on the model row, no model ids in the Custom flyout
+- FIXED **[ai-ui]** The desk follows the run a Space home card started
+- FIXED **[ai-ui]** Keep the turn's status line while the agent works
+- FIXED **[ai-ui]** The rail signal reads the reply from AG-UI message content
+- FIXED **[ai]** RequestFeedback suspends natively, like requestDecision
+- FIXED **[ai-ui]** Show the chat's status lines in the person's language
+- FIXED **[ai-ui]** Accept only exact https/wss origins in an app frame's CSP
+- FIXED **[notifications-ui]** Open a stack in place without a header row above the cards
+
 ## [0.2.23] - 2026-09-27
 - ADDED **[ai-ui]** Module-prefixed slash commands, /status, /copilot and agent aliases
 - ADDED **[ai-ui]** Desk slash commands for effort, agent, room and learn

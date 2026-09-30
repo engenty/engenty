@@ -67,7 +67,7 @@ export function maybeInstallWorkspacePluginsInteractively(params: {
       return;
     }
     // Only prompt on a fresh workspace — i.e. before any *optional* plugin has
-    // been chosen. Mandatory plugins (copilot, tenant/user-settings) are always
+    // been chosen. Mandatory plugins (copilot, specialists, connections, …) are always
     // in the manifest and don't count, so their presence must not suppress the
     // prompt. Ongoing changes go through `engenty plugins install/uninstall`.
     const installedOptional = listInstalledWorkspaceEntries(

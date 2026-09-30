@@ -37,10 +37,19 @@ export {
   type EngentyCoat,
   type FurStage,
 } from "./fur-stage";
+export { EngentyGoggles } from "./goggles";
 export { JELLY_FRAGMENT_SHADER } from "./jelly-shader";
 export { LobbyCast, type LobbyMember } from "./lobby/lobby-cast";
 export { LobbyRoom } from "./lobby/lobby-room";
 export { EMBER_ROOM, type RoomPalette } from "./lobby/pixel-room";
 export { ROOM_H, ROOM_W } from "./lobby/pixel-room-geometry";
 export { EngentyLogoMark, EngentyWordmark } from "./logo";
+export {
+  AgentChip,
+  MockShell,
+  NewSpaceTile,
+  PERSON_HUES,
+  PersonDot,
+  SpaceTile,
+} from "./mock-shell";
 export { useEngentyGaze } from "./use-engenty-gaze";

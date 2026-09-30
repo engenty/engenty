@@ -27,6 +27,10 @@
       "types": "./ui/comments.ts",
       "default": "./dist/ui/comments.js"
     },
+    "./ui/new-task": {
+      "types": "./ui/new-task.ts",
+      "default": "./dist/ui/new-task.js"
+    },
     "./ui/work-tabs": {
       "types": "./ui/work-tabs.ts",
       "default": "./dist/ui/work-tabs.js"
@@ -40,8 +44,8 @@
     "migrationsDir": "./supabase/migrations"
   },
   "scripts": {
-    "build": "tsup src/plugin.ts src/dal/supabase.ts src/api/index.ts src/schema/types.ts src/schema/zod.ts src/lib/task-workspace.ts ui/plugin.ts ui/api.ts ui/assignee.ts ui/comments.ts --format esm --clean",
-    "dev": "tsup src/plugin.ts src/dal/supabase.ts src/api/index.ts src/schema/types.ts src/schema/zod.ts src/lib/task-workspace.ts ui/plugin.ts ui/api.ts ui/assignee.ts ui/comments.ts --format esm --watch",
+    "build": "tsup src/plugin.ts src/dal/supabase.ts src/api/index.ts src/schema/types.ts src/schema/zod.ts src/lib/task-workspace.ts ui/plugin.ts ui/api.ts ui/assignee.ts ui/comments.ts ui/new-task.ts --format esm --clean",
+    "dev": "tsup src/plugin.ts src/dal/supabase.ts src/api/index.ts src/schema/types.ts src/schema/zod.ts src/lib/task-workspace.ts ui/plugin.ts ui/api.ts ui/assignee.ts ui/comments.ts ui/new-task.ts --format esm --watch",
     "test": "vitest run --config vitest.config.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "biome check ."

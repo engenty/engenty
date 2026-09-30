@@ -1,24 +1,21 @@
-// /notifications — the full list with lanes, a search box and a lane filter.
-// Inside a space (`/s/<key>/notifications`) the list is narrowed to that
-// space; at the tenant root it is the aggregate.
+// /notifications — the full list with a search box, the lanes as a button
+// group and, at the tenant root, a space filter. Inside a space (`/s/<key>/notifications`)
+// the list is narrowed to that space; at the tenant root it is the aggregate.
 import { useTranslation } from "@engenty/i18n/ui";
 import {
   Button,
-  Input,
-  ListFilterSelectTrigger,
+  cn,
+  ListFilterChip,
   ListSearchInput,
   ListToolbar,
+  ListToolbarFilterRow,
   ListToolbarMainArea,
   ListToolbarSearch,
   ListToolbarSummary,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectValue,
   uiPageScrollClassName,
 } from "@engenty/ui-core";
 import { usePageConfig } from "@engenty/ui-plugin-sdk";
-import { Bookmark, BookmarkPlus, CheckCheck, Loader2 } from "lucide-react";
+import { CheckCheck, LayoutGrid, Loader2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import type { NotificationDto } from "./api.js";
@@ -27,24 +24,11 @@ import {
   matchesLaneFilter,
   type NotificationLaneFilter,
 } from "./classification.js";
+import { notificationOrigin } from "./notification-href.js";
 import { NotificationList } from "./notification-list.js";
+import { NotificationsLaneFilter } from "./notifications-lane-filter.js";
 import { useMarkAllSeenMutation, useNotificationsQuery } from "./queries.js";
 import { useStreamsQuery } from "./streams-api.js";
-import {
-  readSavedViews,
-  type SavedView,
-  useNotificationSettingsQuery,
-  useSetNotificationSettingMutation,
-  VIEWS_SETTING,
-} from "./user-prefs.js";
-
-const LANES: NotificationLaneFilter[] = [
-  "all",
-  "attention",
-  "hitl",
-  "errors",
-  "updates",
-];
 
 export function NotificationsPage() {
   const { t, i18n } = useTranslation("common");
@@ -59,45 +43,9 @@ export function NotificationsPage() {
   const markAll = useMarkAllSeenMutation();
   const [search, setSearch] = useState("");
   const [lane, setLane] = useState<NotificationLaneFilter>("all");
+  const [spaceId, setSpaceId] = useState("all");
   const streamsQuery = useStreamsQuery();
   const streams = streamsQuery.data?.streams ?? [];
-  // Saved views: a personal filter set (lane, stream, search) kept on
-  // core.user_settings — the personal counterpart to a shared stream.
-  const settings = useNotificationSettingsQuery();
-  const setSetting = useSetNotificationSettingMutation();
-  const views = readSavedViews(settings.data);
-  const applyView = (view: SavedView) => {
-    setLane(view.filter.lane ?? "all");
-    setStream(view.filter.stream ?? null);
-    setSearch(view.filter.search ?? "");
-  };
-  const [viewName, setViewName] = useState<string | null>(null);
-  const saveView = () => {
-    const name = viewName?.trim();
-    if (!name) {
-      return;
-    }
-    const next: SavedView[] = [
-      ...views.filter((view) => view.name !== name),
-      {
-        filter: {
-          lane,
-          ...(search.trim() ? { search: search.trim() } : {}),
-          ...(stream ? { stream } : {}),
-        },
-        name,
-      },
-    ];
-    setSetting.mutate({ name: VIEWS_SETTING, value: { views: next } });
-    setViewName(null);
-  };
-  const deleteView = (name: string) => {
-    const next = views.filter((view) => view.name !== name);
-    setSetting.mutate({
-      name: VIEWS_SETTING,
-      value: next.length > 0 ? { views: next } : null,
-    });
-  };
 
   const notifications = listQuery.data?.notifications ?? [];
   const hasUnseen = notifications.some((n) => isUnseen(n));
@@ -136,28 +84,39 @@ export function NotificationsPage() {
       if (!matchesLaneFilter(n, lane)) {
         return false;
       }
+      if (spaceId !== "all" && n.space_id !== spaceId) {
+        return false;
+      }
       if (!q) {
         return true;
       }
       return `${n.summary} ${n.kind} ${n.source}`.toLowerCase().includes(q);
     });
-  }, [lane, notifications, search]);
+  }, [lane, notifications, search, spaceId]);
 
-  const laneLabel = (value: NotificationLaneFilter) =>
-    ({
-      all: t("notifications.filter.all", { defaultValue: "All" }),
-      attention: t("notifications.filter.attention", {
-        defaultValue: "Important",
-      }),
-      errors: t("notifications.filter.errors", { defaultValue: "Errors" }),
-      hitl: t("notifications.filter.hitl", {
-        defaultValue: "Needs your input",
-      }),
-      updates: t("notifications.filter.updates", { defaultValue: "Updates" }),
-    })[value];
+  // The spaces the loaded rows come from, named as their cards name them.
+  const spaceOptions = useMemo(() => {
+    const names = new Map<string, string>();
+    for (const n of notifications) {
+      if (n.space_id && !names.has(n.space_id)) {
+        const origin = notificationOrigin(n);
+        names.set(
+          n.space_id,
+          origin.spaceName ?? origin.spaceKey ?? n.space_id
+        );
+      }
+    }
+    return [...names]
+      .map(([value, label]) => ({ label, value }))
+      .sort((a, b) => a.label.localeCompare(b.label, locale));
+  }, [locale, notifications]);
 
+  const spaceLabel = t("notifications.filter.space", { defaultValue: "Space" });
+  const allSpacesLabel = t("notifications.filter.allSpaces", {
+    defaultValue: "All spaces",
+  });
   return (
-    <div className={uiPageScrollClassName}>
+    <div className={cn(uiPageScrollClassName, "ui-scroll-fade-t")}>
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-page pt-16 pb-10">
         <div>
           <h1 className="font-semibold text-2xl tracking-tight">{title}</h1>
@@ -168,7 +127,7 @@ export function NotificationsPage() {
             })}
           </p>
         </div>
-        {streams.length > 0 || views.length > 0 ? (
+        {streams.length > 0 ? (
           <div className="flex flex-wrap items-center gap-1.5">
             <Button
               onClick={() => setStream(null)}
@@ -187,117 +146,50 @@ export function NotificationsPage() {
                 {entry.name}
               </Button>
             ))}
-            {views.length > 0 ? (
-              <span className="mx-1 h-4 w-px bg-border" />
-            ) : null}
-            {views.map((view) => (
-              <span className="inline-flex items-center" key={view.name}>
-                <Button
-                  className="gap-1.5"
-                  onClick={() => applyView(view)}
-                  size="sm"
-                  variant="ghost"
-                >
-                  <Bookmark className="h-3.5 w-3.5" />
-                  {view.name}
-                </Button>
-                <Button
-                  aria-label={t("notifications.views.delete", {
-                    defaultValue: "Delete view",
-                  })}
-                  className="h-6 w-6 text-muted-foreground"
-                  onClick={() => deleteView(view.name)}
-                  size="icon"
-                  variant="ghost"
-                >
-                  ×
-                </Button>
-              </span>
-            ))}
           </div>
         ) : null}
         <ListToolbar>
-          <ListToolbarMainArea>
+          <ListToolbarMainArea className="group/toolbar-main">
             <ListToolbarSearch>
               <ListSearchInput
+                className="w-full"
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder={t("notifications.searchPlaceholder", {
                   defaultValue: "Search notifications…",
                 })}
                 value={search}
+                wrapperClassName="w-full"
               />
             </ListToolbarSearch>
-            <Select
-              onValueChange={(value) =>
-                setLane(value as NotificationLaneFilter)
-              }
-              value={lane}
-            >
-              <ListFilterSelectTrigger>
-                <SelectValue />
-              </ListFilterSelectTrigger>
-              <SelectContent>
-                {LANES.map((value) => (
-                  <SelectItem key={value} value={value}>
-                    {laneLabel(value)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {/* A saved view is a filter, so it is saved from the filter. */}
-            {viewName === null ? (
-              <Button
-                aria-label={t("notifications.views.save", {
-                  defaultValue: "Save current filter",
-                })}
-                className="h-8 w-8 text-muted-foreground"
-                onClick={() => setViewName("")}
-                size="icon"
-                title={t("notifications.views.save", {
-                  defaultValue: "Save current filter",
-                })}
-                variant="ghost"
-              >
-                <BookmarkPlus className="h-4 w-4" />
-              </Button>
-            ) : (
-              <span className="inline-flex items-center gap-1">
-                <Input
-                  aria-label={t("notifications.views.name", {
-                    defaultValue: "View name",
-                  })}
-                  className="h-7 w-[160px]"
-                  onChange={(event) => setViewName(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      saveView();
-                    }
-                    if (event.key === "Escape") {
-                      setViewName(null);
-                    }
-                  }}
-                  placeholder={t("notifications.views.name", {
-                    defaultValue: "View name",
-                  })}
-                  value={viewName}
-                />
-                <Button
-                  disabled={setSetting.isPending || !viewName.trim()}
-                  onClick={saveView}
-                  size="sm"
-                  variant="outline"
-                >
-                  {t("notifications.views.confirm", { defaultValue: "Save" })}
-                </Button>
-              </span>
-            )}
+            {/* On a phone the focused search takes the row; the count steps
+                aside instead of wrapping under it. */}
+            <ListToolbarSummary className="max-sm:group-focus-within/toolbar-main:hidden">
+              {t("notifications.count", {
+                count: filtered.length,
+                defaultValue: "{{count}} items",
+              })}
+            </ListToolbarSummary>
           </ListToolbarMainArea>
-          <ListToolbarSummary>
-            {t("notifications.count", {
-              count: filtered.length,
-              defaultValue: "{{count}} items",
-            })}
-          </ListToolbarSummary>
+          <ListToolbarFilterRow className="flex-nowrap">
+            <NotificationsLaneFilter onChange={setLane} value={lane} />
+            {spaceKey || spaceOptions.length === 0 ? null : (
+              <ListFilterChip
+                activeLabel={
+                  spaceOptions.find((option) => option.value === spaceId)?.label
+                }
+                ariaLabel={spaceLabel}
+                className="min-w-0 shrink"
+                clearLabel={allSpacesLabel}
+                icon={LayoutGrid}
+                isActive={spaceId !== "all"}
+                label={spaceLabel}
+                onClear={() => setSpaceId("all")}
+                onSelect={setSpaceId}
+                options={spaceOptions}
+                value={spaceId}
+              />
+            )}
+          </ListToolbarFilterRow>
         </ListToolbar>
         {listQuery.isPending ? (
           <p className="text-muted-foreground text-sm">

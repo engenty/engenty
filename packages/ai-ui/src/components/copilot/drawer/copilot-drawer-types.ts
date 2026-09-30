@@ -26,7 +26,6 @@ export interface CopilotDrawerProps {
   copilotSidebarRef?: MutableRefObject<HTMLDivElement | null>;
   defaultPanelMode?: CopilotPanelMode;
   dockMode?: CopilotDockMode;
-  floatingBoundsMargin?: number;
   headerChrome?: CopilotHeaderChrome;
   mainContentReady?: boolean;
   mainContentRef?: MutableRefObject<HTMLElement | null>;

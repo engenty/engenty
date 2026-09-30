@@ -1,14 +1,14 @@
 /**
- * Instant, zero-LLM effort sizing for Auto mode.
+ * Instant, zero-LLM read of whether a Normal turn looks like it needs high.
  *
- * The router call is the expensive path — this module exists so most turns never
- * pay it. Callers should trust a `certain` guess and only invoke the cheap
- * router model when the guess is `uncertain`.
+ * Auto never moves a thread to high on its own: a `high` guess is an offer the
+ * person accepts or declines before the turn runs. So the bias is towards
+ * `normal` — a false offer costs the person a click, a missed one costs
+ * nothing they cannot fix by picking Extra. Callers trust a `certain` guess and
+ * only ask the classifier when the guess is `uncertain`.
  *
- * Bias (product rules):
  * - High: CLI / coding / multi-edit / planning work.
- * - Medium floor: anything that clearly needs tools or data ops.
- * - Low: short, mechanical, no-tool turns.
+ * - Normal: everything else, including tool and data work.
  */
 
 import type { AiEffort } from "../config/model-roles.js";
@@ -41,7 +41,7 @@ const CODING_TOOL_IDS: ReadonlySet<string> = new Set(["app_build"]);
 
 /**
  * The tier an agent's turns run at when nobody chose one — the person left
- * the composer on Auto, or the turn is a hand-off, a delegation or a routine.
+ * the composer on Normal, or the turn is a hand-off, a delegation or a routine.
  * Declared on the agent (`effort`), else implied by a coding tool: whoever
  * holds `app_build` is building software, whatever their id or name.
  */
@@ -61,29 +61,18 @@ export function agentDefaultEffort(
 }
 
 /**
- * Coding / planning / multi-edit intent. Keep this tight: a false high costs
- * latency and money; a miss falls through to the router or medium.
+ * Coding / planning / multi-edit intent. Keep this tight: every match asks the
+ * person whether to switch to Extra.
  */
 const HIGH_RE =
   /\b(?:refactor|rewrit(?:e|ing)|implement|architect(?:ure|ing)?|multi[- ]?file|across\s+files|pull\s+request|\bprs?\b|code\s+review|migrate\s+(?:the\s+)?(?:db|database|schema)|schema\s+migration|stack\s*trace|traceback|debug\s+(?:this|the)\b|fix\s+(?:all|these)\s+(?:bugs?|errors?)|step[- ]by[- ]step\s+(?:plan|implementation|migration)|write\s+(?:a\s+|the\s+)?(?:plan|design|architecture)|plan\s+(?:how\s+to|the\s+implementation|out)\b|(?:npm|pnpm|yarn|cargo|pytest|vitest|jest)\s+\w+|git\s+(?:rebase|merge|commit|cherry-pick|stash)|(?:shell|terminal|cli)\s+(?:command|script)|run\s+(?:this\s+)?(?:in\s+)?(?:the\s+)?(?:shell|terminal|sandbox))\b/i;
 
-/**
- * Tool / data-op intent → floor at medium (never low). Copilot's everyday
- * "create a contact / search tasks" path must not get the flash tier.
- */
-const MEDIUM_TOOL_RE =
-  /\b(?:create|update|delete|add|remove|find|search|look\s*up|fetch|list|send|schedule|assign|move|archive|export|import|sync)\b.{0,40}\b(?:contact|contacts|task|tasks|project|projects|email|emails|invoice|invoices|offer|offers|document|documents|file|files|thread|threads|message|messages|deal|deals|company|companies|kb|knowledge|note|notes|event|events|meeting|meetings|calendar|ticket|tickets)\b/i;
+/** Long, open-ended prose with no coding signal: the classifier decides. */
+const LONG_LIMIT = 400;
 
-const MEDIUM_TOOL_RE_ALT =
-  /\b(?:send\s+(?:an?\s+)?email|draft\s+(?:an?\s+)?(?:email|reply|offer)|book\s+(?:a\s+)?meeting|set\s+up\s+(?:a\s+)?(?:task|project|reminder)|use\s+(?:the\s+)?(?:tool|tools|api)|call\s+(?:the\s+)?(?:api|tool))\b/i;
-
-const LOW_GREETING_RE =
-  /^(?:hi|hello|hey|hallo|servus|moin|thanks|thank\s+you|danke|ok|okay|got\s+it|cool|nice|👍|🙏)[\s!.?]*$/i;
-
-const LOW_SIMPLE_RE =
-  /^(?:what(?:'s| is| are)|who(?:'s| is| are)|when(?:'s| is| are)|where(?:'s| is| are)|how\s+do\s+i\s+say|translate|rephrase|reword|format\s+(?:this|as)|make\s+this\s+shorter|summarise\s+this|summarize\s+this)\b/i;
-
-const SHORT_LIMIT = 48;
+/** Short action verbs that sometimes hide real work ("fix the login"). */
+const ACTION_RE =
+  /\b(?:fix|build|write|implement|analy[sz]e|compare|design|evaluate)\b/i;
 
 export function guessEffortFromPrompt(
   input: GuessEffortFromPromptInput
@@ -99,19 +88,10 @@ export function guessEffortFromPrompt(
   }
 
   if (text.length === 0) {
-    // Empty turn (e.g. attachment-only or resume) — attachments need tools;
-    // otherwise stay at the balanced default without paying for a router call.
-    if (input.hasAttachments) {
-      return {
-        confidence: "certain",
-        effort: "medium",
-        reason: "attachments",
-      };
-    }
     return {
       confidence: "certain",
-      effort: "medium",
-      reason: "empty",
+      effort: "normal",
+      reason: input.hasAttachments ? "attachments" : "empty",
     };
   }
 
@@ -119,51 +99,9 @@ export function guessEffortFromPrompt(
     return { confidence: "certain", effort: "high", reason: "coding_signal" };
   }
 
-  if (MEDIUM_TOOL_RE.test(text) || MEDIUM_TOOL_RE_ALT.test(text)) {
-    return {
-      confidence: "certain",
-      effort: "medium",
-      reason: "tool_signal",
-    };
+  if (text.length >= LONG_LIMIT || ACTION_RE.test(text)) {
+    return { confidence: "uncertain", effort: "normal", reason: "ambiguous" };
   }
 
-  if (input.hasAttachments) {
-    return {
-      confidence: "certain",
-      effort: "medium",
-      reason: "attachments",
-    };
-  }
-
-  if (LOW_GREETING_RE.test(text)) {
-    return { confidence: "certain", effort: "low", reason: "greeting" };
-  }
-
-  if (text.length <= SHORT_LIMIT && LOW_SIMPLE_RE.test(text)) {
-    return { confidence: "certain", effort: "low", reason: "simple_qa" };
-  }
-
-  if (text.length <= SHORT_LIMIT && !/\n/.test(text)) {
-    // Short single-line prompts with no coding/tool signal are usually cheap,
-    // but not always — leave the door open for the router on borderline cases
-    // that still look like work ("fix the login").
-    if (
-      /\b(?:fix|build|write|change|edit|update|create|delete|implement)\b/i.test(
-        text
-      )
-    ) {
-      return {
-        confidence: "uncertain",
-        effort: "medium",
-        reason: "short_action",
-      };
-    }
-    return { confidence: "certain", effort: "low", reason: "short" };
-  }
-
-  return {
-    confidence: "uncertain",
-    effort: "medium",
-    reason: "ambiguous",
-  };
+  return { confidence: "certain", effort: "normal", reason: "plain" };
 }

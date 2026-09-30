@@ -16,7 +16,11 @@ vi.mock("@mastra/agent-browser", () => ({
       },
     });
     onBrowserClosed = vi.fn(() => () => undefined);
-    sharedManager = { newTab: vi.fn(() => Promise.resolve()) };
+    sharedManager = {
+      getPages: () => [],
+      newTab: vi.fn(() => Promise.resolve({ index: 0 })),
+      switchTo: vi.fn(() => Promise.resolve()),
+    };
   },
 }));
 
@@ -191,7 +195,7 @@ describe("browser_run_fast switch", () => {
         execute: (input: unknown, ctx: unknown) => Promise<unknown>;
       }
     ).execute({ goal: "x" }, {});
-    // No run tier → the helper's own default (the model.low seed), not the classifier.
+    // No run tier → the helper's own default (the model.normal seed), not the classifier.
     expect(fieldTextOptions[0]).not.toHaveProperty("modelId");
   });
 

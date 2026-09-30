@@ -197,6 +197,7 @@ function describeRunActivity(
     case "skill_search":
       return t(`${key}.guide`);
     case "memory_note":
+    case "working_memory_set":
       return t(`${key}.noting`);
     case "engenty_tools_search":
     case "engenty_tools_discover":

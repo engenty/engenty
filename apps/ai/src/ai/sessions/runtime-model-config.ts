@@ -1,5 +1,7 @@
 import {
+  AI_EFFORT_LEVELS,
   type AiEffort,
+  type AiReasoningEffort,
   bindingsFromList,
   clampEffort,
   graded,
@@ -10,6 +12,7 @@ import {
 import type { AiGatewayModelStore } from "../../gateway-models.js";
 import { createContextTokensResolver } from "../registry/history-token-budget.js";
 import type { RuntimeModelConfig } from "../registry/index.js";
+import { createReasoningSupportResolver } from "../registry/reasoning-options.js";
 import type { AiSessionScope, ThreadServiceOptions } from "./types.js";
 
 /**
@@ -26,7 +29,8 @@ export async function resolveRuntimeModelConfig(
   opts: RuntimeModelConfigDeps,
   scope: AiSessionScope,
   modelIdOverride?: string | null,
-  effort?: AiEffort | null
+  effort?: AiEffort | null,
+  reasoningEffort?: AiReasoningEffort | null
 ): Promise<RuntimeModelConfig> {
   const tenantConfig = await opts.resolveTenantModelConfig?.(scope);
   const tenantChatModel = tenantConfig?.chatModelId?.trim() || null;
@@ -85,8 +89,8 @@ export async function resolveRuntimeModelConfig(
   // background jobs (fast text, classifier) resolve their own roles and never
   // inherit a conversation's pick.
   // The effort pick becomes a model by way of the graded role binding, clamped
-  // to what the plan grants: a tenant on a low-only plan who asks for high gets
-  // low and an answer rather than an error. An explicit `model_id` still wins —
+  // to what the plan grants: a tenant on a Normal-only plan who asks for high
+  // gets Normal and an answer rather than an error. An explicit `model_id` still wins —
   // expert and self-hosted installs pin models deliberately.
   const clamped =
     effort == null
@@ -99,7 +103,7 @@ export async function resolveRuntimeModelConfig(
   // Every graded tier's model, clamped to the plan, so an agent with its own
   // default tier can be placed on it without a second policy read.
   const gradedModelIds: Partial<Record<AiEffort, string>> = {};
-  for (const tier of ["low", "medium", "high"] as const) {
+  for (const tier of AI_EFFORT_LEVELS) {
     const allowed = clampEffort(tier, {
       allowed_efforts: allowedEfforts as never,
     });
@@ -112,8 +116,10 @@ export async function resolveRuntimeModelConfig(
   return {
     // A caller that passed an effort decided the tier for this run (the
     // person's pick, or Auto's answer for their own agent); agents assembled
-    // under it do not re-decide. Delegated and room turns clear this.
-    effortPinned: effort != null,
+    // under it do not re-decide. A model pin (Custom) decides it just as
+    // firmly — without this the agent's own default tier would replace the
+    // model the person picked. Delegated and room turns clear this.
+    effortPinned: effort != null || Boolean(modelIdOverride),
     gradedModelIds,
     // Carried so per-agent pins are checked against the same grants, without a
     // policy read per assembled sub-agent.
@@ -150,6 +156,12 @@ export async function resolveRuntimeModelConfig(
       purpose: "classifier",
       tenantDefault: tenantConfig?.classifierModelId?.trim() || null,
     }),
+    ...(reasoningEffort
+      ? {
+          reasoningEffort,
+          resolveReasoningSupport: reasoningSupportResolverFor(opts),
+        }
+      : {}),
     // The catalog's window for whichever model an agent lands on — read at
     // assembly per agent, since pins and tiers are decided there.
     resolveContextTokens: contextTokensResolverFor(opts),
@@ -171,6 +183,23 @@ function contextTokensResolverFor(opts: RuntimeModelConfigDeps) {
   if (!resolver) {
     resolver = createContextTokensResolver(() => store);
     contextTokensResolvers.set(store, resolver);
+  }
+  return resolver;
+}
+
+const reasoningSupportResolvers = new WeakMap<
+  object,
+  ReturnType<typeof createReasoningSupportResolver>
+>();
+function reasoningSupportResolverFor(opts: RuntimeModelConfigDeps) {
+  const store = opts.getUsageStore();
+  if (!store) {
+    return createReasoningSupportResolver(() => null);
+  }
+  let resolver = reasoningSupportResolvers.get(store);
+  if (!resolver) {
+    resolver = createReasoningSupportResolver(() => store);
+    reasoningSupportResolvers.set(store, resolver);
   }
   return resolver;
 }

@@ -23,7 +23,7 @@
   "addRoleFailed": "Failed to add role.",
   "removeRole": "Remove role",
   "filterByRole": "Filter by role",
-  "roleAll": "All roles",
+  "roleAll": "All",
   "filterByType": "Filter by type",
   "typeOrganisation": "Organisations",
   "typePerson": "People",
@@ -199,7 +199,12 @@
     "recentSection": "Recent",
     "allContacts": "All contacts",
     "noRecent": "No contacts yet.",
-    "clearSearch": "Clear search"
+    "clearSearch": "Clear search",
+    "filters": "Filters",
+    "sortBy": "Sort by",
+    "filterType": "Type",
+    "filterRole": "Role",
+    "noMatches": "No contacts match these filters."
   },
   "addOrganisation": "Add Organisation",
   "addPerson": "Add Person",

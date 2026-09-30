@@ -8,6 +8,14 @@
  */
 import type { AgentEngentyKind } from "@engenty/ai-core/browser";
 import {
+  buildSpaceAgentHireInput,
+  firstEngentyDraft,
+  HIRE_TEMPLATE_ENGENTY,
+  pickRandomHireEngenty,
+  type SpaceAgentHireDraft,
+  type SpaceAgentHireTemplate,
+} from "@engenty/ai-core/browser";
+import {
   AGENT_ROLE_TEMPLATES,
   type AgentRoleTemplate,
   useCreateCustomAgentMutation,
@@ -34,14 +42,6 @@ import {
 } from "@/lib/spaces-queries";
 import { SpaceAgentHireCapabilities } from "./SpaceAgentHireCapabilities";
 import { SpaceAgentHireCharacter } from "./SpaceAgentHireCharacter";
-import {
-  buildSpaceAgentHireInput,
-  firstEngentyDraft,
-  HIRE_TEMPLATE_ENGENTY,
-  pickRandomHireEngenty,
-  type SpaceAgentHireDraft,
-  type SpaceAgentHireTemplate,
-} from "./space-agent-hire";
 
 /** Select value for "reports to nobody" — Radix refuses an empty string. */
 const NOBODY = "__nobody__";

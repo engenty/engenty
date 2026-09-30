@@ -28,9 +28,16 @@ export const listNotificationsQuerySchema = z.object({
   subject_type: z.string().min(1).max(64).optional(),
 });
 
+export const notificationAttachmentSchema = z.object({
+  kind: z.enum(["artifact", "file", "record"]),
+  label: z.string(),
+  target: z.string(),
+});
+
 export const notificationRecordSchema = z.object({
   actor_id: z.string().nullable(),
   actor_kind: z.enum(["agent", "user", "system"]).nullable(),
+  attachments: z.array(notificationAttachmentSchema),
   audience_id: z.string().nullable(),
   audience_kind: z.enum(["tenant", "user", "stream", "space"]),
   body: z.string().nullable().optional(),
@@ -61,6 +68,13 @@ export const notificationRecordSchema = z.object({
     .optional(),
   updated_at: z.string(),
 });
+
+/** Clear a stack: at most one list page of rows at a time. */
+export const notificationIdsSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1).max(200),
+});
+
+export const markSeenBodySchema = notificationIdsSchema.partial();
 
 export const listNotificationsResponseSchema = z.object({
   notifications: z.array(notificationRecordSchema),

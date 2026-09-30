@@ -3,6 +3,7 @@ import {
   requestApiEnvelope,
   requestApiJson,
 } from "@engenty/api-client";
+import type { Cover } from "@engenty/covers";
 
 export type { TaskStatusColor } from "../src/schema/task-status-colors.js";
 export { TASK_STATUS_COLOR_OPTIONS } from "../src/schema/task-status-colors.js";
@@ -23,6 +24,7 @@ export interface ProjectListItem {
   briefing: string | null;
   client_id: string | null;
   client_name: string | null;
+  cover?: Cover | null;
   created_at: string;
   created_by: string | null;
   enabled_tabs?: string[] | null;
@@ -79,11 +81,13 @@ export interface PhaseTask {
   content: string | null;
   created_at: string;
   discipline: string | null;
+  due_date?: string | null;
   hours: number | null;
   id: string;
   is_public: boolean;
   order_index: number;
   phase_id: string | null;
+  primary_assignee_user_id?: string | null;
   project_id: string;
   status: string;
   task_team?: TaskTeamMember[];
@@ -100,6 +104,7 @@ export interface ProjectCreateInput {
   briefing?: string | null;
   client_id: string | null;
   client_name: string | null;
+  cover?: Cover | null;
   created_by?: string | null;
   enabled_tabs?: string[] | null;
   end_date?: string | null;

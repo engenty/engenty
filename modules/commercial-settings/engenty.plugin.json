@@ -5,6 +5,7 @@
   "description": "Shared commercial defaults: currency, tax, units, disciplines",
   "version": "0.0.1",
   "kind": "module",
+  "stage": "beta",
   "category": "commercial",
   "provides": [
     "module.commercial-settings",
@@ -17,5 +18,6 @@
     "ai": true,
     "frontendTools": false
   },
-  "placement": "settings"
+  "placement": "settings",
+  "supporting": true
 }

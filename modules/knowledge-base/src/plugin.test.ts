@@ -157,6 +157,7 @@ describe("registerKnowledgeBasePlugin", () => {
         "POST /api/kb/convert-document",
         "POST /api/kb/cover/ai",
         "POST /api/kb/cover/unsplash/import",
+        "POST /api/kb/cover/upload-key",
         "POST /api/kb/faqs",
         "POST /api/kb/inbox",
         "POST /api/kb/inbox/:id/fetch-source",

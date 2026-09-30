@@ -106,9 +106,11 @@ export function ModuleSecondaryNavPanel(props: {
     />
   );
 
+  const leading = leadingSlot ? (
+    <div className="shrink-0">{leadingSlot}</div>
+  ) : null;
   const body = (
     <>
-      {leadingSlot ? <div className="shrink-0">{leadingSlot}</div> : null}
       {showShellItems ? (
         <div className="flex shrink-0 flex-col gap-3">
           {clusters.map((cluster, idx) => {
@@ -194,11 +196,14 @@ export function ModuleSecondaryNavPanel(props: {
       onKeyDownCapture={onSecondaryNavKeyDownCapture}
       ref={panelRef}
     >
+      {/* OUTSIDE the transition wrapper: a space's tab strip is there at both
+          levels, so re-keying it with the body remounted it and slid it in on
+          every level change — a flash of the one row that did not move. The
+          slot animates its own level-bound part. */}
+      {routeTransition ? leading : null}
       {routeTransition ? (
-        // Re-keyed on the route's LEVEL, so the whole body animates as one
-        // piece. Animating only the parts the route owns would have slid the
-        // space's tabs out while the module's own nav — which arrives through
-        // page-config, not from here — simply appeared.
+        // Re-keyed on the route's LEVEL, so the module's own nav — which
+        // arrives through page-config, not from here — slides in as one piece.
         <div
           className={cn(
             "fade-in-0 flex flex-1 animate-in flex-col gap-3 duration-200 ease-out",
@@ -212,7 +217,10 @@ export function ModuleSecondaryNavPanel(props: {
           {body}
         </div>
       ) : (
-        body
+        <>
+          {leading}
+          {body}
+        </>
       )}
       {/* Pinned to the bottom, OUTSIDE the transition wrapper: the footer is
           the column's own furniture (Settings), not part of what slides when the

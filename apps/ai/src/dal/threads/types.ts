@@ -100,21 +100,15 @@ export interface ThreadCompactionSpace {
   key: string | null;
 }
 
-/** One thing to keep in mind after a chapter, and where it came up. */
-export interface ThreadCompactionNote {
-  space_key: string | null;
-  text: string;
-}
-
 /**
  * A chapter of a person's river: a stretch of their one copilot conversation,
- * summarised once and kept — with the spaces it happened in and what is worth
- * remembering afterwards (migration 20260921170000_copilot_river.sql).
+ * summarised once and kept, with the spaces it happened in (migration
+ * 20260921170000_copilot_river.sql). What was worth remembering is written as
+ * memory entries when the chapter is cut, not kept here.
  */
 export interface ThreadCompactionRow {
   created_at: string;
   id: string;
-  keep_in_mind: ThreadCompactionNote[];
   kind: ThreadCompactionKind;
   message_count: number;
   range_end: string;

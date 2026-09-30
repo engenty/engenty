@@ -5,14 +5,12 @@ import {
   cn,
   Input,
   SidebarHeader,
-  SidebarNavList,
   SidebarRow,
   SidebarRowActions,
   SidebarRowButton,
   sidebarColumnContentInsetClassName,
   sidebarColumnContentInsetEndClassName,
 } from "@engenty/ui-core";
-import { DockProjectsIcon } from "@engenty/ui-icons";
 import { Plus, Search, X } from "lucide-react";
 import type { ComponentType, SVGProps } from "react";
 import { Link } from "react-router-dom";
@@ -74,7 +72,6 @@ interface ProjectsSidebarHeaderProps {
   onClearSearch: () => void;
   onCreateProject: () => void;
   onSearchChange: (value: string) => void;
-  pathname: string;
   prefs: ProjectsSidebarPrefs;
   search: string;
   trimmed: string;
@@ -83,6 +80,12 @@ interface ProjectsSidebarHeaderProps {
   ) => void;
 }
 
+/**
+ * One row above the project list: the search field, list settings and "new
+ * project". The field has a light border so it reads as part of the column
+ * rather than a form; focused, it takes the whole row and a darker border. The module's name is the column's title and already
+ * links to the list, so there is no "Projekte" row here.
+ */
 export function ProjectsSidebarHeader({
   clients,
   isSearching,
@@ -90,7 +93,6 @@ export function ProjectsSidebarHeader({
   onClearSearch,
   onCreateProject,
   onSearchChange,
-  pathname,
   prefs,
   search,
   trimmed,
@@ -99,21 +101,10 @@ export function ProjectsSidebarHeader({
   const { t } = useTranslation("projects");
 
   return (
-    <SidebarHeader className="gap-0 p-0 pb-3">
-      <SidebarNavList>
-        <SidebarNavRow
-          active={pathname === "/mdl/projects"}
-          createAriaLabel={t("list.addProject")}
-          icon={DockProjectsIcon}
-          label={t("menu.projects")}
-          onCreate={onCreateProject}
-          to="/mdl/projects"
-        />
-      </SidebarNavList>
-
+    <SidebarHeader className="gap-0 p-0 pb-2">
       <div
         className={cn(
-          "flex min-w-0 items-center gap-1 pt-2",
+          "group/search flex min-w-0 items-center gap-0.5",
           sidebarColumnContentInsetClassName,
           sidebarColumnContentInsetEndClassName
         )}
@@ -127,8 +118,13 @@ export function ProjectsSidebarHeader({
             aria-label={t("sidebar.searchAria", {
               defaultValue: "Search projects",
             })}
-            className="h-8 w-full py-0 pr-7 pl-8 text-sm"
+            className="h-8 w-full border-border-soft bg-transparent py-0 pr-7 pl-7 text-sm shadow-none focus-visible:border-foreground/35 focus-visible:ring-0"
             onChange={(e) => onSearchChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                onClearSearch();
+              }
+            }}
             placeholder={t("sidebar.searchPlaceholder", {
               defaultValue: "Search projects...",
             })}
@@ -140,7 +136,7 @@ export function ProjectsSidebarHeader({
               aria-label={t("sidebar.clearSearch", {
                 defaultValue: "Clear search",
               })}
-              className="absolute top-1/2 right-1 h-6 w-6 shrink-0 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              className="absolute top-1/2 right-0.5 h-6 w-6 shrink-0 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               onClick={onClearSearch}
               size="icon"
               tabIndex={-1}
@@ -151,14 +147,29 @@ export function ProjectsSidebarHeader({
             </Button>
           ) : null}
         </div>
-        {isSearching ? null : (
-          <ProjectsSidebarListSettings
-            clients={clients}
-            leads={leads}
-            prefs={prefs}
-            updatePrefs={updatePrefs}
-          />
-        )}
+        {/* Folds away while the field has focus, so it spans the column.
+            `max-w` rather than `hidden`: display does not animate. */}
+        <div className="flex max-w-16 shrink-0 items-center gap-0.5 overflow-hidden transition-[max-width,opacity] duration-200 ease-out group-has-[input:focus]/search:max-w-0 group-has-[input:focus]/search:opacity-0">
+          {isSearching ? null : (
+            <ProjectsSidebarListSettings
+              clients={clients}
+              leads={leads}
+              prefs={prefs}
+              updatePrefs={updatePrefs}
+            />
+          )}
+          <Button
+            aria-label={t("list.addProject")}
+            className="h-7 w-7 shrink-0 p-0 text-muted-foreground hover:text-foreground"
+            onClick={onCreateProject}
+            title={t("list.addProject")}
+            type="button"
+            variant="ghost"
+            {...shellSecondaryNavItemProps}
+          >
+            <Plus aria-hidden className="size-3.5" />
+          </Button>
+        </div>
       </div>
     </SidebarHeader>
   );

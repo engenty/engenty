@@ -1,12 +1,8 @@
 {
   "roles": {
-    "model.low": {
+    "model.normal": {
       "gateway": "vercel",
       "model_id": "zai/glm-5.3-flash"
-    },
-    "model.medium": {
-      "gateway": "vercel",
-      "model_id": "deepseek/deepseek-v4.1-flash"
     },
     "model.high": {
       "gateway": "vercel",
@@ -40,5 +36,9 @@
       "gateway": "vercel",
       "model_id": "openai/whisper-1"
     }
+  },
+  "custom_models": {
+    "enabled": false,
+    "models": []
   }
 }

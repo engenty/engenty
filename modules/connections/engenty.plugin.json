@@ -5,6 +5,7 @@
   "description": "Central external-service connections: OAuth, per-action permissions, approvals",
   "version": "0.0.1",
   "kind": "module",
+  "stage": "beta",
   "category": "integrations",
   "provides": [
     "module.connections",
@@ -50,5 +51,6 @@
         "secret": false
       }
     ]
-  }
+  },
+  "supporting": true
 }

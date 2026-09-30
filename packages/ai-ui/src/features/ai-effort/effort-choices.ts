@@ -7,7 +7,6 @@ import {
   AI_EFFORT_LEVELS,
   type AiEffort,
   type AiEffortChoice,
-  clampEffort,
   isEffortAllowed,
 } from "@engenty/ai-core/browser";
 
@@ -49,21 +48,6 @@ export function buildEffortChoiceOptions(
     allowed: value === "auto" || isEffortAllowed(value, grant),
     value,
   }));
-}
-
-/**
- * The choice a tenant actually gets. Degrades downward instead of refusing —
- * a stored "high" on a plan that later drops to low-only becomes "low", not an
- * error the user has to clear before they can send anything.
- */
-export function resolveEffortChoice(
-  requested: AiEffortChoice,
-  allowedEfforts: readonly string[] | null | undefined
-): AiEffortChoice {
-  if (requested === "auto") {
-    return "auto";
-  }
-  return clampEffort(requested, toEffortGrant(allowedEfforts)) ?? "auto";
 }
 
 /** True when the plan withholds at least one tier, so the UI can say why. */

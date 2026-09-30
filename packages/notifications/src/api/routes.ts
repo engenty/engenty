@@ -2,7 +2,7 @@
 //
 // GET  /api/notifications                  list (query: scope, status, class, kind, source, actor, stream, subject_*, priority, limit)
 // GET  /api/notifications/attention-count  { total, in_space } — open attention rows (the bell, the Work tab), one poll
-// POST /api/notifications/seen-all         the caller's view; never a decision
+// POST /api/notifications/seen-all         the caller's view; never a decision ({ ids? } = one stack)
 // POST /api/notifications/:id/seen         the caller's view of one row
 // POST /api/notifications/:id/dismiss      the row (alerts, FYI); a decision → 422
 // GET  /api/notifications/push/config      VAPID public key (null = channel off)
@@ -17,6 +17,7 @@ import {
   attentionCountResponseSchema,
   listNotificationsQuerySchema,
   listNotificationsResponseSchema,
+  markSeenBodySchema,
   okResponseSchema,
   pushConfigResponseSchema,
   pushSubscribeSchema,
@@ -158,7 +159,7 @@ export function registerNotificationsApi(
     responses: {
       200: {
         description:
-          "Open attention rows, seen or not: tenant-wide and within the header's space",
+          "Open attention rows (`isAttention`): tenant-wide and within the header's space",
         schema: attentionCountResponseSchema,
       },
     },
@@ -169,10 +170,22 @@ export function registerNotificationsApi(
   server.registerHttpRoute({
     handler: async (ctx) => {
       const auth = requireAuth(ctx.auth);
-      const updated = await deps.service.markAllSeen({
-        ...(await audienceScopeOf(ctx)),
-        tenantId: auth.tenantId,
-      });
+      const body = (ctx.body ?? {}) as z.infer<typeof markSeenBodySchema>;
+      const scope = await audienceScopeOf(ctx);
+      const ids = body.ids ? new Set(body.ids) : null;
+      const updated =
+        ids && scope.userId
+          ? await deps.service.markSeenWhere({
+              ...scope,
+              predicate: (record) =>
+                ids.has(record.id) && record.class !== "decision",
+              tenantId: auth.tenantId,
+              userId: scope.userId,
+            })
+          : await deps.service.markAllSeen({
+              ...scope,
+              tenantId: auth.tenantId,
+            });
       return Response.json({ ok: true, updated }, { status: 200 });
     },
     method: "post",
@@ -182,6 +195,7 @@ export function registerNotificationsApi(
       riskLevel: "low",
     },
     path: "/api/notifications/seen-all",
+    request: { body: markSeenBodySchema },
     responses: {
       200: { description: "Every open alert, todo and FYI seen by the caller" },
     },

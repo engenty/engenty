@@ -24,13 +24,14 @@ import {
   type EngentyPluginApi,
   type EngentyPluginFactory,
   type EngentyPluginManifest,
+  isModuleStageInstalled,
+  moduleTenantDefault,
   type PluginEventContext,
   type PluginEventFilter,
   type PluginEventHandlerRegistration,
   type PluginEventInterceptor,
   type PluginEventObserver,
   type PluginEventPayload,
-  type PluginEventsApi,
   type PluginEventsRuntime,
   type PluginRuntime,
 } from "@engenty/plugin-sdk";
@@ -51,6 +52,7 @@ import {
 import { createBootApiLogger, initEvlog } from "../observability/evlog.js";
 import { registerCoreRoleProfiles } from "../security/role-profiles.js";
 import { resolvePluginCapability } from "./capability-resolver.js";
+import { gateContextGraphApi } from "./context-graph-gate.js";
 import {
   discoverPluginPackageRoot,
   discoverPlugins,
@@ -63,6 +65,7 @@ import {
   type PluginManifest,
   resolvePluginTier,
 } from "./manifest.js";
+import { installModuleStage } from "./module-stage.js";
 import {
   evaluatePluginTierViolations,
   stripTierRestrictedContributions,
@@ -358,23 +361,27 @@ function createPluginApi(params: {
     manifest: toEngentyPluginManifest(params.manifest),
     server: {
       ...params.pluginApi.server,
-      // Context-graph surfaces delegate to the host installed by the
-      // `@engenty/context-graph` plugin. Read lazily so they resolve
-      // regardless of plugin load order (modules load before packages).
+      // Context-graph surfaces delegate to the host installed by the optional
+      // `context-graph` module. Read lazily so they resolve regardless of
+      // plugin load order; `undefined` / no-op when the module is absent.
       get contextGraph() {
-        return params.registry.contextGraphHost?.serverApi;
+        return params.registry.contextGraphApi;
       },
       get contextGraphSources() {
         return params.registry.contextGraphHost?.sources;
       },
       registerContextGraphHost: (host: ContextGraphHost) =>
-        installContextGraphHost(params.registry, host),
+        installContextGraphHost({
+          host,
+          hostPlugin: params.record,
+          registry: params.registry,
+          resolveTenantPluginOverrides: params.resolveTenantPluginOverrides,
+        }),
       registerContextGraphSchema: (
         registration: ContextGraphSchemaRegistration
       ) =>
         registerContextGraphSchema({
           registry: params.registry,
-          events,
           moduleId: params.record.id,
           registration,
         }),
@@ -464,18 +471,31 @@ function createPluginApi(params: {
 }
 
 /**
- * Install the context-graph host (from the `@engenty/context-graph` plugin) and
- * flush any schema registrations buffered by consumers that loaded first.
+ * Install the context-graph host (from the optional `context-graph` module),
+ * gate its API by that module's per-Organisation state, and flush any schema
+ * registrations buffered by modules that loaded first.
  */
-function installContextGraphHost(
-  registry: PluginRegistry,
-  host: ContextGraphHost
-): void {
+function installContextGraphHost(params: {
+  host: ContextGraphHost;
+  hostPlugin: PluginRecord;
+  registry: PluginRegistry;
+  resolveTenantPluginOverrides?: (
+    tenantId: string
+  ) => Promise<Record<string, boolean>>;
+}): void {
+  const { host, registry } = params;
   registry.contextGraphHost = host;
+  registry.contextGraphApi = host.serverApi
+    ? gateContextGraphApi({
+        api: host.serverApi,
+        hostPlugin: params.hostPlugin,
+        resolveTenantPluginOverrides: params.resolveTenantPluginOverrides,
+      })
+    : undefined;
   const pending = registry.pendingContextGraphSchemas;
   if (pending?.length) {
     for (const item of pending) {
-      host.createSchemaRegistrar(item.events, item.moduleId)(item.registration);
+      host.createSchemaRegistrar(item.moduleId)(item.registration);
     }
     registry.pendingContextGraphSchemas = [];
   }
@@ -483,25 +503,20 @@ function installContextGraphHost(
 
 /**
  * Delegate a schema registration to the installed host, or buffer it when the
- * host plugin has not loaded yet (modules discover before packages). Deferred
- * registrations return no receipt — dispose is not needed at boot.
+ * context-graph module has not loaded yet. Deferred registrations return no
+ * receipt — dispose is not needed at boot.
  */
 function registerContextGraphSchema(params: {
-  events: PluginEventsApi;
   moduleId: string;
   registration: ContextGraphSchemaRegistration;
   registry: PluginRegistry;
 }) {
   const host = params.registry.contextGraphHost;
   if (host) {
-    return host.createSchemaRegistrar(
-      params.events,
-      params.moduleId
-    )(params.registration);
+    return host.createSchemaRegistrar(params.moduleId)(params.registration);
   }
   params.registry.pendingContextGraphSchemas ??= [];
   params.registry.pendingContextGraphSchemas.push({
-    events: params.events,
     moduleId: params.moduleId,
     registration: params.registration,
   });
@@ -854,6 +869,12 @@ export function createPluginRecord(params: {
     kind: params.manifest.kind,
     category: params.manifest.category,
     placement: params.manifest.placement,
+    ...(params.manifest.stage ? { stage: params.manifest.stage } : {}),
+    ...(params.manifest.supporting ? { supporting: true } : {}),
+    tenantDefault: moduleTenantDefault(
+      params.manifest.stage,
+      installModuleStage()
+    ),
     tier: params.manifest.tier,
     capabilities: params.manifest.capabilities,
     ...(params.manifest.connections
@@ -1017,6 +1038,7 @@ export function loadPlugins(params: LoadPluginsParams): PluginRegistry {
     // No resolvable repo root (some unit-test fixtures) — skip the guard.
   }
 
+  const installStage = installModuleStage();
   for (const candidate of discovery.candidates) {
     const manifestRes = loadPluginManifest(candidate.rootDir);
     if (!manifestRes.ok) {
@@ -1046,6 +1068,15 @@ export function loadPlugins(params: LoadPluginsParams): PluginRegistry {
     }
 
     const manifest = manifestRes.manifest;
+    // Below the install's stage and not alpha (ENGENTY_MODULE_STAGE): this
+    // install does not have the module. It is not loaded and not listed, so
+    // nothing (API, AI, manage) can reach or turn it on.
+    if (!isModuleStageInstalled(manifest.stage, installStage)) {
+      logger.info(
+        `Plugin ${manifest.id} (stage ${manifest.stage}) is not installed at stage ${installStage}`
+      );
+      continue;
+    }
     const stateEntry = pluginState.plugins[manifest.id];
     const enabled = isMandatoryPlugin(manifest.id)
       ? true

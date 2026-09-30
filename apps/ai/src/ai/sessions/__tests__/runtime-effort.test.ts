@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { resolveAgentModelId } from "../../registry/assemble-dynamic-agent.js";
 import { resolveRuntimeModelConfig } from "../runtime-model-config.js";
 import type { AiSessionScope, ThreadServiceOptions } from "../types.js";
 
@@ -13,22 +14,14 @@ const scope: AiSessionScope = {
  * DEFAULT_AI_* here would couple the test to product defaults and hide bugs
  * when seeds change but binding lookup is wrong.
  */
-const LOW = "vendor/fixture-low";
-const MEDIUM = "vendor/fixture-medium";
+const NORMAL = "vendor/fixture-normal";
 const HIGH = "vendor/fixture-high";
 
 const BINDINGS = [
   {
     gateway: "vercel",
-    model_id: LOW,
-    role: "model.low",
-    scope: "platform",
-    updated_at: "",
-  },
-  {
-    gateway: "vercel",
-    model_id: MEDIUM,
-    role: "model.medium",
+    model_id: NORMAL,
+    role: "model.normal",
     scope: "platform",
     updated_at: "",
   },
@@ -86,25 +79,38 @@ describe("effort resolution", () => {
   });
 
   it("degrades to the plan ceiling instead of refusing", async () => {
-    // A low-only plan asked for high: the tenant gets an answer, not a 429.
+    // A Normal-only plan asked for high: the tenant gets an answer, not a 429.
     const config = await resolveRuntimeModelConfig(
-      makeOpts({ ...unrestricted, allowed_efforts: ["low"] }),
+      makeOpts({ ...unrestricted, allowed_efforts: ["normal"] }),
       scope,
       null,
       "high"
     );
-    expect(config.chatModelId).toBe(LOW);
+    expect(config.chatModelId).toBe(NORMAL);
   });
 
-  it("lets an explicit model pin beat the effort pick", async () => {
-    // Expert / self-hosted installs pin deliberately; effort must not override.
+  it("keeps a Custom pick on the picked model, even for an agent with its own tier", async () => {
+    // Custom sends a pin and no tier. The agent's default tier must not
+    // replace the model the person picked.
     const config = await resolveRuntimeModelConfig(
       makeOpts(unrestricted),
       scope,
       "mistral/mistral-large",
-      "low"
+      null
     );
-    expect(config.chatModelId).toBe("mistral/mistral-large");
+    expect(
+      resolveAgentModelId(
+        {
+          effort: "normal",
+          id: "a",
+          instructions: "x",
+          name: "A",
+          skillIds: [],
+          toolIds: [],
+        },
+        config
+      )
+    ).toBe("mistral/mistral-large");
   });
 
   it("falls through to the tenant default when no effort is picked", async () => {
@@ -114,6 +120,6 @@ describe("effort resolution", () => {
       null,
       null
     );
-    expect(config.chatModelId).toBe(MEDIUM);
+    expect(config.chatModelId).toBe(NORMAL);
   });
 });

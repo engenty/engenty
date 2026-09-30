@@ -214,6 +214,7 @@ export function AgentDeskChatPanel(props: {
     agentId: props.agentId,
     agentScope: props.agentScope ?? null,
     ...(props.agentSwitch ? { agentSwitch: props.agentSwitch } : {}),
+    hostKey: props.hostKey,
     ...(props.onOpenPanel ? { onOpenPanel: props.onOpenPanel } : {}),
     skillIds,
     spaceId: props.spaceId,
@@ -412,7 +413,10 @@ export function AgentDeskChatPanel(props: {
     ) : null;
   // Any non-null dock is a visible composer flap — pass null when idle.
   const dockedInterruptSurface =
-    lane.queue.hasQueued || lane.dockInterrupt || dockedWizardStep ? (
+    host.effortOffer ||
+    lane.queue.hasQueued ||
+    lane.dockInterrupt ||
+    dockedWizardStep ? (
       <ChatLaneDock
         dockInterrupt={lane.dockInterrupt}
         host={host}
@@ -581,6 +585,7 @@ export function AgentDeskChatPanel(props: {
         ? t("agentDesk.sending")
         : tc("copilot.thinking"),
     threadId: host.threadId,
+    transcriptStatus: status,
     // Work this agent started on its own belongs at the end of the transcript,
     // not on a tab you have to know to open: a routine fire is the agent
     // working, and the room should say so while it happens.

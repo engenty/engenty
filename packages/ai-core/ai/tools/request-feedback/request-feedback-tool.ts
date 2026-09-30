@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+// The tool itself lives in apps/ai (native-request-feedback.ts): it SUSPENDS the
+// run, which needs the Mastra run context. What stays here is the contract both
+// ends share — the question the model asks and the card the client renders.
+
 export const requestFeedbackInputSchema = z.object({
   body: z.string().optional(),
   placeholder: z.string().optional(),
@@ -9,16 +13,21 @@ export const requestFeedbackInputSchema = z.object({
 
 export type RequestFeedbackInput = z.infer<typeof requestFeedbackInputSchema>;
 
-export interface RequestFeedbackArtifact {
-  artifact_id: string;
-  artifact_type: "feedback";
-  body?: string;
+/** The card a suspended `requestFeedback` parks on (its suspend payload). */
+export const requestFeedbackArtifactSchema = z.object({
+  artifact_id: z.string(),
+  artifact_type: z.literal("feedback"),
+  body: z.string().optional(),
   /** AG-UI `resume[].interruptId` (defaults to `artifact_id`). */
-  interrupt_id: string;
-  placeholder?: string;
-  submit_label?: string;
-  title: string;
-}
+  interrupt_id: z.string(),
+  placeholder: z.string().optional(),
+  submit_label: z.string().optional(),
+  title: z.string(),
+});
+
+export type RequestFeedbackArtifact = z.infer<
+  typeof requestFeedbackArtifactSchema
+>;
 
 /**
  * What the tool returns on a run with no human channel. A background task job
@@ -27,33 +36,13 @@ export interface RequestFeedbackArtifact {
  */
 export interface RequestFeedbackUnavailable {
   artifact_type: "feedback_unavailable";
+  note: string;
   question: string;
   reason: "no_human_channel";
 }
 
 export const NO_HUMAN_CHANNEL_FEEDBACK_MESSAGE =
   "This run has no human channel: nothing was shown to anyone and nobody can answer. Do NOT wait for a reply. Decide from what you already have, or stop and state exactly what you needed to ask.";
-
-export interface RequestFeedbackToolDefinition {
-  description: string;
-  execute: (
-    input: RequestFeedbackInput
-  ) => Promise<RequestFeedbackArtifact | RequestFeedbackUnavailable>;
-  id: "requestFeedback";
-  inputSchema: typeof requestFeedbackInputSchema;
-  toModelOutput: (output?: unknown) => { type: "text"; value: string };
-}
-
-export function isRequestFeedbackUnavailable(
-  value: unknown
-): value is RequestFeedbackUnavailable {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    (value as { artifact_type?: unknown }).artifact_type ===
-      "feedback_unavailable"
-  );
-}
 
 export function createRequestFeedbackArtifact(
   input: RequestFeedbackInput
@@ -68,50 +57,4 @@ export function createRequestFeedbackArtifact(
     interrupt_id: artifact_id,
     title: input.title,
   };
-}
-
-export const requestFeedbackToolDefinition: RequestFeedbackToolDefinition =
-  buildRequestFeedbackToolDefinition();
-
-/**
- * `hasHumanChannel` lets the host declare whether this run can actually be
- * answered. Omitted (the default) keeps the historical behaviour for callers
- * that only ever run in chat.
- */
-export function buildRequestFeedbackToolDefinition(options?: {
-  hasHumanChannel?: () => boolean;
-}): RequestFeedbackToolDefinition {
-  return {
-    id: "requestFeedback",
-    description:
-      "Ask the user for free-form text input or general feedback in the chat. Use this instead of requestDecision when you need the user to type a response or write feedback rather than selecting from a list of fixed choices. Wait for the user's response before continuing.",
-    inputSchema: requestFeedbackInputSchema,
-    execute: async (input) => {
-      if (options?.hasHumanChannel && !options.hasHumanChannel()) {
-        return {
-          artifact_type: "feedback_unavailable",
-          question: input.title,
-          reason: "no_human_channel",
-        };
-      }
-      return createRequestFeedbackArtifact(input);
-    },
-    toModelOutput: (output?: unknown) => ({
-      type: "text",
-      value: isRequestFeedbackUnavailable(output)
-        ? NO_HUMAN_CHANNEL_FEEDBACK_MESSAGE
-        : "Feedback artifact shown to the user. Wait for the user's typed response before continuing.",
-    }),
-  };
-}
-
-export function buildRequestFeedbackTool<TTool>(
-  createTool: (definition: RequestFeedbackToolDefinition) => TTool,
-  options?: { hasHumanChannel?: () => boolean }
-): TTool {
-  return createTool(
-    options
-      ? buildRequestFeedbackToolDefinition(options)
-      : requestFeedbackToolDefinition
-  );
 }

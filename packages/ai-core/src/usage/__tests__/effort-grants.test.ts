@@ -22,8 +22,8 @@ describe("isEffortUnrestricted", () => {
 
 describe("isEffortAllowed", () => {
   it("respects an explicit grant", () => {
-    const grant = { allowed_efforts: ["low", "medium"] } as const;
-    expect(isEffortAllowed("low", grant)).toBe(true);
+    const grant = { allowed_efforts: ["normal"] } as const;
+    expect(isEffortAllowed("normal", grant)).toBe(true);
     expect(isEffortAllowed("high", grant)).toBe(false);
   });
 
@@ -37,23 +37,14 @@ describe("isEffortAllowed", () => {
 });
 
 describe("clampEffort", () => {
-  it("passes a granted tier through untouched", () => {
-    expect(clampEffort("medium", { allowed_efforts: ["low", "medium"] })).toBe(
-      "medium"
-    );
-  });
-
   it("degrades downward rather than refusing", () => {
     // A plan boundary should be a tier, not an error: the request is already
     // paid for by the time we know the tier is too high.
-    expect(clampEffort("high", { allowed_efforts: ["low", "medium"] })).toBe(
-      "medium"
-    );
-    expect(clampEffort("high", { allowed_efforts: ["low"] })).toBe("low");
+    expect(clampEffort("high", { allowed_efforts: ["normal"] })).toBe("normal");
   });
 
   it("gives the cheapest granted tier when nothing sits below the request", () => {
-    expect(clampEffort("low", { allowed_efforts: ["high"] })).toBe("high");
+    expect(clampEffort("normal", { allowed_efforts: ["high"] })).toBe("high");
   });
 
   it("is a no-op when unrestricted", () => {
@@ -62,11 +53,8 @@ describe("clampEffort", () => {
 });
 
 describe("ceilingEffort", () => {
-  it("reports the highest granted tier for the router to size against", () => {
-    expect(ceilingEffort({ allowed_efforts: ["low", "medium"] })).toBe(
-      "medium"
-    );
-    expect(ceilingEffort({ allowed_efforts: ["low"] })).toBe("low");
+  it("reports the highest granted tier", () => {
+    expect(ceilingEffort({ allowed_efforts: ["normal"] })).toBe("normal");
     expect(ceilingEffort({})).toBe("high");
   });
 });

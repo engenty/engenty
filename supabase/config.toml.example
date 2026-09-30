@@ -13,7 +13,7 @@ port = 54321
 # Schemas to expose in your API. Tables, views and stored procedures in this schema will get API
 # endpoints. `public` and `graphql_public` schemas are included by default.
 # >>> engenty:api-schemas (managed by `engenty generate` — base only in git; run generate locally)
-schemas = ["public","graphql_public","ai","context_graph","core"]
+schemas = ["public","graphql_public","ai","core"]
 # <<< engenty:api-schemas
 # Extra schemas to add to the search_path of every request.
 extra_search_path = ["public", "extensions"]

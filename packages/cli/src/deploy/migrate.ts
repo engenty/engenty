@@ -51,6 +51,56 @@ export function runStandaloneMigrate(): void {
   runMigrateAgainst(dbUrl, "deploy migrate");
 }
 
+/**
+ * A no-op file for each held-back version the database already applied: the
+ * release left that module out (below its stage), but a database that ran its
+ * migrations before still lists them, and `db push` refuses versions it has no
+ * file for. Any other unknown version still stops the push. Twin of
+ * scripts/held-migration-placeholders.mjs, which the migrate image runs.
+ */
+function writeHeldPlaceholders(params: {
+  dbUrl: string;
+  held: ReadonlySet<string>;
+  supabase: string[];
+  work: string;
+}): void {
+  if (params.held.size === 0) {
+    return;
+  }
+  const list = spawnSync(
+    "npx",
+    [
+      ...params.supabase,
+      "migration",
+      "list",
+      "--db-url",
+      params.dbUrl,
+      "--output-format",
+      "json",
+    ],
+    { cwd: params.work, encoding: "utf8", stdio: ["ignore", "pipe", "inherit"] }
+  );
+  if (list.status !== 0) {
+    throw new Error("supabase migration list failed.");
+  }
+  const { migrations = [] } = JSON.parse(list.stdout) as {
+    migrations?: Array<{ local?: string; remote?: string }>;
+  };
+  for (const entry of migrations) {
+    if (entry.remote && !entry.local && params.held.has(entry.remote)) {
+      fs.writeFileSync(
+        path.join(
+          params.work,
+          "supabase",
+          "migrations",
+          `${entry.remote}_held_placeholder.sql`
+        ),
+        "-- held-back migration: applied earlier, kept in the history. Never runs.\nselect 1;\n"
+      );
+    }
+  }
+}
+
 /** The same push against a database URL the caller already has. */
 export function runMigrateAgainst(dbUrl: string, command: string): void {
   const manifest = requireReleaseManifest(command);
@@ -76,21 +126,19 @@ export function runMigrateAgainst(dbUrl: string, command: string): void {
     fs.cpSync(migrationsDir, path.join(work, "supabase", "migrations"), {
       recursive: true,
     });
+    const supabase = ["--yes", `supabase@${manifest.supabaseCliVersion}`];
+    writeHeldPlaceholders({
+      dbUrl,
+      held: new Set(manifest.heldMigrationVersions),
+      supabase,
+      work,
+    });
     console.log(
       `Applying engenty ${manifest.version} (${files.length} migration files) with supabase@${manifest.supabaseCliVersion} …`
     );
     const result = spawnSync(
       "npx",
-      [
-        "--yes",
-        `supabase@${manifest.supabaseCliVersion}`,
-        "db",
-        "push",
-        "--db-url",
-        dbUrl,
-        "--include-all",
-        "--yes",
-      ],
+      [...supabase, "db", "push", "--db-url", dbUrl, "--include-all", "--yes"],
       { cwd: work, stdio: "inherit" }
     );
     if (result.status !== 0) {

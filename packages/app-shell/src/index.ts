@@ -199,6 +199,11 @@ export {
   SHELL_SECONDARY_NAV_WIDTH_STORAGE_KEY,
 } from "./lib/shell-secondary-nav-width";
 export {
+  pickRandomSpaceColor,
+  SPACE_COLORS,
+  SPACE_ICONS,
+} from "./lib/space-appearance";
+export {
   COPILOT_DOCK_MODES,
   COPILOT_LAYOUT_USER_SETTING_NAME,
   type CopilotDockMode,

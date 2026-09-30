@@ -4,7 +4,7 @@
 // (routines, its own Actions, tasks), then what it reaches (connections).
 // One scroll, so a hire's proposed workflow, the routine that fires it and
 // the mandate it runs under read together. How it works — skills, its
-// pads (AGENTS.md, MEMORY.md, TASKS.md), recent runs — is the `settings`
+// instructions (AGENTS.md), memory, TASKS.md, recent runs — is the `settings`
 // view one level down, behind the pane's gear.
 //
 // A CUSTOM specialist is editable in place — the point of the tab is that
@@ -42,7 +42,6 @@ import { AgentIdentityRow } from "../agents-workspace/agent-identity-card.js";
 import { buildAgentDetailPath } from "../agents-workspace/agent-workspace-paths.js";
 import { AgentScreenPreview } from "../browser/agent-screen-preview.js";
 import { UserBrowserSection } from "../browser/user-browser-section.js";
-import { WorkingMemoryProfileSection } from "../memory/working-memory-profile-section.js";
 import {
   AgentConnectDialog,
   type AgentConnectTab,
@@ -51,6 +50,7 @@ import { AgentConnectorRows } from "./agent-connector-rows.js";
 import {
   AgentMemorySection,
   AgentTasksSection,
+  UserMemorySection,
 } from "./agent-memory-sections.js";
 import { AgentPadSection } from "./agent-pad-section.js";
 import { AgentRecentRuns } from "./agent-runs-panel.js";
@@ -93,8 +93,8 @@ export function AgentManagePanel({
 }: {
   agent: AgentDeskAgent;
   /**
-   * MEMORY.md / TASKS.md are this agent's state in THIS Space, not its
-   * definition — a module agent's identity is read-only, its pads are not.
+   * TASKS.md is this agent's state in THIS Space, not its definition — a
+   * module agent's identity is read-only, its pad is not.
    */
   canEditPads: boolean;
   canManage: boolean;
@@ -181,15 +181,14 @@ export function AgentManagePanel({
           />
         </CardSection>
 
-        {/* Every agent with an audience has both pads (the route answers
-          `enabled: false` for one without); a person who can manage the
-          space may correct them, whichever module or hire the agent is. */}
+        {/* Every agent keeps memory entries; one with an audience also has
+          TASKS.md (the route answers `enabled: false` for one without). */}
         {agent.agentScope === "personal" ? (
-          // The person's own things, on their copilot's pane: the profile it
-          // keeps of them (reset is the only human edit) and their personal
-          // Space's browser with its standing consents.
+          // The person's own things, on their copilot's pane: the facts every
+          // assistant knows about them and their personal Space's browser
+          // with its standing consents.
           <>
-            <WorkingMemoryProfileSection />
+            <UserMemorySection />
             <UserBrowserSection target={{ spaceId: null }} />
           </>
         ) : spaceId ? (
@@ -197,11 +196,7 @@ export function AgentManagePanel({
           <UserBrowserSection target={{ spaceId }} />
         ) : null}
         <AgentInstructionsSection agentId={agent.id} editable={canEditPads} />
-        <AgentMemorySection
-          agentId={agent.id}
-          editable={canEditPads}
-          spaceId={spaceId}
-        />
+        <AgentMemorySection agentId={agent.id} spaceId={spaceId} />
         <AgentTasksSection
           agentId={agent.id}
           editable={canEditPads}

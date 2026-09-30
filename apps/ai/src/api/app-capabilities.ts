@@ -138,18 +138,6 @@ export class AppCapabilityRegistry {
     this.grants.delete(hashHandle(handle));
   }
 
-  /** Drop everything issued for an app — the per-app kill switch. */
-  revokeApp(appId: string): number {
-    let removed = 0;
-    for (const [digest, grant] of this.grants) {
-      if (grant.appId === appId) {
-        this.grants.delete(digest);
-        removed++;
-      }
-    }
-    return removed;
-  }
-
   size(): number {
     return this.grants.size;
   }

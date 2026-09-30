@@ -1,11 +1,14 @@
 #!/usr/bin/env node
 /**
  * CI guard: every engenty.plugins slug must resolve to an on-disk plugin
- * with engenty.plugin.json (top-level module or nested provider).
+ * with engenty.plugin.json (top-level module or nested provider), and no
+ * module installed at this stage may require one that is left out.
  */
 import {
+  installModuleStage,
   readEngentyPluginsManifest,
   resolveEnabledModules,
+  resolveInstalledModules,
   resolveRepoRoot,
 } from "./lib/engenty-modules.mjs";
 
@@ -21,8 +24,10 @@ function main() {
     );
     process.exit(1);
   }
+  // Throws with the list when an installed module requires a left-out one.
+  const installed = resolveInstalledModules(repoRoot, { strict: false });
   console.log(
-    `check-engenty-plugins: ${enabled.length} enabled plugin(s) validated.`
+    `check-engenty-plugins: ${enabled.length} enabled plugin(s) validated; ${installed.length} installed at stage ${installModuleStage(repoRoot)}.`
   );
 }
 

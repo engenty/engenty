@@ -2,6 +2,8 @@ import type {
   PluginCategory,
   PluginPlacement,
   PluginSourceInfo,
+  PluginStage,
+  PluginTenantDefault,
 } from "@engenty/plugin-sdk";
 import type { ComponentType } from "react";
 
@@ -253,11 +255,6 @@ export interface UiTabContribution {
  * `/s/<key>/<moduleId>/…`. `"work"`, `"data"` and `"settings"` are reserved.
  */
 export interface UiSpaceTabContribution {
-  /**
-   * Embed this module's landing page on the Space Home (below the Copilot
-   * composer). First mounted tab that opts in wins.
-   */
-  embedOnHome?: boolean;
   icon?: UiIconComponent;
   id: string;
   label?: string;
@@ -275,6 +272,66 @@ export interface UiSpaceTabContribution {
   path?: string;
   pluginId: UiPluginId;
   sourceInfo?: PluginSourceInfo;
+}
+
+/**
+ * Where a space section renders:
+ * - `space.sidebar` — the Work tab list, after the host's own sections
+ * - `space.home.main` — the Space home's left column, after the conversations
+ * - `space.home.aside` — the Space home's right column, before Modules
+ */
+export const UI_SPACE_SECTION_SLOTS = [
+  "space.sidebar",
+  "space.home.main",
+  "space.home.aside",
+] as const;
+
+export type UiSpaceSectionSlot = (typeof UI_SPACE_SECTION_SLOTS)[number];
+
+export interface UiSpaceSectionContext {
+  spaceId: string;
+  spaceKey: string;
+}
+
+/** One row of a space section. The host draws it in each slot's own style. */
+export interface UiSpaceSectionItem {
+  /** Secondary line — shown on the Space home, not in the sidebar. */
+  description?: string | null;
+  icon?: UiIconComponent;
+  id: string;
+  label: string;
+  /**
+   * Path under the module, without a leading slash (`"<projectId>"` →
+   * `/s/<key>/projects/<projectId>`). Absent = the module root.
+   */
+  path?: string;
+}
+
+export interface UiSpaceSectionItems {
+  isPending: boolean;
+  items: UiSpaceSectionItem[];
+}
+
+/**
+ * A list a module adds to a space's sidebar and/or home (pinned projects, …).
+ *
+ * The host owns the chrome — heading, fold state, rows — so every module's
+ * section looks like the host's own. The module owns the data through
+ * `useItems`, a React hook called once per rendered slot. A section with no
+ * items stays hidden, and a section only renders in spaces where its module
+ * is mounted.
+ */
+export interface UiSpaceSectionContribution {
+  id: string;
+  label?: string;
+  labelKey?: string;
+  /** Module whose mount gates the section and roots item paths. Defaults to `pluginId`. */
+  moduleId?: string;
+  order?: number;
+  pluginId: UiPluginId;
+  slots: UiSpaceSectionSlot[];
+  sourceInfo?: PluginSourceInfo;
+  useItems: (context: UiSpaceSectionContext) => UiSpaceSectionItems;
 }
 
 /** Argument declared by a chat slash command (rendered as a hint; `ref` args open the @-picker). */
@@ -429,6 +486,7 @@ export interface UiContributions {
    * Plugin-contributed space sections (Plan, …). Optional so contribution
    * snapshots that predate this kind still typecheck; consumers use `?? []`.
    */
+  spaceSections?: UiSpaceSectionContribution[];
   spaceTabs?: UiSpaceTabContribution[];
   tabs: UiTabContribution[];
 }
@@ -468,6 +526,12 @@ export interface UiPluginSummary {
   rootDir?: string;
   /** Where the plugin lives in the workspace. */
   sourceType?: PluginSourceInfo["sourceType"];
+  /** Release stage from engenty.plugin.json — see PluginStage. */
+  stage?: PluginStage;
+  /** Never offered as an app of its own. */
+  supporting?: boolean;
+  /** Whether tenants have it before an override — see PluginTenantDefault. */
+  tenantDefault?: PluginTenantDefault;
   ui?: {
     assetOrigins?: string[];
     enabled?: boolean;
@@ -505,6 +569,7 @@ export interface UiEventMap {
   "ui.pluginsLoaded": { pluginIds: string[] };
   "ui.routes": UiRouteContribution[];
   "ui.settingsItems": UiSettingsItemContribution[];
+  "ui.spaceSections": UiSpaceSectionContribution[];
   "ui.spaceTabs": UiSpaceTabContribution[];
   "ui.tabs": UiTabContribution[];
 }
@@ -622,9 +687,17 @@ export interface EngentyUiApi {
     order?: number;
     requiresAdmin?: boolean;
   }) => void;
+  registerSpaceSection: (input: {
+    id: string;
+    label?: string;
+    labelKey?: string;
+    moduleId?: string;
+    order?: number;
+    slots: UiSpaceSectionSlot[];
+    useItems: UiSpaceSectionContribution["useItems"];
+  }) => void;
   registerSpaceTab: (input: {
     id: string;
-    embedOnHome?: boolean;
     icon?: UiIconComponent;
     label?: string;
     labelKey?: string;

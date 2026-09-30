@@ -1,3 +1,8 @@
+import {
+  isPluginOnForTenant,
+  type PluginTenantDefault,
+} from "./plugin-category.js";
+
 export interface PluginCapabilityDiagnostic {
   code: string;
   level: "error" | "info" | "warn";
@@ -51,6 +56,8 @@ export interface PluginCapabilityRecord {
   loaded: boolean;
   provides?: string[];
   requires?: string[];
+  /** Absent ⇒ `on`. See {@link PluginTenantDefault}. */
+  tenantDefault?: PluginTenantDefault;
 }
 
 export interface PluginCapabilityRegistry {
@@ -106,10 +113,13 @@ function requiredDependencies(plugin: PluginCapabilityRecord): string[] {
 }
 
 function isTenantDisabled(
-  pluginId: string,
+  plugin: PluginCapabilityRecord,
   tenantPluginOverrides: Record<string, boolean> | undefined
 ): boolean {
-  return tenantPluginOverrides?.[pluginId] === false;
+  return !isPluginOnForTenant(
+    plugin.tenantDefault,
+    tenantPluginOverrides?.[plugin.id]
+  );
 }
 
 export function resolvePluginCapability(
@@ -173,7 +183,7 @@ export function resolvePluginCapability(
     };
   }
 
-  if (isTenantDisabled(plugin.id, params.tenantPluginOverrides)) {
+  if (isTenantDisabled(plugin, params.tenantPluginOverrides)) {
     return {
       allowed: false,
       capability: params.capability,
@@ -237,7 +247,7 @@ export function resolvePluginCapability(
 
     if (
       !(dependencyPlugin.loaded && dependencyPlugin.enabled) ||
-      isTenantDisabled(dependencyPlugin.id, params.tenantPluginOverrides)
+      isTenantDisabled(dependencyPlugin, params.tenantPluginOverrides)
     ) {
       return {
         allowed: false,

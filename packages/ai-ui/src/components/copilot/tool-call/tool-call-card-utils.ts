@@ -276,7 +276,7 @@ const PROSE_OUTPUT_KEYS = [
 const FILE_DUMP_HEADER = /^.*\(\s*\d+\s*bytes\s*\)\s*$/m;
 const FILE_DUMP_LINE = /^\s*\d+\s*(?:->|→)/m;
 
-export function looksLikeNumberedFileDump(text: string): boolean {
+function looksLikeNumberedFileDump(text: string): boolean {
   const trimmed = text.trim();
   if (!trimmed) {
     return false;

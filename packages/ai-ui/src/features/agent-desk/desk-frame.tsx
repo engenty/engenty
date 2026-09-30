@@ -21,6 +21,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { registerViewPaneHost } from "../../artifacts/view-pane-host.js";
 import { WorkspaceArtifactPane } from "../../artifacts/workspace-artifact-pane.js";
 import type {
   ChatSpaceAudience,
@@ -112,6 +113,8 @@ export interface DeskFrameProps {
   locale: string;
   objectDisplayIntent: ObjectDisplayIntent;
   onClosePanel: () => void;
+  /** The View Pane's "open full page"; the default navigates there. */
+  onOpenViewFullPage?: (path: string) => void;
   panel: AgentDeskPanel | null;
   routeBreadcrumbAction?: ReactNode;
   secondaryNavAfterItems?: ReactNode;
@@ -160,6 +163,8 @@ export function DeskFrame(props: DeskFrameProps) {
     bandObserver.current = observer;
   }, []);
   useEffect(() => () => bandObserver.current?.disconnect(), []);
+  // `open_view` opens a module page in this desk's end pane.
+  useEffect(() => registerViewPaneHost(props.hostKey), [props.hostKey]);
 
   usePageConfig({
     actions: props.actions,
@@ -239,6 +244,7 @@ export function DeskFrame(props: DeskFrameProps) {
       <WorkspaceArtifactPane
         extraScope={{ id: header.agent.id, type: "agent" }}
         hostKey={props.hostKey}
+        onOpenViewFullPage={props.onOpenViewFullPage}
         scope={{ id: threadId, type: "thread" }}
       />
       <AgentDeskPane

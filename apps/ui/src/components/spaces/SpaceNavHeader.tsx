@@ -48,18 +48,23 @@ export function SpaceNavTile({
 export function SpaceNavTitle({
   color,
   icon,
+  label,
   name,
   to,
 }: {
   color?: string | null;
   icon?: string | null;
+  /** Text beside the tile when it is not the space's name (an open module). */
+  label?: string;
   name: string;
   to?: string;
 }) {
   const body = (
     <>
       <SpaceNavTile color={color} icon={icon} name={name} size="sm" />
-      <span className="min-w-0 truncate font-medium text-sm">{name}</span>
+      <span className="min-w-0 truncate font-medium text-sm">
+        {label ?? name}
+      </span>
     </>
   );
   if (!to) {

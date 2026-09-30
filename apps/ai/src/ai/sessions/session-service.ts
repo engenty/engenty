@@ -4,12 +4,13 @@ import {
   mergeActiveArtifactMetadata,
   readAgUiOpenInterrupt,
 } from "@engenty/ag-ui-bridge";
-import type { AiEffort } from "@engenty/ai-core";
+import type { AiEffort, AiReasoningEffort } from "@engenty/ai-core";
 import {
   type AgentWorkspaceConfig,
   agUiMessageText,
   checkUsageLimits,
   formatUsageLimitError,
+  isCustomModelOffered,
   modelIdOfRef,
   normalizeAgUiMessageForPersistence,
   recordAiUsage,
@@ -29,6 +30,7 @@ import {
   type ThreadRow,
   threadKind,
 } from "../../dal/threads/index.js";
+import type { AiGatewayModelStore } from "../../gateway-models.js";
 import { resolveCoreAgentId } from "../agent-identity.js";
 import { createDefaultAiRegistry } from "../agents.js";
 import { isResumeInFlight } from "../conversation/resume-claims.js";
@@ -42,6 +44,10 @@ import {
   createEngentySessionMemoryRuntime,
   resolveSharedObservationsScope,
 } from "../memory/index.js";
+import {
+  isPrivateLine,
+  memoryPlaceFromResolution,
+} from "../memory/memory-scopes.js";
 import {
   assembleDynamicAgent,
   type RuntimeModelConfig,
@@ -467,6 +473,11 @@ export function createThreadService(opts: ThreadServiceOptions) {
     const memoryRuntime = createEngentySessionMemoryRuntime({
       agentId: session.agent_id,
       ...(rootConfig?.name ? { agentName: rootConfig.name } : {}),
+      memory: {
+        agentScope: rootConfig?.agentScope,
+        place: memoryPlaceFromResolution(spaceResolution),
+        privateLine: isPrivateLine({ sharedRoom, thread: session }),
+      },
       observationalModelId: modelConfig.fastTextModelId,
       scope: input.scope,
       sharedObservations: rootConfig
@@ -843,10 +854,28 @@ export function createThreadService(opts: ThreadServiceOptions) {
     // conversation executor honors the tenant's model pick (and record accurate
     // usage) instead of defaulting to the agent config's model. Additive — like
     // resolveRunWorkspaces above.
+    /**
+     * Whether a session model pin (the composer's Custom pick) is on the
+     * platform's Custom list, with the list switched on. A run route refuses
+     * a pin that is not: a pin sent from outside the composer must not get
+     * round the list.
+     */
+    async isModelPinOffered(input: { modelId: string }): Promise<boolean> {
+      // The concrete usage store also implements AiGatewayModelStore; the
+      // AiUsageStore port it is typed as does not declare that half.
+      const store = opts.getUsageStore() as
+        | (ReturnType<ThreadServiceOptions["getUsageStore"]> &
+            Partial<AiGatewayModelStore>)
+        | null;
+      const config = await store?.getCustomModelsConfig?.();
+      return config ? isCustomModelOffered(input.modelId, config) : false;
+    },
+
     async resolveRunModelConfig(input: {
       agentId: string;
       effort?: AiEffort | null;
       modelIdOverride?: string | null;
+      reasoningEffort?: AiReasoningEffort | null;
       scope: AiSessionScope;
     }): Promise<{
       agentBudgetCostMicros: number | null;
@@ -857,7 +886,8 @@ export function createThreadService(opts: ThreadServiceOptions) {
         opts,
         input.scope,
         input.modelIdOverride,
-        input.effort
+        input.effort,
+        input.reasoningEffort
       );
       const registry =
         opts.createRegistry?.(input.scope) ??

@@ -6,8 +6,10 @@ Status: WIP · updated 2026-09-24 · written against `@mastra/memory` 1.26.2 /
 
 ## Current state
 
-Engenty chat uses message history, generated thread titles, resource-scoped
-working memory, and the two OM layers below. `EngentySessionMemoryStorage` maps
+Engenty chat uses message history, generated thread titles and the two OM
+layers below. Facts kept on purpose are memory entries (`ai.memory_entries`,
+one row per fact, scoped agent / user / space / company) — not Mastra working
+memory. `EngentySessionMemoryStorage` maps
 threads/messages onto `ai.thread` / `ai.thread_message`; Mastra runtime records
 stay in PostgresStore's `ai.mastra_*` tables.
 
@@ -17,30 +19,15 @@ stay in PostgresStore's `ai.mastra_*` tables.
 needs only `updateThread` (our adapter supports it as-is). We currently have no title
 synthesis at all; the chat list shows the raw first message. Cheapest possible win.
 
-## 2. Working memory — ADOPTED
+## 2. Working memory — OURS, NOT MASTRA'S (2026-09-28)
 
-A persistent per-user profile delivered as a state signal. The main agent does
-not receive `updateWorkingMemory`; thread OM's Observer maintains the bounded
-profile.
-
-```ts
-workingMemory: {
-  enabled: true,
-  agentManaged: false,
-  scope: 'resource',
-  schema: <zod profile schema>,
-  useStateSignals: true,
-}
-```
-
-- **Resource scope** = cross-thread user personalization ("prefers German, works on
-  project X, role Y") — the thing the copilot conspicuously lacks today.
-- Requires the three resource methods on the storage adapter — **ours already has
-  them**, with the unused `workingMemory` field waiting. No vector store, no embedder.
-- Costs: Observer work can update the profile during observation cycles.
-
-The schema stays deliberately small; durable, reviewable facts remain
-`memory_note` records rather than profile fields.
+Mastra's working memory holds one document per resource; we need one per
+memory key (user, Space, company, agent). So `workingMemory: { enabled: false }`
+and `ai.working_memory` holds a small fixed schema per scope
+(`packages/ai-core/src/memory/working-memory.ts`). The thread Observer still
+fills it — through a custom inline `Extractor` (`apps/ai/src/ai/memory/
+working-memory.ts`), so no extra model call — alongside the agent's
+`working_memory_set` and people's edits. Dated facts are memory entries.
 
 ## 3. Observational Memory (OM) — ADOPTED FOR CHAT
 
@@ -49,7 +36,7 @@ cheaper than semantic recall): a background **Observer** model compresses raw hi
 into a dense observation log; a **Reflector** condenses the log across generations.
 Active observations replace raw history → stable, cacheable prompt prefix, 5–40×
 compression. Extras we'd get: current-task tracking, suggested responses, optional
-thread titles, custom extractors (incl. auto-managed working memory).
+thread titles, custom extractors.
 
 Engenty keeps `ai.thread` / `ai.thread_message` ownership and delegates Mastra's
 OM records to the PostgresStore memory domain. Chat uses two observation layers:
@@ -62,8 +49,8 @@ The generic per-agent `agentScope` classification selects the shared key:
 `personal` → user and `shared` → space. It is part of `AgentConfig` and is
 persisted for database-created agents.
 
-Working memory also uses state signals. The volatile shared/profile layers
-therefore do not rewrite the provider's cacheable system prefix. Native
+Memory entries also use a state signal. The volatile shared layers therefore
+do not rewrite the provider's cacheable system prefix. Native
 resource-scope OM remains unused: it is experimental, processes all threads
 together, and can blur unfinished work between simultaneous conversations.
 
@@ -107,7 +94,7 @@ want them; an aborting output processor also prevents persistence.
 | # | Item | Effort | Dependency |
 |---|---|---|---|
 | 1 | `generateTitle` | XS | none — adapter works as-is |
-| 2 | Working memory (resource scope, schema form) | S | populate existing adapter field; UI read-only view |
+| 2 | ~~Working memory~~ — removed, see §2 | — | replaced by memory entries |
 | 3 | `ToolCallFilter` + `TokenLimiter` processors | S | none |
 | 4 | Observational Memory (thread scope) | M–L | OM methods on adapter delegating to pg memory domain |
 | 5 | Semantic recall | — | built behind `ENGENTY_AI_SEMANTIC_RECALL`, off by default |

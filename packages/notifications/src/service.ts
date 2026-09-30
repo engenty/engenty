@@ -10,6 +10,7 @@ import {
   BUILTIN_NOTIFICATION_KINDS,
   CLASS_CHANNEL_DEFAULTS,
   type NotificationActor,
+  type NotificationAttachment,
   type NotificationAudience,
   type NotificationClass,
   type NotificationPriority,
@@ -30,7 +31,9 @@ import {
 import { type OriginLookups, resolveOrigin } from "./origin.js";
 import {
   clip,
+  type NotificationAttachmentInput,
   type NotificationTitle,
+  notificationAttachments,
   notificationBody,
   notificationTarget,
   renderNotificationTitle,
@@ -45,6 +48,11 @@ export interface EmitNotificationInput {
    * otherwise.
    */
   assigneeUserId?: string | null;
+  /**
+   * Results the work produced (an artifact, a file, a module record): chips
+   * on the card that open them directly. The card itself opens the context.
+   */
+  attachments?: readonly NotificationAttachmentInput[] | null;
   /** Explicit target. Absent → the ladder below decides. */
   audience?: NotificationAudience | null;
   /**
@@ -147,6 +155,7 @@ const SUMMARY_MAX = 500;
  * the names come from the labels, the target from the record's own space.
  */
 export function presentNotification(input: EmitNotificationInput): {
+  attachments: NotificationAttachment[];
   body: string | null;
   summary: string;
   target: string | null;
@@ -190,6 +199,7 @@ export function presentNotification(input: EmitNotificationInput): {
           subject_type: input.subject?.type ?? null,
         });
   return {
+    attachments: notificationAttachments(input.attachments, meta),
     body: notificationBody(input.body),
     summary: rendered ? summary : clip(summary, TITLE_MAX),
     target,
@@ -384,24 +394,33 @@ export function subscribersFor(
 export function channelsFor(
   record: Pick<
     NotificationRecord,
-    "audience_kind" | "class" | "priority" | "source"
+    "audience_kind" | "class" | "kind" | "priority" | "source"
   >,
   policy: { emailUpdateSources: string[] | "*" }
 ): string[] {
-  // Streams fan out through their routes (N9). Every other audience reaches
-  // its subscribers on the class's channels.
+  // Streams fan out through their routes (N9).
   if (record.audience_kind === "stream") {
     return [];
   }
   const defaults = CLASS_CHANNEL_DEFAULTS[record.class];
-  if (record.class !== "update") {
-    return defaults;
+  // A closed app hears what a routine's outcome binding asked for
+  // (`notification.high` → urgent). Every other agent signal waits in the
+  // bell and, while the app is open, its banner.
+  if (record.kind === "routine_outcome") {
+    return defaults.includes("web_push") &&
+      (record.priority === "high" || record.priority === "urgent")
+      ? ["web_push"]
+      : [];
   }
-  // FYI records reach a phone only when the producer flagged them as
-  // pressing (team-chat mentions), and a mailbox only for opted-in sources.
+  // People writing to people (team-chat mentions, DMs) keep their phone
+  // push, and a mailbox for opted-in sources.
+  if (record.class !== "update") {
+    return [];
+  }
   const channels: string[] = [];
   if (
     defaults.includes("web_push") &&
+    record.source === "team-chat" &&
     (record.priority === "high" || record.priority === "urgent")
   ) {
     channels.push("web_push");
@@ -508,6 +527,7 @@ export function createNotificationsService(
         const merged = await store.touchCoalesced({
           id: existing.id,
           patch: {
+            attachments: presented.attachments,
             body: presented.body,
             target: presented.target ?? existing.target,
             title_key: presented.title_key,
@@ -537,6 +557,7 @@ export function createNotificationsService(
         const merged = await store.touchCoalesced({
           id: open.id,
           patch: {
+            attachments: presented.attachments,
             body: presented.body,
             dedupe_key: keys.dedupeKey,
             metadata: input.metadata ?? null,
@@ -564,6 +585,7 @@ export function createNotificationsService(
             : audience.kind === "space"
               ? audience.spaceId
               : null,
+      attachments: presented.attachments,
       audience_kind: audience.kind,
       body: presented.body,
       class: cls,

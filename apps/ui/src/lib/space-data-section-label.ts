@@ -13,6 +13,9 @@ export function spaceDataSectionHeadingLabel(
   t: (key: string, options?: { defaultValue: string }) => string
 ): string {
   const moduleId = section.root?.moduleId;
+  if (moduleId === "space-public") {
+    return t("spaces.data.publicSection", { defaultValue: "Shared" });
+  }
   if (moduleId === "files") {
     return t("spaces.data.filesSection", { defaultValue: "Files" });
   }

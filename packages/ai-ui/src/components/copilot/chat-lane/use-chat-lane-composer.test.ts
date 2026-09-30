@@ -7,7 +7,8 @@ import type { AgentHost } from "../../../agent-provider/types.js";
 
 // The composer resolves interrupts through the app shell's frontend-tool
 // executor; these tests are about what it does with a typed message.
-vi.mock("@engenty/app-shell", () => ({
+vi.mock("@engenty/app-shell", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@engenty/app-shell")>()),
   useAgentUiFrontendToolExecutor: () => null,
 }));
 
@@ -160,8 +161,8 @@ describe("useChatLaneComposer while a wizard step is docked", () => {
 
 describe("useChatLaneComposer dock interrupt", () => {
   it("docks nothing for a pending interrupt the dock has no card for", () => {
-    // Any dock element opens the composer flap — a frontend-tool suspend used
-    // to slide it open around nothing while the run worked.
+    // Any dock element opens the composer flap, so an interrupt without a card
+    // would open it around nothing.
     const agentHost = host({
       openInterruptFromStream: {
         interrupt_id: "i1",
@@ -190,5 +191,46 @@ describe("useChatLaneComposer dock interrupt", () => {
     const { result } = render(agentHost, "streaming");
 
     expect(result.current.dockInterrupt?.tool_call_id).toBe("tc-2");
+  });
+
+  it("docks a pending feedback question", () => {
+    // `requestFeedback` suspends natively: the transcript row carries only the
+    // arguments, and the card comes from the open interrupt.
+    const agentHost = host({
+      openInterruptFromStream: {
+        artifact_id: "f1",
+        interrupt_id: "f1",
+        kind: "feedback",
+        title: "Was fehlt?",
+        tool_call_id: "tc-f",
+      },
+      pendingInterruptToolCallIds: new Set(["tc-f"]),
+    } as never);
+    const { result } = renderHook(() =>
+      useChatLaneComposer({
+        host: agentHost,
+        messages: [
+          {
+            id: "m1",
+            parts: [
+              {
+                input: { title: "Was fehlt?" },
+                state: "input-available",
+                toolCallId: "tc-f",
+                toolName: "requestFeedback",
+                type: "dynamic-tool",
+              },
+            ],
+            role: "assistant",
+          },
+        ],
+        openInterruptFromSession: null,
+        status: "streaming",
+        threadKey: "t1",
+      } as never)
+    );
+
+    expect(result.current.dockInterrupt?.kind).toBe("feedback");
+    expect(result.current.dockInterrupt?.tool_call_id).toBe("tc-f");
   });
 });

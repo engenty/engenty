@@ -1,111 +1,40 @@
 import { describe, expect, it } from "vitest";
-import {
-  chatBubbleCluster,
-  chatRowGapClassName,
-  chatSpeakerKey,
-  chatUserBubbleClassName,
-  isLongInlineToken,
-  softenUserInlineCode,
-} from "./chat-user-bubble.js";
+import { chatSpeakerKey } from "./chat-user-bubble.js";
 
+// The speaker key decides where a speaker's name opens a turn: a colleague
+// posting into the room, or a second agent in it, must read as its own voice.
 describe("chatSpeakerKey", () => {
-  it("clusters ordinary user turns together", () => {
-    expect(
-      chatSpeakerKey({ role: "user", parts: [{ type: "text", text: "hi" }] })
-    ).toBe("user");
-  });
+  it("tells a colleague and each agent in a room apart from the person", () => {
+    const person = chatSpeakerKey({
+      parts: [{ text: "Can you check?", type: "text" }],
+      role: "user",
+    });
+    const colleague = chatSpeakerKey({
+      parts: [
+        {
+          text: "**Message from Brain** (engenty `brain`)\n\nAlready approved",
+          type: "text",
+        },
+      ],
+      role: "user",
+    });
+    const agentA = chatSpeakerKey({
+      authorName: "Ada",
+      id: "a1",
+      role: "assistant",
+    });
+    const agentB = chatSpeakerKey({
+      authorName: "Brain",
+      id: "a2",
+      role: "assistant",
+    });
+    const agentBAgain = chatSpeakerKey({
+      authorName: "Brain",
+      id: "a3",
+      role: "assistant",
+    });
 
-  it("keeps colleague turns on the sender id", () => {
-    expect(
-      chatSpeakerKey({
-        role: "user",
-        parts: [
-          {
-            type: "text",
-            text: "**Message from Brain** (engenty `brain`)\n\nAlready approved",
-          },
-        ],
-      })
-    ).toBe("agent:brain");
-  });
-
-  it("does not join assistant turns", () => {
-    expect(chatSpeakerKey({ id: "a1", role: "assistant" })).toBe(
-      "assistant:a1"
-    );
-    expect(chatSpeakerKey({ id: "a2", role: "assistant" })).toBe(
-      "assistant:a2"
-    );
-  });
-});
-
-describe("chatBubbleCluster", () => {
-  it("squares the meeting edges of consecutive same-speaker turns", () => {
-    expect(
-      chatBubbleCluster(["agent:brain", "agent:brain", "assistant:1"])
-    ).toEqual([
-      { meetsAbove: false, meetsBelow: true },
-      { meetsAbove: true, meetsBelow: false },
-      { meetsAbove: false, meetsBelow: false },
-    ]);
-  });
-
-  it("treats a memory break as a barrier", () => {
-    expect(chatBubbleCluster(["user", "user"], new Set([1]))).toEqual([
-      { meetsAbove: false, meetsBelow: false },
-      { meetsAbove: false, meetsBelow: false },
-    ]);
-  });
-});
-
-describe("chatUserBubbleClassName", () => {
-  it("uses square corners where consecutive bubbles meet", () => {
-    expect(
-      chatUserBubbleClassName({ meetsAbove: false, meetsBelow: true })
-    ).toContain("rounded-b-none!");
-    expect(
-      chatUserBubbleClassName({ meetsAbove: true, meetsBelow: false })
-    ).toContain("rounded-t-none!");
-    expect(
-      chatUserBubbleClassName({ meetsAbove: true, meetsBelow: true })
-    ).toContain("rounded-none!");
-  });
-});
-
-describe("chatRowGapClassName", () => {
-  it("spaces rows by what they are, not by where they come from", () => {
-    const same = { joined: false, sameSpeaker: true };
-    expect(
-      chatRowGapClassName("bubble", "bubble", { ...same, joined: true })
-    ).toBe("mt-0.5");
-    expect(chatRowGapClassName("bubble", "bubble", same)).toBe("mt-4");
-    expect(chatRowGapClassName("bubble", "line", same)).toBe("mt-2");
-    expect(chatRowGapClassName("line", "line", same)).toBe("mt-2");
-    expect(chatRowGapClassName("line", "bubble", same)).toBe("mt-2");
-    expect(chatRowGapClassName("line", "divider", same)).toBe("mt-4");
-    expect(chatRowGapClassName("divider", "bubble", same)).toBe("mt-4");
-    expect(chatRowGapClassName(null, "bubble", same)).toBeNull();
-  });
-
-  it("opens a new speaker with the full gap, a line of clips included", () => {
-    expect(
-      chatRowGapClassName("bubble", "line", {
-        joined: false,
-        sameSpeaker: false,
-      })
-    ).toBe("mt-4");
-  });
-});
-
-describe("softenUserInlineCode", () => {
-  it("leaves short tokens as chips", () => {
-    expect(softenUserInlineCode("status `draft`")).toBe("status `draft`");
-  });
-
-  it("unwraps long ids and paths", () => {
-    expect(
-      softenUserInlineCode("`01a07636-536b-7da1-9d1b-c1d50ad45580` next")
-    ).toBe("01a07636-536b-7da1-9d1b-c1d50ad45580 next");
-    expect(isLongInlineToken("Engineering / Mastra / Releases")).toBe(true);
+    expect(new Set([person, colleague, agentA, agentB]).size).toBe(4);
+    expect(agentBAgain).toBe(agentB);
   });
 });

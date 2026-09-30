@@ -14,6 +14,8 @@
  * inline edits are saved without a "Save page" round-trip.
  */
 
+import type { Cover } from "@engenty/covers";
+import { coverIsLight } from "@engenty/covers";
 import { useTranslation } from "@engenty/i18n/ui";
 import { useQuery } from "@engenty/query-client";
 import {
@@ -36,7 +38,7 @@ import { Eye, Folder, Pencil } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import type { KbCategory, KbCover } from "../../src/schema/types.js";
+import type { KbCategory } from "../../src/schema/types.js";
 import { ArticleTemplateTopline } from "../components/article-template-topline.js";
 import { CategoryActionsMenu } from "../components/category-actions-menu.js";
 import { CategoryPageCover } from "../components/category-page-cover.js";
@@ -46,7 +48,6 @@ import { KbModuleShellActions } from "../components/kb-module-shell-actions.js";
 import { KbAddInTreeDialog } from "../components/kb-sidebar/kb-add-in-tree-dialog.js";
 import { KbPageBlocksEditor } from "../components/page-blocks/kb-page-blocks-editor.js";
 import { useKbModuleSecondaryShellNav } from "../hooks/use-kb-module-secondary-shell-nav.js";
-import { kbCoverIsLight } from "../kb-cover-theme-presets.js";
 import { kbCategoryEditPath, kbCategoryPath, kbHubPath } from "../kb-paths.js";
 import { buildCategoryTreeBreadcrumbCrumbs } from "../lib/category-display-paths.js";
 import { truncateKbBreadcrumbSegment } from "../lib/kb-breadcrumb-truncate.js";
@@ -105,7 +106,7 @@ export function CategoryDetailPage({
   // Optimistic override for the cover band while a save is in flight.
   const [coverOverride, setCoverOverride] = useState<{
     categoryId: string;
-    cover: KbCover | null;
+    cover: Cover | null;
   } | null>(null);
 
   const activeCategory = useMemo<KbCategory | null>(() => {
@@ -374,7 +375,7 @@ export function CategoryDetailPage({
   }
 
   const hasCover = Boolean(activeCategory.cover);
-  const onCover = hasCover && !kbCoverIsLight(activeCategory.cover);
+  const onCover = hasCover && !coverIsLight(activeCategory.cover);
 
   const categoryHeader = (
     <CategoryPageHeaderInline

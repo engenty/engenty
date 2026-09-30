@@ -48,6 +48,7 @@ import {
   type SpaceDataListing,
   type SpaceDataMoveInput,
   type SpaceDataNodeType,
+  searchSpaceDataByWalk,
   spaceDataNodeName,
   spaceDataNodeRecordId,
   spaceDataPathSegments,
@@ -306,7 +307,7 @@ function folderDocument(
 }
 
 export function createFilesSpaceDataAdapter(): SpaceDataAdapter {
-  return {
+  const adapter: SpaceDataAdapter = {
     label: FILES_ROOT,
     moduleId: "files",
     nodeTypes: [FILE_NODE_TYPE],
@@ -509,4 +510,7 @@ export function createFilesSpaceDataAdapter(): SpaceDataAdapter {
       return folderDocument(moved, parentPath);
     },
   };
+  adapter.search = (ctx, search) =>
+    searchSpaceDataByWalk(adapter.list, ctx, search);
+  return adapter;
 }

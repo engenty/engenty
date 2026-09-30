@@ -1,13 +1,5 @@
 import type { AgentTurnMessageLike } from "@engenty/ag-ui-bridge";
 
-/** Where the current agent **turn** sits in the coarse lifecycle (v1 maps from chat + assistant presence). */
-export type AgentTurnPhase =
-  | "requested"
-  | "run_start"
-  | "turn_start"
-  | "turn_end"
-  | "run_end";
-
 /** UX outcome for the agent **run** / ticker (icons, colors). */
 export type AgentRunOutcomeState =
   | "requested"
@@ -17,7 +9,7 @@ export type AgentRunOutcomeState =
   | "error";
 
 /** Current **step** segment within the assistant turn (last matching part wins). */
-export type AgentStepKind = "idle" | "text" | "tool" | "reasoning" | "progress";
+export type AgentStepKind = "idle" | "tool";
 
 export type AgentStatusTickerVariant =
   | "muted"
@@ -38,13 +30,21 @@ export type AgentRunStatus =
 
 export interface AgentStatusTickerLabels {
   /** Accessible label for collapsing recent steps */
-  collapseSteps?: string;
+  collapseSteps: string;
+  /** The run finished. */
+  done: string;
+  /** The run failed without a message of its own. */
+  error: string;
   /** Accessible label for expanding recent steps */
-  expandSteps?: string;
+  expandSteps: string;
+  /** The stream broke without saying why. */
+  somethingWentWrong: string;
+  /** The client fell behind the server. */
+  stale: string;
   /** Shown when streaming/submitted but no step label yet */
-  thinking?: string;
+  thinking: string;
   /** Shown when waiting for first assistant message in this turn */
-  waiting?: string;
+  waiting: string;
 }
 
 /** One derived step segment from assistant message parts (newest-first in lists). */
@@ -62,12 +62,10 @@ export interface AgentStatusTickerSnapshot {
   /** Single-line display (truncated by host CSS). */
   label: string;
   outcome: AgentRunOutcomeState;
-  phase: AgentTurnPhase;
   /** Recent step segments within the current turn, newest first. */
   recentSteps: readonly AgentStatusStep[];
-  showShimmer: boolean;
   showSpinner: boolean;
-  /** Latest visible agentic step (tool, text, …) within the current turn. */
+  /** Latest visible tool step within the current turn. */
   stepKind: AgentStepKind;
   variant: AgentStatusTickerVariant;
 }
@@ -77,11 +75,9 @@ export interface DeriveAgentStatusTickerInput {
   activityBaselineSignature?: string | null;
   chatStatus: "ready" | "streaming" | "submitted" | "error" | string;
   errorMessage?: string | null;
-  labels?: AgentStatusTickerLabels;
+  labels: AgentStatusTickerLabels;
   messages: readonly AgentTurnMessageLike[];
   runStatus?: AgentRunStatus | null;
   /** When true, forces outcome `stale` (disconnect, server ahead of client, etc.). */
   stale?: boolean;
-  /** Composer status flap: show run state only — never duplicate transcript text. */
-  statusOnly?: boolean;
 }

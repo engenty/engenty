@@ -24,10 +24,12 @@ import {
 import type {
   A2uiSurfacePaneTab,
   ObjectPaneTab,
+  ViewPaneTab,
   WorkFilePaneTab,
 } from "./artifact-store.js";
 import type { ArtifactSummary } from "./artifacts-api.js";
 import { parseFileArtifactHandle } from "./file-artifact-handle.js";
+import { ViewPaneBody } from "./view-pane-body.js";
 import { downloadWorkFile, WorkFilePreview } from "./work-file-preview.js";
 
 const SOURCE_FILE_BY_TYPE: Record<string, { ext: string; mime: string }> = {
@@ -74,6 +76,8 @@ export interface ArtifactPaneProps {
   objectTabs?: ObjectPaneTab[];
   onActivate: (id: string) => void;
   onClose: (id: string) => void;
+  /** Open the View Pane's page as the main content (see step 0 of the plan). */
+  onOpenViewFullPage?: (path: string) => void;
   /**
    * Persist a user edit as a new version; throws (with `status: 409` on a
    * version conflict) on failure. Omitting hides the edit affordance.
@@ -96,6 +100,8 @@ export interface ArtifactPaneProps {
   style?: CSSProperties;
   /** Live A2UI dashboard tab — one spec, replaced in place. */
   surfaceTabs?: A2uiSurfacePaneTab[];
+  /** View Pane tab — a module page beside the chat; one per host. */
+  viewTabs?: ViewPaneTab[];
 }
 
 /**
@@ -114,6 +120,7 @@ export function ArtifactPane({
   library = [],
   onActivate,
   onClose,
+  onOpenViewFullPage,
   onSaveContent,
   onSetExpanded,
   onSetPaneOpen,
@@ -121,6 +128,7 @@ export function ArtifactPane({
   fileTabs = [],
   objectTabs = [],
   surfaceTabs = [],
+  viewTabs = [],
   paneExpanded,
   storePending,
   storeSpaceTarget,
@@ -136,8 +144,9 @@ export function ArtifactPane({
   const activeFileTab = fileTabs.find((tab) => tab.key === activeId) ?? null;
   const activeSurfaceTab =
     surfaceTabs.find((tab) => tab.key === activeId) ?? null;
+  const activeViewTab = viewTabs.find((tab) => tab.key === activeId) ?? null;
   const active =
-    activeObjectTab || activeFileTab || activeSurfaceTab
+    activeObjectTab || activeFileTab || activeSurfaceTab || activeViewTab
       ? null
       : (artifacts.find((a) => a.id === activeId) ?? null);
   const Renderer = active ? resolveArtifactRenderer(active.type) : null;
@@ -260,6 +269,12 @@ export function ArtifactPane({
       id: tab.key,
       label: tab.title,
       type: "surface",
+    })),
+    ...viewTabs.map((tab) => ({
+      closable: true,
+      id: tab.key,
+      label: tab.title,
+      type: "app",
     })),
   ];
   const openArtifactIds = new Set(artifacts.map((a) => a.id));
@@ -411,6 +426,11 @@ export function ArtifactPane({
         </div>
       ) : activeSurfaceTab ? (
         <A2uiSurfacePaneBody tab={activeSurfaceTab} />
+      ) : activeViewTab ? (
+        <ViewPaneBody
+          onOpenFullPage={onOpenViewFullPage}
+          path={activeViewTab.path}
+        />
       ) : active && isEditingActive && Editor ? (
         <Editor
           artifact={active}

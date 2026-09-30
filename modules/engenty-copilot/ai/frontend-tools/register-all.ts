@@ -7,6 +7,7 @@ import {
 } from "./i18n-set-locale/register.js";
 import { useRegisterNavigateFrontendTool } from "./navigate/register.js";
 import { useRegisterOpenDialogFrontendTool } from "./open-dialog/register.js";
+import { useRegisterOpenViewFrontendTool } from "./open-view/register.js";
 import { useRegisterSetCopilotDockModeFrontendTool } from "./set-copilot-dock-mode/register.js";
 import {
   type CopilotThemeMode,
@@ -29,6 +30,9 @@ export function useRegisterCopilotFrontendTools(
   options: RegisterCopilotFrontendToolsOptions
 ): void {
   useRegisterNavigateFrontendTool({
+    openCopilotShell: options.openCopilotShell,
+  });
+  useRegisterOpenViewFrontendTool({
     openCopilotShell: options.openCopilotShell,
   });
   useRegisterSetCopilotDockModeFrontendTool({
@@ -67,6 +71,7 @@ export {
   runNavigateFrontendTool,
 } from "./navigate/run.js";
 export { useRegisterOpenDialogFrontendTool } from "./open-dialog/register.js";
+export { useRegisterOpenViewFrontendTool } from "./open-view/register.js";
 export { useRegisterSetCopilotDockModeFrontendTool } from "./set-copilot-dock-mode/register.js";
 export {
   type CopilotThemeMode,

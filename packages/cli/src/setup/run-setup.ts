@@ -7,6 +7,7 @@ import {
   isLocalStackRunning,
   localDatabaseIsEmpty,
   resetLocalDb,
+  restartLocalDb,
 } from "../db/local-db.js";
 import { runSupabaseCliStreaming } from "../db/run-supabase-cli.js";
 import { envFilePath } from "../env-setup/env-files.js";
@@ -255,7 +256,16 @@ Run: pnpm engenty env init
   // The AI service's credential lives in the database that was just
   // migrated or reset: keep .env.local's ENGENTY_AI_SERVICE_SECRET backed by
   // a live row, or the scheduler boots disabled and routines never fire.
-  ensureLocalServiceCredential({ workspaceRoot: params.repoRoot });
+  // A freshly reset stack can still serve the old schema list; one restart
+  // reloads it, which is what the failed check is waiting on.
+  if (
+    ensureLocalServiceCredential({ workspaceRoot: params.repoRoot }) ===
+    "skipped"
+  ) {
+    restartLocalDb();
+    await waitForSupabaseReady();
+    ensureLocalServiceCredential({ workspaceRoot: params.repoRoot });
+  }
 
   if (envExitCode !== 0 && !params.allowGaps) {
     throw new Error(
@@ -266,6 +276,18 @@ Run: pnpm engenty env init
   console.log(`
 Setup complete. Start the stack with:
 
-  pnpm dev
+  ${startCommand(params.repoRoot)}
 `);
+}
+
+/** `pnpm dev:portless` when the dev URLs block chose HTTPS, else `pnpm dev`. */
+function startCommand(repoRoot: string): string {
+  try {
+    const env = fs.readFileSync(envFilePath(repoRoot, "root"), "utf8");
+    return /^#\s+Main app:\s+https:\/\//m.test(env)
+      ? "pnpm dev:portless"
+      : "pnpm dev";
+  } catch {
+    return "pnpm dev";
+  }
 }

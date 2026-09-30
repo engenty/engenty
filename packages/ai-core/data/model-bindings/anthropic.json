@@ -2,8 +2,7 @@
   "gateway": "anthropic",
   "label": "Anthropic",
   "roles": {
-    "model.low": "anthropic/claude-haiku-4.5",
-    "model.medium": "anthropic/claude-sonnet-5",
+    "model.normal": "anthropic/claude-haiku-4.5",
     "model.high": "anthropic/claude-sonnet-5",
     "classifier": "typesafe-ai/jev",
     "fast_text": "anthropic/claude-haiku-4.5",

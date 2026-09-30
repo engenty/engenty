@@ -5,11 +5,12 @@ import {
   type FileSpaceOwnerRef,
   fileSpaceDriveQueryKey,
   fileSpaceOwnerKey,
+  SPACE_AGENTS_DATA_ROOT,
   spaceDataChildNodes,
   spaceFolderChildNodes,
 } from "@engenty/file-storage";
 import type { SpaceDataListing } from "@engenty/plugin-sdk";
-import { useQuery } from "@engenty/query-client";
+import { useQueries, useQuery } from "@engenty/query-client";
 import { useMemo } from "react";
 import {
   getSpaceDataRoots,
@@ -23,6 +24,8 @@ import {
   getSpaceArtifacts,
   getSpaceProjects,
 } from "@/lib/api/space-drive-client";
+import { useSpaceAgentNames } from "@/lib/space-agent-folder-names";
+import type { SpaceDataRootSection } from "@/lib/space-data-root-sections";
 import { isSpaceDrivePending } from "@/lib/space-drive-pending";
 import { spaceKeys, useSpaceSurfaceQuery } from "@/lib/spaces-queries";
 
@@ -55,6 +58,8 @@ export const spaceDriveKeys = {
     ] as const,
   projects: (spaceId: string) =>
     [...spaceKeys.all, "drive", "projects", spaceId] as const,
+  search: (spaceId: string, query: string) =>
+    [...spaceKeys.all, "drive", "search", spaceId, query] as const,
 };
 
 export interface SpaceDriveResult {
@@ -175,6 +180,58 @@ export function useSpaceDrive(
 }
 
 /**
+ * The sections worth showing: an empty one is left out.
+ *
+ * Eager sections (Documents, Apps, Projects) are judged by their rows. A lazy
+ * root is judged by its first level, fetched here under the same key opening
+ * it would use — so expanding it afterwards costs nothing — and stays out
+ * until that answer arrives, rather than flashing in and vanishing. A root
+ * that failed to load stays in, so its error is visible.
+ */
+export function useNonEmptySpaceDataSections(
+  spaceId: string | null,
+  sections: readonly SpaceDataRootSection[]
+): SpaceDataRootSection[] {
+  const lazy = sections.flatMap((section) => {
+    const path = section.root?.children ? undefined : section.root?.dataPath;
+    const extra = (section.extra ?? []).flatMap((node) =>
+      node.dataPath ? [{ id: section.id, path: node.dataPath }] : []
+    );
+    return [...(path ? [{ id: section.id, path }] : []), ...extra];
+  });
+  const results = useQueries({
+    queries: lazy.map(({ path }) => ({
+      enabled: Boolean(spaceId),
+      queryFn: ({ signal }: { signal: AbortSignal }) =>
+        listSpaceData(spaceId ?? "", path, signal),
+      queryKey: spaceDriveKeys.dataChildren(spaceId ?? "", path),
+    })),
+  });
+  const shown = new Set(
+    lazy.flatMap(({ id }, index) => {
+      const result = results[index];
+      if (result?.error) {
+        return [id];
+      }
+      const data = result?.data;
+      return data && data.entries.length + data.folders.length > 0 ? [id] : [];
+    })
+  );
+  return sections.filter((section) => {
+    if (shown.has(section.id)) {
+      return true;
+    }
+    if (!section.root) {
+      return section.children.length > 0;
+    }
+    if (section.root.children) {
+      return section.root.children.length > 0;
+    }
+    return shown.has(section.id);
+  });
+}
+
+/**
  * One level inside a module's data folder, fetched when it is opened.
  *
  * Keyed by path, so opening the same folder twice in a session is free and
@@ -191,18 +248,28 @@ export function useSpaceDataChildren(
     queryFn: ({ signal }) => listSpaceData(spaceId ?? "", path ?? "", signal),
     queryKey: spaceDriveKeys.dataChildren(spaceId ?? "", path ?? ""),
   });
-  const nodes = useMemo(
-    () =>
-      query.data && moduleId && path
-        ? spaceDataChildNodes({
-            entries: query.data.entries,
-            folders: query.data.folders,
-            moduleId,
-            parentPath: path,
-          })
-        : [],
-    [moduleId, path, query.data]
-  );
+  const agentFolders = path === SPACE_AGENTS_DATA_ROOT;
+  const agentName = useSpaceAgentNames(agentFolders);
+  const nodes = useMemo(() => {
+    if (!(query.data && moduleId && path)) {
+      return [];
+    }
+    const children = spaceDataChildNodes({
+      entries: query.data.entries,
+      folders: query.data.folders,
+      moduleId,
+      parentPath: path,
+    });
+    return agentFolders
+      ? children
+          .map((node) =>
+            node.kind === "folder"
+              ? { ...node, name: agentName(node.name) }
+              : node
+          )
+          .sort((a, b) => a.name.localeCompare(b.name))
+      : children;
+  }, [agentFolders, agentName, moduleId, path, query.data]);
   return {
     error: query.error,
     isPending: enabled && query.isPending,

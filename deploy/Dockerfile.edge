@@ -71,6 +71,11 @@ ARG VITE_SUPABASE_ANON_KEY=placeholder
 ARG VITE_ENGENTY_AI_BASE_URL=http://127.0.0.1:8787
 # Lower on memory-constrained builders (each parallel tsup/tsc worker is heavy).
 ARG TURBO_BUILD_CONCURRENCY=10
+# Modules below this stage are left out of the UI bundle (unset = beta, what
+# the published images ship). Keep it equal to Dockerfile.migrate's and to the
+# ENGENTY_MODULE_STAGE core runs with.
+ARG ENGENTY_MODULE_STAGE=
+ENV ENGENTY_MODULE_STAGE=$ENGENTY_MODULE_STAGE
 COPY turbo.json tsconfig.base.json ./
 # apps/ui and apps/manage bake the version into their bundles from this file
 # (see apps/ui/vite.config.ts), so the deps stage's normalised 0.0.0-cache must

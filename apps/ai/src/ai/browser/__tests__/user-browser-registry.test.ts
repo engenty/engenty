@@ -1,15 +1,74 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 // The registry only needs Mastra's class shape here; the real one drags in
-// playwright-core and a CDP connection nobody has in a unit test.
+// playwright-core and a CDP connection nobody has in a unit test. One fake
+// Chromium: its tabs (CDP targets) outlive a connection, and every
+// connection (`sharedManager`) sees all of them.
+const chromiumTabs: string[] = [];
+let nextTarget = 0;
+
+function fakePage(targetId: string) {
+  const page = {
+    context: () => ({
+      newCDPSession: () =>
+        Promise.resolve({
+          detach: () => Promise.resolve(),
+          send: () => Promise.resolve({ targetInfo: { targetId } }),
+        }),
+    }),
+  };
+  return page;
+}
+
+function fakeConnection() {
+  return {
+    getPages: () => chromiumTabs.map(fakePage),
+    newTab: vi.fn(() => {
+      nextTarget += 1;
+      chromiumTabs.push(`target-${nextTarget}`);
+      return Promise.resolve({ index: chromiumTabs.length - 1 });
+    }),
+    switchTo: vi.fn(() => Promise.resolve()),
+  };
+}
+
 vi.mock("@mastra/agent-browser", () => ({
   AgentBrowser: class {
-    close = vi.fn(() => Promise.resolve());
-    ensureReady = vi.fn(() => Promise.resolve());
+    sharedManager: ReturnType<typeof fakeConnection> | null = null;
+    close = vi.fn(() => {
+      this.sharedManager = null;
+      return Promise.resolve();
+    });
+    ensureReady = vi.fn(() => {
+      this.sharedManager ??= fakeConnection();
+      return Promise.resolve();
+    });
     onBrowserClosed = vi.fn(() => () => undefined);
-    sharedManager = { newTab: vi.fn(() => Promise.resolve()) };
   },
 }));
+
+// The record beside the Space's profile, kept in memory: it outlives a
+// "process" (a registry reset) the way the file outlives apps/ai.
+const windowTabs = new Map<string, string>();
+vi.mock("../browser-window-tabs.js", () => ({
+  readWindowTab: (_identity: unknown, agentId: string) =>
+    Promise.resolve(windowTabs.get(agentId) ?? null),
+  writeWindowTab: (_identity: unknown, agentId: string, targetId: string) => {
+    windowTabs.set(agentId, targetId);
+    return Promise.resolve();
+  },
+}));
+
+interface FakeBrowser {
+  sharedManager: ReturnType<typeof fakeConnection> | null;
+}
+function connectionOf(browser: unknown) {
+  const manager = (browser as FakeBrowser).sharedManager;
+  if (!manager) {
+    throw new Error("connection expected");
+  }
+  return manager;
+}
 
 import {
   acquireAgentSeat,
@@ -19,7 +78,6 @@ import {
   ensureBrowserWindow,
   getSeat,
   getUserBrowser,
-  peekUserBrowser,
   releaseAgentSeat,
   releaseUserSeat,
   resetUserBrowserRegistryForTests,
@@ -112,6 +170,8 @@ describe("user browser seat", () => {
 describe("browser windows in one Space", () => {
   afterEach(() => {
     resetUserBrowserRegistryForTests();
+    chromiumTabs.length = 0;
+    windowTabs.clear();
   });
 
   it("keys each agent's window by sandbox and agent", () => {
@@ -156,14 +216,40 @@ describe("browser windows in one Space", () => {
     const b = getUserBrowser(otherAgent);
     expect(a).not.toBe(b);
     expect(getUserBrowser(identity)).toBe(a);
+    await Promise.all([
+      ensureBrowserWindow(identity),
+      ensureBrowserWindow(identity),
+    ]);
     await ensureBrowserWindow(identity);
+    expect(connectionOf(a).newTab).toHaveBeenCalledTimes(1);
+  });
+
+  it("a dropped connection gets the window's own tab back, not another one", async () => {
+    const a = getUserBrowser(identity);
     await ensureBrowserWindow(identity);
-    const manager = (
-      a as unknown as {
-        sharedManager: { newTab: ReturnType<typeof vi.fn> };
-      }
-    ).sharedManager;
-    expect(manager.newTab).toHaveBeenCalledTimes(1);
+    await ensureBrowserWindow(otherAgent);
+    // The CDP connection drops; Chromium and its tabs live on.
+    (a as unknown as FakeBrowser).sharedManager = null;
+
+    await ensureBrowserWindow(identity);
+
+    const reconnected = connectionOf(a);
+    expect(reconnected.newTab).not.toHaveBeenCalled();
+    expect(reconnected.switchTo).toHaveBeenCalledWith(0);
+    expect(chromiumTabs).toHaveLength(2);
+  });
+
+  it("a restarted apps/ai gets the window's tab back from the browser it left running", async () => {
+    await ensureBrowserWindow(otherAgent);
+    await ensureBrowserWindow(identity);
+    resetUserBrowserRegistryForTests();
+
+    const fresh = getUserBrowser(identity);
+    await ensureBrowserWindow(identity);
+
+    expect(connectionOf(fresh).newTab).not.toHaveBeenCalled();
+    expect(connectionOf(fresh).switchTo).toHaveBeenCalledWith(1);
+    expect(chromiumTabs).toHaveLength(2);
   });
 
   it("closeUserBrowserSession closes every window of that sandbox only", async () => {
@@ -180,13 +266,24 @@ describe("browser windows in one Space", () => {
     expect(a.close).toHaveBeenCalledTimes(1);
     expect(b.close).toHaveBeenCalledTimes(1);
     expect(c.close).not.toHaveBeenCalled();
-    expect(peekUserBrowser(WINDOW_KEY)).toBeNull();
-    expect(peekUserBrowser(OTHER_WINDOW_KEY)).toBeNull();
     expect(getSeat(WINDOW_KEY).holder).toBeNull();
     expect(getSeat(OTHER_WINDOW_KEY).holder).toBeNull();
-    const elsewhereKey = browserWindowKey(elsewhere);
-    expect(peekUserBrowser(elsewhereKey)).toBe(c);
-    expect(getSeat(elsewhereKey).holder).toEqual({ runId: "run-3" });
+    expect(getSeat(browserWindowKey(elsewhere)).holder).toEqual({
+      runId: "run-3",
+    });
+  });
+
+  it("after a stop the window keeps its handle and opens a fresh tab on the next start", async () => {
+    // Live views are subscribed to the handle: a new one would strand them.
+    const a = getUserBrowser(identity);
+    await ensureBrowserWindow(identity);
+    await closeUserBrowserSession(SANDBOX_ID);
+    chromiumTabs.length = 0;
+
+    await ensureBrowserWindow(identity);
+
+    expect(getUserBrowser(identity)).toBe(a);
+    expect(connectionOf(a).newTab).toHaveBeenCalledTimes(1);
   });
 });
 

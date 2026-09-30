@@ -56,7 +56,7 @@ running database or secrets:
 
 ```jsonc
 // package.json
-"engenty": { "plugins": { "engenty-copilot": { "source": "workspace" } } }
+"engenty": { "plugins": { "engenty-copilot": "workspace" } }
 ```
 
 `engenty.plugins` is the **committed product declaration** (like `dependencies`).

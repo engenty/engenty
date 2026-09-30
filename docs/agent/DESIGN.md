@@ -307,7 +307,6 @@ Page root pattern: `flex h-full min-h-0 flex-col gap-3 overflow-hidden p-page` (
 - Always apply `flex min-h-0 flex-1 flex-col overflow-hidden` down the component tree until the scroll container.
 - The scroll container itself gets `overflow-y-auto`.
 - Never let `overflow: hidden` higher in the tree clip scrollable children.
-- Stacked column dashboards (space home: composer + `embedOnHome` module) share **one** scroller — the outer column. Wrap the embed in `shrink-0` so it sizes to content. Do not let the embed keep `flex-1 min-h-0 overflow-y-auto` as a flex child of that column, or it becomes a nested viewport and the top block stays pinned.
 - **Bottom safe area:** every main-area scroller ends with `--ui-scroll-safe-bottom` (`96px`, FAB 60 + inset 16 + breathing) so the last block can scroll clear of overlapping chrome. Use `.ui-page-scroll` (`uiPageScrollClassName`) as the page root, or `pb-scroll-safe` when the node already has `overflow-y-auto` (typical: `p-page pb-scroll-safe`). Do not use `pb-10` for this. Full-bleed boards/chat that clip rather than scroll do not take this pad.
 
 ### Content width

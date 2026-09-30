@@ -1,3 +1,4 @@
+import { coverSchema } from "@engenty/covers";
 import { z } from "@hono/zod-openapi";
 import { TASK_STATUS_COLOR_OPTIONS } from "./task-status-colors.js";
 
@@ -53,7 +54,8 @@ export const projectSchema = z.object({
   portal_password: z.string().nullable(),
   portal_intro_text: z.string().nullable(),
   visibility: z.enum(["tenant", "members"]).default("tenant"),
-  timeplan_enabled: z.boolean().default(true),
+  timeplan_enabled: z.boolean().default(false),
+  cover: coverSchema.nullable().optional(),
   enabled_tabs: z.array(z.string()).nullable().optional(),
   created_by: z.string().uuid().nullable(),
   created_at: z.string(),
@@ -97,7 +99,13 @@ export const projectTeamMemberUpdateSchema = z.object({
   role_name: z.string().nullable().optional(),
 });
 
+// A PATCH names only what changes. `.partial()` keeps the entity's
+// `.default()`s, so without these overrides an update that leaves out
+// `visibility` / `timeplan_enabled` would reset them — a members-only project
+// renamed would become visible to the whole tenant.
 export const projectUpdateSchema = projectInputSchema.partial().extend({
+  visibility: z.enum(["tenant", "members"]).optional(),
+  timeplan_enabled: z.boolean().optional(),
   team_member_ids: z.array(z.string()).optional(),
   project_team: z.array(projectTeamMemberUpdateSchema).optional(),
 });

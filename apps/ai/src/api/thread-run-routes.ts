@@ -13,12 +13,14 @@ import {
   AI_EFFORT_LEVELS,
   type AiEffort,
   type AiEffortChoice,
+  type AiReasoningEffort,
   type AiUsageStore,
   agentDefaultEffort,
   checkUsageLimits,
   createClassifierClient,
   type DynamicAiModuleCapabilityLoader,
   formatUsageLimitError,
+  isReasoningEffort,
 } from "@engenty/ai-core";
 import type { HonoBindings, HonoVariables } from "@mastra/hono";
 import type { Hono } from "hono";
@@ -31,6 +33,10 @@ import {
   TOOL_APPROVAL_CHOICE_APPROVE_ALWAYS,
   TOOL_APPROVAL_CHOICE_APPROVE_ONCE,
 } from "../../ai/tools/engenty-tools/lib/tool-approval.js";
+import {
+  formatFeedbackResumeForModel,
+  type NativeRequestFeedbackResumeData,
+} from "../../ai/tools/request-feedback/native-request-feedback.js";
 import { resolveCoreAgentId } from "../ai/agent-identity.js";
 import { persistCoreApprovalDecision } from "../ai/approval-decision.js";
 import { buildChatTurnContextEntries } from "../ai/chat-commands.js";
@@ -48,10 +54,13 @@ import {
   loadAgentApprovalGrants,
   persistAgentApprovalGrants,
 } from "../ai/sessions/agent-approval-grants.js";
+import { AUTO_EFFORT_JEV_TIMEOUT_MS } from "../ai/sessions/approve-effort-change.js";
 import {
-  AUTO_EFFORT_JEV_TIMEOUT_MS,
-  type PreviousEffort,
-} from "../ai/sessions/approve-effort-change.js";
+  CHAT_MODE_METADATA_KEY,
+  chatModeAfterRun,
+  readThreadChatMode,
+  sameChatMode,
+} from "../ai/sessions/chat-mode-metadata.js";
 import {
   loadConnectionApprovalGrants,
   mergeApprovalGrants,
@@ -61,11 +70,9 @@ import {
   type AgUiResumeEntry,
   mergeAgUiOpenInterruptMetadata,
   readAgUiOpenInterrupt,
-  resumePayloadToModelContent,
   runInputHasNewUserMessages,
 } from "../ai/sessions/interrupts.js";
 import { resolveEffortForRun } from "../ai/sessions/resolve-auto-effort.js";
-import { resolveToolCallResultInHistory } from "../ai/sessions/resolve-tool-call-history.js";
 import {
   getLiveRunEventsSnapshot,
   markRunDone,
@@ -100,7 +107,6 @@ import {
 } from "./http.js";
 
 export {
-  isModelFeedableMime,
   latestUserAttachmentParts,
   latestUserAttachments,
   resolveTieredAttachments,
@@ -240,6 +246,27 @@ function toDecisionResumeData(
   };
 }
 
+/**
+ * The user's typed answer, in the shape the suspended `requestFeedback` tool
+ * resumes with. The card sends it as `payload.feedback`.
+ */
+function toFeedbackResumeData(
+  entry: AgUiResumeEntry | undefined
+): Record<string, unknown> {
+  if (entry?.status === "cancelled") {
+    return { cancelled: true };
+  }
+  const payload =
+    entry?.payload &&
+    typeof entry.payload === "object" &&
+    !Array.isArray(entry.payload)
+      ? (entry.payload as Record<string, unknown>)
+      : {};
+  return typeof payload.feedback === "string"
+    ? { feedback: payload.feedback }
+    : {};
+}
+
 // Latest user-turn text for the durable path. Native memory recalls prior
 // history from the thread, so the durable run only needs the current turn.
 function latestUserText(input: RunAgentInput): string {
@@ -352,8 +379,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * `model_id` rather than replacing it: an expert / self-hosted install may still
  * pin a model, and that pin keeps precedence.
  *
- * `auto` is a first-class choice: sized per turn by heuristics — see
- * `resolveEffortForRun`.
+ * `auto` is the composer's Normal: Normal, unless the turn looks like it needs
+ * high and the person is asked first — see `resolveEffortForRun`.
  */
 function resolveEffortChoice(input: RunAgentInput): AiEffortChoice | null {
   const forwardedProps = isRecord(input.forwardedProps)
@@ -392,33 +419,21 @@ async function loadEffortResolutionContext(params: {
 }
 
 /**
- * The tier the thread's last turn ran at, and when it last touched the model —
- * what Auto weighs a tier change against. Null on a new thread or when no run
- * recorded its tier.
+ * How long a reasoning model thinks (`forwardedProps.engenty.reasoning_effort`)
+ * — the composer's Extra, or the level picked with a Custom model. Applied at
+ * assembly to whichever model the agent lands on, where that model reasons.
  */
-async function loadPreviousEffort(params: {
-  runStore: AgentRunStore | null;
-  tenantId: string;
-  threadId: string;
-}): Promise<PreviousEffort | null> {
-  if (!params.runStore) {
+function resolveReasoningEffort(
+  input: RunAgentInput
+): AiReasoningEffort | null {
+  const forwardedProps = isRecord(input.forwardedProps)
+    ? input.forwardedProps
+    : {};
+  if (!isRecord(forwardedProps.engenty)) {
     return null;
   }
-  try {
-    const [last] = await params.runStore.listRunsForThread({
-      limit: 1,
-      tenantId: params.tenantId,
-      threadId: params.threadId,
-    });
-    const effort = last?.metadata.effort;
-    return last &&
-      typeof effort === "string" &&
-      (AI_EFFORT_LEVELS as readonly string[]).includes(effort)
-      ? { at: last.finished_at ?? last.started_at, effort: effort as AiEffort }
-      : null;
-  } catch {
-    return null;
-  }
+  const value = forwardedProps.engenty.reasoning_effort;
+  return isReasoningEffort(value) ? value : null;
 }
 
 function resolveModelIdOverride(input: RunAgentInput): string | null {
@@ -551,9 +566,7 @@ export function registerThreadRunRoutes(
     // unresumable by any stock AG-UI client — it only appears to work when the
     // client trims the array itself, as ours does. They are ignored instead: a
     // resume skips the startConversationRun block entirely (see the
-    // `!isResumeRun || isArtifactResume` gate below) and reads no messages at
-    // all. The artifact-resume path does read them, in two places, and both now
-    // ignore them on a resume — a resume has no new turn to size or echo.
+    // `!isResumeRun` gate below) and reads no messages at all.
     //
     // Warn rather than reject: if a genuinely ambiguous case (a user typing a new
     // turn WHILE a run is suspended) ever shows up, this is the evidence to
@@ -614,6 +627,18 @@ export function registerThreadRunRoutes(
       : null;
     const modelIdOverride = resolveModelIdOverride(body.data);
     const effortChoice = resolveEffortChoice(body.data);
+    const reasoningEffort = resolveReasoningEffort(body.data);
+    // A pin is the composer's Custom pick, and Custom offers only the
+    // platform's list. Refused before anything starts: silently running the tier model
+    // instead would answer on a model the person did not pick.
+    if (
+      modelIdOverride &&
+      !(await opts.aiService.threads.isModelPinOffered({
+        modelId: modelIdOverride,
+      }))
+    ) {
+      return c.json({ error: "agent_threads.modelNotOffered" }, 403);
+    }
 
     try {
       await opts.aiService.threads.assertNativeMemoryAvailable({
@@ -637,12 +662,10 @@ export function registerThreadRunRoutes(
     const conversationStore = opts.getStore?.() ?? null;
     const canRunConversation =
       Boolean(opts.createRegistry) && Boolean(conversationStore);
-    // A SUSPENDED tool (frontend tool, or the execute tool's approval gate)
-    // PARKS the session — its interrupt carries `run_id` and the resume
-    // reattaches via respondToToolSuspension, continuing the same run.
-    // Decision/feedback interrupts from requestDecision/requestFeedback come
-    // from a tool RESULT (no suspend, no run_id) — they re-run with the user's
-    // selection nudged in.
+    // Every interrupt is a SUSPENDED tool (frontend tool, the execute tool's
+    // approval gate, requestDecision, requestFeedback) that PARKS the session —
+    // its interrupt carries `run_id` and the resume continues that same run
+    // from Mastra's snapshot, handing the answer to the suspended tool.
     const openInterrupt = canRunConversation
       ? readAgUiOpenInterrupt(session.metadata)
       : null;
@@ -651,29 +674,28 @@ export function registerThreadRunRoutes(
       openInterrupt != null &&
       Boolean(openInterrupt.run_id) &&
       isToolApprovalArtifactId(openInterrupt.artifact_id);
-    // `requestDecision` now suspends natively, so its interrupt carries a
-    // `run_id` and resumes the parked run in place — the user's choice is handed
-    // to the suspended tool and becomes its result. A decision interrupt WITHOUT
-    // a run_id is still the artifact shape (tool-approval cards, and headless
-    // runs that cannot suspend) and keeps the re-run path below.
+    // A chooser (requestDecision, and the publish/hire cards) — the user's
+    // choice becomes the suspended tool's result.
     const isParkedDecisionResume =
       isResumeRun &&
       openInterrupt != null &&
       Boolean(openInterrupt.run_id) &&
       openInterrupt.kind === "decision" &&
       !isToolApprovalArtifactId(openInterrupt.artifact_id);
+    // requestFeedback — the typed answer becomes the suspended tool's result.
+    const isParkedFeedbackResume =
+      isResumeRun &&
+      openInterrupt != null &&
+      Boolean(openInterrupt.run_id) &&
+      openInterrupt.kind === "feedback";
     const isParkedResume =
       isResumeRun &&
       openInterrupt != null &&
       Boolean(openInterrupt.run_id) &&
       (isFrontendToolOpenInterrupt(openInterrupt) ||
         isParkedApprovalResume ||
-        isParkedDecisionResume);
-    const isArtifactResume =
-      isResumeRun &&
-      !isParkedResume &&
-      openInterrupt != null &&
-      (openInterrupt.kind === "decision" || openInterrupt.kind === "feedback");
+        isParkedDecisionResume ||
+        isParkedFeedbackResume);
     // The answer is the resolution: whoever answered this card closed the
     // ask for everyone, whatever the run does next (finish, re-park on the
     // next gate under the same interrupt id, fail). Resolved here, before any
@@ -685,14 +707,6 @@ export function registerThreadRunRoutes(
         tenantId: scope.scope.tenantId,
       });
     }
-    // Interactive chat runs the approval gate under the "artifact" policy: a gated
-    // op returns the Approve/Deny card as a decision artifact (no Mastra suspend →
-    // no run_id → not a parked resume), and the resume RE-RUNS with the persisted
-    // grant. This is the same decision-artifact re-run branch, but the resume must
-    // also persist the tool-approval grant (mirroring the parked branch's
-    // once/always/secrets handling) or the re-run's gate would re-prompt forever.
-    const isApprovalArtifactResume =
-      isArtifactResume && isToolApprovalArtifactId(openInterrupt?.artifact_id);
     if (canRunConversation && conversationStore && isParkedResume) {
       // The client answered a SPECIFIC interrupt. If it names a different one
       // than the currently open interrupt (a stale card answered after the run
@@ -744,7 +758,9 @@ export function registerThreadRunRoutes(
               ? { artifact_id: openInterrupt.artifact_id }
               : {}),
           }
-        : toFrontendToolResumeData(resumeEntries[0]);
+        : isParkedFeedbackResume
+          ? toFeedbackResumeData(resumeEntries[0])
+          : toFrontendToolResumeData(resumeEntries[0]);
       // Metadata the resume writes back when it clears the interrupt — must
       // include a grant persisted below, or the write-back would erase it.
       let resumeSessionMetadata = session.metadata;
@@ -880,6 +896,7 @@ export function registerThreadRunRoutes(
           // The user may change the picker while the card is open; their pick
           // outranks the tier, exactly as it does on a fresh turn.
           modelIdOverride,
+          reasoningEffort,
           scope: scope.scope,
         });
       } catch (err) {
@@ -904,6 +921,11 @@ export function registerThreadRunRoutes(
         ...(opts.createRegistry
           ? { registry: opts.createRegistry(scope.scope) }
           : {}),
+        resolvedResult: isParkedFeedbackResume
+          ? formatFeedbackResumeForModel(
+              resumeData as NativeRequestFeedbackResumeData
+            )
+          : resumeData,
         resolvedToolCallId: openInterrupt?.tool_call_id ?? "",
         resolveChildWorkspace: (child) =>
           opts.aiService.threads.resolveAgentWorkspaceForRun({
@@ -946,25 +968,19 @@ export function registerThreadRunRoutes(
       canRunConversation &&
       conversationStore &&
       opts.createRegistry &&
-      (!isResumeRun || isArtifactResume)
+      !isResumeRun
     ) {
-      // Conversation run. AG-UI events flow to the run-event-bus; the SSE block
-      // below is unchanged.
-      // A decision/feedback resume re-runs here with the selection nudged in.
+      // Conversation run — a fresh user turn. AG-UI events flow to the
+      // run-event-bus; the SSE block below is unchanged.
       markRunLive(runId);
       let hsSessionMetadata = session.metadata;
-      // On a resume the prompt comes from the resume payload, never from
-      // `messages` — both resume branches below assign it unconditionally. Start
-      // empty rather than relying on that coverage: a future resume kind reaching
-      // this block would otherwise silently re-send the ORIGINAL user turn as if
-      // it were new.
-      let hsPrompt = isResumeRun ? "" : latestUserText(body.data);
+      const hsPrompt = latestUserText(body.data);
       // A person's words while a run is already answering on this thread go
       // INTO that run — a room turn, or another window's turn — instead of
       // waiting behind it (PLAN-agent-rooms.md R3). Mastra takes the message
       // as the loop's next input; this response is a finished run that says
       // where the words went.
-      if (!isResumeRun && hsPrompt.trim()) {
+      if (hsPrompt.trim()) {
         const steered = await steerActiveThreadRun({
           text: hsPrompt,
           threadId,
@@ -1003,221 +1019,40 @@ export function registerThreadRunRoutes(
         }
       }
       // Operation ids approved earlier in this chat — the execute-boundary gate
-      // skips them. A fresh "Approve" on this resume is folded in below.
+      // skips them.
       let hsApprovalGrants = readToolApprovalGrants(session.metadata);
-      if (isApprovalArtifactResume) {
-        // Tool-approval re-run (interactive HITL): audit the decision and, on
-        // approval, persist the grant — "once" survives this request's resume
-        // runs, "always" the whole chat — so the re-executed pre-gate lets the op
-        // run. The grant (not a nudged selection) drives the continuation; a short
-        // proceed/deny note steers the model and is NOT persisted as a user
-        // bubble — the Approve/Deny widget is the visible record.
-        // Approve exactly the op the user answered: the answered interrupt id IS
-        // the artifact id (buildToolApprovalArtifact sets interrupt_id = artifact_id).
-        // The artifact branch has no answered-vs-open mismatch guard, so keying off
-        // the answered id — not whatever is currently open — avoids granting the
-        // wrong op if a stale card is answered after the run moved on.
-        const answeredArtifactId =
-          resumeEntries[0]?.interruptId ?? openInterrupt?.artifact_id;
-        const operationId =
-          parseToolApprovalOperationId(answeredArtifactId) ?? "";
-        // Bulk pre-approval: the answered card may cover several operations
-        // (grant context on the artifact id). One approve grants each.
-        const hsGrantContext =
-          parseToolApprovalGrantContext(answeredArtifactId);
-        const hsGrantOperationIds = Array.from(
-          new Set(
-            [operationId, ...(hsGrantContext?.operation_ids ?? [])].filter(
-              Boolean
-            )
-          )
-        );
-        // Choices come from the OPEN interrupt; when a stale card is answered
-        // (answered id != open id) there are none to match against, so an
-        // id-only payload lands in `unresolved` and is rejected rather than
-        // guessed at — which is the correct outcome for a stale answer anyway.
-        const resolution = resumeEntries[0]
-          ? resolveDecisionResumeChoice(
-              resumeEntries[0],
-              openInterrupt?.choices
-            )
-          : ({ kind: "absent" } as const);
-        if (resolution.kind === "unresolved") {
-          return unresolvedChoiceResponse(c, resolution.choiceId);
-        }
-        const choice =
-          resolution.kind === "choice" ? resolution.choiceId : undefined;
-        const always = choice === TOOL_APPROVAL_CHOICE_APPROVE_ALWAYS;
-        const once = choice === TOOL_APPROVAL_CHOICE_APPROVE_ONCE;
-        auditToolApprovalDecision({
-          decision: always ? "approve_always" : once ? "approve_once" : "deny",
-          operationId,
-          ...(hsGrantOperationIds.length > 1
-            ? { operationIds: hsGrantOperationIds }
-            : {}),
-          tenantId: scope.scope.tenantId,
-          threadId,
-          userId: scope.scope.userId,
-        });
-        // Grant to UNION into the durable metadata below. The in-memory copy
-        // alone only carries the approval through THIS request's re-runs — once
-        // they finish it is gone, so the same operation prompts again on a later
-        // turn and "approve always" silently means "approve this once". The
-        // parked branch above has always persisted; this branch (the one
-        // interactive chat actually takes, because the start run gates under
-        // approvalPolicy "artifact") did not.
-        let grantAppendSets: Record<string, string[]> | undefined;
-        if (once || always) {
-          // "For this agent" also carries THIS request as a once grant, so the
-          // approved call runs even if the agent grant write fails.
-          hsSessionMetadata = hsGrantOperationIds.reduce(
-            (metadata, id) => withToolApprovalGrantOnce(metadata, id),
-            hsSessionMetadata as Record<string, unknown>
-          );
-          grantAppendSets = {
-            [TOOL_APPROVAL_GRANTS_ONCE_METADATA_KEY]: hsGrantOperationIds,
-          };
-          if (always) {
-            await persistAgentApprovalGrants({
-              agentId: session.agent_id,
-              grantedBy: scope.scope.userId,
-              operationIds: hsGrantOperationIds,
-              tenantId: scope.scope.tenantId,
-            });
-          }
-          // Approving an agent's secret reveal also persists the durable
-          // goal-scoped grant in core (goal = this conversation thread), or core
-          // re-gates the reveal on the re-run's agent-forwarded invoke.
-          if (operationId === "secrets_reveal" && hsGrantContext?.secret_id) {
-            await persistSecretsGoalGrant({
-              coreBaseUrl: opts.coreBaseUrl,
-              goalId: threadId,
-              secretId: hsGrantContext.secret_id,
-              accessToken: scopeAccessToken(scope.scope),
-            });
-          }
-        }
-        // Card raised by core's 202: relay the answer to the request core
-        // filed. Approve, or the re-run's agent-forwarded invoke hits the same
-        // policy and the user's approval buys nothing; deny, or the request
-        // outlives its answer in the tenant's queue. Outside the grant branch
-        // above precisely because it also covers deny, and must land BEFORE
-        // the resume re-invokes.
-        if (hsGrantContext?.approval_request_id) {
-          await persistCoreApprovalDecision({
-            accessToken: scopeAccessToken(scope.scope),
-            approvalRequestId: hsGrantContext.approval_request_id,
-            coreBaseUrl: opts.coreBaseUrl,
-            decision: always ? "always" : once ? "once" : "deny",
-            subjectId: always
-              ? await resolveCoreAgentId(scope.scope.tenantId, session.agent_id)
-              : null,
-          });
-        }
-        // The gate already returned the Approve/Deny card as this tool call's
-        // result; mark it resolved so the model reads a completed interaction and
-        // does not re-emit the same card, then steer the continuation.
-        await resolveToolCallResultInHistory({
-          result: {
-            approved: once || always,
-            operation_id: operationId,
-            ...(hsGrantOperationIds.length > 1
-              ? { operation_ids: hsGrantOperationIds }
-              : {}),
-          },
-          scope: scope.scope,
-          store: conversationStore,
-          threadId,
-          toolCallId: openInterrupt?.tool_call_id ?? "",
-        });
-        const hsOpsLabel =
-          hsGrantOperationIds.length > 1
-            ? hsGrantOperationIds.map((id) => `"${id}"`).join(", ")
-            : `"${operationId}"`;
-        hsPrompt =
-          once || always
-            ? `Approved: you may now run ${hsOpsLabel}. Proceed with the operation.`
-            : `The user denied ${hsOpsLabel}. Do not run it; continue without that operation.`;
-        hsSessionMetadata = mergeAgUiOpenInterruptMetadata(
-          hsSessionMetadata,
-          null
-        );
-        try {
-          // One statement: union the grant AND drop the answered interrupt. The
-          // RPC applies patch → append → remove against the CURRENT row, so a
-          // concurrent writer to another key is not reverted.
-          await conversationStore.mergeThreadMetadataForUser({
-            ...(grantAppendSets ? { appendSets: grantAppendSets } : {}),
-            removeKeys: [AG_UI_OPEN_INTERRUPT_METADATA_KEY],
-            tenantId: scope.scope.tenantId,
-            threadId,
-            userId: scope.scope.userId,
-          });
-        } catch (err) {
-          console.error("conversation approval grant persist failed", err);
-        }
-        // Fold the just-granted op into the grants the re-run's gate consults.
+      // Fresh user turn: drop any "approve once" grants (they are valid only for
+      // the request that created them) and clear a stale open interrupt the user
+      // moved past without answering. Only write when something actually changes.
+      const reset = clearOnceToolApprovalGrants(
+        mergeAgUiOpenInterruptMetadata(hsSessionMetadata, null)
+      );
+      const changed =
+        Boolean(openInterrupt) ||
+        readToolApprovalGrants(reset).length !==
+          readToolApprovalGrants(hsSessionMetadata).length;
+      if (changed) {
+        hsSessionMetadata = reset;
         hsApprovalGrants = readToolApprovalGrants(hsSessionMetadata);
-      } else if (isArtifactResume) {
-        hsPrompt = resumePayloadToModelContent(resumeEntries[0]!);
-        // Mark the resolved decision/feedback tool call ANSWERED in history (write the
-        // user's selection as its result) so the model sees a completed interaction
-        // and stops re-emitting the same interrupt on every later turn.
-        await resolveToolCallResultInHistory({
-          result: { resolved: true, response: hsPrompt },
-          scope: scope.scope,
-          store: conversationStore,
-          threadId,
-          toolCallId: openInterrupt?.tool_call_id ?? "",
-        });
-        hsSessionMetadata = mergeAgUiOpenInterruptMetadata(
-          hsSessionMetadata,
-          null
-        );
         try {
           await conversationStore.mergeThreadMetadataForUser({
-            removeKeys: [AG_UI_OPEN_INTERRUPT_METADATA_KEY],
+            removeKeys: [
+              AG_UI_OPEN_INTERRUPT_METADATA_KEY,
+              TOOL_APPROVAL_GRANTS_ONCE_METADATA_KEY,
+            ],
             tenantId: scope.scope.tenantId,
             threadId,
             userId: scope.scope.userId,
           });
         } catch (err) {
-          console.error("conversation clear interrupt failed", err);
+          console.error("conversation fresh-turn reset failed", err);
         }
-      } else if (!isResumeRun) {
-        // Fresh user turn: drop any "approve once" grants (they are valid only for
-        // the request that created them) and clear a stale open interrupt the user
-        // moved past without answering. Only write when something actually changes.
-        const reset = clearOnceToolApprovalGrants(
-          mergeAgUiOpenInterruptMetadata(hsSessionMetadata, null)
-        );
-        const changed =
-          Boolean(openInterrupt) ||
-          readToolApprovalGrants(reset).length !==
-            readToolApprovalGrants(hsSessionMetadata).length;
-        if (changed) {
-          hsSessionMetadata = reset;
-          hsApprovalGrants = readToolApprovalGrants(hsSessionMetadata);
-          try {
-            await conversationStore.mergeThreadMetadataForUser({
-              removeKeys: [
-                AG_UI_OPEN_INTERRUPT_METADATA_KEY,
-                TOOL_APPROVAL_GRANTS_ONCE_METADATA_KEY,
-              ],
-              tenantId: scope.scope.tenantId,
-              threadId,
-              userId: scope.scope.userId,
-            });
-          } catch (err) {
-            console.error("conversation fresh-turn reset failed", err);
-          }
-          // The person typed past the card: nobody will answer it now.
-          await resolveThreadInterruptNotifications({
-            interruptId: openInterrupt?.interrupt_id,
-            outcome: "abandoned",
-            tenantId: scope.scope.tenantId,
-          });
-        }
+        // The person typed past the card: nobody will answer it now.
+        await resolveThreadInterruptNotifications({
+          interruptId: openInterrupt?.interrupt_id,
+          outcome: "abandoned",
+          tenantId: scope.scope.tenantId,
+        });
       }
       // Reads that depend on nothing below start now and share wall-clock with
       // workspace prep, effort sizing and the model config. A rejection is
@@ -1244,30 +1079,27 @@ export function registerThreadRunRoutes(
       // Tiered attachments: images → multimodal files; PDFs/office stay as
       // extracted markdown (sidecar + 32 KiB inline). Never attach original
       // PDF bytes — that blows the token limiter.
-      // Artifact resume carries no new user message, so there is nothing to resolve.
       const hsTieredAttachmentsPromise = settleLater(
-        isArtifactResume
-          ? Promise.resolve({ contextEntries: [], modelAttachments: [] })
-          : conversationStore
-              .listMessagesOrdered({
-                tenantId: scope.scope.tenantId,
-                threadId,
-              })
-              .then((rows) =>
-                rows.map((row) => ({ parts: row.parts, role: row.role }))
-              )
-              .catch((err) => {
-                console.error("thread attachment history load failed", err);
-                return [];
-              })
-              .then((historyMessages) =>
-                resolveTieredAttachments({
-                  accessToken: scopeAccessToken(scope.scope),
-                  coreBaseUrl: opts.coreBaseUrl,
-                  historyMessages,
-                  input: body.data,
-                })
-              )
+        conversationStore
+          .listMessagesOrdered({
+            tenantId: scope.scope.tenantId,
+            threadId,
+          })
+          .then((rows) =>
+            rows.map((row) => ({ parts: row.parts, role: row.role }))
+          )
+          .catch((err) => {
+            console.error("thread attachment history load failed", err);
+            return [];
+          })
+          .then((historyMessages) =>
+            resolveTieredAttachments({
+              accessToken: scopeAccessToken(scope.scope),
+              coreBaseUrl: opts.coreBaseUrl,
+              historyMessages,
+              input: body.data,
+            })
+          )
       );
       // Workspace prep and Auto effort sizing overlap; effort needs the
       // agent's default tier and the plan's allowed tiers.
@@ -1275,7 +1107,7 @@ export function registerThreadRunRoutes(
         ReturnType<typeof opts.aiService.threads.resolveRunWorkspaces>
       > = {};
       let effort: AiEffort | null = null;
-      let autoEffortResolved: {
+      let effortResolved: {
         effort: AiEffort;
         reason?: string;
         source?: string;
@@ -1293,32 +1125,16 @@ export function registerThreadRunRoutes(
             ReturnType<typeof opts.aiService.threads.resolveRunWorkspaces>
           >;
         });
-      const effortPromise = (async (): Promise<{
-        autoResolved: {
-          effort: AiEffort;
-          reason?: string;
-          source?: string;
-        } | null;
-        effort: AiEffort | null;
-      }> => {
+      const threadChatMode = readThreadChatMode(hsSessionMetadata);
+      const effortPromise = (async (): Promise<
+        Awaited<ReturnType<typeof resolveEffortForRun>>
+      > => {
         try {
           const effortCtx = await loadEffortResolutionContext({
             getUsageStore: opts.getUsageStore,
             tenantId: scope.scope.tenantId,
           });
-          // An artifact resume re-runs the turn, so it lands here rather than
-          // in the parked branch — but it is still the same turn. Sizing it
-          // again would size it off no text at all (see `text` below), which
-          // reads as "short" and silently demotes a turn the user asked at a
-          // higher tier. The tier the interrupt was opened at wins; auto never
-          // gets a second, worse guess at the same turn.
-          const carriedEffort = isResumeRun
-            ? (openInterrupt?.effort ?? null)
-            : null;
-          if (carriedEffort) {
-            return { autoResolved: null, effort: carriedEffort };
-          }
-          // The agent's own default tier: what Auto answers for a coding
+          // The agent's own default tier: what Normal answers for a coding
           // agent before it reads a word of the turn.
           const agentEffort = opts.createRegistry
             ? agentDefaultEffort(
@@ -1329,13 +1145,13 @@ export function registerThreadRunRoutes(
                 ).catch(() => null)
               )
             : null;
-          const resolved = await resolveEffortForRun({
+          return await resolveEffortForRun({
             agentEffort,
             agentId: session.agent_id,
             allowedEfforts: effortCtx.allowedEfforts,
             choice: effortChoice,
-            // The tenant's classifier binding, resolved only when a tier
-            // change would cost the thread its warm prompt cache.
+            // The tenant's classifier binding, loaded only when the
+            // heuristics cannot tell whether to offer high.
             classifier: async () =>
               createClassifierClient(
                 (
@@ -1346,40 +1162,19 @@ export function registerThreadRunRoutes(
                 ).modelConfig.classifierModelId,
                 { timeoutMs: AUTO_EFFORT_JEV_TIMEOUT_MS }
               )?.client ?? null,
-            hasAttachments: isResumeRun
-              ? false
-              : latestUserAttachmentParts(body.data).length > 0,
+            hasAttachments: latestUserAttachmentParts(body.data).length > 0,
             modelIdOverride,
-            previous: isResumeRun
-              ? null
-              : await loadPreviousEffort({
-                  runStore,
-                  tenantId: scope.scope.tenantId,
-                  threadId,
-                }),
-            // A resume has no new user turn; sizing effort off the original
-            // one re-reads text this thread already answered.
-            text: isResumeRun ? "" : latestUserText(body.data),
+            text: latestUserText(body.data),
+            threadOnHigh: threadChatMode?.mode === "extra",
           });
-          const autoResolved =
-            resolved.autoResolved && resolved.effort
-              ? {
-                  effort: resolved.effort,
-                  ...(resolved.reason ? { reason: resolved.reason } : {}),
-                  ...(resolved.source ? { source: resolved.source } : {}),
-                }
-              : null;
-          return { autoResolved, effort: resolved.effort };
         } catch (err) {
-          console.error("conversation auto-effort resolution failed", err);
-          if (
-            effortChoice === "low" ||
-            effortChoice === "medium" ||
-            effortChoice === "high"
-          ) {
-            return { autoResolved: null, effort: effortChoice };
-          }
-          return { autoResolved: null, effort: null };
+          console.error("conversation effort resolution failed", err);
+          return {
+            effort:
+              effortChoice === "normal" || effortChoice === "high"
+                ? effortChoice
+                : null,
+          };
         }
       })();
       {
@@ -1388,8 +1183,43 @@ export function registerThreadRunRoutes(
           effortPromise,
         ]);
         hsWorkspaces = workspaces;
+        if (effortResult.offer) {
+          // Nothing ran and nothing was kept: the client asks the person
+          // and sends the same turn again with their answer.
+          markRunDone(runId);
+          return c.json(
+            { error: "agent_threads.effortOffer", offer: effortResult.offer },
+            409
+          );
+        }
         effort = effortResult.effort;
-        autoEffortResolved = effortResult.autoResolved;
+        effortResolved = effortResult.effort
+          ? {
+              effort: effortResult.effort,
+              ...(effortResult.reason ? { reason: effortResult.reason } : {}),
+              ...(effortResult.source ? { source: effortResult.source } : {}),
+            }
+          : null;
+      }
+      // The thread keeps this turn's mode until its next chapter.
+      const nextChatMode = chatModeAfterRun({
+        effort,
+        modelIdOverride,
+        reasoningEffort,
+      });
+      if (!sameChatMode(threadChatMode, nextChatMode)) {
+        try {
+          await conversationStore.mergeThreadMetadataForUser({
+            ...(nextChatMode
+              ? { patch: { [CHAT_MODE_METADATA_KEY]: nextChatMode } }
+              : { removeKeys: [CHAT_MODE_METADATA_KEY] }),
+            tenantId: scope.scope.tenantId,
+            threadId,
+            userId: scope.scope.userId,
+          });
+        } catch (err) {
+          console.error("conversation chat mode write failed", err);
+        }
       }
       let hsModelConfig: Awaited<
         ReturnType<typeof opts.aiService.threads.resolveRunModelConfig>
@@ -1399,6 +1229,7 @@ export function registerThreadRunRoutes(
           agentId: session.agent_id,
           effort,
           modelIdOverride,
+          reasoningEffort,
           scope: scope.scope,
         });
       } catch (err) {
@@ -1440,10 +1271,8 @@ export function registerThreadRunRoutes(
           hsTieredAttachmentsPromise,
         ]);
       // Durable transcript parts for this turn (persisted so attachments render
-      // on reload); empty on an artifact resume (no new user message).
-      const hsAttachmentParts = isArtifactResume
-        ? []
-        : latestUserAttachmentParts(body.data);
+      // on reload).
+      const hsAttachmentParts = latestUserAttachmentParts(body.data);
       // Slash-command / skill expansion + typed @-mention references + attachment
       // manifest/inline text ride the run context — raw user text stays untouched.
       const hsCoreBaseUrl = getEngentyCoreBaseUrlFromEnv();
@@ -1458,36 +1287,32 @@ export function registerThreadRunRoutes(
               tenantId: scope.scope.tenantId,
             })
           : null;
-      const hsChatContextEntries =
-        isArtifactResume || isResumeRun
-          ? []
-          : [
-              ...(await buildChatTurnContextEntries({
-                agentId: session.agent_id,
-                invokeWorkflowCommand: ({ argsText, command, refs }) =>
-                  invokeChatAction({
-                    argsText,
-                    command,
-                    idempotencyKey: `slash:${latestUserMessageId(body.data) ?? runId}:${command.id}`,
-                    mastra: opts.aiService.mastra,
-                    moduleLoader: opts.moduleLoader,
-                    refs,
-                    scope: scope.scope,
-                    spaceId:
-                      (session as { space_id?: string | null }).space_id ??
-                      null,
-                  }),
-                moduleLoader: opts.moduleLoader,
-                prompt: hsPrompt,
-                refs: latestUserReferenceItems(body.data),
-                skillStorage: hsSkillStorage,
-                tenantId: scope.scope.tenantId,
-              })),
-              ...hsTieredAttachments.contextEntries,
-            ];
-      const autoEffortForRun = autoEffortResolved
+      const hsChatContextEntries = [
+        ...(await buildChatTurnContextEntries({
+          agentId: session.agent_id,
+          invokeWorkflowCommand: ({ argsText, command, refs }) =>
+            invokeChatAction({
+              argsText,
+              command,
+              idempotencyKey: `slash:${latestUserMessageId(body.data) ?? runId}:${command.id}`,
+              mastra: opts.aiService.mastra,
+              moduleLoader: opts.moduleLoader,
+              refs,
+              scope: scope.scope,
+              spaceId:
+                (session as { space_id?: string | null }).space_id ?? null,
+            }),
+          moduleLoader: opts.moduleLoader,
+          prompt: hsPrompt,
+          refs: latestUserReferenceItems(body.data),
+          skillStorage: hsSkillStorage,
+          tenantId: scope.scope.tenantId,
+        })),
+        ...hsTieredAttachments.contextEntries,
+      ];
+      const effortForRun = effortResolved
         ? {
-            ...autoEffortResolved,
+            ...effortResolved,
             modelId: hsModelConfig?.modelId ?? modelIdOverride ?? null,
           }
         : null;
@@ -1500,7 +1325,7 @@ export function registerThreadRunRoutes(
           mergeApprovalGrants(hsApprovalGrants, hsConnectionGrants),
           hsAgentGrants
         ),
-        ...(autoEffortForRun ? { autoEffortResolved: autoEffortForRun } : {}),
+        ...(effortForRun ? { effortResolved: effortForRun } : {}),
         // Persisted onto the interrupt if this turn suspends, so the resume
         // resolves the same model instead of drifting to the `chat` default.
         effort,
@@ -1508,7 +1333,6 @@ export function registerThreadRunRoutes(
         modelConfig: hsModelConfig?.modelConfig ?? null,
         modelId: hsModelConfig?.modelId ?? modelIdOverride,
         prompt: hsPrompt,
-        ...(isArtifactResume ? { persistCurrentUserTurn: false } : {}),
         registry: opts.createRegistry(scope.scope),
         // Phase 3 — child-run delegation: resolve each delegated agent's own
         // workspace + sandbox on demand (keyed by the child run's own thread).
@@ -1536,10 +1360,7 @@ export function registerThreadRunRoutes(
         scope: scope.scope,
         sessionMetadata: hsSessionMetadata,
         store: conversationStore,
-        // Only a fresh turn has a user bubble to echo. On a resume the id would
-        // be the ORIGINAL turn's, re-emitting a message every attached window
-        // already shows.
-        userMessageId: isResumeRun ? null : latestUserMessageId(body.data),
+        userMessageId: latestUserMessageId(body.data),
         threadId,
         usageStore: opts.getUsageStore?.() ?? null,
         ...(hsWorkspaces.computeInstructions

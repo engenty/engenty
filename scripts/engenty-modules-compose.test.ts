@@ -1,19 +1,25 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   enabledModuleSlugSet,
   modulePackageName,
   readEngentyModulesManifest,
   resolveEnabledModules,
+  resolveInstalledModules,
 } from "./lib/engenty-modules.mjs";
+import {
+  resolveHeldMigrationOwners,
+  resolveMigrationOwners,
+} from "./lib/migration-owners.mjs";
 import { syncUiModuleDependencies } from "./lib/sync-ui-module-deps.mjs";
 
 describe("engenty.plugins compose", () => {
   const tempDirs: string[] = [];
 
   afterEach(() => {
+    vi.unstubAllEnvs();
     for (const dir of tempDirs.splice(0)) {
       fs.rmSync(dir, { force: true, recursive: true });
     }
@@ -159,5 +165,71 @@ describe("engenty.plugins compose", () => {
     pkg.engenty.plugins = ["alpha", "beta"] as unknown as string[];
     fs.writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`, "utf-8");
     expect(() => readEngentyModulesManifest(root)).toThrow(/object map/);
+  });
+  it("refuses an install where a module requires one its stage leaves out", () => {
+    const root = createRepo(["unfinished", "released"]);
+    writeModule(root, "unfinished");
+    writeModule(root, "released");
+    const manifestPath = (slug: string) =>
+      path.join(root, "modules", slug, "engenty.plugin.json");
+    fs.writeFileSync(
+      manifestPath("unfinished"),
+      JSON.stringify({ id: "unfinished", stage: "dev" })
+    );
+    fs.writeFileSync(
+      manifestPath("released"),
+      JSON.stringify({ id: "released", requires: ["module.unfinished"] })
+    );
+
+    vi.stubEnv("ENGENTY_MODULE_STAGE", "beta");
+    expect(() => resolveInstalledModules(root)).toThrow(
+      /released requires module\.unfinished/
+    );
+    vi.stubEnv("ENGENTY_MODULE_STAGE", "dev");
+    expect(
+      resolveInstalledModules(root)
+        .map((mod) => mod.slug)
+        .sort()
+    ).toEqual(["released", "unfinished"]);
+  });
+  it("holds back the migrations of modules its stage leaves out", () => {
+    const root = createRepo(["unfinished", "released"]);
+    for (const [slug, stage] of [
+      ["unfinished", "dev"],
+      ["released", undefined],
+    ] as const) {
+      writeModule(root, slug);
+      fs.writeFileSync(
+        path.join(root, "modules", slug, "engenty.plugin.json"),
+        JSON.stringify(stage ? { id: slug, stage } : { id: slug })
+      );
+      const migrations = path.join(
+        root,
+        "modules",
+        slug,
+        "supabase",
+        "migrations"
+      );
+      fs.mkdirSync(migrations, { recursive: true });
+      fs.writeFileSync(
+        path.join(migrations, `20260101000000_plugin_${slug}.sql`),
+        "select 1;"
+      );
+    }
+    const names = (owners: Array<{ name: string }>) =>
+      owners.map((owner) => owner.name).sort();
+
+    // A fresh beta database never gets the dev module's tables, and the
+    // migrate step knows its versions to keep an older database pushable.
+    vi.stubEnv("ENGENTY_MODULE_STAGE", "beta");
+    expect(names(resolveMigrationOwners(root))).toEqual(["released"]);
+    expect(names(resolveHeldMigrationOwners(root))).toEqual(["unfinished"]);
+
+    vi.stubEnv("ENGENTY_MODULE_STAGE", "dev");
+    expect(names(resolveMigrationOwners(root))).toEqual([
+      "released",
+      "unfinished",
+    ]);
+    expect(resolveHeldMigrationOwners(root)).toEqual([]);
   });
 });

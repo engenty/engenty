@@ -25,6 +25,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@engenty/ui-core";
+import { useWorkspaceSpace } from "@engenty/ui-plugin-sdk";
 import {
   Bot,
   ChevronDown,
@@ -67,8 +68,9 @@ interface ProjectListItem {
   title: string;
 }
 
-function useProjectsQuery() {
+function useProjectsQuery(enabled: boolean) {
   return useQuery({
+    enabled,
     queryKey: ["projects", "list-minimal"],
     queryFn: async ({ signal }) => {
       const res = await requestApiEnvelope<ProjectListItem[]>(
@@ -95,6 +97,52 @@ const NON_WORKER_AGENT_TYPE_KEYS = new Set([
 ]);
 
 /**
+ * Agents mounted in the current space. The server refuses an agent assignee
+ * that is not mounted where the task is created (`agent_not_mounted`), so the
+ * picker only offers these. `null` outside a space: no filter.
+ */
+function useSpaceAgentIdsQuery(spaceId: string | null) {
+  return useQuery({
+    enabled: Boolean(spaceId),
+    queryKey: ["spaces", "surface", spaceId, "agents"],
+    queryFn: async ({ signal }) => {
+      const res = await requestApiEnvelope<{ agents?: string[] }>(
+        `/api/spaces/${encodeURIComponent(spaceId ?? "")}/surface`,
+        { method: "GET", signal }
+      );
+      return new Set(res.data?.agents ?? []);
+    },
+    staleTime: 60_000,
+  });
+}
+
+interface DirectoryUser {
+  displayName: string | null;
+  email: string;
+  id: string;
+}
+
+/**
+ * Everyone in the tenant who can sign in. A task's person assignee is an auth
+ * user id, so this — not the team module — is what makes assigning to a person
+ * possible; a personal install without a team still has its own user.
+ */
+function useUserDirectoryQuery(enabled: boolean) {
+  return useQuery({
+    enabled,
+    queryKey: ["users", "directory"],
+    queryFn: async ({ signal }) => {
+      const res = await requestApiEnvelope<DirectoryUser[]>(
+        "/api/users/directory",
+        { method: "GET", signal }
+      );
+      return res.data ?? [];
+    },
+    staleTime: 60_000,
+  });
+}
+
+/**
  * Phases of the picked project.
  *
  * There is no `GET /phases` route (only create/update/delete); phases are
@@ -119,9 +167,16 @@ function useProjectPhasesQuery(projectId: string | null) {
 
 interface NewTaskDialogProps {
   defaultAgentTypeKey?: string | null;
+  /** Phase preselected when `project` is set (e.g. "+" on a phase). */
+  defaultPhaseId?: string | null;
   onOpenChange: (open: boolean) => void;
   onSubmit: (data: TaskFormSubmitData) => Promise<void>;
   open: boolean;
+  /**
+   * Opened from inside a project: the task belongs to it, so the project pill
+   * is shown but not a picker. The phase stays pickable within it.
+   */
+  project?: ProjectListItem | null;
   taskStatusDefinitions?: TaskStatusDefinition[];
   teamMembersCatalog?: TeamMemberCatalogRow[];
   teamMembersEnabled?: boolean;
@@ -141,6 +196,10 @@ type WorkerChoice = "agent" | "user";
 const START_STATUS = "todo";
 const PLAN_STATUS = "backlog";
 
+/** The project pill when the project is fixed: same shape, not a button. */
+const lockedPillClass =
+  "inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs";
+
 /** Title grows to a ceiling, then scrolls — the description just flexes. */
 const TITLE_MAX_HEIGHT = 96;
 
@@ -149,6 +208,8 @@ export function NewTaskDialog({
   onOpenChange,
   onSubmit,
   defaultAgentTypeKey = null,
+  defaultPhaseId = null,
+  project = null,
   teamMembersCatalog = [],
   teamMembersEnabled = false,
 }: NewTaskDialogProps) {
@@ -195,8 +256,8 @@ export function NewTaskDialog({
       setTitle("");
       setDescription("");
       setPriority("medium");
-      setProjectId(null);
-      setPhaseId(null);
+      setProjectId(project?.id ?? null);
+      setPhaseId(project ? defaultPhaseId : null);
       setAssignee(
         defaultAgentTypeKey
           ? {
@@ -212,24 +273,32 @@ export function NewTaskDialog({
       setSubmitting(false);
       setDescriptionHasMore(false);
     }
-  }, [defaultAgentTypeKey, open]);
+  }, [defaultAgentTypeKey, defaultPhaseId, open, project]);
 
   // Data
   const agentCatalog = useAgentCatalogQuery();
+  const space = useWorkspaceSpace();
+  const spaceAgentIds = useSpaceAgentIdsQuery(space?.id ?? null).data ?? null;
   const agentOptions = useMemo(
     () =>
-      agentCatalog.agents.map((a) => ({
-        value: a.agent_type_key,
-        label: a.label,
-      })),
-    [agentCatalog.agents]
+      agentCatalog.agents
+        .filter(
+          (a) =>
+            !NON_WORKER_AGENT_TYPE_KEYS.has(a.agent_type_key) &&
+            (spaceAgentIds === null || spaceAgentIds.has(a.agent_type_key))
+        )
+        .map((a) => ({
+          value: a.agent_type_key,
+          label: a.label,
+        })),
+    [agentCatalog.agents, spaceAgentIds]
   );
 
-  const projectsQuery = useProjectsQuery();
+  const projectsQuery = useProjectsQuery(!project);
   const projects = projectsQuery.data ?? [];
   const selectedProject = useMemo(
-    () => projects.find((p) => p.id === projectId) ?? null,
-    [projects, projectId]
+    () => project ?? projects.find((p) => p.id === projectId) ?? null,
+    [project, projects, projectId]
   );
 
   const phasesQuery = useProjectPhasesQuery(projectId);
@@ -239,13 +308,20 @@ export function NewTaskDialog({
     [phases, phaseId]
   );
 
-  const memberOptions = useMemo(
-    () =>
-      teamMembersEnabled
-        ? buildTaskAssigneeMemberOptions(teamMembersCatalog)
-        : [],
-    [teamMembersCatalog, teamMembersEnabled]
-  );
+  // Team members (with their position) first, then any tenant user the team
+  // does not list yet — both resolve to the same auth user id.
+  const directory = useUserDirectoryQuery(open).data;
+  const memberOptions = useMemo(() => {
+    const options = teamMembersEnabled
+      ? buildTaskAssigneeMemberOptions(teamMembersCatalog)
+      : [];
+    const listed = new Set(options.map((o) => o.value));
+    const others = (directory ?? [])
+      .filter((u) => !listed.has(u.id))
+      .map((u) => ({ label: u.displayName?.trim() || u.email, value: u.id }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+    return [...options, ...others];
+  }, [directory, teamMembersCatalog, teamMembersEnabled]);
 
   const kind = assignee.primary_assignee_kind;
 
@@ -256,10 +332,7 @@ export function NewTaskDialog({
     if (defaultAgentTypeKey) {
       return defaultAgentTypeKey;
     }
-    return (
-      agentOptions.find((a) => !NON_WORKER_AGENT_TYPE_KEYS.has(a.value))
-        ?.value ?? null
-    );
+    return agentOptions[0]?.value ?? null;
   }, [agentOptions, defaultAgentTypeKey]);
 
   const setKind = useCallback(
@@ -297,12 +370,10 @@ export function NewTaskDialog({
 
   const assigneeLabel = useMemo(() => {
     if (kind === "user") {
-      const m = teamMembersCatalog.find(
-        (r) =>
-          r.user_id === assignee.primary_assignee_user_id ||
-          r.id === assignee.primary_assignee_user_id
+      return (
+        memberOptions.find((o) => o.value === assignee.primary_assignee_user_id)
+          ?.label ?? null
       );
-      return m?.full_name ?? null;
     }
     if (kind === "agent") {
       return (
@@ -312,7 +383,7 @@ export function NewTaskDialog({
       );
     }
     return null;
-  }, [kind, assignee, teamMembersCatalog, agentOptions]);
+  }, [kind, assignee, memberOptions, agentOptions]);
 
   /**
    * Grow to fit, but never past `max` — an uncapped scrollHeight assignment
@@ -467,36 +538,49 @@ export function NewTaskDialog({
                   [Phase] — a task inside a project belongs to one of its
                   phases. */}
               <div className="flex flex-wrap items-center gap-1.5 pt-1 text-muted-foreground text-xs">
-                <Popover modal onOpenChange={setProjectOpen} open={projectOpen}>
-                  <PopoverTrigger asChild>
-                    <button className={pillClass} type="button">
-                      {selectedProject ? (
-                        <>
-                          <FolderKanban className="h-3 w-3 text-muted-foreground" />
-                          <span className="max-w-[160px] truncate text-foreground">
-                            {selectedProject.title}
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <FolderKanban className="h-3 w-3" />
-                          <span>{t("newTask.projectPlaceholder")}</span>
-                        </>
-                      )}
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent align="start" className="w-72 p-0">
-                    <ProjectSelectorContent
-                      onSelect={(id) => {
-                        setProjectId(id);
-                        setPhaseId(null);
-                        setProjectOpen(false);
-                      }}
-                      projectId={projectId}
-                      projects={projects}
-                    />
-                  </PopoverContent>
-                </Popover>
+                {project ? (
+                  <span className={lockedPillClass}>
+                    <FolderKanban className="h-3 w-3 text-muted-foreground" />
+                    <span className="max-w-[160px] truncate text-foreground">
+                      {project.title}
+                    </span>
+                  </span>
+                ) : (
+                  <Popover
+                    modal
+                    onOpenChange={setProjectOpen}
+                    open={projectOpen}
+                  >
+                    <PopoverTrigger asChild>
+                      <button className={pillClass} type="button">
+                        {selectedProject ? (
+                          <>
+                            <FolderKanban className="h-3 w-3 text-muted-foreground" />
+                            <span className="max-w-[160px] truncate text-foreground">
+                              {selectedProject.title}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <FolderKanban className="h-3 w-3" />
+                            <span>{t("newTask.projectPlaceholder")}</span>
+                          </>
+                        )}
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent align="start" className="w-72 p-0">
+                      <ProjectSelectorContent
+                        onSelect={(id) => {
+                          setProjectId(id);
+                          setPhaseId(null);
+                          setProjectOpen(false);
+                        }}
+                        projectId={projectId}
+                        projects={projects}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                )}
 
                 {projectId ? (
                   <>

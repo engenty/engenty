@@ -1,145 +1,135 @@
 import type { ClassifierClient } from "@engenty/typesafe-client";
 import { describe, expect, it, vi } from "vitest";
-import {
-  resolveAutoEffort,
-  resolveEffortForRun,
-} from "../resolve-auto-effort.js";
+import { resolveEffortForRun } from "../resolve-auto-effort.js";
 
-describe("resolveAutoEffort", () => {
-  it("sizes coding asks high", async () => {
-    expect(
-      await resolveAutoEffort({ text: "Refactor the auth module across files" })
-    ).toMatchObject({ effort: "high", source: "heuristic" });
-  });
+const CODING = "Refactor the auth module across files";
+const AMBIGUOUS =
+  "Can you analyze how our onboarding should work for enterprise customers?";
 
-  it("sizes tool-shaped asks medium", async () => {
-    expect(
-      await resolveAutoEffort({ text: "Create a contact for Acme Corp" })
-    ).toMatchObject({ effort: "medium", source: "heuristic" });
-  });
-
-  it("sizes greetings low", async () => {
-    expect(await resolveAutoEffort({ text: "hi" })).toMatchObject({
-      effort: "low",
-      source: "heuristic",
-    });
-  });
-
-  it("clamps the guess to the plan grant", async () => {
-    expect(
-      await resolveAutoEffort({
-        allowedEfforts: ["low", "medium"],
-        text: "Refactor the auth module across files",
-      })
-    ).toMatchObject({ effort: "medium" });
-  });
-
-  it("short-circuits when the plan only grants one tier", async () => {
-    expect(
-      await resolveAutoEffort({ allowedEfforts: ["medium"], text: "hi" })
-    ).toMatchObject({ effort: "medium", source: "ceiling" });
-  });
-});
+function classifierAnswering(choice: "keep" | "switch") {
+  const systemOne = vi.fn(async () => ({
+    answers: {
+      change: {
+        choice,
+        confidence: 0.9,
+        probabilities: { keep: 0.05, switch: 0.05, [choice]: 0.95 },
+        type: "choice",
+      },
+    },
+  }));
+  return {
+    classifier: { systemOne } as unknown as ClassifierClient,
+    systemOne,
+  };
+}
 
 describe("resolveEffortForRun", () => {
-  it("passes explicit picks through (clamped)", async () => {
-    expect(
-      await resolveEffortForRun({
-        allowedEfforts: ["low", "medium"],
-        choice: "high",
-        text: "whatever",
-      })
-    ).toEqual({ autoResolved: false, effort: "medium" });
-  });
-
-  it("skips Auto when an expert model pin is set", async () => {
-    expect(
-      await resolveEffortForRun({
-        choice: "auto",
-        modelIdOverride: "openai/gpt-5",
-        text: "Refactor everything",
-      })
-    ).toEqual({ autoResolved: false, effort: null });
-  });
-
-  it("sizes Auto turns", async () => {
-    expect(
-      await resolveEffortForRun({ choice: "auto", text: "hi" })
-    ).toMatchObject({
-      autoResolved: true,
-      effort: "low",
+  it("asks before a Normal turn that looks like coding runs on high", async () => {
+    const resolved = await resolveEffortForRun({
+      choice: "auto",
+      text: CODING,
+    });
+    expect(resolved.offer).toEqual({
+      proposed: "high",
+      reason: "coding_signal",
     });
   });
-});
 
-describe("resolveAutoEffort tier changes", () => {
-  const coding = "Refactor the auth module across files";
-  const minutesAgo = (minutes: number) =>
-    new Date(Date.now() - minutes * 60_000).toISOString();
-  const answering = (choice: "keep" | "switch") => {
-    const systemOne = vi.fn(async () => ({
-      answers: {
-        change: {
-          choice,
-          confidence: 0.9,
-          probabilities: { keep: 0.05, switch: 0.05, [choice]: 0.95 },
-          type: "choice",
-        },
-      },
-    }));
-    return {
-      classifier: { systemOne } as unknown as ClassifierClient,
-      systemOne,
-    };
-  };
-
-  it("keeps the thread's tier when the classifier declines inside the cache window", async () => {
-    const { classifier } = answering("keep");
-    expect(
-      await resolveAutoEffort({
-        classifier,
-        previous: { at: minutesAgo(1), effort: "low" },
-        text: coding,
-      })
-    ).toMatchObject({ effort: "low", source: "classifier" });
+  it("runs everyday Normal turns on normal without asking", async () => {
+    for (const text of ["hi", "Create a contact for Acme Corp"]) {
+      const resolved = await resolveEffortForRun({ choice: "auto", text });
+      expect(resolved.offer).toBeUndefined();
+      expect(resolved.effort).toBe("normal");
+    }
   });
 
-  it("switches when the classifier approves inside the cache window", async () => {
-    const { classifier } = answering("switch");
-    expect(
-      await resolveAutoEffort({
-        classifier,
-        previous: { at: minutesAgo(1), effort: "low" },
-        text: coding,
-      })
-    ).toMatchObject({ effort: "high", source: "classifier" });
+  it("never asks again once the person declined for this turn", async () => {
+    const resolved = await resolveEffortForRun({
+      choice: "normal",
+      text: CODING,
+    });
+    expect(resolved).toMatchObject({ effort: "normal", source: "picked" });
+    expect(resolved.offer).toBeUndefined();
   });
 
-  it("switches without asking once the cache has gone cold", async () => {
-    const { classifier, systemOne } = answering("keep");
-    expect(
-      await resolveAutoEffort({
-        classifier,
-        previous: { at: minutesAgo(30), effort: "low" },
-        text: coding,
-      })
-    ).toMatchObject({ effort: "high", source: "heuristic" });
-    expect(systemOne).not.toHaveBeenCalled();
+  it("keeps a thread on high until its next chapter, without asking", async () => {
+    const resolved = await resolveEffortForRun({
+      choice: "auto",
+      text: "hi",
+      threadOnHigh: true,
+    });
+    expect(resolved).toMatchObject({ effort: "high", source: "sticky" });
+    expect(resolved.offer).toBeUndefined();
   });
 
-  it("keeps the thread's tier when the classifier does not answer in time", async () => {
+  it("offers nothing on a plan without Extra, and clamps an Extra pick", async () => {
+    const plan = { allowedEfforts: ["normal"] };
+    expect(
+      await resolveEffortForRun({ ...plan, choice: "auto", text: CODING })
+    ).toEqual({ effort: "normal", source: "ceiling" });
+    expect(
+      (await resolveEffortForRun({ ...plan, choice: "high", text: CODING }))
+        .effort
+    ).toBe("normal");
+  });
+
+  it("lets the classifier decide the turns the heuristics cannot", async () => {
+    const yes = classifierAnswering("switch");
+    expect(
+      (
+        await resolveEffortForRun({
+          choice: "auto",
+          classifier: yes.classifier,
+          text: AMBIGUOUS,
+        })
+      ).offer?.proposed
+    ).toBe("high");
+
+    const no = classifierAnswering("keep");
+    const kept = await resolveEffortForRun({
+      choice: "auto",
+      classifier: no.classifier,
+      text: AMBIGUOUS,
+    });
+    expect(kept.offer).toBeUndefined();
+    expect(kept.effort).toBe("normal");
+  });
+
+  it("stays on normal when the classifier does not answer in time", async () => {
     vi.useFakeTimers();
     try {
       const systemOne = vi.fn(() => new Promise(() => undefined));
-      const pending = resolveAutoEffort({
+      const pending = resolveEffortForRun({
+        choice: "auto",
         classifier: { systemOne } as unknown as ClassifierClient,
-        previous: { at: minutesAgo(1), effort: "low" },
-        text: coding,
+        text: AMBIGUOUS,
       });
       await vi.advanceTimersByTimeAsync(5000);
-      expect(await pending).toMatchObject({ effort: "low" });
+      const resolved = await pending;
+      expect(resolved.offer).toBeUndefined();
+      expect(resolved.effort).toBe("normal");
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("runs a coding agent on its own tier without asking", async () => {
+    expect(
+      await resolveEffortForRun({
+        agentEffort: "high",
+        choice: "auto",
+        text: "go ahead",
+      })
+    ).toEqual({ effort: "high", source: "agent" });
+  });
+
+  it("leaves the model to a Custom pin", async () => {
+    expect(
+      await resolveEffortForRun({
+        choice: "auto",
+        modelIdOverride: "anthropic/claude-opus-5",
+        text: CODING,
+      })
+    ).toEqual({ effort: null });
   });
 });

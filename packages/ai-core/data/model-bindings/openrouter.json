@@ -2,8 +2,7 @@
   "gateway": "openrouter",
   "label": "OpenRouter",
   "roles": {
-    "model.low": "z-ai/glm-5.3-flash",
-    "model.medium": "z-ai/glm-5.3-flash",
+    "model.normal": "z-ai/glm-5.3-flash",
     "model.high": "z-ai/glm-5.3-flash",
     "classifier": "typesafe-ai/jev",
     "fast_text": "z-ai/glm-5.3-flash",

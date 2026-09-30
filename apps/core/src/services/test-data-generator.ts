@@ -177,9 +177,9 @@ export async function generateTestData(
     throw new Error("Test data generation requires AI_GATEWAY_API_KEY");
   }
 
-  // `config.testDataModel` pins a model; otherwise the `model.low` binding.
+  // `config.testDataModel` pins a model; otherwise the `model.normal` binding.
   const ref = parseModelRef(
-    String(config.testDataModel ?? "").trim() || roleModelRef("model.low")
+    String(config.testDataModel ?? "").trim() || roleModelRef("model.normal")
   );
   if (ref.gateway !== DEFAULT_MODEL_GATEWAY_ID) {
     throw new Error(

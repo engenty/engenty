@@ -1,9 +1,10 @@
+import type { Cover } from "@engenty/covers";
 import type { KbRepoFactory } from "../dal/contracts.js";
 import {
   type KbCoverInheritance,
   normalizeKbCoverInheritance,
 } from "../schema/categories.js";
-import type { KbCategory, KbCover } from "../schema/types.js";
+import type { KbCategory } from "../schema/types.js";
 
 interface ArticleLike {
   category_id: string;
@@ -52,7 +53,7 @@ function categoryCoverAppliesToArticle(
 export function resolveKbInheritedCoverFromData(
   categories: KbCategory[],
   articleCategoryId: string
-): KbCover | null {
+): Cover | null {
   const byId = new Map(categories.map((row) => [row.id, row]));
   let current = byId.get(articleCategoryId) ?? null;
   const seen = new Set<string>();
@@ -81,7 +82,7 @@ export function resolveKbInheritedCoverFromData(
 export async function resolveKbInheritedCoverForArticle(
   repos: Pick<KbRepoFactory, "categories">,
   article: ArticleLike
-): Promise<KbCover | null> {
+): Promise<Cover | null> {
   const categories = await repos.categories.list(article.kb_id);
   return resolveKbInheritedCoverFromData(categories, article.category_id);
 }

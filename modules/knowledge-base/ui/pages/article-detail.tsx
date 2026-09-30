@@ -52,12 +52,12 @@ import { KbCoverBandDisplay } from "../components/kb-cover-band-display.js";
 import { KbEntityVersionsDialog } from "../components/kb-entity-versions-dialog.js";
 import "../kb-article-reading-root.css";
 import "../kb-print.css";
+import { coverIsLight } from "@engenty/covers";
 import { KbBreadcrumbSiblingPicker } from "../components/kb-breadcrumb-sibling-picker.js";
 import { getFileStorageSignedUrl } from "../file-storage-url.js";
 import { useArticleReadingStyle } from "../hooks/use-article-reading-style.js";
 import { useKbArticleDetailAgentUiSlice } from "../hooks/use-kb-agent-ui-slice.js";
 import { useKbModuleSecondaryShellNav } from "../hooks/use-kb-module-secondary-shell-nav.js";
-import { kbCoverIsLight } from "../kb-cover-theme-presets.js";
 import { kbDisplayName } from "../kb-display-name.js";
 import {
   isKbScopedReservedArticleId,
@@ -411,7 +411,7 @@ function ArticleDetailPageInner(props: { embedded: boolean; id: string }) {
       : article.effective_cover;
   }, [article, categories]);
   const articleHeaderOnCover = Boolean(
-    inheritedCover && !kbCoverIsLight(inheritedCover)
+    inheritedCover && !coverIsLight(inheritedCover)
   );
 
   usePageConfig({

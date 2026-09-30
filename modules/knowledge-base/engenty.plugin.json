@@ -5,6 +5,7 @@
   "description": "Knowledge base with articles, tags, FAQs, and AI-powered assistants",
   "version": "0.0.1",
   "kind": "module",
+  "stage": "alpha",
   "category": "knowledge",
   "provides": [
     "module.knowledge-base",

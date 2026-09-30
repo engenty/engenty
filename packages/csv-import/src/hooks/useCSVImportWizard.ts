@@ -1,7 +1,11 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { cleanupCSV } from "../cleanup-csv.js";
 import { applyDeterministicMapping } from "../deterministic-mapping.js";
 import { runImport } from "../import-runner.js";
+import {
+  fetchImportFileText,
+  type InitialImportFile,
+} from "../initial-import-file.js";
 import { parseCSV } from "../parse-csv.js";
 import { parseTemplate } from "../template-parser.js";
 import type {
@@ -20,6 +24,8 @@ import type {
 
 export interface UseCSVImportWizardProps {
   fieldDefinitions: ImportFieldDefinition[];
+  /** A stored file to open straight into the mapping step. */
+  initialFile?: InitialImportFile | null;
   labels: CSVImportWizardLabels;
   matchByConfig?: MatchByConfig;
   onAiMap?: (input: {
@@ -45,6 +51,7 @@ export interface UseCSVImportWizardProps {
 }
 
 export function useCSVImportWizard({
+  initialFile,
   fieldDefinitions,
   labels,
   onAiMap,
@@ -444,6 +451,25 @@ export function useCSVImportWizard({
     },
     [onError]
   );
+
+  // Open with a file already in storage (`?file=` — see initial-import-file).
+  // Once per key: a re-render or a return to the upload step does not refetch.
+  const openedFileKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!initialFile || openedFileKeyRef.current === initialFile.storageKey) {
+      return;
+    }
+    openedFileKeyRef.current = initialFile.storageKey;
+    setLoading(true);
+    fetchImportFileText(initialFile.storageKey)
+      .then((text) => handleFile(text, initialFile.filename))
+      .catch((err: unknown) => {
+        setErrorAndNotify(
+          err instanceof Error ? err.message : labels.errorInvalidFile
+        );
+      })
+      .finally(() => setLoading(false));
+  }, [handleFile, initialFile, labels.errorInvalidFile, setErrorAndNotify]);
 
   return {
     step,

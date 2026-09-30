@@ -20,6 +20,11 @@ Implementation deltas vs. the plan below (`modules/inbox`):
   is a **system job** `inbox-sync` in `apps/ai` (`*/5 * * * *`) that invokes
   the `inbox_sync_run` module operation over the service JWT — the sync body
   runs in core, where the connector registry lives.
+- **No agent sync routine (2026-09-29):** the `inbox.sync` workflow and the
+  "Pull new mail" trigger on `inbox.assist` were removed. They fired every 15
+  min tenant-wide even with no mailbox connected, and `inbox_sync_run` escalated
+  to an approval (the agent holds no `module.inbox.write` grant). Open: how (and
+  whether) an agent should keep mailboxes current — rethink before re-adding.
 - **Agent surface = module operations:** `inbox_threads_list`,
   `inbox_thread_get`, `inbox_set_status`, `inbox_accounts_list`,
   `inbox_sync_settings_update`, `inbox_sync_run`, plus the synthesized

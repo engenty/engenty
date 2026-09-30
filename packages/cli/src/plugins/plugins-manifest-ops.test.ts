@@ -53,12 +53,11 @@ describe("plugins-manifest-ops", () => {
     );
   }
 
-  function readPlugins(root: string): Record<string, { source: string }> {
-    return (
-      JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")) as {
-        engenty: { plugins: Record<string, { source: string }> };
-      }
-    ).engenty.plugins;
+  /** Installed slugs as the app reads them — not the file's JSON shape. */
+  function installedSlugs(root: string): string[] {
+    return listPluginManifestEntries(root)
+      .filter((entry) => entry.enabled)
+      .map((entry) => entry.slug);
   }
 
   it("lists manifest entries with on-disk and enabled status", () => {
@@ -84,19 +83,14 @@ describe("plugins-manifest-ops", () => {
       runInstall: false,
       runSetup: false,
     });
-    expect(readPlugins(root)).toEqual({
-      alpha: { source: "workspace" },
-      beta: { source: "workspace" },
-    });
+    expect(installedSlugs(root)).toEqual(["alpha", "beta"]);
 
     disablePluginsInProduct({
       repoRoot: root,
       slugs: ["alpha"],
       runSetup: false,
     });
-    expect(readPlugins(root)).toEqual({
-      beta: { source: "workspace" },
-    });
+    expect(installedSlugs(root)).toEqual(["beta"]);
   });
 
   it("checkPluginManifest reports missing on-disk plugins", () => {

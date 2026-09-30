@@ -1,8 +1,4 @@
-import {
-  buildProposeUpdatesTool,
-  buildRequestFeedbackTool,
-  buildSetStateTool,
-} from "@engenty/ai-core";
+import { buildProposeUpdatesTool, buildSetStateTool } from "@engenty/ai-core";
 import {
   createEngentyCopilotAgentTools as createCopilotAgentTools,
   createEngentyCopilotAgent,
@@ -22,11 +18,11 @@ import { createConnectorImportRequestTools } from "../../tools/connector-import-
 import { createConvertImageTool } from "../../tools/convert-image/index.js";
 import { createDeskPostTools } from "../../tools/desk-post-tool.js";
 import { createEngentyCatalogTools } from "../../tools/engenty-tools/create-engenty-tools.js";
-import { getEngentyToolsRunContext } from "../../tools/engenty-tools/lib/run-context.js";
 import { createInvokeActionTools } from "../../tools/invoke-workflow-tool.js";
 import { createMessageAgentStubTools } from "../../tools/message-agent-tool.js";
 import { registryAgentsListTool } from "../../tools/registry-agents-list-tool.js";
 import { createNativeRequestDecisionTool } from "../../tools/request-decision/native-request-decision.js";
+import { createNativeRequestFeedbackTool } from "../../tools/request-feedback/native-request-feedback.js";
 import { createRoutineTools } from "../../tools/routines-tools.js";
 import { createShowObjectsTool } from "../../tools/show-objects-tool.js";
 import { createShowUiTool } from "../../tools/show-ui-tool.js";
@@ -51,17 +47,11 @@ const webSearchTool = createWebSearchTool();
 const webFetchTool = createWebFetchTool();
 
 export const proposeUpdatesTool = buildProposeUpdatesTool(createTool);
-// Native Mastra suspend (parks the run, resumes with the user's choice as this
-// tool's result) instead of the artifact+abort path — see
-// native-request-decision.ts. It degrades to the artifact for runs with no human
-// channel, so headless jobs behave exactly as before.
+// Both interaction tools suspend natively: the run parks, and the user's answer
+// comes back as the tool's own result. A run with no human channel gets a result
+// saying nobody was asked instead (see native-request-decision.ts).
 export const requestDecisionTool = createNativeRequestDecisionTool();
-// Same runtime-capability split as requestDecision: a run that cannot park for
-// a human answer must not be told one was asked (see native-request-decision.ts).
-export const requestFeedbackTool = buildRequestFeedbackTool(createTool, {
-  hasHumanChannel: () =>
-    getEngentyToolsRunContext().canSuspendForInteraction === true,
-});
+export const requestFeedbackTool = createNativeRequestFeedbackTool();
 export const setStateTool = buildSetStateTool(createTool);
 
 // Catalog runner + vault tools live directly on the copilot (and other agents

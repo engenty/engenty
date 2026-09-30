@@ -97,8 +97,8 @@ Adding an app is admin work — on a 403 say so plainly and stop.
 ## Shared knowledge
 
 Facts everyone here should know — who the client is, the conventions, the
-tools in use — go to `/space/KNOWLEDGE.md`, one dated line per fact. Your own
-memory holds what only you need. Authoritative records stay in the apps.
+tools in use — go to memory with `memory_note` and scope `space`. What only
+you need stays in scope `agent`. Authoritative records stay in the apps.
 
 ## Files in this Space
 

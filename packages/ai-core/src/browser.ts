@@ -100,7 +100,10 @@ export {
   type ResolvedAgentStarter,
   selectAgentDeskStarters,
 } from "./agents/agent-starters.js";
-export { GENERAL_CHAT_AGENT_ID } from "./agents/copilot-constants.js";
+export {
+  COPILOT_LOOK_USER_SETTING_NAME,
+  GENERAL_CHAT_AGENT_ID,
+} from "./agents/copilot-constants.js";
 export {
   FIRST_ENGENTY_SKILL_ID,
   FIRST_ENGENTY_TEMPLATE_ID,
@@ -112,6 +115,19 @@ export {
   LIVE_HIRE_TOOL_IDS,
   SPECIALIST_TOOL_GATING,
 } from "./agents/hire-floor.js";
+export {
+  agentIdFromHireName,
+  buildSpaceAgentHireInput,
+  FALLBACK_HIRE_AGENT_ID,
+  firstEngentyDraft,
+  HIRE_TEMPLATE_ENGENTY,
+  hireAgentId,
+  hireInstructions,
+  pickRandomHireEngenty,
+  type SpaceAgentHireDraft,
+  type SpaceAgentHireTemplate,
+  spaceKeyFromName,
+} from "./agents/space-hire.js";
 export {
   createFieldSuggestionsArtifact,
   FIELD_SUGGESTIONS_ARTIFACT_TYPE,
@@ -133,6 +149,12 @@ export {
   type ChatModelResolutionPurpose,
   resolveChatModelId,
 } from "./config/chat-model-id.js";
+export {
+  type CustomModelsConfig,
+  DEFAULT_CUSTOM_MODELS_CONFIG,
+  isCustomModelOffered,
+  parseCustomModelsConfig,
+} from "./config/custom-models.js";
 export {
   AI_MODEL_PURPOSES,
   type AiModelPurpose,
@@ -175,6 +197,14 @@ export {
   platformBindings,
   setPlatformBindings,
 } from "./config/platform-bindings-snapshot.js";
+export {
+  AI_REASONING_LEVELS,
+  type AiReasoningEffort,
+  isReasoningEffort,
+  type ReasoningProviderOptions,
+  reasoningProviderOptions,
+  supportsReasoningEffort,
+} from "./config/reasoning-effort.js";
 export type {
   AgentSessionStatus,
   JsonSchema,
@@ -208,6 +238,25 @@ export {
   type ComputerNetworkTier,
   parseComputerNetworkTier,
 } from "./dynamic-contracts.js";
+export {
+  COMPANY_MEMORY_ADD_OPERATION_ID,
+  COMPANY_MEMORY_MANAGE_CAPABILITY,
+  COMPANY_MEMORY_REMOVE_OPERATION_ID,
+  MEMORY_BODY_MAX_CHARS,
+  MEMORY_SCOPES,
+  MEMORY_SECTION_MAX_CHARS,
+  MEMORY_SHORT_ID_LENGTH,
+  type MemoryScope,
+  memoryLine,
+  shortMemoryId,
+} from "./memory/memory-entries.js";
+export {
+  WORKING_MEMORY_FIELDS,
+  WORKING_MEMORY_VALUE_MAX_CHARS,
+  type WorkingMemoryField,
+  type WorkingMemoryPatch,
+  type WorkingMemoryState,
+} from "./memory/working-memory.js";
 export type {
   SupportedModel,
   SupportedModelsData,

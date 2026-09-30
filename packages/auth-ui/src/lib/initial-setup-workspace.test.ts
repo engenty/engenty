@@ -2,10 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ensureFirstSpace,
   firstSpaceKey,
+  hireFirstEngenty,
   mountsToSetupPayload,
-  namePersonalSpace,
-  readPersonalSpace,
-  slugifyName,
 } from "./initial-setup-workspace";
 
 interface Call {
@@ -37,42 +35,16 @@ function stubApi(answers: Record<string, unknown>) {
   return calls;
 }
 
-const company = {
-  id: "s1",
-  isDefault: true,
-  key: "company",
-  name: "Company",
-  ownerUserId: null,
-};
-const personal = {
-  id: "s2",
-  isDefault: false,
-  key: "u-jane",
-  name: "Jane",
-  ownerUserId: "u1",
-};
-
-describe("slugifyName", () => {
-  it("lowercases and hyphenates", () => {
-    expect(slugifyName("Acme Inc.")).toBe("acme-inc");
-  });
-
-  it("drops leading and trailing separators", () => {
-    expect(slugifyName("  — Acme — ")).toBe("acme");
-  });
-
-  it("is empty for a name with nothing sluggable in it", () => {
-    expect(slugifyName("—")).toBe("");
-  });
-
-  // 48 is the column limit the tenant slug is stored under; a name cut mid-word
-  // must not leave the trailing hyphen a slug may not end with.
-  it("caps the length without ending on a hyphen", () => {
-    const slug = slugifyName(`${"a".repeat(47)} b`);
-    expect(slug).toHaveLength(47);
-    expect(slug.endsWith("-")).toBe(false);
-  });
-});
+const company = { id: "s1", isDefault: true, key: "company", name: "Company" };
+const personal = { id: "s2", isDefault: false, key: "u-jane", name: "Jane" };
+const baseline = [
+  {
+    agentAccess: "none" as const,
+    resourceKey: "engenty-copilot",
+    resourceType: "module",
+  },
+  { resourceKey: "engenty.copilot", resourceType: "agent" },
+];
 
 describe("mountsToSetupPayload", () => {
   it("renames the wire fields and keeps the whole set", () => {
@@ -125,77 +97,135 @@ describe("firstSpaceKey", () => {
 describe("ensureFirstSpace", () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it("renames and re-keys the trigger-made default, echoing its mounts", async () => {
+  it("makes the person its owner, then renames, re-keys and colours the default space, keeping its mounts", async () => {
     const calls = stubApi({
       "/api/spaces": [company, personal],
       "/api/spaces/s1/mounts": [
         { resourceKey: "engenty-copilot", resourceType: "module" },
+        {
+          agentAccess: "write",
+          resourceKey: "contacts",
+          resourceType: "module",
+        },
+        { resourceKey: "engenty.cli", resourceType: "agent" },
       ],
     });
     const result = await ensureFirstSpace({
       accessToken: "t",
+      baseline,
+      color: "#0d9488",
+      icon: null,
       name: "Nordlicht Studio",
+      userId: "u1",
+      visibility: "private",
     });
     expect(result).toEqual({
+      id: "s1",
       key: "nordlicht-studio",
       name: "Nordlicht Studio",
     });
-    const put = calls.find((c) => c.method === "PUT");
-    expect(put?.path).toBe("/api/spaces/s1/setup");
+    const puts = calls.filter((c) => c.method === "PUT");
+    // Owner before private: the other order would shut the person out.
+    expect(puts.map((c) => c.path)).toEqual([
+      "/api/spaces/s1/members/u1",
+      "/api/spaces/s1/setup",
+    ]);
+    expect(puts[0]?.body).toEqual({ role: "owner" });
+    const put = puts[1];
+    // PUT /setup replaces the whole set: what the space had must come along.
     expect(put?.body).toEqual({
+      color: "#0d9488",
+      icon: null,
       key: "nordlicht-studio",
-      mounts: [{ resource_key: "engenty-copilot", resource_type: "module" }],
+      mounts: [
+        {
+          agent_access: "none",
+          resource_key: "engenty-copilot",
+          resource_type: "module",
+        },
+        { resource_key: "engenty.copilot", resource_type: "agent" },
+        {
+          agent_access: "write",
+          resource_key: "contacts",
+          resource_type: "module",
+        },
+        { resource_key: "engenty.cli", resource_type: "agent" },
+      ],
       name: "Nordlicht Studio",
+      visibility: "private",
     });
   });
 
   it("creates the space when the tenant has no default", async () => {
     const calls = stubApi({
       "/api/spaces": [personal],
-      "POST /api/spaces": { ...company, key: "acme", name: "Acme" },
+      "POST /api/spaces": {
+        space: { ...company, id: "s9", key: "acme", name: "Acme" },
+      },
     });
-    const result = await ensureFirstSpace({ accessToken: "t", name: "Acme" });
-    expect(result).toEqual({ key: "acme", name: "Acme" });
+    const result = await ensureFirstSpace({
+      accessToken: "t",
+      baseline,
+      color: "#dc2626",
+      icon: "🚀",
+      name: "Acme",
+      userId: "u1",
+      visibility: "open",
+    });
+    expect(result).toEqual({ id: "s9", key: "acme", name: "Acme" });
     const post = calls.find((c) => c.method === "POST");
-    expect(post?.body).toEqual({ key: "acme", name: "Acme" });
+    expect(post?.body).toMatchObject({
+      color: "#dc2626",
+      icon: "🚀",
+      key: "acme",
+      name: "Acme",
+      visibility: "open",
+    });
   });
 });
 
-describe("personal space", () => {
+describe("hireFirstEngenty", () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it("finds the space the admin owns", async () => {
-    stubApi({ "/api/spaces": [company, personal] });
-    expect(await readPersonalSpace({ accessToken: "t", userId: "u1" })).toEqual(
-      { id: "s2", key: "u-jane", name: "Jane" }
-    );
-    expect(
-      await readPersonalSpace({ accessToken: "t", userId: "nobody" })
-    ).toBeNull();
+  const choice = {
+    engenty: "drop" as const,
+    job: "Keeps the space tidy.",
+    name: "Mira",
+  };
+
+  it("fails when the engenty was created but not mounted into the space", async () => {
+    stubApi({
+      "POST /ai/registry/agents": {
+        mounted: [{ error: "space full", ok: false, spaceId: "s1" }],
+      },
+    });
+    await expect(
+      hireFirstEngenty({
+        accessToken: "t",
+        choice,
+        language: "de",
+        space: { id: "s1", name: "Acme" },
+      })
+    ).rejects.toThrow("space full");
   });
 
-  it("renames without touching the key", async () => {
+  it("hires the person's name, face and job into the space", async () => {
     const calls = stubApi({
-      "/api/spaces/s2/mounts": [
-        { resourceKey: "files", resourceType: "module", agentAccess: "write" },
-      ],
+      "POST /ai/registry/agents": { mounted: [{ ok: true, spaceId: "s1" }] },
     });
-    await namePersonalSpace({
-      accessToken: "t",
-      name: "Jane's desk",
-      spaceId: "s2",
-    });
-    const put = calls.find((c) => c.method === "PUT");
-    expect(put?.path).toBe("/api/spaces/s2/setup");
-    expect(put?.body).toEqual({
-      mounts: [
-        {
-          agent_access: "write",
-          resource_key: "files",
-          resource_type: "module",
-        },
-      ],
-      name: "Jane's desk",
+    expect(
+      await hireFirstEngenty({
+        accessToken: "t",
+        choice,
+        language: "de",
+        space: { id: "s1", name: "Acme" },
+      })
+    ).toEqual({ id: "mira", name: "Mira" });
+    expect(calls[0]?.body).toMatchObject({
+      description: "Keeps the space tidy.",
+      engenty: "drop",
+      name: "Mira",
+      spaceIds: ["s1"],
     });
   });
 });

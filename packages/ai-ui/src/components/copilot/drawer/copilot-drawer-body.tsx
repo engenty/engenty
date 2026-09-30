@@ -64,7 +64,6 @@ export function CopilotDrawerBody({
   panelMode: controlledPanelMode,
   defaultPanelMode = "docked",
   onPanelModeChange,
-  floatingBoundsMargin,
   attachLabel = "Attach",
   closeLabel = "Close",
   composerPlaceholder = "Type a message…",
@@ -105,7 +104,6 @@ export function CopilotDrawerBody({
   const panelMode = isPanelModeControlled
     ? controlledPanelMode
     : internalPanelMode;
-  const launcherMode: CopilotDockMode | null = shellDockMode ?? null;
   const positionMenuValue = useMemo(
     () =>
       normalizeCopilotPositionMenuValue(
@@ -153,26 +151,11 @@ export function CopilotDrawerBody({
   const surfaceInstanceKey = `${effectiveMode}:${surfaceEpoch}:${river.threadId}`;
 
   const layout = useCopilotDrawerLayout({
-    copilotContext,
     copilotLayout,
-    effectiveMode,
-    floatingBoundsMargin: floatingBoundsMargin ?? 16,
-    headerChrome,
-    internalPanelMode,
-    isPanelModeControlled,
-    isFloatingStyle,
-    launcherMode,
-    mainContentReady,
-    mainContentRef,
     onOpenChange,
     open,
     preferredDockMode,
-    routeKey,
-    setInternalPanelMode,
-    setPanelMode,
     setPreferredDockMode,
-    showCompactLauncher: false,
-    surfaceInstanceKey,
   });
 
   const handleHeaderClose = useCallback(() => {

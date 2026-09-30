@@ -1,5 +1,14 @@
+import {
+  type AgUiBrowserPreview,
+  readAgUiBrowserPreview,
+} from "./engenty-browser-preview.js";
 import type { JsonValue } from "./json-value.js";
 import { isJsonValue } from "./json-value.js";
+
+/** What a decision is about, drawn beside its words. */
+export type AgUiDecisionPreview =
+  | { graph: JsonValue; kind: "workflow"; title?: string }
+  | AgUiBrowserPreview;
 
 export const AG_UI_OPEN_INTERRUPT_METADATA_KEY = "ag_ui_open_interrupt";
 
@@ -64,8 +73,8 @@ export interface AgUiOpenInterruptMetadata {
    *
    * A suspended turn is answered by a SECOND run, which re-resolves its own
    * model. Without this the resume resolves with no effort at all and falls
-   * through to the `chat` purpose (`model.medium`) — so a question asked at
-   * `low` came back answered by a different model than the one that asked it.
+   * through to the `chat` purpose (`model.normal`) — so a question asked at
+   * `high` came back answered by a different model than the one that asked it.
    * Carried here because the open interrupt is already the only thing joining
    * the two runs.
    *
@@ -75,7 +84,7 @@ export interface AgUiOpenInterruptMetadata {
    *
    * Mirrors ai-core's `AiEffort`, inlined to keep this package dependency-free.
    */
-  effort?: "high" | "low" | "medium";
+  effort?: "high" | "normal";
   /** ISO-8601 expiry; resume rejected after this instant. */
   expires_at?: string;
   interrupt_id: string;
@@ -83,7 +92,7 @@ export interface AgUiOpenInterruptMetadata {
   /** Decision interrupts only: render checkboxes and accept several choices. */
   multi_select?: boolean;
   /** Decision interrupts only: what is decided, drawn beside the words. */
-  preview?: { graph: JsonValue; kind: "workflow"; title?: string };
+  preview?: AgUiDecisionPreview;
   /** Suspended Mastra run id — reused on resume so the snapshot reloads (native suspend/resume). */
   run_id?: string;
   title: string;
@@ -151,6 +160,10 @@ function readDecisionPreview(
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
     return null;
   }
+  const browser = readAgUiBrowserPreview(raw);
+  if (browser) {
+    return { preview: browser };
+  }
   const record = raw as Record<string, unknown>;
   if (record.kind !== "workflow" || !isJsonValue(record.graph)) {
     return null;
@@ -207,9 +220,7 @@ export function readAgUiOpenInterrupt(
     artifact_id: artifactId,
     ...(typeof body === "string" && body.trim() ? { body: body.trim() } : {}),
     ...(choices ? { choices } : {}),
-    ...(effort === "low" || effort === "medium" || effort === "high"
-      ? { effort }
-      : {}),
+    ...(effort === "normal" || effort === "high" ? { effort } : {}),
     ...(record.multi_select === true ? { multi_select: true } : {}),
     ...(readDecisionPreview(record.preview) ?? {}),
     ...(typeof expiresAt === "string" && expiresAt.trim()

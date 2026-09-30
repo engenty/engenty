@@ -7,7 +7,7 @@
 /**
  * Catalog path, Space Data writers, and the native surface a specialist
  * answers on. Every hired specialist keeps these whatever its row declared —
- * pages go through execute, Ablage/tables/apps through the native write tools.
+ * pages go through execute, Dokumente/tables/apps through the native write tools.
  * Approvals stay the boundary.
  */
 export const LIVE_HIRE_TOOL_IDS = [

@@ -1,10 +1,8 @@
 // Durable write of a conversation turn at RUN TEARDOWN, for every exit path.
 //
 // Mastra memory flushes messages at end-of-generation and when a run PARKS on a
-// native suspend. What it never covers is a turn that dies in between:
-//   - a requestFeedback artifact ABORTS the run outright (the agent would
-//     otherwise talk straight past the card), and abort happens before the flush;
-//   - a mid-stream failure or a cancel ends the turn the same way.
+// native suspend. What it never covers is a turn that dies in between — a
+// mid-stream failure or a cancel, both of which end the turn before the flush.
 // There `saveMessages` never runs and the turn leaves NOTHING behind — not the
 // assistant message, not even the user's own message.
 //
@@ -12,13 +10,10 @@
 // `memoryFlushedAssistant: true` because writing an already-flushed turn would
 // persist the same tool call twice, under two message ids and two part shapes.
 //
-// The consequence is a loop, not just a gap. Memory reads `ai.thread_message`
-// (lastMessages fallback when OM is off), so the next turn starts from an EMPTY transcript plus the
-// one-line resume nudge — the model cannot know it already asked, so it asks the
-// same first-step question again, suspends again, and persists nothing again. A
-// thread whose runs are all `requires_action` can never escape on its own.
-// (`resolveToolCallResultInHistory`, which exists to mark the answered interrupt,
-// also silently no-ops: it iterates zero rows.)
+// The consequence is more than a gap. Memory reads `ai.thread_message`
+// (lastMessages fallback when OM is off), so the next turn starts from an EMPTY
+// transcript — the model cannot know what it already did or asked, and repeats
+// it.
 //
 // Called from the executor's `finally`, so completed / failed / suspended /
 // aborted all persist the same way. Idempotent: the completed path has usually
@@ -44,11 +39,6 @@ export async function persistTurnTranscript(input: {
   threadId: string;
   transcriptParts: readonly unknown[];
   userMessageId?: string | null;
-  /**
-   * Write the prompt as a user row when memory did not. False for artifact
-   * resume — the Approve/Deny widget is the user-visible record.
-   */
-  persistCurrentUserTurn?: boolean;
 }): Promise<void> {
   try {
     let rows = await input.store.listMessagesOrdered({
@@ -64,7 +54,6 @@ export async function persistTurnTranscript(input: {
       ? rows.some((row) => row.id === userMessageId)
       : rows.some((row) => row.role === "user");
     if (
-      input.persistCurrentUserTurn !== false &&
       !alreadyHasUserMessage &&
       (input.prompt.trim() || input.attachmentParts?.length)
     ) {

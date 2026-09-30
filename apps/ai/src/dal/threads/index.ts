@@ -20,7 +20,6 @@ export type {
   ThreadAgentRole,
   ThreadAgentRow,
   ThreadCompactionKind,
-  ThreadCompactionNote,
   ThreadCompactionRow,
   ThreadCompactionSpace,
   ThreadMessageRole,

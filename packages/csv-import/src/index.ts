@@ -64,6 +64,11 @@ export {
   TYPED_CONNECTION_IMPORT_SOURCES,
 } from "./import-sources.js";
 export {
+  filenameFromStorageKey,
+  type InitialImportFile,
+  useInitialImportFile,
+} from "./initial-import-file.js";
+export {
   ImportPageShell,
   importPageContentClassName,
   importPageScrollShellClassName,
@@ -97,6 +102,7 @@ export type {
   ImportPreset,
   ImportRunProgress,
   ImportRunSummary,
+  ImportWizardSnapshot,
   MatchByConfig,
   MatchByLabels,
   MatchByType,

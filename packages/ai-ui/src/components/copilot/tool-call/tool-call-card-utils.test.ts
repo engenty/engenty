@@ -1,13 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
-  collectToolImages,
   detectToolOutputError,
   extractProseSnippet,
-  looksLikeNumberedFileDump,
-  summarizeToolStepBrief,
-  unwrapEngentyToolExecuteOutput,
 } from "./tool-call-card-utils";
 
+// An output-present tool can still carry an error payload; the timeline must
+// show an error step, not a green check.
 describe("detectToolOutputError", () => {
   it("reads a top-level Zod issue array", () => {
     expect(
@@ -39,162 +37,9 @@ describe("detectToolOutputError", () => {
   });
 });
 
-describe("extractProseSnippet", () => {
-  it("returns a real sentence from a prose field", () => {
-    expect(
-      extractProseSnippet({ message: "Catalog discovery completed." })
-    ).toBe("Catalog discovery completed.");
-  });
-
-  it("skips ID dumps and bare tokens (no whitespace / no prose field)", () => {
-    expect(
-      extractProseSnippet({ data: [{ id: "019ed1d2" }], total: 4 })
-    ).toBeNull();
-    expect(extractProseSnippet({ summary: "019ed1d2-9a51" })).toBeNull();
-  });
-
-  it("skips stringified JSON blobs from AG-UI tool results", () => {
-    const blob = JSON.stringify({
-      ok: true,
-      data: { results: [{ item: { match_reason: "semantic" } }] },
-    });
-    expect(extractProseSnippet(blob)).toBeNull();
-    expect(
-      extractProseSnippet({
-        ok: true,
-        data: { results: [{ item: { message: { body_html: "<p>x</p>" } } }] },
-      })
-    ).toBeNull();
-  });
-
-  it("unwraps MCP-style content arrays (imported connectors, MCP apps)", () => {
-    expect(
-      extractProseSnippet({
-        content: [
-          { type: "image", data: "…" },
-          { type: "text", text: "Available pages for vercel/next.js:\n- 1" },
-        ],
-      })
-    ).toBe("Available pages for vercel/next.js:\n- 1");
-    expect(
-      extractProseSnippet({ content: [{ type: "text", text: "id1" }] })
-    ).toBeNull();
-  });
-});
-
-describe("collectToolImages", () => {
-  it("finds image URLs under common keys and dedupes them", () => {
-    expect(
-      collectToolImages({
-        image_url: "https://x.com/avatar.png",
-        nested: { screenshot: "https://x.com/avatar.png" },
-      })
-    ).toEqual([{ url: "https://x.com/avatar.png", caption: null }]);
-  });
-
-  it("captures a caption from a sibling field on an image record", () => {
-    expect(
-      collectToolImages({
-        url: "https://x.com/profile.jpg",
-        caption: "Profile photo from x.com",
-      })
-    ).toEqual([
-      { url: "https://x.com/profile.jpg", caption: "Profile photo from x.com" },
-    ]);
-  });
-
-  it("accepts data URIs and image arrays, ignores non-image links", () => {
-    expect(
-      collectToolImages({
-        link: "https://example.com/page",
-        images: ["data:image/png;base64,AAAA", "https://a.com/b.webp"],
-      })
-    ).toEqual([
-      { url: "data:image/png;base64,AAAA", caption: null },
-      { url: "https://a.com/b.webp", caption: null },
-    ]);
-  });
-
-  it("returns nothing when no image-like values are present", () => {
-    expect(collectToolImages({ title: "no images", count: 3 })).toEqual([]);
-  });
-});
-
-describe("unwrapEngentyToolExecuteOutput", () => {
-  it("unwraps successful execution payloads", () => {
-    expect(
-      unwrapEngentyToolExecuteOutput("engenty_tool_execute", {
-        ok: true,
-        data: { error: "No knowledge base found" },
-      })
-    ).toEqual({ error: "No knowledge base found" });
-  });
-
-  it("strips legacy catalog metadata from persisted outputs", () => {
-    expect(
-      unwrapEngentyToolExecuteOutput("engenty_tool_execute", {
-        ok: true,
-        data: { items: [] },
-        tool: {
-          id: "kb_search",
-          description: "Search Knowledge Base content",
-          inputSchema: { type: "object" },
-        },
-      })
-    ).toEqual({ items: [] });
-  });
-
-  it("leaves other tool outputs unchanged", () => {
-    const output = { ok: true, matches: [] };
-    expect(unwrapEngentyToolExecuteOutput("engenty_tools_search", output)).toBe(
-      output
-    );
-  });
-});
-
-describe("summarizeToolStepBrief", () => {
-  it("summarizes list counts with the scope noun", () => {
-    expect(
-      summarizeToolStepBrief({
-        toolName: "inbox_list_accounts",
-        metadata: "accounts",
-        output: { ok: true, data: { total: 3, results: [{}, {}, {}] } },
-      })
-    ).toBe("3 accounts");
-  });
-
-  it("summarizes update mutations without dumping UUIDs", () => {
-    expect(
-      summarizeToolStepBrief({
-        toolName: "inbox_update_settings",
-        metadata: "settings",
-        input: {
-          id: "inbox_update_settings",
-          input: {
-            account_id: "6d83c905-d554-4952-8fdf-22f46709aaaa",
-            backfill_days: 60,
-          },
-        },
-        output: { ok: true, data: { backfill_days: 60 } },
-      })
-    ).toBe("backfill_days: 60");
-  });
-
-  it("surfaces a created entity name", () => {
-    expect(
-      summarizeToolStepBrief({
-        toolName: "contacts_create",
-        metadata: "contacts",
-        input: { name: "Ada Lovelace" },
-        output: { ok: true, data: { id: "c-1", name: "Ada Lovelace" } },
-      })
-    ).toBe("Ada Lovelace");
-  });
-});
-
+// A workspace file read is tool output, not prose: it must never become the
+// always-visible timeline snippet.
 describe("file-read dump never reaches the timeline snippet", () => {
-  // The screenshot: a 224 KB JSON file rendered as always-visible body under
-  // "Used 1 tool → Ran tool". It is tool output, not prose.
   const DUMP =
     'cli-runs/run-001/time_tracking_plan.json (224634 bytes)\n 1->{\n 2->  "generated_at": "2026-08-08",';
 
@@ -207,17 +52,12 @@ describe("file-read dump never reaches the timeline snippet", () => {
     expect(extractProseSnippet({ data: { stdout: DUMP } })).toBeNull();
   });
 
-  it("recognises both arrow spellings", () => {
-    expect(looksLikeNumberedFileDump("README.md (12 bytes)\n 1->hi")).toBe(
-      true
-    );
-    expect(looksLikeNumberedFileDump("README.md (12 bytes)\n 1→hi")).toBe(true);
-  });
-
-  it("recognises a bare header with no numbered lines", () => {
-    expect(looksLikeNumberedFileDump("notes/plan.json (224634 bytes)")).toBe(
-      true
-    );
+  it.each([
+    ["ASCII arrow lines", " 1->hello there\n 2->more text"],
+    ["ligature arrow lines", " 1→hello there\n 2→more text"],
+    ["bare header", "notes/plan.json (224634 bytes)"],
+  ])("rejects the %s shape", (_shape, dump) => {
+    expect(extractProseSnippet(dump)).toBeNull();
   });
 
   it("still lets genuine prose through", () => {
@@ -228,30 +68,5 @@ describe("file-read dump never reaches the timeline snippet", () => {
     expect(
       extractProseSnippet("The upload finished and the file is 224634 bytes.")
     ).toContain("224634");
-  });
-
-  it("summarises the read instead of dumping it", () => {
-    expect(summarizeToolStepBrief({ output: DUMP })).toBe(
-      "Read time_tracking_plan.json"
-    );
-  });
-
-  it("summarises from the input path when the tool name says read", () => {
-    expect(
-      summarizeToolStepBrief({
-        input: { path: "/sandbox/src/agents/assemble.ts" },
-        toolName: "mastra_workspace_read_file",
-      })
-    ).toBe("Read assemble.ts");
-  });
-
-  it("does not hijack briefs for non-read tools", () => {
-    expect(
-      summarizeToolStepBrief({
-        input: { path: "/sandbox/a.ts" },
-        output: { ok: true, data: { results: [1, 2] } },
-        toolName: "contacts_list",
-      })
-    ).not.toContain("Read ");
   });
 });

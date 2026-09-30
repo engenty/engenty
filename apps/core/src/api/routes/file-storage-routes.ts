@@ -261,7 +261,9 @@ function enrichFileStorageFileForApi<T extends { key: string }>(file: T): T {
   return file;
 }
 
-function createFileStorageServiceFactory(config: Record<string, unknown>) {
+export function createFileStorageServiceFactory(
+  config: Record<string, unknown>
+) {
   const supabaseUrl =
     (config.supabaseUrl as string) || process.env.SUPABASE_URL || "";
   const supabaseServiceRoleKey =

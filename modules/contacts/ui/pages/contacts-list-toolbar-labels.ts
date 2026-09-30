@@ -1,5 +1,5 @@
 import type { ContactsRoleMenuItem } from "../api/role-menu-settings.js";
-import { getRoleTitleLabel } from "../api/role-menu-settings.js";
+import { getRolePluralLabel } from "../api/role-menu-settings.js";
 
 /** Matches `labels` on [`ContactsListToolbar`](../components/contacts-list-toolbar.tsx). */
 export interface ContactsListToolbarLabels {
@@ -74,7 +74,7 @@ export function buildContactsListToolbarLabels(
         label:
           item.plural?.trim() ||
           item.title?.trim() ||
-          getRoleTitleLabel(item.slug, t),
+          getRolePluralLabel(item.slug, t),
       })),
     searchPlaceholder: t("searchPlaceholder"),
     display: t("display"),

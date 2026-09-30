@@ -204,6 +204,12 @@ export {
   resolveChatModelId,
 } from "./config/chat-model-id.js";
 export {
+  type CustomModelsConfig,
+  DEFAULT_CUSTOM_MODELS_CONFIG,
+  isCustomModelOffered,
+  parseCustomModelsConfig,
+} from "./config/custom-models.js";
+export {
   gatewayLanguageModel,
   installGatewayAwareDefaultProvider,
   MISTRAL_BASE_URL,
@@ -279,6 +285,14 @@ export {
   setPlatformBindings,
   startPlatformBindingsSync,
 } from "./config/platform-bindings-snapshot.js";
+export {
+  AI_REASONING_LEVELS,
+  type AiReasoningEffort,
+  isReasoningEffort,
+  type ReasoningProviderOptions,
+  reasoningProviderOptions,
+  supportsReasoningEffort,
+} from "./config/reasoning-effort.js";
 export type {
   AgentSessionStatus,
   AiRegistration,
@@ -408,6 +422,33 @@ export {
   logAiPromptInput,
   withAiErrorDebug,
 } from "./lib/debug.js";
+export {
+  COMPANY_MEMORY_ADD_OPERATION_ID,
+  COMPANY_MEMORY_MANAGE_CAPABILITY,
+  COMPANY_MEMORY_REMOVE_OPERATION_ID,
+  MEMORY_BODY_MAX_CHARS,
+  MEMORY_SCOPES,
+  MEMORY_SECTION_MAX_CHARS,
+  MEMORY_SHORT_ID_LENGTH,
+  type MemoryLineInput,
+  type MemoryScope,
+  memoryLine,
+  memorySectionFits,
+  memorySectionLength,
+  normalizeMemoryBody,
+  shortMemoryId,
+} from "./memory/memory-entries.js";
+export {
+  applyWorkingMemoryPatch,
+  normalizeWorkingMemoryPatch,
+  WORKING_MEMORY_FIELDS,
+  WORKING_MEMORY_VALUE_MAX_CHARS,
+  type WorkingMemoryField,
+  type WorkingMemoryPatch,
+  type WorkingMemoryState,
+  workingMemoryFieldKeys,
+  workingMemoryLines,
+} from "./memory/working-memory.js";
 export {
   EMBEDDING_MODEL_ROLE,
   resolvePlatformEmbeddingModelId,
@@ -584,16 +625,13 @@ export {
   requestDecisionToolDefinition,
 } from "./tools/request-decision-tool.js";
 export {
-  buildRequestFeedbackTool,
-  buildRequestFeedbackToolDefinition,
   createRequestFeedbackArtifact,
-  isRequestFeedbackUnavailable,
   NO_HUMAN_CHANNEL_FEEDBACK_MESSAGE,
   type RequestFeedbackArtifact,
   type RequestFeedbackInput,
-  type RequestFeedbackToolDefinition,
+  type RequestFeedbackUnavailable,
+  requestFeedbackArtifactSchema,
   requestFeedbackInputSchema,
-  requestFeedbackToolDefinition,
 } from "./tools/request-feedback-tool.js";
 export {
   buildSetStateTool,

@@ -5,17 +5,28 @@
 // cut one — a calendar day, a calendar week, or "everything since the last
 // one" on request — share this one generator: read the turns of the stretch,
 // group them by the space each was said in (turn-context.ts), ask a model for
-// the title, the summary and what to keep in mind, keep the row.
+// the title, the summary and what is worth remembering, keep the row.
+//
+// What is worth remembering is not kept on the chapter: it is written as
+// memory entries (dal/memory), into the scopes this conversation's readers
+// already read (`memoryKeysForChapter`). The model is shown what is already
+// kept, so a fact said every day is written once.
 //
 // A stretch with no turn of the person's is not a chapter; nothing is written
 // and no model is asked. A weekly chapter reads the week's daily chapters
 // where they exist, so a week costs one call over seven summaries rather than
 // one over seven days of transcript.
 
-import { resolveChatModelId } from "@engenty/ai-core";
+import {
+  type MemoryScope,
+  memorySectionFits,
+  normalizeMemoryBody,
+  resolveChatModelId,
+} from "@engenty/ai-core";
 import { createLogger } from "@engenty/telemetry";
 import { generateText } from "ai";
 import { z } from "zod";
+import type { MemoryEntryStore } from "../../dal/memory/index.js";
 import type { ThreadStore } from "../../dal/threads/index.js";
 import type {
   ThreadCompactionKind,
@@ -27,6 +38,8 @@ import {
   MESSAGE_CONTEXT_KEY,
   type TurnContext,
 } from "../conversation/turn-context.js";
+import { loadMemoryRows } from "../memory/memory-block.js";
+import type { MemoryKeys } from "../memory/memory-scopes.js";
 import { dueChapterRanges, formatChapterRange } from "./chapter-ranges.js";
 
 const logger = createLogger({ name: "apps/ai/river-chapters" });
@@ -38,10 +51,10 @@ const MAX_SUMMARY_CHARS = 1600;
 const MAX_NOTES = 6;
 
 const chapterOutputSchema = z.object({
-  keep_in_mind: z
+  remember: z
     .array(
       z.object({
-        space_key: z.string().nullable().optional(),
+        scope: z.enum(["agent", "space", "user"]),
         text: z.string().min(1).max(300),
       })
     )
@@ -51,16 +64,35 @@ const chapterOutputSchema = z.object({
   title: z.string().min(1).max(MAX_TITLE_CHARS),
 });
 
-const INSTRUCTIONS = [
-  "You write the chapter summary of a long-running private conversation between a person and their AI copilot.",
-  "You are given the conversation's turns for one stretch of time, each turn marked with the space (workspace area) the person was in when they said it.",
-  'Answer with ONE JSON object and nothing else: {"title": string, "summary": string, "keep_in_mind": [{"text": string, "space_key": string|null}]}.',
-  "Rules:",
-  `- title: what this stretch was about, at most ${MAX_TITLE_CHARS} characters, no date, no quotes.`,
-  `- summary: what was discussed and decided, per space where that matters, 2 to 8 sentences, at most ${MAX_SUMMARY_CHARS} characters. Name records, people and numbers that came up; skip pleasantries.`,
-  `- keep_in_mind: at most ${MAX_NOTES} items worth remembering after this stretch — open questions, decisions, things to follow up — each with the space_key it belongs to, or null when it is general. Empty when there is nothing.`,
-  "- Same language as the conversation.",
-].join("\n");
+/** What each scope a chapter may write to is for, in the model's words. */
+const SCOPE_GUIDE: Record<Exclude<MemoryScope, "company">, string> = {
+  agent:
+    '"agent" — what the assistant needs for its own work here: a decision, how the work is done, where something lives',
+  space:
+    '"space" — what everyone in this space should know: who the client is, conventions, tools in use',
+  user: '"user" — about the person, useful to any assistant: name, how to address them, time zone, language, role',
+};
+
+function chapterInstructions(scopes: readonly MemoryScope[]): string {
+  const writable = scopes.filter(
+    (scope): scope is Exclude<MemoryScope, "company"> => scope !== "company"
+  );
+  return [
+    "You write the chapter summary of a long-running conversation between people and an AI assistant.",
+    "You are given the conversation's turns for one stretch of time, each turn marked with the space (workspace area) the person was in when they said it.",
+    'Answer with ONE JSON object and nothing else: {"title": string, "summary": string, "remember": [{"scope": string, "text": string}]}.',
+    "Rules:",
+    `- title: what this stretch was about, at most ${MAX_TITLE_CHARS} characters, no date, no quotes.`,
+    `- summary: what was discussed and decided, per space where that matters, 2 to 8 sentences, at most ${MAX_SUMMARY_CHARS} characters. Name records, people and numbers that came up; skip pleasantries.`,
+    writable.length > 0
+      ? [
+          `- remember: at most ${MAX_NOTES} facts that stay true after this stretch and are NOT already listed under "Already kept". One sentence each. Not open questions, not to-dos, not what only mattered today. Empty when there is nothing new. The scope says who it is for:`,
+          ...writable.map((scope) => `  - ${SCOPE_GUIDE[scope]}`),
+        ].join("\n")
+      : "- remember: always empty.",
+    "- Same language as the conversation.",
+  ].join("\n");
+}
 
 function textOfParts(parts: unknown): string {
   if (!Array.isArray(parts)) {
@@ -169,9 +201,16 @@ function parseChapterOutput(raw: string) {
   }
 }
 
+/** Where a chapter's facts go: the keys it may write, and the store. */
+export interface ChapterMemory {
+  keys: MemoryKeys;
+  store: MemoryEntryStore;
+}
+
 export interface CompactRiverInput {
   end: Date;
   kind: ThreadCompactionKind;
+  memory: ChapterMemory;
   /** AI Gateway model id; the memory model where the caller resolved one. */
   modelId?: string | null;
   start: Date;
@@ -180,6 +219,48 @@ export interface CompactRiverInput {
   threadId: string;
   timeZone: string;
   userId: string;
+}
+
+/**
+ * Write a chapter's facts as memory entries — only into scopes the chapter
+ * may write, only what is not kept already, and never past a section's cap
+ * (a full section is the agent's or a person's to prune, not a summary's).
+ */
+async function rememberFromChapter(input: {
+  kept: Awaited<ReturnType<typeof loadMemoryRows>>;
+  keys: MemoryKeys;
+  notes: readonly { scope: MemoryScope; text: string }[];
+  store: MemoryEntryStore;
+  tenantId: string;
+  threadId: string;
+  userId: string;
+}): Promise<void> {
+  for (const note of input.notes) {
+    const key = input.keys[note.scope];
+    const body = normalizeMemoryBody(note.text);
+    if (!(key && body)) {
+      continue;
+    }
+    const rows = input.kept[note.scope] ?? [];
+    if (rows.some((row) => row.body.toLowerCase() === body.toLowerCase())) {
+      continue;
+    }
+    if (!memorySectionFits({ body, rows, scope: note.scope }).fits) {
+      logger.info("chapter fact not kept — memory section full", {
+        scope: note.scope,
+        threadId: input.threadId,
+      });
+      continue;
+    }
+    const row = await input.store.insert({
+      body,
+      createdByUserId: input.userId,
+      key,
+      sourceThreadId: input.threadId,
+      tenantId: input.tenantId,
+    });
+    input.kept[note.scope] = [...rows, row];
+  }
 }
 
 /**
@@ -219,7 +300,7 @@ export async function compactRiver(
         text: dailies
           .map(
             (row) =>
-              `## ${formatChapterRange({ end: new Date(row.range_end), kind: "daily", start: new Date(row.range_start), timeZone: input.timeZone })} — ${row.title}\n${row.summary}${row.keep_in_mind.length ? `\nKeep in mind: ${row.keep_in_mind.map((note) => note.text).join("; ")}` : ""}`
+              `## ${formatChapterRange({ end: new Date(row.range_end), kind: "daily", start: new Date(row.range_start), timeZone: input.timeZone })} — ${row.title}\n${row.summary}`
           )
           .join("\n\n"),
         userTurns: dailies.length,
@@ -258,10 +339,24 @@ export async function compactRiver(
   }
   const model =
     input.modelId?.trim() || resolveChatModelId({ purpose: "fast_text" });
+  // A week reads its days' summaries, whose facts were already kept when each
+  // day was cut; only a cut over raw turns remembers.
+  const memoryKeys: MemoryKeys =
+    input.kind === "weekly" ? {} : input.memory.keys;
+  const kept = await loadMemoryRows({
+    keys: memoryKeys,
+    store: input.memory.store,
+    tenantId,
+  });
+  const keptLines = Object.values(kept)
+    .flat()
+    .map((row) => `- ${row.body}`);
   let output: z.infer<typeof chapterOutputSchema> | null = null;
   try {
     const { text } = await generateText({
-      instructions: INSTRUCTIONS,
+      instructions: chapterInstructions(
+        Object.keys(memoryKeys) as MemoryScope[]
+      ),
       maxOutputTokens: 1200,
       model,
       prompt: [
@@ -269,6 +364,9 @@ export async function compactRiver(
         source.spaces.length > 0
           ? `Spaces: ${source.spaces.map((space) => space.key ?? space.id).join(", ")}`
           : "Spaces: none (outside any space)",
+        "",
+        "Already kept:",
+        keptLines.length > 0 ? keptLines.join("\n") : "(nothing)",
         "",
         source.text,
       ].join("\n"),
@@ -291,11 +389,16 @@ export async function compactRiver(
     });
     return null;
   }
+  await rememberFromChapter({
+    kept,
+    keys: memoryKeys,
+    notes: output.remember,
+    store: input.memory.store,
+    tenantId,
+    threadId,
+    userId: input.userId,
+  });
   return await store.insertCompaction({
-    keep_in_mind: output.keep_in_mind.map((note) => ({
-      space_key: note.space_key ?? null,
-      text: note.text.trim(),
-    })),
     kind: input.kind,
     message_count: messageCount,
     range_end: input.end.toISOString(),
@@ -315,6 +418,7 @@ export async function compactRiver(
  * one that is opened is current. Returns what was cut.
  */
 export async function ensureScheduledChapters(input: {
+  memory: ChapterMemory;
   modelId?: string | null;
   now?: Date;
   riverCreatedAt: string;
@@ -348,6 +452,7 @@ export async function ensureScheduledChapters(input: {
     const row = await compactRiver({
       end: range.end,
       kind: range.kind,
+      memory: input.memory,
       modelId: input.modelId,
       start: range.start,
       store,
@@ -365,6 +470,7 @@ export async function ensureScheduledChapters(input: {
 
 /** Cut a chapter on request: everything since the last daily or manual one. */
 export async function compactRiverNow(input: {
+  memory: ChapterMemory;
   modelId?: string | null;
   now?: Date;
   riverCreatedAt: string;
@@ -382,6 +488,7 @@ export async function compactRiverNow(input: {
   return await compactRiver({
     end: input.now ?? new Date(),
     kind: "manual",
+    memory: input.memory,
     modelId: input.modelId,
     start: new Date(latest ?? input.riverCreatedAt),
     store: input.store,

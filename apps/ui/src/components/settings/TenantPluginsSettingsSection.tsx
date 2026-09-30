@@ -122,6 +122,7 @@ export function TenantPluginsSettingsSection() {
         name: plugin.name || plugin.id,
         rootDir: plugin.rootDir,
         sourceType: plugin.sourceType,
+        tenantDefault: plugin.tenantDefault,
       })),
       resolveIcon,
       settingsItems: contributions.settingsItems.map((item) => ({

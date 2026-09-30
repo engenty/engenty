@@ -1,6 +1,8 @@
-// Live refresh: core.notifications is in the realtime publication and its
-// select policy scopes what this user may receive, so any change to a row
-// they can see invalidates the queries instead of waiting for the 30s poll.
+// Live refresh: core.notifications and core.notification_seen are in the
+// realtime publication and their select policies scope what this user may
+// receive (seen: their own rows), so any change to a row they can see — or
+// seeing one anywhere, e.g. opening its conversation — invalidates the
+// queries instead of waiting for the backup poll.
 //
 // One channel per tenant, shared. The bell renders twice on a phone — the
 // rail's and the nav sheet's — and supabase-js hands the SAME channel back
@@ -33,6 +35,9 @@ function acquire(
   }
   let entry = shared.get(tenantId);
   if (!entry) {
+    const invalidate = () => {
+      void queryClient.invalidateQueries({ queryKey: notificationKeys.all });
+    };
     const channel = client
       .channel(`notifications:${tenantId}`)
       .on(
@@ -43,11 +48,17 @@ function acquire(
           schema: "core",
           table: "notifications",
         },
-        () => {
-          void queryClient.invalidateQueries({
-            queryKey: notificationKeys.all,
-          });
-        }
+        invalidate
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          filter: `tenant_id=eq.${tenantId}`,
+          schema: "core",
+          table: "notification_seen",
+        },
+        invalidate
       )
       .subscribe((status, error) => {
         // supabase-js reports SUBSCRIBED on join; a failed postgres_changes

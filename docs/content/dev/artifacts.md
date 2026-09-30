@@ -98,7 +98,7 @@ handle.
   `number` (`integer` \| `decimal` \| `percent` \| `currency` + ISO code),
   `date` (`date` \| `datetime` \| `time`, including `timePrecision: "hours"`),
   `duration` (writer unit + display format, stored as milliseconds), `select`
-  (`options` + `allowCustom`). The Ablage listing is a `database` handle
+  (`options` + `allowCustom`). The Dokumente listing is a `database` handle
   `{ table_id }`; rows live in `ai.data_table` / `ai.data_table_row`.
 
 The agent is told to prefer an artifact over pasting a long document into the

@@ -16,7 +16,7 @@ browser, the backend in an [agentOS](https://rivet.dev/agentos) isolate on
 `apps/app-host`. What they do share is one directory on the host, which is the
 only thing about an App that survives a deploy.
 
-<Figure label="Figure 1." caption={<>Two halves, one shared exit, and one directory that is the App’s own: <code>src/</code> is the history, <code>data/</code> survives every deploy, and both are what the space computer sees at <code>/sandbox/apps/&lt;slug&gt;</code>. The teal path is still the sole way either half reaches engenty.</>}>
+<Figure label="Figure 1." caption={<>Two halves, one shared exit, and one directory that is the App’s own: <code>src/</code> is the history, <code>data/</code> survives every deploy, and both are what the space computer sees at <code>/space/apps/&lt;slug&gt;</code>. The teal path is still the sole way either half reaches engenty.</>}>
   <svg viewBox="0 0 900 530" role="img" aria-label="An engenty App is built from a Postgres jsonb column into two halves: an inlined HTML frontend running in a sandboxed browser iframe, and a backend running in an agentOS isolate inside the app-host container. The isolate has a read-only /app mount per release and a read-write /data mount that is a host directory keyed by App, holding app.db opened with node:sqlite. Both halves reach engenty only through apps/ai.">
             <defs>
               <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -97,7 +97,7 @@ path so a directory means the same thing on either side.
             <rect className="zone" x="30" y="24" width="300" height="116" rx="4"></rect>
             <text className="t-zone" x="42" y="42">CONTAINER · SPACE COMPUTER</text>
             <rect className="s-box" x="52" y="54" width="256" height="72" rx="3"></rect>
-            <text className="t-title" x="68" y="80">/sandbox/apps/&lt;slug&gt;/src</text>
+            <text className="t-title" x="68" y="80">/space/apps/&lt;slug&gt;/src</text>
             <text className="t-sub" x="68" y="99">the work tree, bound in</text>
             <text className="t-sub" x="68" y="116">git commit, or let app_build commit</text>
             <path className="ln" d="M 180 126 L 180 210" markerEnd="url(#a1b)"></path>
@@ -158,8 +158,8 @@ The link exists because a booting replica knows its App id and nothing else. It
 is remade on every deploy and on every source write, so an App that moved still
 resolves. See `apps/app-host/src/app-store.ts`.
 
-The Space computer binds that Space's `apps/` at `/sandbox/apps`, so an agent
-opens `/sandbox/apps/<slug>/src` with ordinary tools and edits the same files
+The Space computer binds that Space's `apps/` at `/space/apps`, so an agent
+opens `/space/apps/<slug>/src` with ordinary tools and edits the same files
 the running App reads. Nothing about that tree is synced to object storage —
 see [Agent computers](/docs/dev/agent-computers) for the other mounts a container gets.
 

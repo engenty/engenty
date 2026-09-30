@@ -1,7 +1,5 @@
 import type { CopilotEmptyLandingAlign } from "./copilot-panel-content-types";
 
-export type { CopilotEmptyLandingAlign } from "./copilot-panel-content-types";
-
 /**
  * Visual-only classes for the bottom-dock composer card (border, bg, shadow,
  * backdrop-blur). Rounding and padding are intentionally omitted so that the
@@ -48,7 +46,7 @@ export function isCopilotScrollViewportNearBottom(
   );
 }
 
-export function shouldCenterCopilotEmptyLanding(input: {
+function shouldCenterCopilotEmptyLanding(input: {
   bodyOnly: boolean;
   composerDockStyle: boolean;
   showEmptyLanding: boolean;

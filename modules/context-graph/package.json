@@ -1,0 +1,57 @@
+{
+  "name": "@engenty/context-graph",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/src/plugin.js",
+  "types": "./src/plugin.ts",
+  "exports": {
+    ".": {
+      "types": "./src/plugin.ts",
+      "default": "./dist/src/plugin.js"
+    },
+    "./ui/plugin": {
+      "types": "./ui/plugin.ts",
+      "default": "./dist/ui/plugin.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/plugin.ts ui/plugin.ts --format esm --clean",
+    "dev": "tsup src/plugin.ts ui/plugin.ts --format esm --watch",
+    "test": "vitest run",
+    "lint": "echo 'No lint yet'",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@engenty/ai-core": "workspace:*",
+    "@engenty/api-client": "workspace:*",
+    "@engenty/i18n": "workspace:*",
+    "@engenty/plugin-sdk": "workspace:*",
+    "@engenty/query-client": "workspace:*",
+    "@engenty/telemetry": "workspace:*",
+    "@engenty/ui-core": "workspace:*",
+    "@engenty/ui-icons": "workspace:*",
+    "@engenty/ui-plugin-sdk": "workspace:*",
+    "@hono/zod-openapi": "^1.6.3",
+    "@supabase/supabase-js": "^2.116.0",
+    "@xyflow/react": "^12.11.6",
+    "ai": "7.0.102",
+    "graphology": "^0.26.0",
+    "graphology-layout": "^0.6.1",
+    "graphology-layout-forceatlas2": "^0.10.1",
+    "lucide-react": "^1.46.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-router-dom": "^7.18.4",
+    "sonner": "^2.0.8",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.11"
+  }
+}

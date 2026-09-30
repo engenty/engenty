@@ -111,10 +111,14 @@ export function createAgentRunStore(source: DbSource) {
     },
 
     /**
-     * The runs on a set of threads — one round trip for a whole Space's home
-     * (PLAN-space-home.md §4). Live rows regardless of age, terminal rows only
-     * since the caller's cursor: a page that says "fertig seit deinem letzten
-     * Besuch" must not pull a month of finished runs to find yesterday's.
+     * The runs on a set of threads — a whole Space's home in one or two round
+     * trips (PLAN-space-home.md §4). Live rows regardless of age, terminal
+     * rows since the caller's cursor: a page that says "fertig seit deinem
+     * letzten Besuch" must not pull a month of finished runs to find
+     * yesterday's. Plus, with a cursor, every terminal run that started after
+     * the oldest live row on its thread: a parked ask that a later turn
+     * already moved past is history, and the reader can only tell that when
+     * the later run is in the list — even one that ended before the cursor.
      */
     async listRunsForThreads(params: {
       limit?: number;
@@ -148,7 +152,43 @@ export function createAgentRunStore(source: DbSource) {
       if (error) {
         throw new Error(`agent_run list threads: ${error.message}`);
       }
-      return (data as AgentRunRow[]) ?? [];
+      const rows = (data as AgentRunRow[]) ?? [];
+      const oldestLive = new Map<string, string>();
+      for (const row of rows) {
+        if (!live.includes(row.status)) {
+          continue;
+        }
+        const known = oldestLive.get(row.thread_id);
+        if (!known || row.started_at < known) {
+          oldestLive.set(row.thread_id, row.started_at);
+        }
+      }
+      if (!params.since || oldestLive.size === 0) {
+        return rows;
+      }
+      const since = [...oldestLive.values()].sort()[0];
+      const { data: later, error: laterError } = await dbFor(params.tenantId)
+        .from("agent_run")
+        .select()
+        .eq("tenant_id", params.tenantId)
+        .in("thread_id", [...oldestLive.keys()])
+        .not("status", "in", `(${live.join(",")})`)
+        .gt("started_at", since)
+        .lt("finished_at", params.since)
+        .order("started_at", { ascending: false })
+        .limit(params.limit ?? 200);
+      if (laterError) {
+        throw new Error(`agent_run list threads: ${laterError.message}`);
+      }
+      const known = new Set(rows.map((row) => row.id));
+      const moved = ((later as AgentRunRow[]) ?? []).filter(
+        (row) =>
+          !known.has(row.id) &&
+          row.started_at > (oldestLive.get(row.thread_id) ?? "")
+      );
+      return [...rows, ...moved].sort((a, b) =>
+        b.started_at.localeCompare(a.started_at)
+      );
     },
 
     /**

@@ -40,12 +40,15 @@ interface PhaseFormDialogProps {
   }) => Promise<void>;
   open: boolean;
   phase?: ProjectPhase | null;
+  /** Client-visibility controls only exist while the project's portal is on. */
+  portalEnabled?: boolean;
   projectName?: string;
   targetPhases?: PhaseDeleteTargetOption[];
   taskCount?: number;
 }
 
 export function PhaseFormDialog({
+  portalEnabled = false,
   open,
   onOpenChange,
   onDelete,
@@ -182,33 +185,35 @@ export function PhaseFormDialog({
                 />
               </div>
 
-              <div className="flex items-center justify-between gap-4">
-                <Label className="font-medium text-sm">
-                  {t("detail.phaseForm.visibility")}
-                </Label>
-                <Button
-                  aria-label={
-                    isPublic
-                      ? t("detail.taskForm.visibleToClient")
-                      : t("detail.taskForm.internal")
-                  }
-                  onClick={() => setIsPublic((v) => !v)}
-                  size="icon-sm"
-                  title={
-                    isPublic
-                      ? t("detail.taskForm.visibleToClient")
-                      : t("detail.taskForm.internal")
-                  }
-                  type="button"
-                  variant="ghost"
-                >
-                  {isPublic ? (
-                    <Eye className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <EyeOff className="h-4 w-4 text-muted-foreground" />
-                  )}
-                </Button>
-              </div>
+              {portalEnabled ? (
+                <div className="flex items-center justify-between gap-4">
+                  <Label className="font-medium text-sm">
+                    {t("detail.phaseForm.visibility")}
+                  </Label>
+                  <Button
+                    aria-label={
+                      isPublic
+                        ? t("detail.taskForm.visibleToClient")
+                        : t("detail.taskForm.internal")
+                    }
+                    onClick={() => setIsPublic((v) => !v)}
+                    size="icon-sm"
+                    title={
+                      isPublic
+                        ? t("detail.taskForm.visibleToClient")
+                        : t("detail.taskForm.internal")
+                    }
+                    type="button"
+                    variant="ghost"
+                  >
+                    {isPublic ? (
+                      <Eye className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <EyeOff className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </Button>
+                </div>
+              ) : null}
 
               <div>
                 <div className="flex items-center justify-between gap-4">

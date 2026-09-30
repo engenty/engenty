@@ -56,11 +56,11 @@ export function resolveToolApprovalDecision(
   return "require_approval";
 }
 
-// Tool-approval interrupts ride the existing DECISION-artifact pipeline (3.2a):
-// the tool returns this artifact, the run loop detects it via
-// `isDecisionArtifactPayload`, aborts, and emits the interactive interrupt — zero
-// new interrupt kind, zero new UI. We tag the `artifact_id` so the resume branch
-// can recover the operation id and persist the grant.
+// Tool-approval cards are DECISION artifacts — zero new interrupt kind, zero new
+// UI. Interactive chat suspends at the gate and `emitToolApprovalInterrupt`
+// builds this artifact for the parked interrupt; the "artifact" policy (realtime
+// voice, which has no run to suspend) returns it as the tool result. We tag the
+// `artifact_id` so the resume can recover the operation id and persist the grant.
 const TOOL_APPROVAL_ARTIFACT_PREFIX = "tool-approval|";
 
 /**

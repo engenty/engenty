@@ -1,5 +1,8 @@
 import { getMandatoryPluginDeclaration } from "@engenty/environment";
-import type { PluginDiagnostic } from "@engenty/plugin-sdk";
+import {
+  isPluginOnForTenant,
+  type PluginDiagnostic,
+} from "@engenty/plugin-sdk";
 import type { PluginRecord, PluginRegistry } from "./registry.js";
 
 export type PluginCapabilityBlockedReason =
@@ -139,10 +142,13 @@ function requiredDependencies(plugin: PluginRecord): string[] {
 }
 
 function isTenantDisabled(
-  pluginId: string,
+  plugin: PluginRecord,
   tenantPluginOverrides: Record<string, boolean> | undefined
 ): boolean {
-  return tenantPluginOverrides?.[pluginId] === false;
+  return !isPluginOnForTenant(
+    plugin.tenantDefault,
+    tenantPluginOverrides?.[plugin.id]
+  );
 }
 
 /**
@@ -232,10 +238,7 @@ export function resolvePluginEffectiveState(
   const diagnostics: PluginDiagnostic[] = [];
   const loaded = plugin.loaded;
   const globallyEnabled = plugin.enabled;
-  const tenantEnabled = !isTenantDisabled(
-    plugin.id,
-    params.tenantPluginOverrides
-  );
+  const tenantEnabled = !isTenantDisabled(plugin, params.tenantPluginOverrides);
 
   if (!loaded) {
     blockedReasons.push("plugin_not_loaded");
@@ -272,8 +275,9 @@ export function resolvePluginEffectiveState(
         message: `Plugin is disabled for tenant: ${plugin.id}`,
         plugin,
         pluginId: plugin.id,
-        remediation:
-          "Enable the plugin for this tenant before invoking the capability.",
+        remediation: plugin.stage
+          ? `Enable the plugin for this tenant before invoking the capability (stage "${plugin.stage}": alpha needs a superadmin to turn it on, dev needs ENGENTY_MODULE_STAGE=dev).`
+          : "Enable the plugin for this tenant before invoking the capability.",
       })
     );
   }
@@ -321,7 +325,7 @@ export function resolvePluginEffectiveState(
 
     if (
       !(dependencyPlugin.loaded && dependencyPlugin.enabled) ||
-      isTenantDisabled(dependencyPlugin.id, params.tenantPluginOverrides)
+      isTenantDisabled(dependencyPlugin, params.tenantPluginOverrides)
     ) {
       blockedReasons.push("dependency_disabled");
       dependencies.push({

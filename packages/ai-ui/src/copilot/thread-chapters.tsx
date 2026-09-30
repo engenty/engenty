@@ -7,8 +7,8 @@
 // "Compact now" at the top. `ThreadChaptersMenu` puts that list behind one
 // icon in the desk's action row — the same icon on the copilot's river and
 // on a specialist's desk. `ThreadChapterCard` is one chapter opened
-// (`?chapter=<id>`) — the summary and what to keep in mind — above the
-// transcript. Outside a space the copilot's page also hangs the list in its
+// (`?chapter=<id>`) — the summary — above the transcript. What a chapter
+// found worth keeping is in memory, not on the chapter. Outside a space the copilot's page also hangs the list in its
 // own column.
 
 import { useTranslation } from "@engenty/i18n/ui";
@@ -194,7 +194,7 @@ export function ThreadChaptersMenu({ threadId }: { threadId: string | null }) {
   );
 }
 
-/** One chapter opened: what was discussed, and what to keep in mind. */
+/** One chapter opened: what was discussed. */
 export function ThreadChapterCard({ threadId }: { threadId: string | null }) {
   const { t } = useTranslation("ai-ui");
   const query = useThreadChaptersQuery(threadId);
@@ -238,30 +238,6 @@ export function ThreadChapterCard({ threadId }: { threadId: string | null }) {
       <p className="mt-2 whitespace-pre-line text-sm leading-relaxed">
         {chapter.summary}
       </p>
-      {chapter.keep_in_mind.length > 0 ? (
-        <div className="mt-3">
-          <h3 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-            {t("river.keepInMind")}
-          </h3>
-          <ul className="mt-1 flex flex-col gap-1 text-sm">
-            {chapter.keep_in_mind.map((note, index) => (
-              <li className="flex gap-2" key={`${index}-${note.text}`}>
-                <span aria-hidden className="text-muted-foreground">
-                  •
-                </span>
-                <span className="min-w-0 flex-1">
-                  {note.text}
-                  {note.space_key ? (
-                    <span className="ml-1.5 text-muted-foreground text-xs">
-                      {note.space_key}
-                    </span>
-                  ) : null}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
     </section>
   );
 }

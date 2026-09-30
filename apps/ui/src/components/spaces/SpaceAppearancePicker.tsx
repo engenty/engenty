@@ -3,7 +3,11 @@
  * create-row popover and the settings dialog, so those two surfaces cannot
  * disagree about what a space tile is.
  */
-import { isSpaceImageIcon, SpaceIconFace } from "@engenty/app-shell";
+import {
+  isSpaceImageIcon,
+  SPACE_ICONS,
+  SpaceIconFace,
+} from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
   cn,
@@ -17,7 +21,6 @@ import {
 } from "@engenty/ui-core";
 import { useState } from "react";
 import {
-  SPACE_ICONS,
   type SpaceAppearanceValue,
   SpaceColorSwatches,
 } from "./SpaceAppearanceFields";

@@ -17,6 +17,9 @@ fi
 echo "==> Aggregate module migrations"
 node scripts/aggregate-module-migrations.mjs
 
+echo "==> Keep applied, held-back migrations in the history"
+node scripts/held-migration-placeholders.mjs --linked
+
 echo "==> Push migrations to linked project"
 # --include-all: module migrations are timestamped when written, not when
 # released, so a new release routinely carries versions older than the

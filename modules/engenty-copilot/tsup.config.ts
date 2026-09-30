@@ -11,7 +11,6 @@ export default defineConfig({
     "src/lib/ensure-copilot-user-workspace-prefix.ts",
     "ui/plugin.ts",
     "ui/components/chat/copilot-effort-control.tsx",
-    "ui/components/chat/copilot-model-chooser-control.tsx",
   ],
   format: ["esm"],
   clean: true,

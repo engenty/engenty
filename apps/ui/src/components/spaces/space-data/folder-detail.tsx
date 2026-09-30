@@ -8,8 +8,9 @@ import { FileManager } from "@engenty/files-ui/ui/file-manager";
 import { useTranslation } from "@engenty/i18n/ui";
 import { useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useSpaceAgentNames } from "@/lib/space-agent-folder-names";
 import { useSpaceDataLibrary } from "@/lib/space-data-library-persistence";
-import { useSpaceDataFolder } from "@/lib/space-drive-queries";
+import { useSpaceDataFolder, useSpaceDrive } from "@/lib/space-drive-queries";
 import {
   spaceDataFilePath,
   spaceDataFolderInSpacePath,
@@ -40,6 +41,16 @@ export function DataFolderDetail({
   const { t } = useTranslation("common");
   const { spaceKey = "" } = useParams();
   const listing = useSpaceDataFolder(spaceId, path);
+  // The Files root lists the agents' folders first, by agent name, as the tree does.
+  const drive = useSpaceDrive(spaceId);
+  const agentsRoot = useMemo(() => {
+    const isFilesRoot = drive.nodes.some(
+      (node) => node.moduleId === "files" && node.dataPath === path
+    );
+    return isFilesRoot
+      ? drive.nodes.find((node) => node.moduleId === "space-agents")
+      : undefined;
+  }, [drive.nodes, path]);
   const breadcrumbs = useNodeBreadcrumbs(path);
   const View = useSpaceDataSurfaceView(
     listing.self?.nodeType
@@ -47,8 +58,22 @@ export function DataFolderDetail({
       : null
   );
 
+  const agentFolders = useSpaceDataFolder(spaceId, agentsRoot?.dataPath);
+  const agentName = useSpaceAgentNames(Boolean(agentsRoot));
+
   const children = useMemo<FolderChildRow[]>(
     () => [
+      ...(agentsRoot
+        ? agentFolders.folders
+            .map((folder) => ({
+              dataPath: folder.path,
+              href: spaceDataFolderPath(spaceKey, folder.path),
+              id: `folder:${folder.path}`,
+              kind: "folder" as const,
+              name: agentName(folder.name),
+            }))
+            .sort((a, b) => a.name.localeCompare(b.name))
+        : []),
       ...listing.folders.map((folder) => ({
         dataPath: folder.path,
         href: spaceDataFolderPath(spaceKey, folder.path),
@@ -67,7 +92,14 @@ export function DataFolderDetail({
         ...(entry.updatedAt ? { updatedAt: entry.updatedAt } : {}),
       })),
     ],
-    [listing.entries, listing.folders, spaceKey]
+    [
+      agentFolders.folders,
+      agentName,
+      agentsRoot,
+      listing.entries,
+      listing.folders,
+      spaceKey,
+    ]
   );
 
   if (View) {

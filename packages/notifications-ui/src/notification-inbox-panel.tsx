@@ -1,5 +1,6 @@
-// The compact inbox: lane tabs, the list, and a footer out to the full page.
-// Shared by the rail bell and the space dashboard bell.
+// The compact inbox: two tabs — Notifications (what needs a person) and
+// Updates (FYI) — each a column of stacks, one per agent, and a footer out
+// to the full page. Shared by the rail bell and the space dashboard bell.
 import { currentRequestSpaceId } from "@engenty/api-client";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
@@ -10,20 +11,20 @@ import {
   TabsList,
   TabsTrigger,
 } from "@engenty/ui-core";
-import { Bell, CheckCheck, ChevronRight, X } from "lucide-react";
+import { Bell, CheckCheck, ChevronRight, Maximize2, X } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { isUnseen, matchesLaneFilter } from "./classification.js";
 import type { InboxLane, InboxOpenRequest } from "./inbox-open.js";
-import { NotificationList } from "./notification-list.js";
 import {
   NOTIFICATIONS_PATH,
   spaceInboxPath,
   spaceKeyFromPathname,
 } from "./notification-paths.js";
+import { NotificationStacks } from "./notification-stack.js";
 import {
   ATTENTION_SCAN_LIMIT,
-  useMarkAllSeenMutation,
+  useMarkSeenMutation,
   useNotificationsQuery,
 } from "./queries.js";
 
@@ -35,40 +36,21 @@ const INBOX_TABS: {
   value: InboxLane;
   labelKey: string;
   defaultLabel: string;
-  titleKey: string;
-  titleDefault: string;
-  badgeVariant: "default" | "destructive" | "secondary";
+  emptyKey: string;
+  emptyDefault: string;
 }[] = [
   {
-    badgeVariant: "default",
-    defaultLabel: "Important",
+    defaultLabel: "Notifications",
+    emptyDefault: "Nothing waits for you.",
+    emptyKey: "notifications.emptyHintAttention",
     labelKey: "notifications.lane.attention",
-    titleDefault: "{{count}} important",
-    titleKey: "notifications.inboxTitle.attention",
     value: "attention",
   },
   {
-    badgeVariant: "default",
-    defaultLabel: "Approvals",
-    labelKey: "notifications.lane.approvals",
-    titleDefault: "{{count}} open approvals",
-    titleKey: "notifications.inboxTitle.hitl",
-    value: "hitl",
-  },
-  {
-    badgeVariant: "destructive",
-    defaultLabel: "Errors",
-    labelKey: "notifications.lane.errors",
-    titleDefault: "{{count}} errors",
-    titleKey: "notifications.inboxTitle.errors",
-    value: "errors",
-  },
-  {
-    badgeVariant: "secondary",
     defaultLabel: "Updates",
+    emptyDefault: "What your agents finish lands here.",
+    emptyKey: "notifications.emptyHintUpdates",
     labelKey: "notifications.lane.updates",
-    titleDefault: "{{count}} updates",
-    titleKey: "notifications.inboxTitle.updates",
     value: "updates",
   },
 ];
@@ -110,15 +92,21 @@ export function NotificationInboxPanel({
     limit: ATTENTION_SCAN_LIMIT,
     scope,
   });
-  const markAll = useMarkAllSeenMutation();
+  const clear = useMarkSeenMutation();
   const spaceId = currentRequestSpaceId();
   const notifications = (listQuery.data?.notifications ?? []).filter(
     (n) =>
       (scope === "space" ? Boolean(spaceId) && n.space_id === spaceId : true) &&
       (actor ? n.actor_id === actor.id : true)
   );
-  const visible = notifications.filter((n) => matchesLaneFilter(n, lane));
-  const hasUnseen = visible.some((n) => isUnseen(n));
+  // Updates are cleared per person: what this person has seen is gone from
+  // here (it stays on the full page).
+  const inLane = (value: InboxLane) =>
+    notifications.filter(
+      (n) =>
+        matchesLaneFilter(n, value) && (value === "attention" || isUnseen(n))
+    );
+  const visible = inLane(lane);
   const href =
     viewAllHref ??
     (spaceKey && scope === "space"
@@ -149,12 +137,7 @@ export function NotificationInboxPanel({
             variant="line"
           >
             {INBOX_TABS.map((tab) => {
-              const count = notifications.filter((n) =>
-                matchesLaneFilter(n, tab.value)
-              ).length;
-              // Wichtig is the bell's number; Freigaben + Fehler are its
-              // parts. Updates are FYI — listed, not badged.
-              const showBadge = tab.value !== "updates" && count > 0;
+              const count = inLane(tab.value).length;
               return (
                 <TabsTrigger
                   className="gap-1.5 px-3"
@@ -162,10 +145,12 @@ export function NotificationInboxPanel({
                   value={tab.value}
                 >
                   {t(tab.labelKey, { defaultValue: tab.defaultLabel })}
-                  {showBadge ? (
+                  {count > 0 ? (
                     <Badge
                       className="h-4 min-w-4 justify-center px-1 py-0 font-medium text-[10px] tabular-nums"
-                      variant={tab.badgeVariant}
+                      variant={
+                        tab.value === "attention" ? "default" : "secondary"
+                      }
                     >
                       {count > 99 ? "99+" : count}
                     </Badge>
@@ -184,73 +169,82 @@ export function NotificationInboxPanel({
             />
           </div>
         ) : null}
+        {/* The full page for what this panel shows: the space's or the tenant's. */}
+        <div className="-mb-px flex h-9 shrink-0 items-center">
+          <Button
+            aria-label={t("notifications.expand", {
+              defaultValue: "Open as page",
+            })}
+            asChild
+            className="size-7 text-muted-foreground"
+            size="icon-sm"
+            title={t("notifications.expand", { defaultValue: "Open as page" })}
+            variant="ghost"
+          >
+            <Link onClick={onNavigate} to={href}>
+              <Maximize2 aria-hidden className="size-3.5" />
+            </Link>
+          </Button>
+        </div>
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="flex h-7 shrink-0 items-center justify-between gap-2 border-border-soft border-b bg-background px-4">
-          <div className="flex min-w-0 items-center gap-2">
-            <h2 className="min-w-0 truncate font-medium text-muted-foreground text-xs">
-              {listQuery.isPending
-                ? t("notifications.loading", { defaultValue: "Loading…" })
-                : t(activeTab.titleKey, {
-                    count: visible.length,
-                    defaultValue: activeTab.titleDefault,
-                  })}
-            </h2>
-            {actor ? (
-              <button
-                aria-label={t("notifications.actorFilter.clear", {
-                  defaultValue: "Show everyone",
-                })}
-                className="inline-flex min-w-0 shrink items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-foreground text-xs hover:text-muted-foreground"
-                onClick={() => setActor(null)}
-                type="button"
-              >
-                <span className="truncate">{actor.label}</span>
-                <X aria-hidden className="size-3 shrink-0" />
-              </button>
-            ) : null}
-          </div>
-          {hasUnseen ? (
+      {actor || (lane === "updates" && visible.length > 0) ? (
+        <div className="flex h-8 shrink-0 items-center justify-between gap-2 border-border-soft border-b px-4">
+          {actor ? (
+            <button
+              aria-label={t("notifications.actorFilter.clear", {
+                defaultValue: "Show everyone",
+              })}
+              className="inline-flex min-w-0 shrink items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-foreground text-xs hover:text-muted-foreground"
+              onClick={() => setActor(null)}
+              type="button"
+            >
+              <span className="truncate">{actor.label}</span>
+              <X aria-hidden className="size-3 shrink-0" />
+            </button>
+          ) : (
+            <span />
+          )}
+          {lane === "updates" && visible.length > 0 ? (
             <Button
-              aria-label={t("notifications.markAllSeen", {
-                defaultValue: "Mark all seen",
-              })}
-              className="size-6 shrink-0 text-muted-foreground"
-              disabled={markAll.isPending}
-              onClick={() => markAll.mutate()}
-              size="icon-sm"
-              title={t("notifications.markAllSeen", {
-                defaultValue: "Mark all seen",
-              })}
+              className="h-6 gap-1 px-2 text-muted-foreground text-xs"
+              disabled={clear.isPending}
+              onClick={() => clear.mutate(visible.map((n) => n.id))}
+              size="sm"
               variant="ghost"
             >
-              <CheckCheck className="size-3.5" />
+              <CheckCheck aria-hidden className="size-3" />
+              {t("notifications.markAllSeen", {
+                defaultValue: "Mark all seen",
+              })}
             </Button>
           ) : null}
         </div>
+      ) : null}
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-          {listQuery.isPending ? (
-            <InboxSkeleton />
-          ) : listQuery.isError ? (
-            <p className="px-4 py-8 text-center text-destructive text-sm">
-              {t("notifications.loadFailed", {
-                defaultValue: "Failed to load notifications.",
-              })}
-            </p>
-          ) : isEmpty ? (
-            <InboxEmpty />
-          ) : (
-            <NotificationList
-              grouped={false}
-              laneFilter={lane}
-              locale={locale}
-              notifications={notifications}
-              variant="inbox"
-            />
-          )}
-        </div>
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-muted/30 px-3 py-3">
+        {listQuery.isPending ? (
+          <InboxSkeleton />
+        ) : listQuery.isError ? (
+          <p className="px-4 py-8 text-center text-destructive text-sm">
+            {t("notifications.loadFailed", {
+              defaultValue: "Failed to load notifications.",
+            })}
+          </p>
+        ) : isEmpty ? (
+          <InboxEmpty
+            hint={t(activeTab.emptyKey, {
+              defaultValue: activeTab.emptyDefault,
+            })}
+          />
+        ) : (
+          <NotificationStacks
+            locale={locale}
+            notifications={visible}
+            onNavigate={onNavigate}
+            showSpace={(n) => scope === "tenant" && n.space_id !== spaceId}
+          />
+        )}
       </div>
 
       <Link
@@ -265,7 +259,7 @@ export function NotificationInboxPanel({
   );
 }
 
-function InboxEmpty() {
+function InboxEmpty({ hint }: { hint: string }) {
   const { t } = useTranslation("common");
   return (
     <div className="flex h-full flex-col items-center justify-center px-6 py-10 text-center">
@@ -276,9 +270,7 @@ function InboxEmpty() {
         {t("notifications.emptyTitle", { defaultValue: "Nothing new" })}
       </p>
       <p className="mt-1 max-w-[16rem] text-muted-foreground text-xs leading-relaxed">
-        {t("notifications.emptyHint", {
-          defaultValue: "Approvals and updates land here.",
-        })}
+        {hint}
       </p>
     </div>
   );

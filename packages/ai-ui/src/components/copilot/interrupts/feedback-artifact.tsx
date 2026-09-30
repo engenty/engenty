@@ -60,96 +60,88 @@ export function parseFeedbackArtifact(value: unknown): FeedbackArtifact | null {
   };
 }
 
-/** Resolved feedback response from persisted tool output, when present. */
-export function parseFeedbackResolution(output: unknown): string | null {
-  if (!output || typeof output !== "object") {
+/**
+ * The question as the model ASKED it, read off the tool's own arguments.
+ *
+ * `requestFeedback` suspends the run, and resuming writes the answer sentence
+ * as the call's result — so no artifact ever reaches `output`. Once the open
+ * interrupt is gone (answered, dismissed, or superseded) the arguments are the
+ * only place the question survives.
+ */
+export function parseFeedbackArtifactFromInput(
+  value: unknown,
+  toolCallId?: string
+): FeedbackArtifact | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
     return null;
   }
-  const raw = output as {
-    feedback?: unknown;
+  const raw = value as {
+    body?: unknown;
+    placeholder?: unknown;
+    submitLabel?: unknown;
+    title?: unknown;
   };
-  if (typeof raw.feedback === "string" && raw.feedback.trim()) {
-    return raw.feedback.trim();
+  if (typeof raw.title !== "string" || !raw.title.trim()) {
+    return null;
   }
-  return null;
-}
-
-function readFeedbackArtifactKeys(value: unknown): {
-  artifactId: string | null;
-  interruptId: string | null;
-} {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return { artifactId: null, interruptId: null };
-  }
-  const raw = value as { artifact_id?: unknown; interrupt_id?: unknown };
   return {
-    artifactId:
-      typeof raw.artifact_id === "string" ? raw.artifact_id.trim() : null,
-    interruptId:
-      typeof raw.interrupt_id === "string" ? raw.interrupt_id.trim() : null,
+    // Rebuilt rows are never interactive, so this id is display-only — there
+    // is no resume to key off it.
+    artifactId: toolCallId ?? raw.title,
+    ...(typeof raw.body === "string" && raw.body.trim()
+      ? { body: raw.body }
+      : {}),
+    ...(typeof raw.placeholder === "string"
+      ? { placeholder: raw.placeholder }
+      : {}),
+    ...(typeof raw.submitLabel === "string"
+      ? { submitLabel: raw.submitLabel }
+      : {}),
+    title: raw.title,
   };
 }
 
-function openInterruptMatchesToolOutput(
-  open: AgUiOpenInterruptMetadata,
-  output: unknown
-): boolean {
-  const { artifactId, interruptId } = readFeedbackArtifactKeys(output);
-  const openKey = open.interrupt_id ?? open.artifact_id;
-  if (!openKey) {
-    return false;
-  }
-  return (
-    openKey === artifactId ||
-    openKey === interruptId ||
-    open.artifact_id === artifactId ||
-    open.interrupt_id === interruptId
-  );
-}
-
-/** Prefer transcript output; fall back to session open-interrupt metadata after reload. */
+/**
+ * The answerable feedback card for ONE tool call: the artifact in its output
+ * if there is one, else the open interrupt — but only when that interrupt
+ * names this very call. Every `requestFeedback` row in the thread reaches this
+ * resolver; without the `toolCallId` scoping each unanswered row rendered
+ * whatever question is currently open (the same question twice), and each
+ * answered row vanished while another question was open.
+ *
+ * Null means "not answerable here"; the caller falls back to
+ * `parseFeedbackArtifactFromInput` to still say what was asked.
+ */
 export function resolveFeedbackArtifactForToolCall(
   output: unknown,
-  open: AgUiOpenInterruptMetadata | null | undefined
+  open: AgUiOpenInterruptMetadata | null | undefined,
+  toolCallId: string | undefined
 ): FeedbackArtifact | null {
   const fromOutput = parseFeedbackArtifact(output);
-  const fromOpen =
-    open?.kind === "feedback" ? feedbackArtifactFromOpenInterrupt(open) : null;
-
-  if (output != null && open && !openInterruptMatchesToolOutput(open, output)) {
-    return null;
-  }
-
-  if (fromOutput && fromOutput.body !== undefined) {
+  if (fromOutput) {
     return fromOutput;
   }
-
-  if (fromOutput && fromOpen && fromOutput.artifactId === fromOpen.artifactId) {
-    return {
-      artifactId: fromOutput.artifactId,
-      body: fromOutput.body ?? fromOpen.body,
-      placeholder: fromOutput.placeholder ?? fromOpen.placeholder,
-      submitLabel: fromOutput.submitLabel ?? fromOpen.submitLabel,
-      interruptId: fromOutput.interruptId ?? fromOpen.interruptId,
-      title: fromOutput.title || fromOpen.title,
-    };
+  if (!(open && toolCallId) || open.tool_call_id !== toolCallId) {
+    return null;
   }
-
-  return fromOutput || fromOpen;
+  return feedbackArtifactFromOpenInterrupt(open);
 }
 
 export function FeedbackArtifactResolvedCard(props: {
   artifact: FeedbackArtifact;
-  feedback: string;
+  /** The answer; absent for a question nobody answered (dismissed, moved past). */
+  feedback: string | null;
 }) {
   return (
     <section className="rounded-lg border border-border-soft bg-muted/20 px-3 py-2.5">
       <p className="font-medium text-foreground/90 text-sm">
         {props.artifact.title}
       </p>
-      <p className="mt-1 max-h-64 overflow-y-auto whitespace-pre-wrap text-muted-foreground text-sm">
-        {props.feedback}
-      </p>
+      {props.feedback ? (
+        <p className="mt-1 max-h-64 overflow-y-auto whitespace-pre-wrap text-muted-foreground text-sm">
+          {props.feedback}
+        </p>
+      ) : null}
     </section>
   );
 }

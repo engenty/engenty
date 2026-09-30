@@ -255,9 +255,13 @@ function normalizeModuleAgentConfig(
     // at the composite-registry read seam, on exactly this field.
     ...(config.workspace ? { workspace: config.workspace } : {}),
     // Audience. Dropped here until 2026-09-06 — a module specialist declaring
-    // `agent_scope: "shared"` still ran without shared observations, MEMORY.md
-    // or TASKS.md, and its desk threads stayed per person.
+    // `agent_scope: "shared"` still ran without shared observations or
+    // TASKS.md, and its desk threads stayed per person.
     ...(config.agentScope ? { agentScope: config.agentScope } : {}),
+    // Page-driving grant. Dropped here until 2026-09-29 — a module specialist
+    // declaring `uiTools: "on"` fell back to `auto` and got no frontend tools
+    // on its desk (no `open_view`, no `navigate`).
+    ...(config.uiTools ? { uiTools: config.uiTools } : {}),
   };
 }
 

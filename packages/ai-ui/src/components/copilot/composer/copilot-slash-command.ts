@@ -93,14 +93,6 @@ export function isWizardSlashCommand(
   );
 }
 
-/** `name` or `prefix:name` — same rule as ai-core's `isValidChatCommandToken`. */
-const COMMAND_TOKEN_PATTERN = /^[a-z0-9][a-z0-9-]*(?::[a-z0-9][a-z0-9-]*)?$/;
-
-/** True when `command` is a valid canonical slash token. */
-export function isValidSlashCommandToken(command: string): boolean {
-  return COMMAND_TOKEN_PATTERN.test(command);
-}
-
 /**
  * The in-progress slash query at the caret, or null when the composer is not
  * in slash-typeahead position. Only a message-leading "/" triggers: the "/"

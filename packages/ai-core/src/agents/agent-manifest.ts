@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { normalizeAllowedToolsInput } from "../allowed-tools.js";
+import { AI_EFFORT_LEVELS } from "../config/model-roles.js";
 import { AGENT_ENGENTY_KINDS } from "./agent-engenty.js";
 import {
   AGENT_STARTER_DECLARE_MAX,
@@ -18,14 +19,15 @@ export const aiAgentManifestSchema = z.object({
   $schema: z.literal("engenty/ai-agent-manifest/v1"),
   /**
    * Whose agent this is once mounted: `shared` = a company resource whose
-   * rooms, MEMORY.md and TASKS.md are per Space; `personal` = per person.
-   * Omitted = no audience — no shared observations, no memory, no pad
-   * (delegated workers and chat surfaces). Specialists declare `shared`.
+   * rooms, own memory entries and TASKS.md are per Space; `personal` = per
+   * person. Omitted = no audience — no shared observations, no pad, and its
+   * own memory entries keyed on where it runs (delegated workers and chat
+   * surfaces). Specialists declare `shared`.
    */
   agent_scope: z.enum(["personal", "shared"]).optional(),
   description: z.string(),
   /** Default thinking tier when nobody chose one; see AgentConfig.effort. */
-  effort: z.enum(["low", "medium", "high"]).optional(),
+  effort: z.enum(AI_EFFORT_LEVELS).optional(),
   /** Optional blob character; omitted agents hash their id. */
   engenty: z.enum(AGENT_ENGENTY_KINDS).optional(),
   id: z.string(),

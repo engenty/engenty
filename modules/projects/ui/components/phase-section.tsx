@@ -11,7 +11,7 @@ import type {
   ProjectPhase,
   ProjectTaskStatusDefinition,
 } from "../api.js";
-import { TaskCard } from "./task-card.js";
+import { TASK_LIST_CARD_CLASS, TaskCard } from "./task-card.js";
 
 interface PhaseSectionProps {
   onAddTask?: (phaseId: string) => void;
@@ -104,20 +104,24 @@ export function PhaseSection({
           strategy={verticalListSortingStrategy}
         >
           <div className="space-y-2">
-            {phase.tasks.map((task) => (
-              <TaskCard
-                key={task.id}
-                onDelete={onTaskDelete}
-                onEdit={onTaskEdit}
-                onStatusChange={onTaskStatusChange}
-                onVisibilityToggle={onTaskVisibilityToggle}
-                showAssignees={showAssignees}
-                showVisibility={viewMode === "internal"}
-                task={task}
-                taskStatusDefinitions={taskStatusDefinitions}
-                viewMode={viewMode}
-              />
-            ))}
+            {phase.tasks.length > 0 ? (
+              <div className={TASK_LIST_CARD_CLASS}>
+                {phase.tasks.map((task) => (
+                  <TaskCard
+                    key={task.id}
+                    onDelete={onTaskDelete}
+                    onEdit={onTaskEdit}
+                    onStatusChange={onTaskStatusChange}
+                    onVisibilityToggle={onTaskVisibilityToggle}
+                    showAssignees={showAssignees}
+                    showVisibility={viewMode === "internal"}
+                    task={task}
+                    taskStatusDefinitions={taskStatusDefinitions}
+                    viewMode={viewMode}
+                  />
+                ))}
+              </div>
+            ) : null}
             {viewMode === "internal" && onAddTask ? (
               <Button
                 className="h-auto justify-start px-3 py-1.5 pl-8 text-muted-foreground"

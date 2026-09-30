@@ -18,12 +18,16 @@ import {
   COMPANY_FILES_MANAGE_CAPABILITY,
   COMPUTER_EGRESS_HOSTS_MAX,
   capabilityCovers,
+  isBaselineSpaceMount,
+  isPluginOnForTenant,
   type ModuleMountRequires,
   moduleMountDependents,
   moduleMountRequiresFromPlugins,
+  type PluginTenantDefault,
   parseComputerEgressHost,
   SPACE_BASELINE_MOUNTS,
   SPACE_TEMPLATES,
+  type SpaceMountDeclaration,
   spaceTemplateMounts,
 } from "@engenty/plugin-sdk";
 import { createLogger } from "@engenty/telemetry";
@@ -48,6 +52,7 @@ import {
   resolveSpaceResourceSurface,
   SPACE_RESOURCE_TYPES,
   SpaceAgentLimitError,
+  type SpaceMount,
   upsertSpaceMount,
 } from "../../dal/space-mounts.js";
 import {
@@ -146,6 +151,10 @@ interface SpacesRoutesRegistry {
     /** Manifest `requires` — `module.<id>` entries become mount dependencies. */
     requires?: string[];
     rootDir?: string;
+    /** Never offered as an app of its own (manifest `supporting`). */
+    supporting?: boolean;
+    /** From the module's stage — see PluginTenantDefault. */
+    tenantDefault?: PluginTenantDefault;
     ui?: unknown;
   }>;
 }
@@ -354,6 +363,10 @@ export function registerSpacesRoutes(params: {
     operationId: string;
   }) => Promise<unknown>;
   registry?: SpacesRoutesRegistry;
+  /** Per-tenant module on/off rows; with the stage they decide what is offered. */
+  resolveTenantPluginOverrides?: (
+    tenantId: string
+  ) => Promise<Record<string, boolean>>;
 }) {
   const { app, config } = params;
 
@@ -575,10 +588,6 @@ export function registerSpacesRoutes(params: {
    * Modules offered as a choice when creating or editing a space.
    *
    * Filters beyond "installed and enabled":
-   *  - **no UI bundle, not an app.** Connector providers
-   *    (`connections-google`, `connections-slack`, …) and sync workers ship no
-   *    UI; they are reachable through the CONNECTION kind, and listing them as
-   *    apps would offer the same thing twice under two names.
    *  - **category `platform`, not an app.** Platform plugins are infrastructure
    *    for the install, not something a space contains.
    *  - **placement `settings`, not a choice.** Supporting modules (PDF
@@ -587,10 +596,17 @@ export function registerSpacesRoutes(params: {
    *    they are infrastructure. Their UI lives in Settings. They stay
    *    mountable (validation is against every installed plugin) so an existing
    *    space that already has one can still save.
+   *  - **off for this tenant, not a choice.** A module below the install's
+   *    stage (`dev`, or `alpha` nobody turned on) is not offered.
+   *  - **`supporting`, not a choice.** Unless it is baseline, which stays
+   *    listed so review and settings can name it.
    *  - **nested `providers/`, not a choice.** Connector and bridge plugins
    *    under `modules/<parent>/providers/<child>` (Slack Bridge, Connections
    *    — External, Local Files, …) belong to the parent module. Listing them
    *    as apps would offer the same capability twice.
+   *
+   * A UI bundle is NOT a gate either. engenty Apps ships none: what a space
+   * mounts is its tools, and the apps engenties build with them.
    *
    * `placement` is otherwise NOT a mountability gate. A `space` or `global`
    * module is routinely offered (contacts is one address book per tenant,
@@ -608,12 +624,20 @@ export function registerSpacesRoutes(params: {
     return moduleMountRequiresFromPlugins(params.registry?.plugins ?? []);
   }
 
-  function mountableModules() {
+  function mountableModules(tenantOverrides: Record<string, boolean>) {
     const requires = moduleRequires();
+    const baseline = new Set(
+      SPACE_BASELINE_MOUNTS.filter(
+        (mount) => mount.resourceType === "module"
+      ).map((mount) => mount.resourceKey)
+    );
     return (params.registry?.plugins ?? [])
       .filter((plugin) => (plugin.kind ?? "module") === "module")
       .filter((plugin) => plugin.enabled !== false)
-      .filter((plugin) => plugin.ui != null)
+      .filter((plugin) =>
+        isPluginOnForTenant(plugin.tenantDefault, tenantOverrides[plugin.id])
+      )
+      .filter((plugin) => !plugin.supporting || baseline.has(plugin.id))
       .filter((plugin) => plugin.category !== "platform")
       .filter((plugin) => plugin.placement !== "settings")
       .filter((plugin) => !isNestedProviderPlugin(plugin.rootDir))
@@ -653,6 +677,50 @@ export function registerSpacesRoutes(params: {
       .filter((mount) => mount.resourceType === "module")
       .map((mount) => mount.resourceKey)
       .filter((key) => !known.has(key));
+  }
+
+  /**
+   * A space's module mounts whose module this install does not load: a `dev`
+   * module on a `beta` install, or one whose code is gone. They are dormant,
+   * not wrong: the row stays so the module comes back with its placement when
+   * it is installed again. The dialog cannot show them (they are not in the
+   * catalog), so a save keeps them rather than reading their absence as a
+   * removal, and does not refuse them as unknown.
+   */
+  function dormantModuleMounts(existing: readonly SpaceMount[]): SpaceMount[] {
+    const loaded = new Set(
+      (params.registry?.plugins ?? []).map((plugin) => plugin.id)
+    );
+    if (loaded.size === 0) {
+      return [];
+    }
+    return existing.filter(
+      (mount) =>
+        mount.resourceType === "module" && !loaded.has(mount.resourceKey)
+    );
+  }
+
+  /** `desired` with every dormant mount kept exactly as stored. */
+  function keepDormantMounts(
+    desired: DesiredSpaceMount[],
+    dormant: readonly SpaceMount[]
+  ): DesiredSpaceMount[] {
+    const dormantKeys = new Set(dormant.map((mount) => mount.resourceKey));
+    return [
+      ...desired.filter(
+        (mount) =>
+          !(
+            mount.resourceType === "module" &&
+            dormantKeys.has(mount.resourceKey)
+          )
+      ),
+      ...dormant.map((mount) => ({
+        agentAccess: mount.agentAccess,
+        recordScope: mount.recordScope,
+        resourceKey: mount.resourceKey,
+        resourceType: mount.resourceType,
+      })),
+    ];
   }
 
   /**
@@ -1088,16 +1156,32 @@ export function registerSpacesRoutes(params: {
     if ("error" in authResult) {
       return authResult.error;
     }
+    const tenantId = authResult.auth.tenantId;
+    const tenantOverrides =
+      tenantId && params.resolveTenantPluginOverrides
+        ? await params.resolveTenantPluginOverrides(tenantId)
+        : {};
+    const modules = mountableModules(tenantOverrides);
+    // A template names modules this install may not offer (a `dev` module, an
+    // alpha one this tenant does not have). Posting those back would be
+    // refused, so the template only carries what the catalog offers.
+    const offered = new Set(modules.map((module) => module.id));
+    const isOffered = (mount: SpaceMountDeclaration) =>
+      mount.resourceType !== "module" ||
+      isBaselineSpaceMount(mount) ||
+      offered.has(mount.resourceKey);
     return jsonApiSuccess(c, {
       baseline: SPACE_BASELINE_MOUNTS,
-      modules: mountableModules(),
+      modules,
       templates: SPACE_TEMPLATES.map((template) => ({
         description: template.description,
-        featuredMountKeys: template.featuredMountKeys,
+        featuredMountKeys: template.featuredMountKeys?.filter((key) =>
+          offered.has(key.replace(/^module:/, ""))
+        ),
         id: template.id,
         // Expanded here so the dialog never has to remember that the baseline
         // is implied — what it receives is exactly what it would post back.
-        mounts: spaceTemplateMounts(template),
+        mounts: spaceTemplateMounts(template).filter(isOffered),
         name: template.name,
       })),
     });
@@ -1292,19 +1376,25 @@ export function registerSpacesRoutes(params: {
     }
     const client = db(tenantId);
     const spaceId = access.space.id;
-    const desired = toDesiredMounts(parsed.data.mounts);
-    const unknown = unknownModuleKeys(desired);
-    if (unknown.length > 0) {
-      return jsonApiError(c, 400, {
-        message: `Not an installed module: ${unknown.join(", ")}`,
-      });
-    }
     try {
+      const dormant = dormantModuleMounts(
+        await listSpaceMounts(client, tenantId, spaceId)
+      );
+      const dormantKeys = new Set(dormant.map((mount) => mount.resourceKey));
+      const desired = toDesiredMounts(parsed.data.mounts);
+      const unknown = unknownModuleKeys(desired).filter(
+        (key) => !dormantKeys.has(key)
+      );
+      if (unknown.length > 0) {
+        return jsonApiError(c, 400, {
+          message: `Not an installed module: ${unknown.join(", ")}`,
+        });
+      }
       const { plan, surface } = await applySpaceSetup(
         client,
         tenantId,
         spaceId,
-        desired,
+        keepDormantMounts(desired, dormant),
         {
           requires: moduleRequires(),
         }

@@ -16,8 +16,8 @@ Product chat runs on **`apps/ai` AG-UI**. Model ids are resolved via `@engenty/a
 
 There are **no model env vars and no package default model**. Every model
 comes from a **role binding** (`ai.model_binding`), edited in manage → Role
-bindings. Roles: `model.low` / `model.medium` / `model.high` (graded agent
-tiers), `classifier` (pick-one-of-N), `fast_text` (short prose without tools),
+bindings. Roles: `model.normal` / `model.high` (the composer's Normal and
+Extra), `classifier` (pick-one-of-N), `fast_text` (short prose without tools),
 `image`, `embedding`, `video`, `realtime`. An unbound role throws
 (`ModelRoleNotBoundError`) instead of falling back.
 

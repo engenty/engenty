@@ -9,7 +9,6 @@ export {
   type AgentStatusTickerVariant,
   type AgentStepKind,
   type AgentTurnMessageLike,
-  type AgentTurnPhase,
   buildAssistantActivitySignature,
   type DeriveAgentStatusTickerInput,
   deriveAgentStatusTicker,

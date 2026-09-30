@@ -189,3 +189,11 @@ describe("projects schema", () => {
     expect(taskStatusSchema.safeParse("9bad").success).toBe(false);
   });
 });
+
+describe("projectUpdateSchema", () => {
+  it("leaves fields the patch does not name unset", () => {
+    expect(projectUpdateSchema.parse({ title: "Renamed" })).toEqual({
+      title: "Renamed",
+    });
+  });
+});

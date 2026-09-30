@@ -103,7 +103,7 @@ describe("renderAgentFn", () => {
       renderAgentFn(
         descriptor(() => {
           useModel("a/b");
-          useEffort("medium");
+          useEffort("normal");
           return "Base.";
         })
       )

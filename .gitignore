@@ -18,6 +18,7 @@ dist
 
 # Aggregated migrations (generated; do not commit)
 supabase/migrations/*.sql
+supabase/held-migrations.json
 
 # Local Supabase config (generated from config.toml.example + supabase:sync)
 supabase/config.toml

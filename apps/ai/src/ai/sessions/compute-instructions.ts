@@ -4,6 +4,7 @@
 // retries `pip install` forever, and a bot on a space computer asks where a
 // CLI should go and who else sees it.
 
+import { SPACE_AGENT_FOLDER } from "@engenty/file-storage";
 import { USER_BROWSER_DOWNLOADS_MOUNT_PATH } from "../sandbox/space-browser.js";
 import type { EngentyWorkspaceMountSpec } from "../workspace/contracts.js";
 import { isMountBoundIntoSandbox } from "../workspace/loader.js";
@@ -13,6 +14,8 @@ import {
 } from "../workspace/workspace-presets.js";
 
 export interface ComputeInstructionsInput {
+  /** Names the agent's own folder in the Space. */
+  agentId: string;
   lifecycle: "run" | "session" | "task" | "space";
   /** The run's mount table — split into shell-reachable and file-tools-only. */
   mounts: readonly EngentyWorkspaceMountSpec[];
@@ -45,7 +48,7 @@ export function buildComputeInstructions(
   const reach = onSpaceComputer
     ? [
         ...bound,
-        "/sandbox/apps (the Space's Apps)",
+        "/space/apps (the Space's Apps)",
         `${USER_BROWSER_DOWNLOADS_MOUNT_PATH} (what the Space's browser saved)`,
       ]
     : bound;
@@ -64,6 +67,9 @@ export function buildComputeInstructions(
     `- Your commands start in /sandbox${
       reach.length > 0 ? ` and also reach ${reach.join(", ")}` : ""
     }.`,
+    ...(input.mounts.some((mount) => mount.mountPath === SPACE_MOUNT_PATH)
+      ? [spaceLine(input.agentId)]
+      : []),
     ...(hasCompanyView ? [companyLine(input.mounts)] : []),
     ...(fileToolsOnly.length > 0
       ? [
@@ -81,13 +87,30 @@ export function buildComputeInstructions(
 }
 
 /**
+ * The Space's folders — the same the person sees in the Data tab, so a path
+ * said in chat is a place they can open.
+ */
+function spaceLine(agentId: string): string {
+  const own = `/space/${SPACE_AGENT_FOLDER}/${agentId}`;
+  return (
+    "- /space is this Space's folder, the same the person sees in the Data " +
+    "tab: " +
+    `${own}/uploads/ the files people attached for you (a later file with ` +
+    `a name already there is <name>-2, -3 …), ${own}/documents/ what ` +
+    `you keep for people, ${own}/work/ your working files. Other agents ` +
+    "have theirs under /space/agent/."
+  );
+}
+
+/**
  * Where the company's files are, and the two ways to add to them — both of
  * which stop for a person, which is why the shell cannot do either.
  */
 function companyLine(mounts: readonly EngentyWorkspaceMountSpec[]): string {
   const hasSpace = mounts.some((mount) => mount.mountPath === SPACE_MOUNT_PATH);
   return (
-    "- /company is read-only: /company/files is the company drive, " +
+    "- /company is the organisation, read-only: /company/files is the " +
+    "organisation drive, " +
     "/company/spaces/<key>/ what each Space published, /company/apps/<slug>/ " +
     "the source of those Spaces' Apps (change an App from its own Space). " +
     "To add to the drive " +

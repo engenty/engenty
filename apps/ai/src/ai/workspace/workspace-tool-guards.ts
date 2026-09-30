@@ -175,7 +175,7 @@ export function describeWorkspaceToolCall(
       ? `${path} and everything inside it`
       : path;
   if (toolName !== DELETE_TOOL && isSpacePublicPath(path)) {
-    return { target: path, title: "Publish to the company" };
+    return { target: path, title: "Share with the organisation" };
   }
   return { target, title: toolName === DELETE_TOOL ? "Delete" : toolName };
 }

@@ -1,7 +1,9 @@
 import type { DriveNode } from "@engenty/file-storage";
 import { describe, expect, it } from "vitest";
 import {
+  APPS_SECTION_ID,
   ARTIFACTS_SECTION_ID,
+  FILES_SECTION_ID,
   groupSpaceDataRootSections,
   spaceDataSectionContainsSelection,
 } from "./space-data-root-sections";
@@ -16,49 +18,67 @@ const folder = (name: string, moduleId: string): DriveNode => ({
   sourceId: moduleId,
 });
 
+const artifact = (name: string, nodeType: string): DriveNode => ({
+  id: `artifact:${name}`,
+  kind: "artifact",
+  name,
+  nodeType,
+  sourceId: name,
+});
+
+const labels = {
+  apps: "Apps",
+  artifacts: "Dokumente",
+  files: "Dateien",
+};
+
 describe("groupSpaceDataRootSections", () => {
-  it("turns each adapter root into a section and gathers artifacts", () => {
+  it("orders Documents, Apps, Files, Shared, then the other modules", () => {
     const sections = groupSpaceDataRootSections(
       [
         folder("Contacts", "contacts"),
+        folder("Public", "space-public"),
         folder("Files", "files"),
-        {
-          id: "artifact:a1",
-          kind: "artifact",
-          name: "Briefing",
-          sourceId: "a1",
-        },
       ],
-      { artifacts: "Ablage" }
+      labels
     );
-    expect(sections.map((section) => `${section.id}:${section.label}`)).toEqual(
-      [
-        "data:contacts:Contacts",
-        "data:files:Files",
-        `${ARTIFACTS_SECTION_ID}:Ablage`,
-      ]
-    );
-    expect(sections[2]?.children).toHaveLength(1);
-    expect(sections[2]?.root).toBeNull();
+    expect(sections.map((section) => section.id)).toEqual([
+      ARTIFACTS_SECTION_ID,
+      APPS_SECTION_ID,
+      "data:files",
+      "data:space-public",
+      "data:contacts",
+    ]);
   });
 
-  it("mixes markdown pages and other artifact types under Artifacts", () => {
+  it("lists the agents' folders inside Files, not as a section of their own", () => {
+    const sections = groupSpaceDataRootSections(
+      [folder("Files", "files"), folder("Agents", "space-agents")],
+      labels
+    );
+    const files = sections.find((section) => section.id === "data:files");
+    expect(files?.extra?.map((node) => node.dataPath)).toEqual(["Agents"]);
+    expect(sections.some((section) => section.id === "data:space-agents")).toBe(
+      false
+    );
+  });
+
+  it("keeps a Files section for the agents' folders when the Space has no Files module", () => {
+    const sections = groupSpaceDataRootSections(
+      [folder("Agents", "space-agents")],
+      labels
+    );
+    const files = sections.find((section) => section.id === FILES_SECTION_ID);
+    expect(files?.label).toBe("Dateien");
+    expect(files?.extra?.map((node) => node.dataPath)).toEqual(["Agents"]);
+  });
+
+  it("puts App artifacts under Apps and every other artifact under Documents", () => {
     const sections = groupSpaceDataRootSections(
       [
-        {
-          id: "artifact:md",
-          kind: "artifact",
-          name: "Notes",
-          nodeType: "markdown",
-          sourceId: "md",
-        },
-        {
-          id: "artifact:html",
-          kind: "artifact",
-          name: "Report",
-          nodeType: "html",
-          sourceId: "html",
-        },
+        artifact("Notes", "markdown"),
+        artifact("Planner", "app"),
+        artifact("Report", "html"),
         {
           children: [],
           hasChildren: true,
@@ -69,35 +89,32 @@ describe("groupSpaceDataRootSections", () => {
           sourceId: "f1",
         },
       ],
-      { artifacts: "Artifacts" }
+      labels
     );
-    expect(sections).toHaveLength(1);
-    expect(sections[0]?.id).toBe(ARTIFACTS_SECTION_ID);
-    expect(sections[0]?.children.map((node) => node.name)).toEqual([
-      "Notes",
-      "Report",
-      "Briefs",
-    ]);
+    const byId = new Map(sections.map((section) => [section.id, section]));
+    expect(
+      byId.get(ARTIFACTS_SECTION_ID)?.children.map((node) => node.name)
+    ).toEqual(["Notes", "Report", "Briefs"]);
+    expect(
+      byId.get(APPS_SECTION_ID)?.children.map((node) => node.name)
+    ).toEqual(["Planner"]);
   });
 
-  it("always includes Artifacts so a page can be created without other roots", () => {
-    const sections = groupSpaceDataRootSections([folder("Files", "files")], {
-      artifacts: "Artifacts",
-    });
+  it("returns Documents and Apps even when empty — the tree decides what to hide", () => {
+    const sections = groupSpaceDataRootSections([], labels);
     expect(sections.map((section) => section.id)).toEqual([
-      "data:files",
       ARTIFACTS_SECTION_ID,
+      APPS_SECTION_ID,
     ]);
-    expect(sections[1]?.children).toEqual([]);
   });
 });
 
 describe("spaceDataSectionContainsSelection", () => {
   it("matches a path inside an adapter root", () => {
-    const [contacts] = groupSpaceDataRootSections(
+    const contacts = groupSpaceDataRootSections(
       [folder("Contacts", "contacts")],
-      { artifacts: "Ablage" }
-    );
+      labels
+    ).find((section) => section.id === "data:contacts");
     expect(
       spaceDataSectionContainsSelection(contacts!, {
         selectedPath: "Contacts/People",
@@ -108,16 +125,23 @@ describe("spaceDataSectionContainsSelection", () => {
     ).toBe(false);
   });
 
-  it("treats the Artifacts root listing as inside that section", () => {
-    const sections = groupSpaceDataRootSections([folder("Files", "files")], {
-      artifacts: "Ablage",
-    });
-    const artifacts = sections.find(
-      (section) => section.id === ARTIFACTS_SECTION_ID
-    );
+  it("counts a path in the agents' folder as inside Files", () => {
+    const [files] = groupSpaceDataRootSections(
+      [folder("Agents", "space-agents")],
+      labels
+    ).filter((section) => section.id === FILES_SECTION_ID);
     expect(
-      spaceDataSectionContainsSelection(artifacts!, { artifactsRoot: true })
+      spaceDataSectionContainsSelection(files!, {
+        selectedPath: "Agents/contacts.manager/uploads",
+      })
     ).toBe(true);
-    expect(spaceDataSectionContainsSelection(artifacts!, {})).toBe(false);
+  });
+
+  it("counts the Documents root listing as inside Documents", () => {
+    const [documents] = groupSpaceDataRootSections([], labels);
+    expect(
+      spaceDataSectionContainsSelection(documents!, { artifactsRoot: true })
+    ).toBe(true);
+    expect(spaceDataSectionContainsSelection(documents!, {})).toBe(false);
   });
 });

@@ -5,6 +5,7 @@
   "description": "Invoice CRUD with SQLite and PDF export",
   "version": "0.0.1",
   "kind": "module",
+  "stage": "alpha",
   "category": "commercial",
   "provides": [
     "module.invoices",

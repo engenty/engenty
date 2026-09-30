@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { ENGENTY_FILL, type EngentyKind } from "./colors";
+import { EngentyGoggles } from "./goggles";
 import { useEngentyGaze } from "./use-engenty-gaze";
 
 export interface EngentyProps {
@@ -11,6 +12,8 @@ export interface EngentyProps {
    */
   animated?: boolean;
   className?: string;
+  /** Old-school pilot goggles: the copilot's look. */
+  goggles?: boolean;
   kind?: EngentyKind;
   /** Pixel width/height of the SVG. */
   size?: number;
@@ -492,6 +495,7 @@ function Body({ kind }: { kind: EngentyKind }) {
 /** Flat landing engenty — SMIL idle morph + pointer-following eye/body. */
 export function Engenty({
   animated = true,
+  goggles = false,
   kind = "round",
   size = 160,
   className,
@@ -547,6 +551,7 @@ export function Engenty({
       </ellipse>
       <g className="e-lean">
         <Body kind={kind} />
+        {goggles ? <EngentyGoggles kind={kind} /> : null}
       </g>
     </svg>
   );

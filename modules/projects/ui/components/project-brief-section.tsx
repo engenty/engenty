@@ -1,5 +1,6 @@
 import { useTranslation } from "@engenty/i18n/ui";
 import { InlineEditableRichText } from "@engenty/tiptap-editor";
+import { Plus } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
 
 interface ProjectBriefSectionProps {
@@ -10,7 +11,7 @@ interface ProjectBriefSectionProps {
   onViewNotes?: () => void;
 }
 
-function hasBriefingText(html: string | null): boolean {
+export function hasBriefingText(html: string | null): boolean {
   if (!html) {
     return false;
   }
@@ -57,11 +58,12 @@ export function ProjectBriefSection({
     if (!hasContent) {
       return (
         <button
-          className="text-primary text-sm underline underline-offset-2 hover:opacity-90"
+          className="inline-flex items-center gap-1 text-muted-foreground text-sm transition-colors hover:text-foreground"
           onClick={onViewNotes}
           type="button"
         >
-          {t("detail.briefing.addNotes")}
+          <Plus className="size-3.5" />
+          {t("detail.quickAdd.notes")}
         </button>
       );
     }

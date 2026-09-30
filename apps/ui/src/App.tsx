@@ -16,6 +16,7 @@ import {
   gateFailureToNavigationState,
   getSupabaseAuthClient,
   ServiceUnavailablePage,
+  TENANT_SETUP_PATH,
   useCoreAuthSession,
 } from "@engenty/auth-ui";
 import { useTranslation } from "@engenty/i18n/ui";
@@ -26,7 +27,7 @@ import {
   UiContributionsProvider,
 } from "@engenty/ui-plugin-sdk";
 import { memo, type ReactNode, useCallback, useMemo, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { Toaster } from "sonner";
 import { AppLocationChrome } from "@/app-location-chrome";
 import { AboutDialog } from "@/components/AboutDialog";
@@ -46,6 +47,7 @@ import { useShellAppBarPositionPersistence } from "@/lib/shell-app-bar-position-
 import { useShellDockModuleOrderPersistence } from "@/lib/shell-dock-module-order-persistence";
 import { useShellSecondaryNavPinnedPersistence } from "@/lib/shell-secondary-nav-pinned-persistence";
 import { useAuthenticatedAppBootstrap } from "@/lib/use-authenticated-app-bootstrap";
+import { useTenantSetupDone } from "@/lib/use-tenant-setup-done";
 import { usePublicUiPluginContributions } from "@/plugins/public-ui-plugin-contributions";
 import { UnauthenticatedRoutes } from "@/routes/UnauthenticatedRoutes";
 
@@ -201,6 +203,9 @@ const AuthenticatedShell = memo(function AuthenticatedShell() {
   );
 
   const appMenuActions = useAppMenuActions();
+  const tenantSetupDone = useTenantSetupDone(
+    Boolean(workspaceContext?.isTenantAdmin && workspaceContext.currentTenant)
+  );
 
   if (onboardingError) {
     return (
@@ -246,6 +251,14 @@ const AuthenticatedShell = memo(function AuthenticatedShell() {
 
   if (workspaceQuery.isLoading || !workspaceContext) {
     return <AppLoadingScreen message={t("shell.loading")} shimmer />;
+  }
+
+  // A team that has not finished its setup starts in the wizard.
+  if (tenantSetupDone === undefined) {
+    return <AppLoadingScreen message={t("shell.loading")} shimmer />;
+  }
+  if (!tenantSetupDone) {
+    return <Navigate replace to={TENANT_SETUP_PATH} />;
   }
 
   const aiServiceBaseUrl = resolveEngentyAiServiceBaseUrl() ?? "";
@@ -330,6 +343,7 @@ const AuthenticatedShell = memo(function AuthenticatedShell() {
 
 function isStandalonePublicPath(pathname: string): boolean {
   return (
+    pathname === TENANT_SETUP_PATH ||
     pathname.startsWith("/portal/") ||
     pathname === "/oauth/consent" ||
     pathname.startsWith("/oauth/consent/") ||

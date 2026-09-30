@@ -1,3 +1,4 @@
+import { ModuleSidebarAgents } from "@engenty/ai-ui";
 import { shellSecondaryNavItemProps } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
@@ -74,7 +75,22 @@ export function OffersSidebarHeader({
 
   return (
     <SidebarHeader className="gap-0 p-0 pb-3">
-      <div className="flex min-w-0 items-center gap-1 pr-1 pl-2">
+      {isSearching ? null : (
+        <>
+          <SidebarNavList>
+            <SidebarNavRow
+              active={pathname === "/mdl/offers"}
+              icon={DockOffersIcon}
+              label={t("menu.offers", { defaultValue: "Offers" })}
+              to="/mdl/offers"
+            />
+          </SidebarNavList>
+          <ModuleSidebarAgents moduleId="offers" />
+        </>
+      )}
+
+      {/* Search sits right above the list it searches. */}
+      <div className="flex min-w-0 items-center gap-1 pt-2 pr-1 pl-2">
         <div className="relative min-w-0 flex-1">
           <Search
             aria-hidden
@@ -130,17 +146,6 @@ export function OffersSidebarHeader({
           </>
         )}
       </div>
-
-      {isSearching ? null : (
-        <SidebarNavList className="pt-2">
-          <SidebarNavRow
-            active={pathname === "/mdl/offers"}
-            icon={DockOffersIcon}
-            label={t("menu.offers", { defaultValue: "Offers" })}
-            to="/mdl/offers"
-          />
-        </SidebarNavList>
-      )}
     </SidebarHeader>
   );
 }

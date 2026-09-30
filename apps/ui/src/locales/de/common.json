@@ -618,7 +618,27 @@
       "zoomOut": "Verkleinern",
       "copy": "Kopieren",
       "untitledImage": "Bild",
-      "untitledFile": "Datei"
+      "untitledFile": "Datei",
+      "blocked": {
+        "empty": "„{{name}}“ ist leer und wurde nicht angehängt.",
+        "executable": "„{{name}}“ ist ein Programm und wurde nicht angehängt.",
+        "too_large": "„{{name}}“ ist größer als 25 MB und wurde nicht angehängt."
+      },
+      "ask": {
+        "archive": "ist ein Archiv – der Agent kann den Inhalt nicht lesen. Trotzdem anhängen?",
+        "macro": "kann Makros enthalten. Trotzdem anhängen?",
+        "mismatch": "enthält nicht, was der Name verspricht. Trotzdem anhängen?",
+        "attach": "Anhängen",
+        "skip": "Verwerfen"
+      },
+      "drop": {
+        "title_one": "Ablegen, um 1 Datei anzuhängen",
+        "title_other": "Ablegen, um {{count}} Dateien anzuhängen",
+        "titleUnknown": "Dateien hier ablegen",
+        "executable": "Programme können nicht angehängt werden",
+        "limits": "Bis zu {{maxFiles}} Dateien, je max. {{maxMb}} MB"
+      },
+      "dismissError": "Schließen"
     },
     "references": {
       "remove": "Referenz entfernen"
@@ -1344,7 +1364,7 @@
         "pinned": "Favoriten",
         "active": "Aktiv",
         "quiet": "Inaktiv",
-        "attention": "Wichtig"
+        "attention": "Mitteilungen"
       },
       "attention": {
         "all": "Alle ({{count}})"
@@ -1416,12 +1436,14 @@
         "confirmLabel": "Gib {{name}} zur Bestätigung ein",
         "confirmAction": "Space löschen",
         "marked": "Dieser Space ist zum Löschen markiert. Er wird am {{date}} endgültig entfernt.",
-        "defaultHint": "Der Company-Space ist die Eingangstür des Mandanten und kann nicht gelöscht werden.",
-        "defaultBody": "Lege einen weiteren Space an, wenn du einen eigenen Arbeitsbereich brauchst. Der Company-Space bleibt."
+        "defaultHint": "Der Organisations-Space ist die Eingangstür der Organisation und kann nicht gelöscht werden.",
+        "defaultBody": "Lege einen weiteren Space an, wenn du einen eigenen Arbeitsbereich brauchst. Der Organisations-Space bleibt."
       },
       "descriptionPlaceholder": "Wofür ist dieser Space?",
-      "publishTitle": "Öffentlichen Ordner mit der Firma teilen",
-      "publishHint": "Dateien in /space/public kann jeder Bereich als /company/spaces/{{key}} lesen. Agenten fragen, bevor sie dort schreiben."
+      "publishTitle": "Öffentlichen Ordner mit der Organisation teilen",
+      "publishHint": "Dateien in /space/public kann jeder Bereich als /company/spaces/{{key}} lesen. Agenten fragen, bevor sie dort schreiben.",
+      "memoryTitle": "Gedächtnis",
+      "memoryHint": "Was jeder Engenty in diesem Space bei jedem Schritt erfährt: wie es gerade ist, und die gemerkten Fakten. Agenten halten es aktuell; jedes Mitglied kann es ändern."
     },
     "data": {
       "derived": "Abgeleitet",
@@ -1460,6 +1482,12 @@
       "empty": "Noch nichts in diesem Space.",
       "projectsFolder": "Projekte",
       "partial": "Ein Teil des Datenbaums konnte nicht geladen werden ({{sources}}); die Ansicht ist unvollständig.",
+      "searchPlaceholder": "Daten durchsuchen",
+      "searchEmpty": "Nichts gefunden",
+      "searchTruncated": "Weitere Treffer — Suche verfeinern",
+      "searchPartial": "{{sources}} konnte nicht durchsucht werden",
+      "searchClear": "Suche löschen",
+      "searchLoading": "Suche läuft…",
       "folderFailed": "Dieser Ordner konnte nicht geladen werden.",
       "truncated": "Es werden nur die ersten Ergebnisse angezeigt.",
       "emptyFolder": "Leer.",
@@ -1488,7 +1516,7 @@
         "tableView": "Tabelle",
         "deleteSelected": "Löschen",
         "deleteSelectedConfirm": "Löschen",
-        "deleteSelectedDescription": "Ausgewählte Artefakte werden archiviert und verschwinden aus der Ablage. Andere Einträge werden aus diesem Ordner entfernt. Das lässt sich von hier nicht rückgängig machen.",
+        "deleteSelectedDescription": "Ausgewählte Artefakte werden archiviert und verschwinden aus den Dokumenten. Andere Einträge werden aus diesem Ordner entfernt. Das lässt sich von hier nicht rückgängig machen.",
         "deleteSelectedFailed": "Löschen fehlgeschlagen",
         "deleteSelectedPartial": "{{deleted}} von {{count}} gelöscht",
         "deleteSelectedTitle": "{{count}} Einträge löschen?",
@@ -1497,7 +1525,7 @@
         "deletedSelected": "{{count}} gelöscht",
         "moveHere": "Verschieben",
         "moveSelected": "Verschieben",
-        "moveSelectedDescription": "Wähle einen Ordner oder die Ablage-Wurzel.",
+        "moveSelectedDescription": "Wähle einen Ordner oder die oberste Ebene der Dokumente.",
         "moveSelectedFailed": "Verschieben fehlgeschlagen",
         "moveSelectedPartial": "{{moved}} von {{count}} verschoben",
         "moveSelectedTitle": "{{count}} Einträge verschieben",
@@ -1505,8 +1533,10 @@
         "moveSelectedTitle_other": "{{count}} Einträge verschieben",
         "movedSelected": "{{count}} verschoben"
       },
-      "artifactsSection": "Ablage",
+      "artifactsSection": "Dokumente",
       "filesSection": "Dateien",
+      "appsSection": "Apps",
+      "publicSection": "Geteilt",
       "pagesSection": "Seiten",
       "addInSection": "Hinzufügen",
       "newPage": "Seite",
@@ -1515,9 +1545,9 @@
       "newHtml": "HTML",
       "newTable": "Tabelle",
       "newApp": "App",
-      "askHtml": "Erstelle ein HTML-Artefakt in der Ablage dieses Space. Frag mich, was es zeigen soll, wenn ich das noch nicht gesagt habe.",
-      "askTable": "Erstelle eine Tabelle in der Ablage dieses Space. Frag mich nach Spalten und Zeilen, wenn ich das noch nicht gesagt habe.",
-      "askApp": "Baue eine App und speichere sie in der Ablage dieses Space. Frag mich, was sie tun soll, wenn ich das noch nicht gesagt habe.",
+      "askHtml": "Erstelle ein HTML-Artefakt in den Dokumenten dieses Space. Frag mich, was es zeigen soll, wenn ich das noch nicht gesagt habe.",
+      "askTable": "Erstelle eine Tabelle in den Dokumenten dieses Space. Frag mich nach Spalten und Zeilen, wenn ich das noch nicht gesagt habe.",
+      "askApp": "Baue eine App und speichere sie in den Dokumenten dieses Space. Frag mich, was sie tun soll, wenn ich das noch nicht gesagt habe.",
       "artifact": {
         "open": "Öffnen",
         "edit": "Bearbeiten",
@@ -1530,7 +1560,7 @@
         "duplicateSuffix": " Kopie",
         "move": "Verschieben",
         "moveTitle": "Verschieben",
-        "moveDescription": "Wähle einen Ordner oder die Ablage-Wurzel.",
+        "moveDescription": "Wähle einen Ordner oder die oberste Ebene der Dokumente.",
         "moveHere": "Verschieben",
         "moved": "Verschoben",
         "moveFailed": "Verschieben fehlgeschlagen",
@@ -1543,15 +1573,15 @@
         "delete": "Löschen",
         "deleteConfirm": "Löschen",
         "deleteTitle": "{{name}} löschen?",
-        "deleteDescription": "Das Artefakt wird archiviert und verschwindet aus der Ablage. Das lässt sich von hier nicht rückgängig machen.",
-        "deleteFolderDescription": "Der Ordner wird archiviert und verschwindet aus der Ablage. Das lässt sich von hier nicht rückgängig machen.",
+        "deleteDescription": "Das Artefakt wird archiviert und verschwindet aus den Dokumenten. Das lässt sich von hier nicht rückgängig machen.",
+        "deleteFolderDescription": "Der Ordner wird archiviert und verschwindet aus den Dokumenten. Das lässt sich von hier nicht rückgängig machen.",
         "deleted": "Gelöscht",
         "deleteFailed": "Löschen fehlgeschlagen",
-        "root": "Ablage",
-        "askEditHtml": "Bearbeite das HTML-Artefakt «{{name}}» in der Ablage dieses Space.",
-        "askEditTable": "Bearbeite die Tabelle «{{name}}» in der Ablage dieses Space.",
-        "askEditApp": "Ändere die App «{{name}}» in der Ablage dieses Space.",
-        "askEditDatabase": "Bearbeite das Datenbank-Artefakt «{{name}}» in der Ablage dieses Space."
+        "root": "Dokumente",
+        "askEditHtml": "Bearbeite das HTML-Artefakt «{{name}}» in den Dokumenten dieses Space.",
+        "askEditTable": "Bearbeite die Tabelle «{{name}}» in den Dokumenten dieses Space.",
+        "askEditApp": "Ändere die App «{{name}}» in den Dokumenten dieses Space.",
+        "askEditDatabase": "Bearbeite das Datenbank-Artefakt «{{name}}» in den Dokumenten dieses Space."
       },
       "recent": "Zuletzt geöffnet",
       "recentEmpty": "Was du in diesem Space öffnest, erscheint hier.",
@@ -1612,7 +1642,7 @@
         "created": "Erstellt",
         "delete": "Löschen",
         "deleteConfirm": "Löschen",
-        "deleteDescription": "Die Seite wird archiviert und verschwindet aus der Ablage. Das lässt sich von hier nicht rückgängig machen.",
+        "deleteDescription": "Die Seite wird archiviert und verschwindet aus den Dokumenten. Das lässt sich von hier nicht rückgängig machen.",
         "deleteFailed": "Löschen fehlgeschlagen",
         "deleteTitle": "Diese Seite löschen?",
         "deleted": "Seite gelöscht",
@@ -1628,7 +1658,7 @@
         "linkCopied": "Link kopiert",
         "linkCopyFailed": "Link konnte nicht kopiert werden",
         "move": "Verschieben",
-        "moveDescription": "Wähle einen Ordner oder die Ablage-Wurzel.",
+        "moveDescription": "Wähle einen Ordner oder die oberste Ebene der Dokumente.",
         "moveFailed": "Verschieben fehlgeschlagen",
         "moveHere": "Verschieben",
         "moveTitle": "Seite verschieben",
@@ -1639,7 +1669,7 @@
         "readingLarge": "Groß",
         "readingNormal": "Standard",
         "readingTone": "Lesen",
-        "root": "Ablage",
+        "root": "Dokumente",
         "type": "Typ",
         "typeMarkdown": "Markdown",
         "untitled": "Ohne Titel",
@@ -1669,7 +1699,6 @@
       "openDm": "Direktnachricht",
       "newDm": "Neue Direktnachricht",
       "dmLine": "Nur du",
-      "riverLine": "Nur du · überall",
       "newRoomWith": "Neuer Gruppenchat mit {{name}}",
       "hide": "Aus der Seitenleiste ausblenden",
       "leave": "Verlassen",
@@ -1698,7 +1727,7 @@
     },
     "artifacts": {
       "section": "Artefakte",
-      "empty": "Hefte Artefakte aus der Ablage an, um sie hier zu behalten.",
+      "empty": "Hefte Artefakte aus den Dokumenten an, um sie hier zu behalten.",
       "pin": "Anheften",
       "unpin": "Lösen",
       "more": "{{count}} weitere"
@@ -1711,7 +1740,10 @@
       "pin": "Anheften",
       "unpin": "Lösen"
     },
-    "dashboard": "Dashboard"
+    "dashboard": "Dashboard",
+    "nav": {
+      "backToSpace": "Zurück zum Space"
+    }
   },
   "notifications": {
     "action": {
@@ -1722,7 +1754,7 @@
       "continue": "Fortsetzen"
     },
     "approval": {
-      "allowAlways": "Für diesen Agenten immer erlauben",
+      "allowAlways": "Für Agent erlauben",
       "allowAlwaysInbox": "Für Agenten",
       "alreadyDecided": "Wurde bereits von jemand anderem erledigt.",
       "allowOnce": "Einmal erlauben",
@@ -1733,40 +1765,27 @@
       "risk": "Risiko {{level}}"
     },
     "bell": "Benachrichtigungen",
-    "clearAll": "Alle löschen",
     "count": "{{count}} Einträge",
     "dismiss": "Verwerfen",
     "empty": "Nichts Neues — Freigaben, Fehler und erledigte Arbeit landen hier.",
-    "emptyHint": "Freigaben und Updates erscheinen hier.",
     "emptyTitle": "Nichts Neues",
     "filter": {
       "all": "Alle",
       "errors": "Fehler",
-      "hitl": "Braucht deine Antwort",
+      "hitl": "Braucht Antwort",
       "updates": "Updates",
-      "attention": "Wichtig"
-    },
-    "inboxTitle": {
-      "errors_one": "{{count}} Fehler",
-      "errors_other": "{{count}} Fehler",
-      "hitl_one": "{{count}} offene Freigabe",
-      "hitl_other": "{{count}} offene Freigaben",
-      "updates_one": "{{count}} Update",
-      "updates_other": "{{count}} Updates",
-      "attention_one": "{{count}} wichtig",
-      "attention_other": "{{count}} wichtig"
+      "attention": "Mitteilungen",
+      "label": "Filter",
+      "space": "Space",
+      "allSpaces": "Alle Spaces"
     },
     "lane": {
-      "approvals": "Freigaben",
-      "errors": "Fehler",
-      "needsYou": "Braucht deine Antwort",
       "updates": "Updates",
-      "attention": "Wichtig"
+      "attention": "Mitteilungen"
     },
     "loadFailed": "Benachrichtigungen konnten nicht geladen werden.",
     "loading": "Lädt…",
     "markAllSeen": "Alle als gesehen markieren",
-    "markSeen": "Als gesehen markieren",
     "scope": {
       "all": "Alle",
       "space": "Space",
@@ -1777,9 +1796,6 @@
     "subtitle": "Freigaben, Fehler und erledigte Agentenarbeit, die deine Aufmerksamkeit brauchen.",
     "title": "Benachrichtigungen",
     "viewAll": "Alle anzeigen",
-    "views": {
-      "save": "Aktuellen Filter speichern"
-    },
     "actorFilter": {
       "clear": "Alle anzeigen"
     },
@@ -1822,16 +1838,37 @@
       "workflow_proposed": "Workflow „{{name}}“ zur Prüfung",
       "workflow_revised": "Workflow „{{name}}“ v{{version}} zur Prüfung"
     },
+    "headlines": {
+      "agent_desk_post": "Hat ein Update gepostet",
+      "agent_look_proposed": "Schlägt ein neues Aussehen vor",
+      "agent_question": "Hat eine Frage",
+      "agent_run_suspended": "Schlägt Änderungen zur Prüfung vor",
+      "approval_requested": "Möchte {{operation}} ausführen",
+      "records_written": "Hat {{operation}} ausgeführt",
+      "routine_created": "Hat die Routine „{{name}}“ angelegt",
+      "stream_escalation": "Braucht deine Aufmerksamkeit",
+      "stream_update": "Hat ein Update gepostet",
+      "team_chat_dm": "Hat dir geschrieben",
+      "team_chat_mention": "Hat dich in {{name}} erwähnt",
+      "team_chat_message": "Hat in {{name}} geschrieben",
+      "team_chat_reply": "Hat in {{name}} geantwortet",
+      "tool_approval": "Möchte {{operation}} verwenden"
+    },
     "group": {
-      "more": "+{{count}} weitere",
-      "moreFrom": "+{{count}} weitere von {{name}}",
-      "less": "Weniger anzeigen"
-    }
+      "more": "+{{count}} weitere"
+    },
+    "emptyHintAttention": "Nichts wartet auf dich.",
+    "emptyHintUpdates": "Was deine Agenten erledigen, erscheint hier.",
+    "close": "Schließen",
+    "fromEngenty": "Engenty",
+    "expand": "Als Seite öffnen",
+    "markSeen": "Als gesehen markieren",
+    "showMore": "Mehr anzeigen"
   },
   "company": {
-    "title": "Firmendateien",
-    "description": "Was jeder Bereich lesen kann. Agenten sehen diese Ordner schreibgeschützt unter /company; das Firmenlaufwerk schreiben Personen mit Veröffentlichungsrecht, den Ordner eines Bereichs dessen eigene Leute.",
-    "driveTitle": "Firmenlaufwerk",
+    "title": "Organisationsdateien",
+    "description": "Was jeder Bereich lesen kann. Agenten sehen diese Ordner schreibgeschützt unter /company; das Organisationslaufwerk schreiben Personen mit Veröffentlichungsrecht, den Ordner eines Bereichs dessen eigene Leute.",
+    "driveTitle": "Organisationslaufwerk",
     "spacesTitle": "Von Bereichen geteilt",
     "noSpaces": "Noch kein Bereich teilt einen öffentlichen Ordner.",
     "empty": "Noch keine Dateien.",
@@ -1841,6 +1878,51 @@
     "uploadFailed": "Hochladen fehlgeschlagen.",
     "deleteFailed": "Löschen fehlgeschlagen.",
     "downloadFailed": "Datei konnte nicht geöffnet werden.",
-    "openLink": "Firmendateien öffnen"
+    "openLink": "Organisationsdateien öffnen",
+    "memoryTitle": "Organisations-Gedächtnis",
+    "memoryDescription": "Was jeder Engenty in jedem Space in jedem Zug erfährt. Ein Engenty fragt um Freigabe, bevor er hier etwas ergänzt."
+  },
+  "covers": {
+    "add_cover_hint": "Cover hinzufügen",
+    "change_cover_hint": "Cover ändern",
+    "cover_ai_failed": "Bilderzeugung fehlgeschlagen.",
+    "cover_ai_mode_edit": "Bearbeiten",
+    "cover_ai_mode_generate": "Erzeugen",
+    "cover_ai_prompt_label": "Prompt",
+    "cover_ai_prompt_placeholder": "Beschreiben Sie das gewünschte Cover…",
+    "cover_ai_ref_ready": "Referenzbild wurde hochgeladen.",
+    "cover_ai_ref_upload": "Referenzbild (optional)",
+    "cover_ai_ref_upload_button": "Referenzdatei wählen",
+    "cover_ai_run": "Bild erzeugen",
+    "cover_ai_use_current": "Aktuelles Cover als Referenz verwenden",
+    "cover_ai_use_current_hint": "Legen Sie ein im Speicher abgelegtes Cover (Upload oder Unsplash) fest, oder laden Sie unten eine Referenz hoch.",
+    "cover_attribution_on": "auf",
+    "cover_attribution_photo_by": "Foto von",
+    "cover_dialog_description": "Farbe, Verlauf oder Bild wählen. Bilder können hochgeladen, über Unsplash gefunden oder per KI erzeugt werden.",
+    "cover_dialog_title": "Cover",
+    "cover_image_sub_ai": "KI",
+    "cover_image_sub_upload": "Hochladen",
+    "cover_picker_apply": "Übernehmen",
+    "cover_picker_color_tab": "Farbe",
+    "cover_picker_gradient_tab": "Verlauf",
+    "cover_picker_image_or_url": "oder URL",
+    "cover_picker_image_placeholder": "Bild-URL einfügen…",
+    "cover_picker_image_tab": "Bild",
+    "cover_picker_image_url_invalid": "Bitte eine gültige Bild-URL eingeben (https://…).",
+    "cover_picker_tone_light": "Hell",
+    "cover_picker_tone_vibrant": "Kräftig",
+    "cover_picker_upload_button": "Bilddatei wählen",
+    "cover_picker_upload_failed": "Bild konnte nicht hochgeladen werden.",
+    "cover_picker_upload_not_image": "Bitte eine Bilddatei wählen (JPEG, PNG, WebP oder GIF).",
+    "cover_picker_upload_too_large": "Bild darf höchstens 12 MB groß sein.",
+    "cover_picker_uploading": "Wird hochgeladen…",
+    "cover_unsplash_error": "Unsplash-Ergebnisse konnten nicht geladen werden. Prüfen Sie die Server-Konfiguration.",
+    "cover_unsplash_import_failed": "Foto konnte nicht importiert werden.",
+    "cover_unsplash_placeholder": "Fotos suchen…",
+    "cover_unsplash_query_required": "Bitte einen Suchbegriff eingeben.",
+    "cover_unsplash_search": "Suchen",
+    "cover_unsplash_terms": "Fotos von Fotografen auf Unsplash — Nutzung gemäß Unsplash-Richtlinien.",
+    "cover_upload_drop_hint": "Bild hierher ziehen oder die Schaltfläche unten nutzen.",
+    "remove_cover": "Cover entfernen"
   }
 }

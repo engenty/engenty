@@ -10,7 +10,10 @@ import {
   runRouteContextForwardedProps,
   toAgUiTool,
 } from "@engenty/ag-ui-bridge";
-import type { AiEffortChoice } from "@engenty/ai-core/browser";
+import type {
+  AiEffortChoice,
+  AiReasoningEffort,
+} from "@engenty/ai-core/browser";
 import type { EngentyAgUiRouteContext } from "../engenty-ag-ui-route-context.js";
 
 function createRunId(): string {
@@ -56,6 +59,7 @@ function buildAppsAiRunInputBase(params: {
   messages: readonly Message[];
   modelId?: string | null;
   pathname: string;
+  reasoningEffort?: AiReasoningEffort | null;
   routeContext: EngentyAgUiRouteContext;
   threadId: string;
   state: RunAgentInput["state"];
@@ -104,11 +108,14 @@ function buildAppsAiRunInputBase(params: {
     // consumes it.
     forwardedProps: {
       engenty: {
-        // Effort travels *alongside* model_id, never instead of it: a
-        // self-hosted install that pins a model in expert mode must keep
-        // winning over the tier the composer suggests.
+        // The composer's pick: Normal and Extra send a tier, Custom a model
+        // from the tenant's list. `reasoning_effort` rides with either and
+        // applies only where the model reasons.
         ...(params.effort ? { effort: params.effort } : {}),
         ...(modelId ? { model_id: modelId } : {}),
+        ...(params.reasoningEffort
+          ? { reasoning_effort: params.reasoningEffort }
+          : {}),
         // Only into the run already answering on this thread — never a run
         // of its own. The server answers 409 when there is none to steer.
         ...(params.steerOnly ? { steer_only: true } : {}),
@@ -140,6 +147,7 @@ export function buildAppsAiRunInput(params: {
   message: Message;
   modelId?: string | null;
   pathname: string;
+  reasoningEffort?: AiReasoningEffort | null;
   routeContext: EngentyAgUiRouteContext;
   /** Steer the run in flight on this thread, or fail — start nothing. */
   steerOnly?: boolean;
@@ -160,6 +168,7 @@ export function buildAppsAiResumeRunInput(params: {
   frontendTools: FrontendToolDefinition[];
   modelId?: string | null;
   pathname: string;
+  reasoningEffort?: AiReasoningEffort | null;
   resume: AppsAiResumeEntry[];
   routeContext: EngentyAgUiRouteContext;
   threadId: string;
@@ -171,6 +180,7 @@ export function buildAppsAiResumeRunInput(params: {
     messages: [],
     modelId: params.modelId,
     pathname: params.pathname,
+    reasoningEffort: params.reasoningEffort,
     routeContext: params.routeContext,
     threadId: params.threadId,
     state: params.state,

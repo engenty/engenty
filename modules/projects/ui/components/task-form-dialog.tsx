@@ -57,6 +57,8 @@ interface TaskFormDialogProps {
   phaseId?: string | null;
   /** Phases the task can be assigned to; when provided, a phase pill is shown. */
   phases?: TaskFormPhaseOption[];
+  /** Client-visibility controls only exist while the project's portal is on. */
+  portalEnabled?: boolean;
   /** Ids already on the project (for grouped picker); may be empty. */
   projectMemberIds: string[];
   /** Name of the (fixed) project this task belongs to — used for a11y title. */
@@ -79,6 +81,7 @@ function autoGrow(el: HTMLTextAreaElement) {
 }
 
 export function TaskFormDialog({
+  portalEnabled = false,
   open,
   onOpenChange,
   onDelete,
@@ -400,25 +403,29 @@ export function TaskFormDialog({
                 </PopoverContent>
               </Popover>
 
-              {/* Visible to client */}
-              <button
-                className={`${pillClass} ${
-                  isPublic ? "border-primary/40 bg-primary/5 text-primary" : ""
-                }`}
-                onClick={() => setIsPublic((v) => !v)}
-                type="button"
-              >
-                {isPublic ? (
-                  <Eye className="h-3 w-3" />
-                ) : (
-                  <EyeOff className="h-3 w-3 text-muted-foreground" />
-                )}
-                <span>
-                  {isPublic
-                    ? t("detail.taskForm.visibleToClient")
-                    : t("detail.taskForm.internal")}
-                </span>
-              </button>
+              {/* Visible to client — only while the portal is on */}
+              {portalEnabled ? (
+                <button
+                  className={`${pillClass} ${
+                    isPublic
+                      ? "border-primary/40 bg-primary/5 text-primary"
+                      : ""
+                  }`}
+                  onClick={() => setIsPublic((v) => !v)}
+                  type="button"
+                >
+                  {isPublic ? (
+                    <Eye className="h-3 w-3" />
+                  ) : (
+                    <EyeOff className="h-3 w-3 text-muted-foreground" />
+                  )}
+                  <span>
+                    {isPublic
+                      ? t("detail.taskForm.visibleToClient")
+                      : t("detail.taskForm.internal")}
+                  </span>
+                </button>
+              ) : null}
             </div>
 
             <textarea

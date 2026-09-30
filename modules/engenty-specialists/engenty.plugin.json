@@ -18,5 +18,5 @@
     "entry": "./src/plugin.ts"
   },
   "placement": "settings",
-  "stability": "experimental"
+  "stage": "beta"
 }

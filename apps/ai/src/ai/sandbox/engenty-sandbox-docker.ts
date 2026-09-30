@@ -190,10 +190,16 @@ export async function destroyAllEngentyDockerSandboxes(): Promise<number> {
       continue;
     }
     try {
-      // Space services survive deploys: STOP them (their writable layer and
-      // profile are their state), never remove them. Everything else is
-      // per-run and orphaned once this process is gone.
-      if (parsed.lifecycle === "space" || parsed.lifecycle === "browser") {
+      // A Space's browser outlives this process: a person may be signed in
+      // or mid-takeover, and the next process reconnects over CDP. Its own
+      // idle sweep (`sweepIdleUserBrowsers`) is what stops it.
+      if (parsed.lifecycle === "browser") {
+        continue;
+      }
+      // Space computers survive deploys: STOP them (their writable layer is
+      // their state), never remove them. Everything else is per-run and
+      // orphaned once this process is gone.
+      if (parsed.lifecycle === "space") {
         if (row.state === "running") {
           await stopSpaceComputerContainer(row.container_id);
         }

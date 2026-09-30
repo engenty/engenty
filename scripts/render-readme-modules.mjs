@@ -14,7 +14,8 @@
  *   "settings"` and it `requires` a listed module, or a listed space module
  *   `requires` it — is a sub-module row under the same table, naming what it
  *   extends or serves;
- * - `emoji` sits before the name; `stability: "experimental"` leaves the module out.
+ * - `emoji` sits before the name; a `stage` of `dev` or `alpha` leaves the
+ *   module out (what a normal install shows: `beta` and `stable`).
  *
  * `--root` renders another workspace's README — the open-source snapshot
  * publishes a tree with fewer modules, and pro's table would advertise the
@@ -45,7 +46,11 @@ const modules = [];
 const providersByParent = new Map();
 for await (const rel of glob("modules/*/engenty.plugin.json", { cwd: root })) {
   const manifest = JSON.parse(readFileSync(join(root, rel), "utf8"));
-  if (active.has(manifest.id) && manifest.stability !== "experimental") {
+  if (
+    active.has(manifest.id) &&
+    manifest.stage !== "dev" &&
+    manifest.stage !== "alpha"
+  ) {
     modules.push(manifest);
   }
 }

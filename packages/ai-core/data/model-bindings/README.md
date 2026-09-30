@@ -24,7 +24,7 @@ Each file:
 {
   "gateway": "openrouter",
   "label": "OpenRouter",
-  "roles": { "model.low": "…", "classifier": "…" }
+  "roles": { "model.normal": "…", "classifier": "…" }
 }
 ```
 
@@ -34,7 +34,7 @@ Each file:
 
 | Role | Pick |
 |------|------|
-| **`model.low` / `model.medium` / `model.high`** | Graded agent tiers. The cheapest model that can actually run an agent turn (tools) at that grade. Not `gpt-oss-20b` — too weak for product chat. |
+| **`model.normal` / `model.high`** | The composer's Normal and Extra. Normal: the cheapest model that can actually run an agent turn (tools) — not `gpt-oss-20b`, too weak for product chat. Extra: the strongest; a reasoning model gets a reasoning level in the composer. |
 | **`classifier`** | Pick-one-of-N (effort routing, inbox lanes, guardrails). Jev (`typesafe-ai/jev`) — short, cheap choice calls. |
 | **`fast_text`** | Short prose without tools (titles, summaries, memory). Small, cheap, large context. |
 | **`image` / `embedding` / `video` / `realtime`** | Media roles. A ref (`vercel:…`) when the pack's gateway has no such model. |

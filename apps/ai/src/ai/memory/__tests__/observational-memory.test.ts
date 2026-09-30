@@ -79,16 +79,11 @@ describe("observational memory", () => {
     ).toBe(false);
   });
 
-  it("configures thread OM and cache-friendly working-memory signals", () => {
+  it("configures thread OM and leaves kept facts to memory entries", () => {
     const options = createEngentySessionMemoryOptions({} as NodeJS.ProcessEnv);
 
     expect(options.lastMessages).toBe(ENGENTY_MEMORY_LAST_MESSAGES);
-    expect(options.workingMemory).toMatchObject({
-      agentManaged: false,
-      enabled: true,
-      scope: "resource",
-      useStateSignals: true,
-    });
+    expect(options.workingMemory).toEqual({ enabled: false });
     expect(options.observationalMemory).toMatchObject({
       activateAfterIdle: "auto",
       activateOnProviderChange: true,
@@ -98,7 +93,6 @@ describe("observational memory", () => {
         // turn" regardless of `messageTokens`, which cost ~22% of a turn's
         // input tokens re-reading the same conversation.
         bufferOnIdle: false,
-        manageWorkingMemory: true,
         messageTokens: ENGENTY_OBSERVATION_MESSAGE_TOKENS,
         modelSettings: { maxOutputTokens: ENGENTY_OBSERVER_MAX_OUTPUT_TOKENS },
         observeAttachments: false,
@@ -152,6 +146,8 @@ describe("observational memory", () => {
     vi.stubEnv("SUPABASE_DB_URL", "postgres://test");
     const runtime = createEngentySessionMemoryRuntime({
       agentId: "engenty.copilot",
+      memory: { place: { kind: "company" }, privateLine: false },
+      memoryEntries: null,
       scope: { tenantId, userId },
       sharedObservations: "personal",
       store: {} as ThreadStore,
@@ -169,6 +165,8 @@ describe("observational memory", () => {
     vi.stubEnv("SUPABASE_DB_URL", "postgres://test");
     const runtime = createEngentySessionMemoryRuntime({
       agentId: "engenty.copilot",
+      memory: { place: { kind: "company" }, privateLine: false },
+      memoryEntries: null,
       scope: { tenantId, userId },
       sharedObservations: "personal",
       store: {} as ThreadStore,
@@ -185,6 +183,8 @@ describe("observational memory", () => {
     vi.stubEnv("SUPABASE_DB_URL", "postgres://test");
     const runtime = createEngentySessionMemoryRuntime({
       agentId: "contacts.manager",
+      memory: { place: { kind: "company" }, privateLine: false },
+      memoryEntries: null,
       scope: { tenantId, userId },
       sharedObservations: "space",
       store: {} as ThreadStore,
@@ -202,6 +202,8 @@ describe("observational memory", () => {
     vi.stubEnv("SUPABASE_DB_URL", "postgres://test");
     const runtime = createEngentySessionMemoryRuntime({
       agentId: "contacts.manager",
+      memory: { place: { kind: "company" }, privateLine: false },
+      memoryEntries: null,
       scope: { tenantId, userId },
       sharedObservations: "space",
       spaceId,
@@ -218,6 +220,8 @@ describe("observational memory", () => {
     vi.stubEnv("ENGENTY_AI_OBSERVATIONAL_MEMORY", "false");
     const runtime = createEngentySessionMemoryRuntime({
       agentId: "engenty.copilot",
+      memory: { place: { kind: "company" }, privateLine: false },
+      memoryEntries: null,
       scope: { tenantId, userId },
       sharedObservations: "personal",
       store: {} as ThreadStore,

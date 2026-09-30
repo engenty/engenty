@@ -1,7 +1,13 @@
 "use client";
 
-import type { AgUiOpenInterruptMetadata } from "@engenty/ag-ui-bridge";
-import { isFrontendToolOpenInterrupt } from "@engenty/ag-ui-bridge";
+import type {
+  AgUiBrowserPreview,
+  AgUiOpenInterruptMetadata,
+} from "@engenty/ag-ui-bridge";
+import {
+  isFrontendToolOpenInterrupt,
+  readAgUiBrowserPreview,
+} from "@engenty/ag-ui-bridge";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
   Button,
@@ -12,6 +18,8 @@ import {
   Input,
 } from "@engenty/ui-core";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
+import { BrowserChatWidget } from "../../../features/browser/browser-chat-widget.js";
+import { BrowserCredentialsCard } from "../../../features/browser/browser-credentials-card.js";
 import type { StoredGraph } from "../../../features/workflow-canvas/graph-model.js";
 import { WorkflowCanvas } from "../../../features/workflow-canvas/workflow-canvas.js";
 import { InterruptCardBody } from "./interrupt-card-body.js";
@@ -60,18 +68,27 @@ export interface DecisionArtifact {
   interruptId?: string;
   /** Checkbox mode: several choices (plus an optional custom answer) at once. */
   multiSelect?: boolean;
-  /** What is being decided, as a diagram the person can open first. */
+  /**
+   * What is being decided: a workflow diagram the person can open first, or
+   * the agent's browser window (setup, live view, marked-up screenshot).
+   */
   preview?: DecisionPreview;
   title: string;
 }
 
-export interface DecisionPreview {
+export interface DecisionWorkflowPreviewData {
   graph: unknown;
   kind: "workflow";
   title?: string;
 }
 
+export type DecisionPreview = AgUiBrowserPreview | DecisionWorkflowPreviewData;
+
 function readDecisionPreview(raw: unknown): DecisionPreview | null {
+  const browser = readAgUiBrowserPreview(raw);
+  if (browser) {
+    return browser;
+  }
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
     return null;
   }
@@ -88,7 +105,9 @@ function readDecisionPreview(raw: unknown): DecisionPreview | null {
 }
 
 /** The workflow a decision puts live, drawn read-only in a dialog. */
-function DecisionWorkflowPreview(props: { preview: DecisionPreview }) {
+function DecisionWorkflowPreview(props: {
+  preview: DecisionWorkflowPreviewData;
+}) {
   const { t } = useTranslation("common");
   const [open, setOpen] = useState(false);
   return (
@@ -376,7 +395,7 @@ export function DecisionArtifactResolvedCard(props: {
   );
 }
 
-export function DecisionArtifactCard(props: {
+interface DecisionArtifactCardProps {
   artifact: DecisionArtifact;
   onChoose: (
     artifactId: string,
@@ -385,7 +404,28 @@ export function DecisionArtifactCard(props: {
   ) => void;
   /** Close the card without answering. Absent on cards that cannot be dismissed (display-only rows). */
   onDismiss?: () => void;
-}) {
+}
+
+export function DecisionArtifactCard(props: DecisionArtifactCardProps) {
+  const preview = props.artifact.preview;
+  // A login form: no choice list and no free-text answer — what is typed
+  // there must not become the answer the model reads.
+  if (preview?.kind === "browser_credentials") {
+    return (
+      <BrowserCredentialsCard
+        artifactId={props.artifact.artifactId}
+        declineChoiceId={props.artifact.choices[0]?.id}
+        onChoose={props.onChoose}
+        onDismiss={props.onDismiss}
+        preview={preview}
+        title={props.artifact.title}
+      />
+    );
+  }
+  return <DecisionChoiceCard {...props} />;
+}
+
+function DecisionChoiceCard(props: DecisionArtifactCardProps) {
   const { t } = useTranslation("common");
   const [inputValue, setInputValue] = useState("");
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(
@@ -549,7 +589,9 @@ export function DecisionArtifactCard(props: {
         activeEl &&
         (activeEl.tagName === "INPUT" ||
           activeEl.tagName === "TEXTAREA" ||
-          activeEl.hasAttribute("contenteditable"))
+          activeEl.hasAttribute("contenteditable") ||
+          // Keys typed into a live browser view go to the page.
+          activeEl.closest("[data-browser-view]"))
       ) {
         return;
       }
@@ -602,8 +644,15 @@ export function DecisionArtifactCard(props: {
             {displayTitle}
           </h3>
           {displayBody ? <InterruptCardBody body={displayBody} /> : null}
-          {props.artifact.preview ? (
+          {props.artifact.preview?.kind === "workflow" ? (
             <DecisionWorkflowPreview preview={props.artifact.preview} />
+          ) : null}
+          {props.artifact.preview &&
+          props.artifact.preview.kind !== "workflow" &&
+          props.artifact.preview.kind !== "browser_credentials" ? (
+            <div className="pt-1">
+              <BrowserChatWidget autoConnect preview={props.artifact.preview} />
+            </div>
           ) : null}
         </div>
         {props.onDismiss ? (

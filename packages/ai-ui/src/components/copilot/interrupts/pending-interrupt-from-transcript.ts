@@ -8,24 +8,20 @@ import {
   parseDecisionArtifact,
   parseDecisionResolution,
 } from "./decision-artifact.js";
-import {
-  parseFeedbackArtifact,
-  parseFeedbackResolution,
-} from "./feedback-artifact.js";
 
 interface MessageLike {
   parts?: readonly unknown[];
 }
 
 /**
- * Derive the pending decision/feedback interrupt directly from the transcript
- * (the same tool output the inline card reads), so the docked chooser appears
- * immediately instead of waiting for the lagging session-metadata refetch.
+ * Derive the pending decision interrupt directly from the transcript (the same
+ * tool output the inline card reads), so the docked chooser appears immediately
+ * instead of waiting for the lagging session-metadata refetch.
  *
  * Only the MOST RECENT `requestDecision` / `requestFeedback` part can be
  * pending: it is returned as open-interrupt metadata when it carries an
  * unanswered artifact, otherwise null. Never walk past it to an older part — a
- * natively suspended call has no artifact output yet, and an older unanswered
+ * natively suspended call has no artifact output, and an older unanswered
  * question behind it is abandoned, not open. Returning null lets callers fall
  * back to the persisted open interrupt. Gate calls on `awaitingInterrupt`.
  */
@@ -72,23 +68,9 @@ export function pendingInterruptFromTranscript(
       }
 
       if (toolName === "requestFeedback") {
-        if (parseFeedbackResolution(part.output)) {
-          return null; // most recent feedback already answered
-        }
-        const artifact = parseFeedbackArtifact(part.output);
-        if (!artifact) {
-          return null;
-        }
-        return {
-          artifact_id: artifact.artifactId,
-          body: artifact.body,
-          interrupt_id: artifact.interruptId ?? artifact.artifactId,
-          kind: "feedback",
-          placeholder: artifact.placeholder,
-          submit_label: artifact.submitLabel,
-          title: artifact.title,
-          tool_call_id: toolCallId,
-        } as AgUiOpenInterruptMetadata;
+        // Suspends natively: answered or not, the call carries no card to dock
+        // from — an open question lives only on the persisted open interrupt.
+        return null;
       }
     }
   }

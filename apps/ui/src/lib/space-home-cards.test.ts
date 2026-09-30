@@ -83,27 +83,6 @@ function sidebar(slice = emptySpacesConversationNavSpace()) {
 }
 
 describe("resolveSpaceHomeCards", () => {
-  it("leaves the river to the sidebar — the home lists what happens here", () => {
-    const river = dm("t-river", "engenty.copilot");
-    river.session.space_id = null;
-    const model = resolveSpaceHomeCards({
-      sidebar: resolveSpaceConversationSections({
-        activityByAgentId: new Map(),
-        agents: [agent("tom", "Tom")],
-        dms: [river, dm("t-dm", "tom")],
-        rooms: [],
-        slice: emptySpacesConversationNavSpace(),
-      }),
-      threads: [],
-    });
-    const keys = [
-      ...model.cards.map((card) => card.item.key),
-      ...model.quiet.map((item) => item.key),
-    ];
-    expect(keys).not.toContain("thread:t-river");
-    expect(keys).toContain("thread:t-dm");
-  });
-
   it("collapses every quiet, unpinned row into the line", () => {
     const model = resolveSpaceHomeCards({ sidebar: sidebar(), threads: [] });
     expect(model.cards).toEqual([]);

@@ -65,7 +65,6 @@ export {
   type AgentStatusTickerVariant,
   type AgentStepKind,
   type AgentTurnMessageLike,
-  type AgentTurnPhase,
   buildAssistantActivitySignature,
   type DeriveAgentStatusTickerInput,
   deriveAgentStatusTicker,
@@ -152,7 +151,6 @@ export {
   CopilotPanelHeader,
 } from "./copilot/panel/copilot-panel-content.js";
 export type { CopilotChatOnFinish } from "./copilot/session/copilot-chat-types.js";
-export { clearCopilotPersistedClientStorage } from "./copilot/session/copilot-client-storage.js";
 export {
   COPILOT_LAYOUT_USER_SETTING_NAME,
   type CopilotLayoutPersistDockMode,
@@ -167,13 +165,9 @@ export {
   DecisionArtifactToolCallCard,
   matchesDecisionArtifactOutput,
 } from "./copilot/tool-call/decision-artifact-tool-call-card.js";
-export {
-  FeedbackArtifactToolCallCard,
-  matchesFeedbackArtifactOutput,
-} from "./copilot/tool-call/feedback-artifact-tool-call-card.js";
+export { FeedbackArtifactToolCallCard } from "./copilot/tool-call/feedback-artifact-tool-call-card.js";
 export {
   FileDownloadsToolCallCard,
-  isFileDownloadsOfferOutput,
   matchesFileDownloadsToolCall,
 } from "./copilot/tool-call/file-downloads-tool-call-card.js";
 export {
@@ -184,10 +178,7 @@ export {
   isSandboxExecuteCommandToolName,
   SANDBOX_EXECUTE_COMMAND_TOOL_NAME,
 } from "./copilot/tool-call/sandbox-command-tool-name.js";
-export {
-  shouldShowTopOpenInterruptBanner,
-  transcriptHasActiveSandboxCommandToolPart,
-} from "./copilot/tool-call/sandbox-command-transcript-utils.js";
+export { transcriptHasActiveSandboxCommandToolPart } from "./copilot/tool-call/sandbox-command-transcript-utils.js";
 export {
   matchesSkillsFindOutput,
   parseSkillsFindOutput,

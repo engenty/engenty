@@ -41,8 +41,6 @@ export function ApprovalRequestNotification({
   if (!requestId) {
     return null;
   }
-  const moduleId = readString(notification.metadata?.module_id);
-  const operationId = readString(notification.metadata?.operation_id);
   const riskLevel = readString(notification.payload?.risk_level);
   const busy = decide.isPending;
   const choose = (decision: ApprovalDecision) => {
@@ -70,7 +68,7 @@ export function ApprovalRequestNotification({
             defaultValue: "For agent",
           })
         : t("notifications.approval.allowAlways", {
-            defaultValue: "Always allow for this agent",
+            defaultValue: "Allow for agent",
           }),
     },
     {
@@ -81,39 +79,15 @@ export function ApprovalRequestNotification({
   // The row stays until the resolve event lands; once decided it reads as
   // answered rather than still asking.
   const decided = decide.isSuccess && chosen;
-  const showMeta = inbox
-    ? Boolean(riskLevel)
-    : Boolean(moduleId || operationId || riskLevel);
   return (
     <div className="mt-1.5 space-y-1.5">
-      {showMeta ? (
-        <p className="line-clamp-2 text-muted-foreground text-xs">
-          {inbox
-            ? t("notifications.approval.risk", {
-                defaultValue: "{{level}} risk",
-                level: riskLevel,
-              })
-            : [
-                moduleId,
-                operationId ? (
-                  <code className="font-mono" key="op">
-                    {operationId}
-                  </code>
-                ) : null,
-                riskLevel
-                  ? t("notifications.approval.risk", {
-                      defaultValue: "{{level}} risk",
-                      level: riskLevel,
-                    })
-                  : null,
-              ]
-                .filter(Boolean)
-                .map((part, index) => (
-                  <span key={typeof part === "string" ? part : index}>
-                    {index > 0 ? " · " : null}
-                    {part}
-                  </span>
-                ))}
+      {/* Only what a person reads — the module and operation ids stay out. */}
+      {riskLevel ? (
+        <p className="text-muted-foreground text-xs">
+          {t("notifications.approval.risk", {
+            defaultValue: "{{level}} risk",
+            level: riskLevel,
+          })}
         </p>
       ) : null}
       {decided ? (

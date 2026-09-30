@@ -4,11 +4,12 @@ import { useCopilotToolCallActions } from "../interrupts/copilot-tool-call-actio
 import {
   FeedbackArtifactCard,
   FeedbackArtifactResolvedCard,
-  parseFeedbackArtifact,
+  parseFeedbackArtifactFromInput,
   resolveFeedbackArtifactForToolCall,
 } from "../interrupts/feedback-artifact";
 import { getInteractiveToolStatus } from "../interrupts/interactive-tool-status";
 import type { ToolCallCardProps } from "./tool-call-card.types";
+import { ToolCallGenericCard } from "./tool-call-generic-card";
 
 /**
  * One status-driven render per feedback tool call (CopilotKit `renderAndWaitForResponse`
@@ -23,13 +24,27 @@ export function FeedbackArtifactToolCallCard(props: ToolCallCardProps) {
     respond,
   } = useCopilotToolCallActions();
 
-  const artifact = resolveFeedbackArtifactForToolCall(
+  // `requestFeedback` suspends the run, so the question lives on the open
+  // interrupt while it is unanswered and only in the call's arguments after.
+  const liveArtifact = resolveFeedbackArtifactForToolCall(
     props.output,
-    openInterrupt
+    openInterrupt,
+    props.toolCallId
   );
+  const artifact =
+    liveArtifact ??
+    parseFeedbackArtifactFromInput(props.input, props.toolCallId);
   if (!artifact) {
-    return null;
+    // Routed by tool name, so a call with neither an open interrupt nor
+    // readable arguments still keeps its transcript row.
+    return <ToolCallGenericCard {...props} />;
   }
+
+  // The open interrupt naming this call IS the agent waiting on it — also after
+  // a reload, which replays no stream and so leaves the pending set empty.
+  const isOpenHere =
+    Boolean(props.toolCallId) &&
+    openInterrupt?.tool_call_id === props.toolCallId;
 
   const { status, resolvedLabel } = getInteractiveToolStatus({
     toolCallId: props.toolCallId,
@@ -39,11 +54,22 @@ export function FeedbackArtifactToolCallCard(props: ToolCallCardProps) {
     optimisticInterruptResults: optimisticInterruptResults ?? {},
   });
 
-  if (status === "complete") {
+  // Rebuilt from the arguments: no interrupt id, so nothing an answer could
+  // resolve — it only says what was asked (and what was answered, if anything).
+  if (!liveArtifact) {
     return (
       <FeedbackArtifactResolvedCard
         artifact={artifact}
-        feedback={resolvedLabel || "Feedback submitted"}
+        feedback={resolvedLabel}
+      />
+    );
+  }
+
+  if (status === "complete" && !(isOpenHere && !resolvedLabel)) {
+    return (
+      <FeedbackArtifactResolvedCard
+        artifact={artifact}
+        feedback={resolvedLabel}
       />
     );
   }
@@ -52,9 +78,7 @@ export function FeedbackArtifactToolCallCard(props: ToolCallCardProps) {
     <FeedbackArtifactCard
       artifact={artifact}
       onDismiss={
-        dismissInterrupt &&
-        openInterrupt &&
-        openInterrupt.tool_call_id === props.toolCallId
+        isOpenHere && dismissInterrupt && openInterrupt
           ? () => dismissInterrupt(openInterrupt)
           : undefined
       }
@@ -72,8 +96,4 @@ export function FeedbackArtifactToolCallCard(props: ToolCallCardProps) {
       }}
     />
   );
-}
-
-export function matchesFeedbackArtifactOutput(output: unknown): boolean {
-  return parseFeedbackArtifact(output) !== null;
 }

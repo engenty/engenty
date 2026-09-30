@@ -193,7 +193,6 @@ export function AgentsOverridesTab({
                         allowedEfforts={allowedEfforts}
                         onChange={(effort) => setDraft({ ...draft, effort })}
                         value={draft.effort}
-                        variant="field"
                       />
                     </div>
                     <div className="flex items-center gap-2 sm:justify-end">

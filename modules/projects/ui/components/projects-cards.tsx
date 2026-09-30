@@ -15,6 +15,7 @@ import type { ProjectListItem } from "../api.js";
 import { getProjectDisplayProfiles } from "../lib/project-display-members.js";
 import type { TeamMemberCatalogRow } from "../plugins.js";
 import { useProjectTaskCounts } from "../queries.js";
+import { ProjectPinMenuItem } from "./project-pin-button.js";
 
 type TableSize = "compact" | "normal";
 
@@ -146,6 +147,7 @@ function ProjectCard({
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <ProjectPinMenuItem projectId={project.id} />
             {onDelete && (
               <DropdownMenuItem
                 className="text-destructive focus:text-destructive"

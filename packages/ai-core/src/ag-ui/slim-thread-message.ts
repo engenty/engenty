@@ -47,6 +47,8 @@ export function isSlimToolResult(
 const KEEP_RESULT_TOOL_NAMES = new Set([
   "agent_look",
   "artifact_write",
+  // Its card is the view it returns (a marked-up screenshot, the live window).
+  "browser_show",
   "connections_request_connect",
   "knowledge_base_article_search",
   "loadContact",

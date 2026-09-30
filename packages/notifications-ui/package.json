@@ -29,6 +29,7 @@
     "@engenty/ui-icons": "workspace:*",
     "@engenty/ui-plugin-sdk": "workspace:*",
     "lucide-react": "^1.46.0",
+    "motion": "^12.43.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-router-dom": "^7.18.4"

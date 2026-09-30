@@ -16,15 +16,9 @@ export interface ThreadChapterSpace {
   key: string | null;
 }
 
-export interface ThreadChapterNote {
-  space_key: string | null;
-  text: string;
-}
-
 export interface ThreadChapter {
   created_at: string;
   id: string;
-  keep_in_mind: ThreadChapterNote[];
   kind: ThreadChapterKind;
   message_count: number;
   range_end: string;

@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   NOTIFICATION_TITLES,
+  notificationAttachments,
   notificationBody,
   notificationTarget,
   renderNotificationTitle,
@@ -124,22 +125,6 @@ describe("notificationTarget", () => {
     ).toBe("/s/ops/agents/a1?engagement=conversation%3Ath1&panel=runs&run=r1");
   });
 
-  it("opens the result a routine's run stored instead of its chat", () => {
-    expect(
-      notificationTarget({
-        ...record,
-        kind: "routine_outcome",
-        metadata: {
-          artifact_id: "art1",
-          run_id: "r1",
-          space_key: "ops",
-          thread_agent_id: "a1",
-          thread_id: "th1",
-        },
-      })
-    ).toBe("/s/ops/data?artifact=art1");
-  });
-
   it("keeps a wizard's run on the wizard page", () => {
     expect(
       notificationTarget({
@@ -200,5 +185,46 @@ describe("notificationTarget", () => {
 
   it("has nowhere to go without a space or an id", () => {
     expect(notificationTarget({ ...record, metadata: {} })).toBeNull();
+  });
+});
+
+describe("notificationAttachments", () => {
+  it("routes an artifact through the record's own space, beside the context", () => {
+    expect(
+      notificationAttachments(
+        [{ id: "art1", kind: "artifact", label: "Weekly report" }],
+        { space_key: "ops" }
+      )
+    ).toEqual([
+      {
+        kind: "artifact",
+        label: "Weekly report",
+        target: "/s/ops/data?artifact=art1",
+      },
+    ]);
+  });
+
+  it("drops a chip that says nothing or goes nowhere, and keeps at most three", () => {
+    expect(
+      notificationAttachments(
+        [{ id: "art1", kind: "artifact", label: "Report" }],
+        {}
+      )
+    ).toEqual([]);
+    expect(
+      notificationAttachments(
+        [
+          { kind: "record", label: " ", target: "/mdl/contacts/c1" },
+          { kind: "record", label: "ACME", target: "https://evil.example" },
+        ],
+        { space_key: "ops" }
+      )
+    ).toEqual([]);
+    const many = ["a", "b", "c", "d"].map((id) => ({
+      id,
+      kind: "artifact" as const,
+      label: id,
+    }));
+    expect(notificationAttachments(many, { space_key: "ops" })).toHaveLength(3);
   });
 });

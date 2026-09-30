@@ -2,13 +2,14 @@ import { describe, expect, it } from "vitest";
 import { shouldShowCopilotThinkingShimmer } from "./copilot-thinking-shimmer.js";
 
 describe("shouldShowCopilotThinkingShimmer", () => {
-  it("hides while the last assistant turn is still streaming reasoning", () => {
+  it("shows while the live turn only reasons — nothing else draws a status then", () => {
     expect(
       shouldShowCopilotThinkingShimmer({
+        lastAssistantIsLastMessage: true,
         status: "streaming",
         lastAssistantParts: [{ type: "reasoning", text: "Still thinking…" }],
       })
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("shows while streaming when the last assistant turn has no active tools", () => {
@@ -21,8 +22,8 @@ describe("shouldShowCopilotThinkingShimmer", () => {
   });
 
   it("hides while the live turn's tool timeline carries the status line", () => {
-    // The timeline header shows "Thinking… · 9s" itself between two tool
-    // calls; a second shimmer under it said the same thing twice.
+    // The live timeline header already is the status line; a shimmer under
+    // it would say the same thing twice.
     const finishedSearch = {
       input: { query: "x" },
       output: { results: [] },
@@ -54,6 +55,57 @@ describe("shouldShowCopilotThinkingShimmer", () => {
         status: "submitted",
       })
     ).toBe(true);
+  });
+
+  it("hides while the live turn reasons after a step — the timeline is still live", () => {
+    const finishedSearch = {
+      input: { query: "x" },
+      output: { results: [] },
+      state: "output-available",
+      toolCallId: "ws-1",
+      toolName: "web_search",
+      type: "dynamic-tool",
+    };
+    expect(
+      shouldShowCopilotThinkingShimmer({
+        lastAssistantIsLastMessage: true,
+        lastAssistantParts: [
+          finishedSearch,
+          { type: "reasoning", text: "Next…" },
+        ],
+        status: "streaming",
+      })
+    ).toBe(false);
+  });
+
+  it("shows for a new turn although an older turn kept a running tool or an open question", () => {
+    const staleRunningTool = {
+      input: {},
+      state: "input-available",
+      toolCallId: "t-old",
+      toolName: "routines_create",
+      type: "dynamic-tool",
+    };
+    const openDecision = {
+      output: {
+        artifact_id: "a1",
+        artifact_type: "decision",
+        choices: [{ id: "x", label: "Yes" }],
+        title: "Confirm",
+      },
+      state: "output-available",
+      toolCallId: "tc-old",
+      type: "dynamic-tool",
+    };
+    for (const parts of [[staleRunningTool], [openDecision]]) {
+      expect(
+        shouldShowCopilotThinkingShimmer({
+          lastAssistantIsLastMessage: false,
+          lastAssistantParts: parts,
+          status: "submitted",
+        })
+      ).toBe(true);
+    }
   });
 
   it("stays through reasoning and running tools for a person — the turn's one status line", () => {
@@ -114,9 +166,10 @@ describe("shouldShowCopilotThinkingShimmer", () => {
     ).toBe(false);
   });
 
-  it("hides when the last assistant turn still has an unresolved decision tool", () => {
+  it("hides when the live turn still has an unresolved decision tool", () => {
     expect(
       shouldShowCopilotThinkingShimmer({
+        lastAssistantIsLastMessage: true,
         status: "streaming",
         lastAssistantParts: [
           {

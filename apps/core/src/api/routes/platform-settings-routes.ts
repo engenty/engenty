@@ -30,7 +30,7 @@ const OAUTH_CALLBACK_PATH = "/api/connections/oauth/callback";
  * Public origin of this installation. Deploys set ENGENTY_API_BASE_URL to
  * PUBLIC_APP_URL (single origin behind the edge gateway); dev sets both.
  */
-export function publicApiBaseUrl(): string {
+function publicApiBaseUrl(): string {
   const raw =
     process.env.ENGENTY_API_BASE_URL?.trim() ||
     process.env.PUBLIC_APP_URL?.trim() ||
@@ -43,7 +43,7 @@ export function publicApiBaseUrl(): string {
  * `<ENGENTY_API_BASE_URL>` because it has no runtime origin. Resolve it here so
  * the setup UI shows the literal URL an operator pastes into a provider console.
  */
-export function expandPlaceholders(text: string): string {
+function expandPlaceholders(text: string): string {
   const base = publicApiBaseUrl();
   return base ? text.replaceAll("<ENGENTY_API_BASE_URL>", base) : text;
 }
@@ -52,9 +52,7 @@ export function expandPlaceholders(text: string): string {
  * CONNECTIONS_REDIRECT_URI wins when set (core behind a proxy on a different
  * origin); otherwise the callback sits on the public origin.
  */
-export function resolveOAuthRedirectUri(
-  override?: string | null
-): string | null {
+function resolveOAuthRedirectUri(override?: string | null): string | null {
   const configured = override?.trim();
   if (configured) {
     return configured;
@@ -69,7 +67,7 @@ export function resolveOAuthRedirectUri(
  * subdomains, which Google (and most others) reject outright — worth warning
  * about instead of letting an operator paste a URL that can never be saved.
  */
-export function isProviderRejectedRedirectHost(uri: string | null): boolean {
+function isProviderRejectedRedirectHost(uri: string | null): boolean {
   if (!uri) {
     return false;
   }
@@ -86,7 +84,7 @@ export function isProviderRejectedRedirectHost(uri: string | null): boolean {
  * Loopback fallback for local dev: core's own origin, which providers do
  * accept. Register this and point CONNECTIONS_REDIRECT_URI at it.
  */
-export function loopbackRedirectUri(): string | null {
+function loopbackRedirectUri(): string | null {
   const raw = process.env.ENGENTY_CORE_BASE_URL?.trim();
   if (!raw) {
     return null;

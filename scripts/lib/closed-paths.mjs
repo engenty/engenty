@@ -34,6 +34,10 @@ export const CLOSED_PATHS = [
     note: "Marketing site, still in work. Local dev does not need it.",
   },
   {
+    path: "apps/browser-extension",
+    note: "The browser-bridge extension; closed with the module (2026-09-29).",
+  },
+  {
     path: "apps/ui/src/plugins/pro",
     note: "Generated pro-only UI plugin catalog (closed module import()s).",
   },
@@ -44,7 +48,6 @@ export const CLOSED_PATHS = [
   // them. `scripts/strip-closed-doc-nav.mjs` drops the nav entries and list
   // items that point here, and refuses the publish if any other link survives.
   { path: "docs/content/dev/remote-channels.md", note: "engenty-remote." },
-  { path: "docs/content/user/agent-operations/apps.md", note: "engenty-apps." },
   {
     path: "docs/content/user/agent-operations/remote-channels.md",
     note: "engenty-remote.",
@@ -57,11 +60,61 @@ export const CLOSED_PATHS = [
     path: "docs/content/user/modules/time-tracking.md",
     note: "time-tracking.",
   },
+  {
+    path: "docs/content/user/agent-operations/browser.md",
+    note: "browser-bridge.",
+  },
+  {
+    path: "docs/content/user/agent-operations/secrets.md",
+    note: "secrets.",
+  },
+  { path: "docs/content/user/modules/inbox.md", note: "inbox." },
+  { path: "docs/content/user/modules/team-chat.md", note: "team-chat." },
   { path: "modules/banking", slug: "banking" },
   {
-    path: "modules/engenty-apps",
-    slug: "engenty-apps",
-    note: "Pro-only for now (decision 2026-07-25, PLAN-engenty-apps.md §9).",
+    path: "modules/browser-bridge",
+    slug: "browser-bridge",
+    note: "Pulled back to pro-only 2026-09-29 — dev stage, released only after internal testing.",
+  },
+  {
+    path: "modules/connections/providers/github",
+    slug: "connections-github",
+    note: "Pulled back to pro-only 2026-09-29 — dev stage, released only after internal testing.",
+  },
+  {
+    path: "modules/connections/providers/hubspot",
+    slug: "connections-hubspot",
+    note: "Pulled back to pro-only 2026-09-29 — dev stage, released only after internal testing.",
+  },
+  {
+    path: "modules/connections/providers/microsoft",
+    slug: "connections-microsoft",
+    note: "Pulled back to pro-only 2026-09-29 — dev stage, released only after internal testing.",
+  },
+  {
+    path: "modules/connections/providers/s3",
+    slug: "connections-s3",
+    note: "Pulled back to pro-only 2026-09-29 — dev stage, released only after internal testing.",
+  },
+  {
+    path: "modules/connections/providers/slack",
+    slug: "connections-slack",
+    note: "Pulled back to pro-only 2026-09-29 — dev stage, released only after internal testing.",
+  },
+  {
+    path: "modules/inbox",
+    slug: "inbox",
+    note: "Pulled back to pro-only 2026-09-29 — dev stage, released only after internal testing.",
+  },
+  {
+    path: "modules/secrets",
+    slug: "secrets",
+    note: "Pulled back to pro-only 2026-09-29 — dev stage, released only after internal testing.",
+  },
+  {
+    path: "modules/team-chat",
+    slug: "team-chat",
+    note: "Pulled back to pro-only 2026-09-29 — dev stage, released only after internal testing.",
   },
   {
     path: "modules/engenty-remote",

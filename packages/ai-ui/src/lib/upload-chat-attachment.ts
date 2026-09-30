@@ -1,6 +1,7 @@
 import type { BrowserParseProvider } from "@engenty/ai-core/browser";
 import { resolveBrowserParse } from "@engenty/ai-core/browser";
 import { requestApiJson } from "@engenty/api-client";
+import { spaceAgentFolderPrefix } from "@engenty/file-storage";
 import type { FileUIPart } from "ai";
 import { getAiConfig } from "./admin/ai-settings-api.js";
 import { parseChatDocumentInBrowser } from "./browser-doc-parse/parse-chat-document.js";
@@ -12,14 +13,32 @@ import {
 import { extractedMarkdownSidecarKey } from "./extracted-markdown-sidecar.js";
 import { getFileStorageSignedUrl } from "./file-storage-signed-url.js";
 
-// Internal file-storage layout: `tenants/<tenant-id>/<module-folder>/…`.
-// Inlined (rather than importing `@engenty/file-storage`, a server package) to
-// keep this browser module self-contained.
-function chatAttachmentStorageKey(
-  tenantId: string,
-  ...segments: string[]
-): string {
-  return ["tenants", tenantId, "chat", ...segments].join("/");
+/**
+ * Where a composer attachment goes: the agent's `uploads/` folder in the
+ * Space (`/space/agent/<agent>/uploads/` on its computer, the same folder in
+ * the Data tab). Outside a Space, the agent's own tenant-level folder.
+ */
+export function agentUploadsFolderKey(input: {
+  agentId: string;
+  spaceId: string | null;
+  tenantId: string;
+}): string {
+  return input.spaceId
+    ? spaceAgentFolderPrefix(
+        input.tenantId,
+        input.spaceId,
+        input.agentId,
+        "uploads"
+      ).replace(/\/$/, "")
+    : [
+        "tenants",
+        input.tenantId,
+        "ai",
+        "workspace",
+        "agents",
+        input.agentId,
+        "uploads",
+      ].join("/");
 }
 
 const EXTENSION_MIME: Record<string, string> = {
@@ -65,6 +84,35 @@ function safeAttachmentName(name: string): string {
   return cleaned.length > 0 ? cleaned : "attachment";
 }
 
+/** `a.csv` → `a-2.csv`, `a-3.csv` … — the first name not in `taken`. */
+function freeName(name: string, taken: Set<string>): string {
+  if (!taken.has(name)) {
+    return name;
+  }
+  const dot = name.lastIndexOf(".");
+  const stem = dot > 0 ? name.slice(0, dot) : name;
+  const ext = dot > 0 ? name.slice(dot) : "";
+  for (let n = 2; ; n++) {
+    const candidate = `${stem}-${n}${ext}`;
+    if (!taken.has(candidate)) {
+      return candidate;
+    }
+  }
+}
+
+/** File names already in a folder, so an upload never replaces one. */
+async function folderFileNames(
+  tenantId: string,
+  folderKey: string
+): Promise<Set<string>> {
+  const prefix = `${folderKey.slice(`tenants/${tenantId}/`.length)}/`;
+  const params = new URLSearchParams({ mode: "children", prefix });
+  const listing = await requestApiJson<{ files: { key: string }[] }>(
+    `/api/file-storage/files?${params}`
+  );
+  return new Set(listing.files.map((file) => file.key.split("/").pop() ?? ""));
+}
+
 function resolveContentType(file: File, safeName: string): string {
   const raw = file.type?.trim() ?? "";
   if (
@@ -78,7 +126,8 @@ function resolveContentType(file: File, safeName: string): string {
 }
 
 /**
- * Browser-direct upload of a chat attachment into the internal `files` bucket.
+ * Browser-direct upload of a chat attachment into the internal `files` bucket,
+ * as `<folderKey>/<name>` — a name already in the folder gets `-2`, `-3` ….
  * Requests a signed URL from core, PUTs the bytes, and returns the durable
  * tenant-scoped storage key the message will reference. Mirrors the Vault
  * upload flow (`modules/files/ui/api.ts::uploadFileViaSignedUrl`) but stays
@@ -86,25 +135,29 @@ function resolveContentType(file: File, safeName: string): string {
  */
 export async function uploadChatAttachment(input: {
   file: File;
+  /** Full key of the folder, under `tenants/<tenantId>/`, no trailing `/`. */
+  folderKey: string;
+  /** Names already used in this batch, so two files named alike stay two. */
+  taken?: Set<string>;
   tenantId: string;
-  /** Groups attachments under `tenants/<id>/chat/<threadId>/…`; falls back to `uploads`. */
-  threadId?: string | null;
 }): Promise<ChatAttachmentUpload> {
   const { file, tenantId } = input;
   if (!tenantId) {
     throw new Error("chat_attachment_tenant_required");
   }
+  if (!input.folderKey.startsWith(`tenants/${tenantId}/`)) {
+    throw new Error("chat_attachment_folder_invalid");
+  }
   if (file.size > CHAT_ATTACHMENT_MAX_BYTES) {
     throw new Error("chat_attachment_too_large");
   }
 
-  const safeName = safeAttachmentName(file.name);
+  const taken =
+    input.taken ?? (await folderFileNames(tenantId, input.folderKey));
+  const safeName = freeName(safeAttachmentName(file.name), taken);
+  taken.add(safeName);
   const contentType = resolveContentType(file, safeName);
-  const key = chatAttachmentStorageKey(
-    tenantId,
-    input.threadId?.trim() || "uploads",
-    `${Date.now()}_${safeName}`
-  );
+  const key = `${input.folderKey}/${safeName}`;
 
   const signed = await requestApiJson<SignedUploadPayload>(
     "/api/file-storage/files/signed-upload-url",
@@ -220,18 +273,22 @@ async function filePartToFile(part: FileUIPart): Promise<File> {
  */
 export async function uploadChatAttachmentParts(input: {
   files: readonly FileUIPart[];
+  folderKey: string;
   tenantId: string;
-  threadId?: string | null;
 }): Promise<ChatAttachmentPart[]> {
   const parts: ChatAttachmentPart[] = [];
-  const browserParse = await resolveChatBrowserParse();
+  const [browserParse, taken] = await Promise.all([
+    resolveChatBrowserParse(),
+    folderFileNames(input.tenantId, input.folderKey),
+  ]);
   for (const filePart of input.files) {
     const file = await filePartToFile(filePart);
     const [meta, extracted] = await Promise.all([
       uploadChatAttachment({
         file,
+        folderKey: input.folderKey,
+        taken,
         tenantId: input.tenantId,
-        threadId: input.threadId,
       }),
       extractChatDocumentMarkdown(file, browserParse),
     ]);

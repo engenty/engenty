@@ -120,7 +120,7 @@ export interface CopilotComposerStatusFlapProps {
    *  always-visible and interactive inside the flap so compact surfaces
    *  (floating launcher, bottom dock) can answer without opening the panel. */
   interruptContent?: ReactNode;
-  labels?: AgentStatusTickerLabels;
+  labels?: Partial<AgentStatusTickerLabels>;
   messages: readonly AgentTurnMessageLike[];
   /** Called while the user drags the top resize handle. */
   onExpandedContentHeightChange?: (height: number) => void;
@@ -315,13 +315,11 @@ export function CopilotComposerStatusFlap({
           activityBaselineSignature={activityBaselineSignature}
           chatStatus={chatStatus}
           className="w-full min-w-0"
-          enableShimmer
           errorMessage={errorMessage}
           labels={labels}
           messages={messages}
           runStatus={runStatus}
           stale={stale}
-          statusOnly
         />
       )}
       {canExpand ? (

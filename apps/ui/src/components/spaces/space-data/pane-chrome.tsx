@@ -18,6 +18,8 @@
  * action nodes by identity, so a fresh element every render is an infinite
  * update loop.
  */
+
+import { SPACE_AGENTS_DATA_ROOT } from "@engenty/file-storage";
 import { useTranslation } from "@engenty/i18n/ui";
 import { spaceDataSegmentLabel } from "@engenty/plugin-sdk";
 import {
@@ -36,6 +38,7 @@ import { Maximize2, Minimize2, MoreVertical, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { useSpaceAgentNames } from "@/lib/space-agent-folder-names";
 
 export const NO_BREADCRUMBS: PageBreadcrumb[] = [];
 
@@ -203,16 +206,29 @@ export function PaneChrome({
  * a breadcrumb that navigates nowhere is better than one that 404s.
  */
 export function useNodeBreadcrumbs(path: string): PageBreadcrumb[] {
+  const { t } = useTranslation("common");
+  // An agent's folder sits in Dateien under the agent's name, as in the tree.
+  const inAgents = path.split("/")[0] === SPACE_AGENTS_DATA_ROOT;
+  const agentName = useSpaceAgentNames(inAgents);
+  const filesLabel = t("spaces.data.filesSection", { defaultValue: "Files" });
   return useMemo(
     () =>
       path
         .split("/")
         .filter(Boolean)
-        // Without the id: a segment carries one so the path resolves without a
-        // scan, and a breadcrumb reading
-        // `kuesten-wissen-2__019fea6b-141a-756b-847d-93c3f7dd5a2d` spends the
-        // whole bar on the half nobody reads.
-        .map((segment) => ({ label: spaceDataSegmentLabel(segment) })),
-    [path]
+        .map((segment, index) => {
+          if (inAgents && index === 0) {
+            return { label: filesLabel };
+          }
+          if (inAgents && index === 1) {
+            return { label: agentName(segment) };
+          }
+          // Without the id: a segment carries one so the path resolves without a
+          // scan, and a breadcrumb reading
+          // `kuesten-wissen-2__019fea6b-141a-756b-847d-93c3f7dd5a2d` spends the
+          // whole bar on the half nobody reads.
+          return { label: spaceDataSegmentLabel(segment) };
+        }),
+    [agentName, filesLabel, inAgents, path]
   );
 }

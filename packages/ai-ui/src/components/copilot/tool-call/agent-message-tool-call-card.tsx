@@ -9,9 +9,8 @@
 //
 // While an `ask` is in flight the row carries the colleague's newest progress
 // line, because that stretch is most of the wall-clock time and a bare
-// "Thinking …" says nothing about it: watching two agents work through a
-// Space table, a person saw only the shimmer for minutes (live 2026-09-07).
-// Newest line only — the full log stays in the colleague's own thread.
+// "Thinking …" says nothing about it. Newest line only — the full log stays
+// in the colleague's own thread.
 
 import {
   conversationEngagement,

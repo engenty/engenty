@@ -31,6 +31,8 @@ import {
 import { resolveFabTriggerAnchorStyle } from "./copilot-drawer-snap-indicators";
 import { computeDialPositions, DIAL_BUTTON_SIZE } from "./copilot-fab-dial";
 import { CopilotFabPrompt } from "./copilot-fab-prompt";
+import { CopilotRailPopout } from "./copilot-rail-popout";
+import type { CopilotRailSignal } from "./use-copilot-rail-signal";
 
 const fabMenuStyles = `
 @keyframes copilot-fab-dial-in {
@@ -138,6 +140,9 @@ export interface CopilotFabTriggerProps {
   /** First message from the floating prompt; opens the river with it. */
   onSubmitPrompt?: (text: string) => void;
   promptPlaceholder?: string;
+  /** What the closed copilot has for the person — dot, pulse, popout. */
+  signal?: CopilotRailSignal;
+  signalLabels?: { dismiss: string; waiting: string };
 }
 
 export function CopilotFabTrigger({
@@ -149,6 +154,8 @@ export function CopilotFabTrigger({
   onStartVoice,
   onSubmitPrompt,
   promptPlaceholder,
+  signal = { kind: "idle" },
+  signalLabels = { dismiss: "Dismiss", waiting: "Waiting for you" },
 }: CopilotFabTriggerProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [promptOpen, setPromptOpen] = useState(false);
@@ -330,6 +337,7 @@ export function CopilotFabTrigger({
             : "ring-2 ring-background/90"
       )}
       data-character={character}
+      data-copilot-signal={signal.kind}
       data-copilot-trigger
       onClick={onClick}
       onContextMenu={(event) => {
@@ -338,13 +346,30 @@ export function CopilotFabTrigger({
       ref={buttonRef}
       size="icon-lg"
       style={docked ? { ...dockedBox, outline: "none" } : undefined}
+      title={"text" in signal && signal.text ? signal.text : undefined}
       type="button"
       variant="ai"
     >
-      <BlobAccents character={character} isActive={isActive} />
-      <BlobEye isActive={isActive} />
+      <BlobAccents
+        character={character}
+        isActive={isActive || signal.kind === "working"}
+      />
+      <BlobEye isActive={isActive || signal.kind === "working"} />
     </Button>
   );
+  // Outside the button: the blob's shape clips its own children.
+  const signalDot =
+    signal.kind === "reply" || signal.kind === "waiting" ? (
+      // Unread reply or an open question: stays until the copilot opens.
+      <span
+        aria-hidden
+        className={cn(
+          "pointer-events-none absolute top-0 right-0 size-2.5 rounded-full ring-2 ring-background",
+          signal.kind === "waiting" ? "bg-ember" : "bg-primary"
+        )}
+        data-copilot-signal-dot
+      />
+    ) : null;
 
   const trigger = docked ? (
     <div className={cn("pointer-events-none", dockedFrameClass(position))}>
@@ -358,6 +383,7 @@ export function CopilotFabTrigger({
         style={dockedBox}
       >
         {blob}
+        {signalDot}
       </div>
     </div>
   ) : (
@@ -376,6 +402,7 @@ export function CopilotFabTrigger({
       }}
     >
       {blob}
+      {signalDot}
     </div>
   );
 
@@ -394,6 +421,17 @@ export function CopilotFabTrigger({
           {...(promptPlaceholder ? { placeholder: promptPlaceholder } : {})}
         />
       ) : null}
+      {menuOpen || promptOpen ? null : (
+        <CopilotRailPopout
+          anchorRef={buttonRef}
+          dismissLabel={signalLabels.dismiss}
+          docked={docked}
+          onOpen={handleOpenCopilot}
+          position={position}
+          signal={signal}
+          waitingLabel={signalLabels.waiting}
+        />
+      )}
       {docked || typeof document === "undefined"
         ? trigger
         : createPortal(trigger, document.body, "copilot-fab-trigger")}

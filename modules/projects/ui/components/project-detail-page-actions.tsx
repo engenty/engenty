@@ -10,6 +10,7 @@ import {
   TabsTrigger,
 } from "@engenty/ui-core";
 import { Copy, ExternalLink, Eye, Link2, Settings, Users } from "lucide-react";
+import { ProjectPinButton } from "./project-pin-button.js";
 
 interface ProjectDetailPageActionsProps {
   onCopyLink: () => void;
@@ -20,6 +21,7 @@ interface ProjectDetailPageActionsProps {
   portalDropdownOpen: boolean;
   portalEnabled: boolean;
   portalUrl: string;
+  projectId: string | undefined;
   viewMode: "internal" | "external";
 }
 
@@ -33,6 +35,7 @@ export function ProjectDetailPageActions({
   onOpenProjectSettings,
   portalDropdownOpen,
   onPortalDropdownOpenChange,
+  projectId,
 }: ProjectDetailPageActionsProps) {
   const { t } = useTranslation("projects");
 
@@ -105,6 +108,8 @@ export function ProjectDetailPageActions({
           </DropdownMenuContent>
         </DropdownMenu>
       )}
+
+      {projectId ? <ProjectPinButton projectId={projectId} /> : null}
 
       <Button
         className="h-8 w-8 p-0"

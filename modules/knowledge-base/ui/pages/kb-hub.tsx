@@ -9,6 +9,8 @@ import {
   CopilotComposerSection,
   PromptInputProvider,
 } from "@engenty/ai-ui/embed";
+import type { Cover } from "@engenty/covers";
+import { coverIsLight } from "@engenty/covers";
 import { useTranslation } from "@engenty/i18n/ui";
 import { useMutation, useQuery, useQueryClient } from "@engenty/query-client";
 import {
@@ -30,7 +32,6 @@ import {
   KB_HUB_PAGE_LAYOUT_DEFAULTS,
   type KbPageLayoutSettings,
 } from "../../src/schema/page-blocks.js";
-import type { KbCover } from "../../src/schema/types.js";
 import { setUpSpaceKnowledgeBase } from "../api/knowledge-bases.js";
 import { KbHubCover } from "../components/kb-hub-cover.js";
 import { KbHubKbHeaderInline } from "../components/kb-hub-kb-header-inline.js";
@@ -39,7 +40,6 @@ import { KbModuleShellActions } from "../components/kb-module-shell-actions.js";
 import { KbPageBlocksEditor } from "../components/page-blocks/kb-page-blocks-editor.js";
 import { useKbHubAgentUiSlice } from "../hooks/use-kb-agent-ui-slice-shell.js";
 import { useKbModuleSecondaryShellNav } from "../hooks/use-kb-module-secondary-shell-nav.js";
-import { kbCoverIsLight } from "../kb-cover-theme-presets.js";
 import { kbDisplayName } from "../kb-display-name.js";
 import {
   kbArticlePath,
@@ -97,7 +97,7 @@ export function KbHubPage({ mode = "view" }: { mode?: "edit" | "view" }) {
   const [searchParams] = useSearchParams();
   const [searchText, setSearchText] = useState("");
   const [coverOverride, setCoverOverride] = useState<{
-    cover: KbCover | null;
+    cover: Cover | null;
     kbId: string;
   } | null>(null);
   const composerSurfaceRef = useRef<HTMLDivElement>(null);
@@ -334,9 +334,7 @@ export function KbHubPage({ mode = "view" }: { mode?: "edit" | "view" }) {
                   setCoverOverride({ cover, kbId: activeKb.id })
                 }
                 showAddCoverShortcut={isEditMode}
-                surface={
-                  kbCoverIsLight(activeKb.cover) ? "default" : "on-cover"
-                }
+                surface={coverIsLight(activeKb.cover) ? "default" : "on-cover"}
               />
             }
             kb={activeKb}

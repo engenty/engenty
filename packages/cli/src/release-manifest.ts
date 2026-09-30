@@ -8,6 +8,12 @@ import { cliPackageRoot } from "./workspace.js";
  * the workspace, where the same facts are computed live from the sources.
  */
 export interface ReleaseManifest {
+  /**
+   * Migration versions of modules the release leaves out (below its stage).
+   * Not shipped; a database that applied them earlier gets a no-op
+   * placeholder so `db push` accepts its history.
+   */
+  heldMigrationVersions: string[];
   /** Directory holding the release's aggregated migrations, relative to the package root. */
   migrationsDir: string;
   /** PostgREST schemas the release needs exposed. */

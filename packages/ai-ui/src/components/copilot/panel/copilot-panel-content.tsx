@@ -23,19 +23,11 @@ import { useChatNoResponseGuard } from "./use-chat-no-response-guard";
 import { useCopilotPanelTranscriptScroll } from "./use-copilot-panel-transcript-scroll";
 
 export type {
-  CopilotEmptyLandingAlign,
   CopilotHeaderChrome,
   CopilotPanelContentProps,
 } from "./copilot-panel-content-types";
 export { CopilotPanelHeader } from "./copilot-panel-header";
-export {
-  COPILOT_DOCK_COMPOSER_CARD_CLASS,
-  getCopilotTranscriptScrollTop,
-  isCopilotScrollViewportNearBottom,
-  resolveCopilotEmptyLandingAlign,
-  resolveCopilotTranscriptBottomPaddingClass,
-  shouldCenterCopilotEmptyLanding,
-} from "./copilot-panel-scroll-utils";
+export { COPILOT_DOCK_COMPOSER_CARD_CLASS } from "./copilot-panel-scroll-utils";
 
 export function CopilotPanelContent({
   agentDebugPayload,
@@ -50,6 +42,7 @@ export function CopilotPanelContent({
   pendingUserParts,
   pendingUserText,
   status,
+  transcriptStatus = status,
   streamActivityCount,
   threadId = null,
   subAgentFullViewLabel,
@@ -162,7 +155,7 @@ export function CopilotPanelContent({
       pendingUserText,
       pendingUserParts,
       showTranscriptLoading,
-      status,
+      status: transcriptStatus,
     });
 
   // Last-resort guard: surface a visible error when the backend drops the
@@ -232,7 +225,7 @@ export function CopilotPanelContent({
 
   const body = (
     <div
-      className={
+      className={cn(
         compact
           ? "flex min-h-0 flex-1 flex-col gap-1 px-3 pb-3"
           : composerDockStyle
@@ -243,7 +236,10 @@ export function CopilotPanelContent({
                 emptyLandingAlign === "start" && "justify-start pt-0"
               )
             : "flex min-h-0 flex-1 flex-col gap-4 px-3 pt-0 pb-3"
-      }
+      )}
+      // The whole chat takes a dropped file; the composer's PromptInput owns
+      // the handler and shows the drop state inside its own box.
+      data-chat-dropzone
     >
       {browserPanelOpen && browserPanel ? (
         <div className="shrink-0">{browserPanel}</div>
@@ -341,7 +337,7 @@ export function CopilotPanelContent({
                     pendingUserParts={pendingUserParts}
                     pendingUserText={pendingUserText}
                     showAuthorLabels={showAuthorLabels}
-                    status={status}
+                    status={transcriptStatus}
                     subAgentFullViewLabel={subAgentFullViewLabel}
                     subAgentSectionLabels={subAgentSectionLabels}
                     surface={transcriptSurface}

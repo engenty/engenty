@@ -420,7 +420,7 @@
     "whenLabel": "Wann",
     "whoAgent": "Agent",
     "whoLabel": "Wer erledigt das",
-    "whoTeam": "Team"
+    "whoTeam": "Person"
   },
   "settings": {
     "title": "Aufgaben-Einstellungen",

@@ -19,6 +19,7 @@ function record(
   return {
     actor_id: null,
     actor_kind: null,
+    attachments: [],
     audience_id: null,
     audience_kind: "tenant",
     body: null,

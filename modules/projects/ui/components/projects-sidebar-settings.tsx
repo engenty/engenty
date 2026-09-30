@@ -138,13 +138,13 @@ export function ProjectsSidebarListSettings({
           aria-label={t("sidebar.listSettings", {
             defaultValue: "List settings",
           })}
-          className="size-8 shrink-0 border-0 p-0 shadow-none"
+          className="size-7 shrink-0 border-0 p-0 text-muted-foreground shadow-none hover:text-foreground"
           title={t("sidebar.listSettings", { defaultValue: "List settings" })}
           type="button"
           variant="ghost"
           {...shellSecondaryNavItemProps}
         >
-          <ListFilter aria-hidden className="size-4" />
+          <ListFilter aria-hidden className="size-3.5" />
         </Button>
       </PopoverTrigger>
       <PopoverContent

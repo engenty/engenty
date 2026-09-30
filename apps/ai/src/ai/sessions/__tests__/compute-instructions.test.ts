@@ -33,6 +33,7 @@ function line(block: string, prefix: string): string {
 describe("buildComputeInstructions", () => {
   it("on a space computer, /home, /data and /skills are file tools only", () => {
     const block = buildComputeInstructions({
+      agentId: "contacts.manager",
       lifecycle: "space",
       mounts,
       network: "none",
@@ -49,6 +50,7 @@ describe("buildComputeInstructions", () => {
 
   it("in a per-run sandbox, /home and /data are on the computer", () => {
     const block = buildComputeInstructions({
+      agentId: "contacts.manager",
       lifecycle: "run",
       mounts,
       network: "none",

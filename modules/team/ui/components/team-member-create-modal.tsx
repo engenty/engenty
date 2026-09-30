@@ -31,13 +31,12 @@ import {
   SelectTrigger,
   SelectValue,
   Tabs,
-  TabsContent,
   TabsList,
   TabsTrigger,
 } from "@engenty/ui-core";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Check, ChevronsUpDown, ListTree } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { type Control, useForm } from "react-hook-form";
 import {
   createTeamMember,
@@ -149,8 +148,30 @@ export function TeamMemberCreateModal({
     form.setValue("name_suffix", parts.name_suffix ?? "");
   };
 
+  // The name an existing user put into the form. Picking another user (or
+  // leaving the tab) replaces it only while nobody has typed over it.
+  const prefilledNameRef = useRef<string | null>(null);
+
+  const replacePrefilledName = (next: string) => {
+    const untouched =
+      fullNameVal.trim() === "" || fullNameVal === prefilledNameRef.current;
+    if (untouched) {
+      handleNameChange(next);
+      prefilledNameRef.current = next || null;
+    }
+  };
+
   const handleUserLinkTabChange = (tab: string) => {
     const next = tab as UserLinkTab;
+    if (next === userLinkTab) {
+      return;
+    }
+    if (userLinkTab === "existing") {
+      // The email came from the picked user; the new-user tab needs its own.
+      replacePrefilledName("");
+      form.setValue("email", "");
+    }
+    form.clearErrors();
     if (next === "create_new") {
       form.setValue("connect_user_id", "create_new");
       return;
@@ -159,9 +180,18 @@ export function TeamMemberCreateModal({
       form.setValue("connect_user_id", "none");
       return;
     }
-    if (connectUserId === "create_new" || connectUserId === "none") {
-      form.setValue("connect_user_id", "");
-    }
+    form.setValue("connect_user_id", "");
+  };
+
+  const handleExistingUserSelect = (user: {
+    display_name: string | null;
+    email: string;
+    id: string;
+  }) => {
+    form.setValue("connect_user_id", user.id);
+    form.setValue("email", user.email);
+    form.clearErrors("connect_user_id");
+    replacePrefilledName(user.display_name?.trim() ?? "");
   };
 
   const handleSubmit = useCallback(
@@ -198,6 +228,7 @@ export function TeamMemberCreateModal({
         });
         form.reset(teamMemberCreateFormDefaults);
         setFullNameVal("");
+        prefilledNameRef.current = null;
         setShowNameDetails(false);
         onSuccess(created);
       } catch (err: unknown) {
@@ -212,6 +243,7 @@ export function TeamMemberCreateModal({
       if (!next) {
         form.reset(teamMemberCreateFormDefaults);
         setFullNameVal("");
+        prefilledNameRef.current = null;
         setShowNameDetails(false);
         setApiError(null);
       }
@@ -225,6 +257,193 @@ export function TeamMemberCreateModal({
   const selectedExistingLabel = selectedExistingUser
     ? `${selectedExistingUser.display_name || selectedExistingUser.email} (${selectedExistingUser.email})`
     : t("searchUserPlaceholder");
+
+  const nameFields = (
+    <>
+      <FormItem>
+        <FormLabel>{t("fullName") || "Name"}</FormLabel>
+        <div className="flex items-stretch gap-2">
+          <FormControl>
+            <Input
+              className="flex-1"
+              onChange={(e) => handleNameChange(e.target.value)}
+              placeholder={t("fullName") || "Name"}
+              value={fullNameVal}
+            />
+          </FormControl>
+          <Button
+            aria-expanded={showNameDetails}
+            aria-label={showNameDetails ? t("hideDetails") : t("showDetails")}
+            className="h-auto w-9 shrink-0"
+            onClick={() => setShowNameDetails(!showNameDetails)}
+            size="icon"
+            type="button"
+            variant="outline"
+          >
+            <ListTree className="h-4 w-4" />
+          </Button>
+        </div>
+        <FormMessage />
+      </FormItem>
+      {showNameDetails ? (
+        <TeamMemberNameFields control={form.control} t={t} />
+      ) : null}
+    </>
+  );
+
+  const memberTypeField = (
+    <FormField
+      control={form.control}
+      name="member_type"
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel>{t("memberType")}</FormLabel>
+          <Select
+            onValueChange={(v) =>
+              field.onChange(v as TeamMemberCreateFormValues["member_type"])
+            }
+            value={field.value}
+          >
+            <FormControl>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder={t("selectType")}>
+                  {field.value === "external"
+                    ? t("memberTypeExternal")
+                    : field.value === "contractor"
+                      ? t("memberTypeContractor")
+                      : field.value
+                        ? t("memberTypeInternal")
+                        : t("selectType")}
+                </SelectValue>
+              </SelectTrigger>
+            </FormControl>
+            <SelectContent>
+              <SelectItem value="internal">
+                {t("memberTypeInternal")}
+              </SelectItem>
+              <SelectItem value="external">
+                {t("memberTypeExternal")}
+              </SelectItem>
+              <SelectItem value="contractor">
+                {t("memberTypeContractor")}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+
+  const newUserFields = (
+    <>
+      <FormField
+        control={form.control}
+        name="email"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t("email")}</FormLabel>
+            <FormControl>
+              <Input type="email" {...field} value={field.value ?? ""} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name="password"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t("password")}</FormLabel>
+            <FormControl>
+              <PasswordInput
+                labels={{
+                  generate: t("passwordGenerate"),
+                  hide: t("passwordHide"),
+                  medium: t("passwordStrengthMedium"),
+                  show: t("passwordShow"),
+                  strong: t("passwordStrengthStrong"),
+                  weak: t("passwordStrengthWeak"),
+                }}
+                placeholder={t("passwordPlaceholder")}
+                {...field}
+              />
+            </FormControl>
+            <p className="text-muted-foreground text-xs">{t("passwordHint")}</p>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <InviteRoleField control={form.control} t={t} />
+    </>
+  );
+
+  // No role here: linking an existing account does not change its role (the
+  // create call only sends one for a new account).
+  const existingUserField = (
+    <FormField
+      control={form.control}
+      name="connect_user_id"
+      render={({ field }) => (
+        <FormItem className="flex flex-col">
+          <FormLabel>{t("searchUser")}</FormLabel>
+          <Popover onOpenChange={setUserSearchOpen} open={userSearchOpen}>
+            <PopoverTrigger asChild>
+              <FormControl>
+                <Button
+                  aria-expanded={userSearchOpen}
+                  className={cn(
+                    "w-full justify-between font-normal",
+                    !selectedExistingUser && "text-muted-foreground"
+                  )}
+                  role="combobox"
+                  variant="outline"
+                >
+                  {selectedExistingLabel}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </FormControl>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-(--anchor-width) p-0">
+              <Command shouldFilter>
+                <CommandInput placeholder={t("searchUserPlaceholder")} />
+                <CommandList>
+                  <CommandEmpty>{t("notFound")}</CommandEmpty>
+                  <CommandGroup>
+                    {users.map((user) => {
+                      const label = `${user.display_name || user.email} (${user.email})`;
+                      return (
+                        <CommandItem
+                          key={user.id}
+                          onSelect={() => {
+                            handleExistingUserSelect(user);
+                            setUserSearchOpen(false);
+                          }}
+                          value={label}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              field.value === user.id
+                                ? "opacity-100"
+                                : "opacity-0"
+                            )}
+                          />
+                          {label}
+                        </CommandItem>
+                      );
+                    })}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
 
   return (
     <Dialog onOpenChange={handleOpenChange} open={open}>
@@ -245,84 +464,8 @@ export function TeamMemberCreateModal({
             className="space-y-4"
             onSubmit={form.handleSubmit(handleSubmit)}
           >
-            <FormItem>
-              <FormLabel>{t("fullName") || "Name"}</FormLabel>
-              <div className="flex gap-2">
-                <FormControl>
-                  <Input
-                    className="flex-1"
-                    onChange={(e) => handleNameChange(e.target.value)}
-                    placeholder={t("fullName") || "Name"}
-                    value={fullNameVal}
-                  />
-                </FormControl>
-                <Button
-                  aria-expanded={showNameDetails}
-                  aria-label={
-                    showNameDetails ? t("hideDetails") : t("showDetails")
-                  }
-                  className="shrink-0"
-                  onClick={() => setShowNameDetails(!showNameDetails)}
-                  size="icon"
-                  type="button"
-                  variant="outline"
-                >
-                  <ListTree className="h-4 w-4" />
-                </Button>
-              </div>
-              <FormMessage />
-            </FormItem>
-
-            {showNameDetails ? (
-              <div>
-                <TeamMemberNameFields control={form.control} t={t} />
-              </div>
-            ) : null}
-
-            <FormField
-              control={form.control}
-              name="member_type"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t("memberType")}</FormLabel>
-                  <Select
-                    onValueChange={(v) =>
-                      field.onChange(
-                        v as TeamMemberCreateFormValues["member_type"]
-                      )
-                    }
-                    value={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder={t("selectType")}>
-                          {field.value === "external"
-                            ? t("memberTypeExternal")
-                            : field.value === "contractor"
-                              ? t("memberTypeContractor")
-                              : field.value
-                                ? t("memberTypeInternal")
-                                : t("selectType")}
-                        </SelectValue>
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="internal">
-                        {t("memberTypeInternal")}
-                      </SelectItem>
-                      <SelectItem value="external">
-                        {t("memberTypeExternal")}
-                      </SelectItem>
-                      <SelectItem value="contractor">
-                        {t("memberTypeContractor")}
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
+            {/* The account decision comes first: it decides what the rest of
+                the form asks for (an existing user prefills the name). */}
             <Tabs onValueChange={handleUserLinkTabChange} value={userLinkTab}>
               <TabsList className="grid h-auto w-full grid-cols-3">
                 <TabsTrigger value="create_new">{t("tabNewUser")}</TabsTrigger>
@@ -331,135 +474,37 @@ export function TeamMemberCreateModal({
                 </TabsTrigger>
                 <TabsTrigger value="none">{t("tabNoUser")}</TabsTrigger>
               </TabsList>
-
-              <TabsContent className="mt-4 space-y-4" value="create_new">
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t("email")}</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="email"
-                          {...field}
-                          value={field.value ?? ""}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t("password")}</FormLabel>
-                      <FormControl>
-                        <PasswordInput
-                          labels={{
-                            generate: t("passwordGenerate"),
-                            hide: t("passwordHide"),
-                            medium: t("passwordStrengthMedium"),
-                            show: t("passwordShow"),
-                            strong: t("passwordStrengthStrong"),
-                            weak: t("passwordStrengthWeak"),
-                          }}
-                          placeholder={t("passwordPlaceholder")}
-                          {...field}
-                        />
-                      </FormControl>
-                      <p className="text-muted-foreground text-xs">
-                        {t("passwordHint")}
-                      </p>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <InviteRoleField control={form.control} t={t} />
-              </TabsContent>
-
-              <TabsContent className="mt-4 space-y-4" value="existing">
-                <FormField
-                  control={form.control}
-                  name="connect_user_id"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                      <FormLabel>{t("searchUser")}</FormLabel>
-                      <Popover
-                        onOpenChange={setUserSearchOpen}
-                        open={userSearchOpen}
-                      >
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              aria-expanded={userSearchOpen}
-                              className={cn(
-                                "w-full justify-between font-normal",
-                                !selectedExistingUser && "text-muted-foreground"
-                              )}
-                              role="combobox"
-                              variant="outline"
-                            >
-                              {selectedExistingLabel}
-                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent
-                          align="start"
-                          className="w-(--anchor-width) p-0"
-                        >
-                          <Command shouldFilter>
-                            <CommandInput
-                              placeholder={t("searchUserPlaceholder")}
-                            />
-                            <CommandList>
-                              <CommandEmpty>{t("notFound")}</CommandEmpty>
-                              <CommandGroup>
-                                {users.map((user) => {
-                                  const label = `${user.display_name || user.email} (${user.email})`;
-                                  return (
-                                    <CommandItem
-                                      key={user.id}
-                                      onSelect={() => {
-                                        field.onChange(user.id);
-                                        form.setValue("email", user.email);
-                                        setUserSearchOpen(false);
-                                      }}
-                                      value={label}
-                                    >
-                                      <Check
-                                        className={cn(
-                                          "mr-2 h-4 w-4",
-                                          field.value === user.id
-                                            ? "opacity-100"
-                                            : "opacity-0"
-                                        )}
-                                      />
-                                      {label}
-                                    </CommandItem>
-                                  );
-                                })}
-                              </CommandGroup>
-                            </CommandList>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <InviteRoleField control={form.control} t={t} />
-              </TabsContent>
-
-              <TabsContent className="mt-4" value="none">
-                <p className="text-muted-foreground text-sm">
-                  {t("noUserHint")}
-                </p>
-              </TabsContent>
             </Tabs>
+
+            {/* All three variants share one grid cell, so the dialog is as
+                tall as the tallest one and does not jump between tabs. The
+                inactive ones stay laid out but invisible and inert. */}
+            <div className="grid">
+              {(["create_new", "existing", "none"] as const).map((tab) => {
+                const active = tab === userLinkTab;
+                return (
+                  <div
+                    aria-hidden={!active}
+                    className={cn(
+                      "col-start-1 row-start-1 space-y-4",
+                      !active && "invisible"
+                    )}
+                    inert={!active}
+                    key={tab}
+                  >
+                    {tab === "existing" ? existingUserField : null}
+                    {nameFields}
+                    {memberTypeField}
+                    {tab === "create_new" ? newUserFields : null}
+                    {tab === "none" ? (
+                      <p className="text-muted-foreground text-sm">
+                        {t("noUserHint")}
+                      </p>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
 
             <DialogFooter>
               <Button

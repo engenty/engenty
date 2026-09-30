@@ -219,7 +219,7 @@ function checkAiProvider(env: Record<string, string | undefined>): SetupCheck {
         id: "ai_provider",
         label,
         status: "warn",
-        step: 3,
+        step: 2,
       };
 }
 

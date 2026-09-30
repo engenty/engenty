@@ -31,7 +31,10 @@ interface ModelPickerDialogProps {
    * (copilot / effort tiers). The checkbox still lets an expert see the rest.
    */
   capableOnlyDefault?: boolean;
-  inheritedValue: string;
+  /** Replaces the default "pick or inherit" description. */
+  description?: string;
+  /** The model an inherit pick falls back to; omitted = no inherit row. */
+  inheritedValue?: string;
   maxPriceTier: "all" | GatewayModelPriceTier;
   models: GatewayModelOption[];
   onOpenChange: (open: boolean) => void;
@@ -70,6 +73,7 @@ function matchesSearch(model: GatewayModelOption, query: string): boolean {
 
 export function ModelPickerDialog({
   capableOnlyDefault = false,
+  description,
   inheritedValue,
   maxPriceTier,
   models,
@@ -113,7 +117,9 @@ export function ModelPickerDialog({
           <DialogTitle>
             {t("picker.title", { purpose: purposeLabel })}
           </DialogTitle>
-          <DialogDescription>{t("picker.description")}</DialogDescription>
+          <DialogDescription>
+            {description ?? t("picker.description")}
+          </DialogDescription>
         </DialogHeader>
 
         <Input
@@ -139,24 +145,26 @@ export function ModelPickerDialog({
 
         <ScrollArea className="h-[min(60vh,440px)] pr-3">
           <div className="flex flex-col gap-1">
-            <button
-              className="flex items-start justify-between gap-3 rounded-md border border-transparent px-3 py-2 text-left hover:bg-muted/50 data-[active=true]:border-border data-[active=true]:bg-muted/40"
-              data-active={value == null}
-              onClick={() => choose(null)}
-              type="button"
-            >
-              <div className="min-w-0">
-                <div className="font-medium text-sm">
-                  {t("matrix.inheritActionLong")}
+            {inheritedValue === undefined ? null : (
+              <button
+                className="flex items-start justify-between gap-3 rounded-md border border-transparent px-3 py-2 text-left hover:bg-muted/50 data-[active=true]:border-border data-[active=true]:bg-muted/40"
+                data-active={value == null}
+                onClick={() => choose(null)}
+                type="button"
+              >
+                <div className="min-w-0">
+                  <div className="font-medium text-sm">
+                    {t("matrix.inheritActionLong")}
+                  </div>
+                  <div className="truncate font-mono text-muted-foreground text-xs">
+                    {t("matrix.inheritHint", { model: inheritedValue })}
+                  </div>
                 </div>
-                <div className="truncate font-mono text-muted-foreground text-xs">
-                  {t("matrix.inheritHint", { model: inheritedValue })}
-                </div>
-              </div>
-              {value == null ? (
-                <Check className="mt-0.5 size-4 shrink-0 text-primary" />
-              ) : null}
-            </button>
+                {value == null ? (
+                  <Check className="mt-0.5 size-4 shrink-0 text-primary" />
+                ) : null}
+              </button>
+            )}
 
             {filtered.map((model) => {
               const price = formatModelPrice(model);

@@ -33,7 +33,7 @@ const scopeTypeSchema = z.enum(["thread", "task", "project", "space", "agent"]);
  * kept permanently (PLAN-space-data.md D6).
  *
  * `space` joined task/project when the space Data tree gave artifacts a home.
- * `agent` is an Engenty: kept with that agent (desk), not dumped into Ablage.
+ * `agent` is an Engenty: kept with that agent (desk), not dumped into Dokumente.
  */
 const promotableScopeSchema = z.enum(["task", "project", "space", "agent"]);
 const containerTierSchema = z.enum([

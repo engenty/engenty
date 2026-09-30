@@ -1,6 +1,7 @@
 import {
   AI_PLATFORM_ROLES,
   type AiUsageStore,
+  type CustomModelsConfig,
   type ModelPricingRecord,
 } from "@engenty/ai-core";
 import { Hono } from "hono";
@@ -75,7 +76,14 @@ function fakeGatewayStore(
 ) {
   const rows = catalog.map((row) => ({ ...row }));
   const bound = new Map(bindings.map((row) => [row.role, { ...row }]));
+  const saved: { customModels: CustomModelsConfig | null } = {
+    customModels: null,
+  };
   const store = {
+    setCustomModelsConfig: async (config: CustomModelsConfig) => {
+      saved.customModels = config;
+      return config;
+    },
     listGatewayModels: async () => rows.map((row) => ({ ...row })),
     listModelBindings: async () =>
       [...bound.values()].map((row) => ({ ...row, updated_at: "" })),
@@ -102,7 +110,14 @@ function fakeGatewayStore(
       return { ...row, updated_at: "" };
     },
   } as unknown as AiGatewayModelStore;
-  return { bound, rows, store };
+  return {
+    bound,
+    get customModels() {
+      return saved.customModels;
+    },
+    rows,
+    store,
+  };
 }
 
 function pricingStore(rows: ModelPricingRecord[]): AiUsageStore {
@@ -152,6 +167,7 @@ function described(gateway: string, modelId: string) {
 
 function defaults(): ModelDefaults {
   return {
+    customModels: null,
     models: [
       {
         ...described("vercel", "openai/gpt-a"),
@@ -211,6 +227,24 @@ describe("applyModelDefaultsIfFresh", () => {
       model_id: "openai/gpt-a",
       role: ROLE,
       scope: "platform",
+    });
+  });
+
+  it("ships the Custom list, keeping only models the catalog serves", async () => {
+    const fake = fakeGatewayStore([catalogRow("vercel", "openai/gpt-a")]);
+
+    await applyModelDefaultsIfFresh(fake.store, {
+      ...defaults(),
+      customModels: {
+        enabled: true,
+        models: ["openai/gpt-a", "openrouter:openai/gpt-a", "gone/model"],
+      },
+    });
+
+    // The same id on a gateway the catalog lacks is a different, unservable row.
+    expect(fake.customModels).toEqual({
+      enabled: true,
+      models: ["openai/gpt-a"],
     });
   });
 
@@ -321,6 +355,7 @@ describe("exportAvailableModels", () => {
     await applyModelDefaultsIfFresh(fresh.store, {
       ...exported,
       bindings: [],
+      customModels: null,
     });
 
     expect(fresh.rows).toEqual(configured.rows);

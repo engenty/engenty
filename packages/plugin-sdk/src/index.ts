@@ -6,7 +6,7 @@
 
 import type { FeatureFlagDefinition as _FeatureFlagDefinition } from "@engenty/feature-flags";
 import type { McpDisposition, McpSafeAnnotations } from "./mcp-disposition.js";
-import type { PluginCategory, PluginStability } from "./plugin-category.js";
+import type { PluginCategory, PluginStage } from "./plugin-category.js";
 
 export type { FeatureFlagDefinition } from "@engenty/feature-flags";
 export {
@@ -36,6 +36,12 @@ export { capabilityCovers } from "./capability-match.js";
  * Admins hold it through `*`; a custom role can grant it to anyone else.
  */
 export const COMPANY_FILES_MANAGE_CAPABILITY = "core.company_files.manage";
+/**
+ * Writing the company's memory entries — the facts every Space's agents are
+ * shown. An agent's write parks on an approval only a holder decides. Admins
+ * hold it through `*`; a custom role can grant it to anyone else.
+ */
+export const COMPANY_MEMORY_MANAGE_CAPABILITY = "core.company_memory.manage";
 export {
   type PluginCapabilityBlockedReason,
   type PluginCapabilityDiagnostic,
@@ -162,6 +168,12 @@ export {
   spaceDataSlug,
 } from "./space-data-format.js";
 export {
+  type SpaceDataSearchInput,
+  type SpaceDataSearchResult,
+  searchSpaceDataByWalk,
+  spaceDataNameMatches,
+} from "./space-data-search.js";
+export {
   AI_SERVICE_CAPABILITIES,
   capabilitiesForModuleAccess,
   deriveSpaceAgentCapabilities,
@@ -223,16 +235,21 @@ export { ownershipPolicy } from "./ownership-policy.js";
 export type {
   PluginCategory,
   PluginPlacement,
-  PluginStability,
+  PluginStage,
+  PluginTenantDefault,
 } from "./plugin-category.js";
 export {
+  DEFAULT_MODULE_STAGE,
   DEFAULT_PLUGIN_PLACEMENT,
+  isModuleStageInstalled,
   isPluginCategory,
+  isPluginOnForTenant,
   isPluginPlacement,
-  isPluginStability,
+  isPluginStage,
+  moduleTenantDefault,
   PLUGIN_CATEGORIES,
   PLUGIN_PLACEMENTS,
-  PLUGIN_STABILITIES,
+  PLUGIN_STAGES,
   pluginCategoryRank,
 } from "./plugin-category.js";
 export {
@@ -796,8 +813,13 @@ export interface EngentyPluginManifest {
   server: {
     entry: string;
   };
-  /** See {@link PluginStability}. Absent ⇒ stable. */
-  stability?: PluginStability;
+  /** See {@link PluginStage}. Absent ⇒ stable. */
+  stage?: PluginStage;
+  /**
+   * Works for other modules (settings, templates, the copilot, connections)
+   * and is never offered as an app of its own: not in the space app catalog.
+   */
+  supporting?: boolean;
   /**
    * Capability tier. "module" (default) is deeply-integrated and unrestricted;
    * "plugin" is catalog-installed and capability-restricted.
@@ -884,14 +906,15 @@ export interface PluginServerApi {
     options?: { auth?: PluginAuthContext }
   ) => Promise<unknown | null>;
   /**
-   * Shared context-graph server API. Available once the host has wired the
-   * package and a database adapter is present; consumers should defensively
-   * check for `undefined` to stay compatible with non-DB boot contexts.
+   * Shared context-graph server API. `undefined` when the optional
+   * `context-graph` module is not installed (or there is no database). For an
+   * Organisation that has the module off, reads return nothing and writes are
+   * skipped.
    */
   contextGraph?: PluginContextGraphServerApi;
   /**
    * Read-only view of all registered context-graph sources. Used by the
-   * context-graph package itself to expose dynamic HTTP status/sync routes.
+   * context-graph module itself to expose dynamic HTTP status/sync routes.
    */
   contextGraphSources?: {
     get(id: string): ContextGraphSourceRegistration | undefined;
@@ -961,7 +984,7 @@ export interface PluginServerApi {
   ) => void;
   /**
    * Install the context-graph host implementation. Called once by the
-   * `@engenty/context-graph` plugin, which owns the shared singletons. The
+   * optional `context-graph` module, which owns the shared singletons. The
    * host then delegates `contextGraph` / `registerContextGraphSchema` /
    * `registerContextGraphSource` to this provider, keeping core free of any
    * concrete `@engenty/context-graph` import.
@@ -971,9 +994,10 @@ export interface PluginServerApi {
    * Register entity and edge types (and optional event bindings) with the
    * shared context graph. The host translates this into a registry merge
    * and, when `onEvents` is supplied, into `engenty.events.modules.on`
-   * subscriptions that mirror module lifecycle events into the graph.
-   * Returns `undefined` when no host has wired the surface (e.g. CLI boot
-   * with no database adapter).
+   * subscriptions (owned by the context-graph module) that mirror module
+   * lifecycle events into the graph. Returns `undefined` when the module is
+   * not installed or loads later (the registration is then applied once it
+   * loads).
    */
   registerContextGraphSchema?: (
     registration: ContextGraphSchemaRegistration

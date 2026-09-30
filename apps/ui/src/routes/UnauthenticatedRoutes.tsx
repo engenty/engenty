@@ -4,9 +4,12 @@ import {
   CallbackPage,
   DevLoginPage,
   InitialSetupPage,
+  InitialSetupPreviewPage,
   LoginPage,
   OAuthConsentPage,
   ServiceUnavailablePage,
+  TENANT_SETUP_PATH,
+  TenantSetupPage,
 } from "@engenty/auth-ui";
 import type { UiContributions } from "@engenty/ui-plugin-sdk";
 import { Route, Routes } from "react-router-dom";
@@ -33,6 +36,8 @@ export function UnauthenticatedRoutes({
           );
         })}
       <Route element={<InitialSetupPage />} path="/initial_setup" />
+      <Route element={<InitialSetupPreviewPage />} path="/auth/setup-preview" />
+      <Route element={<TenantSetupPage />} path={TENANT_SETUP_PATH} />
       <Route element={<DevLoginPage />} path="/auth/dev-login" />
       <Route element={<AgentLoginPage />} path="/auth/agent-login" />
       <Route element={<LoginPage />} path="/auth/login" />

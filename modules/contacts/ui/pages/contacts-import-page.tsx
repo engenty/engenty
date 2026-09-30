@@ -8,6 +8,7 @@ import {
   ImportPageShell,
   type ImportRunProgress,
   type ImportRunSummary,
+  type ImportWizardSnapshot,
   importPageContentClassName,
   type MatchByConfig,
 } from "@engenty/import";
@@ -38,7 +39,10 @@ const DEFAULT_MATCH_BY: MatchByConfig = { type: "none" };
 
 export function ContactsImportPage() {
   const { t } = useTranslation("contacts");
-  useContactsImportAgentUiSlice();
+  const [wizardState, setWizardState] = useState<ImportWizardSnapshot | null>(
+    null
+  );
+  useContactsImportAgentUiSlice(wizardState);
   const navigate = useNavigate();
   const progressToastId = useRef<string | number | undefined>(undefined);
   const [matchByConfig, setMatchByConfig] =
@@ -302,6 +306,7 @@ export function ContactsImportPage() {
         onImportRow={handleImportRow}
         onInfo={(message: string) => toast.message(message)}
         onMatchByConfigChange={setMatchByConfig}
+        onStateChange={setWizardState}
         onSuccess={(message: string) => toast.success(message)}
         presetAdapter={{
           loadPresets: getContactsImportPresets,

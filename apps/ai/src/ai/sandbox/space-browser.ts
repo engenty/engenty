@@ -493,11 +493,37 @@ export async function signOutUserBrowser(
   return status;
 }
 
+/** Last-use stamps are this process's memory: nothing is known before it. */
+const PROCESS_STARTED_MS = Date.now();
+
+/**
+ * When a container last started. `docker ps` only reports creation, and a
+ * woken browser keeps its container — creation can be days back while the
+ * browser came up a minute ago. Null when docker cannot say.
+ */
+async function readContainerStartedAtMs(
+  containerId: string
+): Promise<number | null> {
+  try {
+    const { stdout } = await execFileAsync("docker", [
+      "inspect",
+      "--format",
+      "{{.State.StartedAt}}",
+      containerId,
+    ]);
+    const ms = Date.parse(stdout.trim());
+    return Number.isFinite(ms) ? ms : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Stop user browsers idle past the TTL. Idle = no tool call and no stream
- * frame through this process since the cutoff; a browser whose last use
- * predates the process falls back to container age. Never rejects; runs
- * from the staging reaper's tick.
+ * frame through this process since the cutoff. A browser this process has
+ * not seen used yet (it outlives restarts) counts from the later of its
+ * container's start and this process's: a restart never stops a browser
+ * someone was just using. Never rejects; runs from the staging reaper's tick.
  */
 export async function sweepIdleUserBrowsers(
   rows: readonly {
@@ -513,8 +539,14 @@ export async function sweepIdleUserBrowsers(
       continue;
     }
     const idleSince =
-      getUserBrowserLastUsedMs(row.sandbox_id) ?? row.created_at_ms;
-    if (idleSince === null || idleSince > cutoff) {
+      getUserBrowserLastUsedMs(row.sandbox_id) ??
+      Math.max(
+        PROCESS_STARTED_MS,
+        (await readContainerStartedAtMs(row.container_id)) ??
+          row.created_at_ms ??
+          0
+      );
+    if (idleSince > cutoff) {
       continue;
     }
     try {

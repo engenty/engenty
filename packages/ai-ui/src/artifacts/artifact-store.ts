@@ -45,6 +45,18 @@ export interface A2uiSurfacePaneTab {
   title: string;
 }
 
+/**
+ * A module page rendered inside the pane (the View Pane). One per host: a
+ * later `open_view` replaces the path in place, like the live A2UI surface.
+ */
+export interface ViewPaneTab {
+  /** Tab id in the shared tab strip: `view:page`. */
+  key: string;
+  /** App path the pane renders, e.g. `/s/engrd/contacts/import?file=…`. */
+  path: string;
+  title: string;
+}
+
 export interface ArtifactPaneState {
   activeId: string | null;
   fileTabs: WorkFilePaneTab[];
@@ -57,6 +69,7 @@ export interface ArtifactPaneState {
    * opens. Drives the topbar badge so users notice new work without auto-opening.
    */
   unseenIds: string[];
+  viewTabs: ViewPaneTab[];
 }
 
 interface ArtifactStore {
@@ -72,12 +85,15 @@ const EMPTY_STATE: ArtifactPaneState = {
   paneOpen: false,
   surfaceTabs: [],
   unseenIds: [],
+  viewTabs: [],
 };
 
 const OBJECT_TAB_PREFIX = "object:";
 const WORK_FILE_TAB_PREFIX = "workfile:";
 const SURFACE_TAB_PREFIX = "surface:";
 export const LIVE_A2UI_SURFACE_TAB_KEY = `${SURFACE_TAB_PREFIX}live`;
+const VIEW_TAB_PREFIX = "view:";
+export const VIEW_PANE_TAB_KEY = `${VIEW_TAB_PREFIX}page`;
 
 export function objectPaneTabKey(ref: ObjectRef): string {
   return `${OBJECT_TAB_PREFIX}${formatObjectRef(ref)}`;
@@ -105,17 +121,23 @@ export function isA2uiSurfacePaneTabKey(id: string | null): boolean {
   return Boolean(id?.startsWith(SURFACE_TAB_PREFIX));
 }
 
-/** Object, work-file, or live A2UI tab — not an artifact id from the server list. */
+export function isViewPaneTabKey(id: string | null): boolean {
+  return Boolean(id?.startsWith(VIEW_TAB_PREFIX));
+}
+
+/** Object, work-file, live A2UI or view tab — not an artifact id from the server list. */
 export function isTransientPaneTabKey(id: string | null): boolean {
   return (
     isObjectPaneTabKey(id) ||
     isWorkFilePaneTabKey(id) ||
-    isA2uiSurfacePaneTabKey(id)
+    isA2uiSurfacePaneTabKey(id) ||
+    isViewPaneTabKey(id)
   );
 }
 
 function firstTransientTabKey(state: ArtifactPaneState): string | null {
   return (
+    state.viewTabs[0]?.key ??
     state.surfaceTabs[0]?.key ??
     state.objectTabs[0]?.key ??
     state.fileTabs[0]?.key ??
@@ -151,6 +173,7 @@ function setState(hostKey: string, next: ArtifactPaneState) {
     next.objectTabs === prev.objectTabs &&
     next.fileTabs === prev.fileTabs &&
     next.surfaceTabs === prev.surfaceTabs &&
+    next.viewTabs === prev.viewTabs &&
     sameIdList(next.unseenIds, prev.unseenIds)
   ) {
     return;
@@ -290,6 +313,7 @@ export function closeObjectPaneTab(
       objectTabs[0]?.key ??
       state.fileTabs[0]?.key ??
       state.surfaceTabs[0]?.key ??
+      state.viewTabs[0]?.key ??
       null;
     next = fallback
       ? { ...next, activeId: fallback }
@@ -349,6 +373,7 @@ export function closeWorkFilePaneTab(
       state.objectTabs[0]?.key ??
       fileTabs[0]?.key ??
       state.surfaceTabs[0]?.key ??
+      state.viewTabs[0]?.key ??
       null;
     next = fallback
       ? { ...next, activeId: fallback }
@@ -406,6 +431,59 @@ export function closeA2uiSurfacePaneTab(
       state.objectTabs[0]?.key ??
       state.fileTabs[0]?.key ??
       surfaceTabs[0]?.key ??
+      state.viewTabs[0]?.key ??
+      null;
+    next = fallback
+      ? { ...next, activeId: fallback }
+      : { ...next, activeId: null, paneOpen: false, paneExpanded: false };
+  }
+  setState(hostKey, { ...state, ...next });
+}
+
+/**
+ * Open (or replace) the View Pane tab: a module page rendered beside the chat.
+ * One per host — a second call swaps the path. Transient like the other
+ * non-artifact tabs.
+ */
+export function openViewPaneTab(
+  hostKey: string,
+  view: { path: string; title?: string },
+  opts?: { expanded?: boolean }
+) {
+  const { state } = getStore(hostKey);
+  const path = view.path.trim();
+  const tab: ViewPaneTab = {
+    key: VIEW_PANE_TAB_KEY,
+    path,
+    title: view.title?.trim() || path,
+  };
+  setState(hostKey, {
+    ...state,
+    viewTabs: [tab],
+    activeId: tab.key,
+    paneOpen: true,
+    paneExpanded: opts?.expanded ?? state.paneExpanded,
+    unseenIds: [],
+  });
+}
+
+export function closeViewPaneTab(
+  hostKey: string,
+  key: string,
+  remainingArtifactIds: string[] = []
+) {
+  const { state } = getStore(hostKey);
+  const viewTabs = state.viewTabs.filter((tab) => tab.key !== key);
+  if (viewTabs.length === state.viewTabs.length) {
+    return;
+  }
+  let next: Partial<ArtifactPaneState> = { viewTabs };
+  if (state.activeId === key) {
+    const fallback =
+      remainingArtifactIds[0] ??
+      state.objectTabs[0]?.key ??
+      state.fileTabs[0]?.key ??
+      state.surfaceTabs[0]?.key ??
       null;
     next = fallback
       ? { ...next, activeId: fallback }
@@ -483,7 +561,8 @@ export function useArtifactListSync(params: {
         emptied &&
         getStore(hostKey).state.objectTabs.length === 0 &&
         getStore(hostKey).state.fileTabs.length === 0 &&
-        getStore(hostKey).state.surfaceTabs.length === 0
+        getStore(hostKey).state.surfaceTabs.length === 0 &&
+        getStore(hostKey).state.viewTabs.length === 0
       ) {
         // Closing (archiving) the last tab closes the pane — unless transient
         // object/file tabs are still open.

@@ -1,20 +1,20 @@
-// The list: lanes (attention / needs you / errors / updates), one row per record with its
-// deep link, the module-contributed body for its kind, and mark seen/dismiss.
-// Rendered by the page, the bell and any module that embeds the inbox.
+// The list on the full page and in module embeds (the tasks briefing): the
+// same cards and stacks as the bell, split into what needs a person and
+// FYI, with the module-contributed body for a decision that is decided in
+// place.
 import { useTranslation } from "@engenty/i18n/ui";
-import { Button, cn, TooltipProvider } from "@engenty/ui-core";
-import { AlertTriangle, CheckCheck, ShieldCheck, Trash2 } from "lucide-react";
+import { Button, TooltipProvider } from "@engenty/ui-core";
+import { Bell, CheckCheck, ChevronDown, ChevronUp } from "lucide-react";
 import { type ComponentType, type ReactNode, useState } from "react";
 import type { NotificationDto } from "./api.js";
 import {
-  isError,
-  isHitl,
+  canMarkSeen,
+  isAttention,
   matchesLaneFilter,
   type NotificationLaneFilter,
 } from "./classification.js";
-import { notificationOrigin } from "./notification-href.js";
-import { NotificationItem } from "./notification-item.js";
-import { useMarkNotificationMutation } from "./queries.js";
+import { NotificationStacks } from "./notification-stack.js";
+import { useMarkSeenMutation } from "./queries.js";
 import { NotificationSurfaceContext } from "./renderers.js";
 
 export {
@@ -22,7 +22,9 @@ export {
   notificationOrigin,
 } from "./notification-href.js";
 
-function ClearAllButton({ onClick }: { onClick: () => void }) {
+type Lane = "attention" | "updates";
+
+function MarkAllSeenButton({ onClick }: { onClick: () => void }) {
   const { t } = useTranslation("common");
   return (
     <Button
@@ -31,183 +33,75 @@ function ClearAllButton({ onClick }: { onClick: () => void }) {
       size="sm"
       variant="ghost"
     >
-      <Trash2 className="h-3 w-3" />
-      {t("notifications.clearAll", { defaultValue: "Clear all" })}
+      <CheckCheck className="h-3 w-3" />
+      {t("notifications.markAllSeen", { defaultValue: "Mark all seen" })}
     </Button>
   );
 }
 
-export type NotificationListVariant = "page" | "inbox";
-
-/**
- * FYI rows from one source (same kind, same actor, same space) fold into the
- * newest one: five desk posts from one Engenty are one line to read, not
- * five. Anything that wants a person stays its own row.
- */
-export function groupRepeatedUpdates(
-  notifications: NotificationDto[]
-): { head: NotificationDto; rest: NotificationDto[] }[] {
-  const groups: { head: NotificationDto; rest: NotificationDto[] }[] = [];
-  const byKey = new Map<
-    string,
-    { head: NotificationDto; rest: NotificationDto[] }
-  >();
-  for (const notification of notifications) {
-    const actor =
-      typeof notification.metadata?.actor_ref === "string"
-        ? notification.metadata.actor_ref
-        : notification.actor_id;
-    const key =
-      notification.class === "update" && actor
-        ? `${notification.kind}|${actor}|${notification.space_id ?? ""}`
-        : null;
-    const open = key ? byKey.get(key) : undefined;
-    if (open) {
-      open.rest.push(notification);
-      continue;
+function useMarkAllSeen() {
+  const mark = useMarkSeenMutation();
+  return (items: NotificationDto[]) => {
+    const ids = items.filter(canMarkSeen).map((item) => item.id);
+    if (ids.length > 0) {
+      mark.mutate(ids);
     }
-    const group = { head: notification, rest: [] as NotificationDto[] };
-    groups.push(group);
-    if (key) {
-      byKey.set(key, group);
-    }
-  }
-  return groups;
-}
-
-function NotificationRows({
-  locale,
-  notifications,
-  variant,
-}: {
-  locale: string;
-  notifications: NotificationDto[];
-  variant: NotificationListVariant;
-}) {
-  const { t } = useTranslation("common");
-  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
-  return (
-    <>
-      {groupRepeatedUpdates(notifications).map(({ head, rest }) => {
-        const open = expanded.has(head.id);
-        const who = notificationOrigin(head).actorLabel;
-        return (
-          <li className="list-none" key={head.id}>
-            <ul className="flex flex-col">
-              <NotificationItem
-                locale={locale}
-                notification={head}
-                variant={variant}
-              />
-              {open
-                ? rest.map((notification) => (
-                    <NotificationItem
-                      key={notification.id}
-                      locale={locale}
-                      notification={notification}
-                      variant={variant}
-                    />
-                  ))
-                : null}
-            </ul>
-            {rest.length > 0 ? (
-              <button
-                className={cn(
-                  "text-muted-foreground text-xs hover:text-foreground",
-                  variant === "inbox" ? "px-11 pb-2" : "px-3 pt-1"
-                )}
-                onClick={() =>
-                  setExpanded((prev) => {
-                    const next = new Set(prev);
-                    if (open) {
-                      next.delete(head.id);
-                    } else {
-                      next.add(head.id);
-                    }
-                    return next;
-                  })
-                }
-                type="button"
-              >
-                {open
-                  ? t("notifications.group.less", { defaultValue: "Show less" })
-                  : who
-                    ? t("notifications.group.moreFrom", {
-                        count: rest.length,
-                        defaultValue: "+{{count}} more from {{name}}",
-                        name: who,
-                      })
-                    : t("notifications.group.more", {
-                        count: rest.length,
-                        defaultValue: "+{{count}} more",
-                      })}
-              </button>
-            ) : null}
-          </li>
-        );
-      })}
-    </>
-  );
+  };
 }
 
 function Section({
   icon: Icon,
-  title,
-  notifications,
+  lane,
   locale,
-  tone,
+  notifications,
   onClearAll,
-  variant,
+  title,
 }: {
   icon: ComponentType<{ className?: string }>;
-  title: string;
-  notifications: NotificationDto[];
+  lane: Lane;
   locale: string;
-  tone?: "primary" | "destructive";
-  onClearAll?: (notifications: NotificationDto[]) => void;
-  variant: NotificationListVariant;
+  notifications: NotificationDto[];
+  onClearAll: (notifications: NotificationDto[]) => void;
+  title: string;
 }) {
+  const [expanded, setExpanded] = useState(false);
   if (notifications.length === 0) {
     return null;
   }
-  const inbox = variant === "inbox";
+  const clearable = notifications.some(canMarkSeen);
+  const Chevron = expanded ? ChevronUp : ChevronDown;
   return (
-    <section className={inbox ? undefined : "space-y-2"}>
-      <div
-        className={cn(
-          "flex items-center justify-between gap-2",
-          inbox ? "px-4 pt-3 pb-1" : undefined
-        )}
-      >
-        <h2
-          className={cn(
-            "flex items-center gap-2 font-medium text-muted-foreground",
-            inbox ? "text-xs" : "text-sm"
-          )}
-        >
-          <Icon
-            className={cn(
-              "h-3.5 w-3.5",
-              tone === "primary" && "text-primary",
-              tone === "destructive" && "text-destructive"
-            )}
-          />
-          {title}
-          <span className="text-muted-foreground/70 tabular-nums">
-            ({notifications.length})
-          </span>
+    <section className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="font-medium text-muted-foreground text-sm">
+          {/* Opens or folds every stack in the section at once. */}
+          <button
+            aria-expanded={expanded}
+            className="group/heading flex items-center gap-2 rounded-sm hover:text-foreground"
+            onClick={() => setExpanded((value) => !value)}
+            type="button"
+          >
+            <Icon className="h-3.5 w-3.5" />
+            {title}
+            <span className="text-muted-foreground/70 tabular-nums">
+              ({notifications.length})
+            </span>
+            <Chevron
+              aria-hidden
+              className="h-3.5 w-3.5 opacity-0 transition-opacity group-hover/heading:opacity-100 group-focus-visible/heading:opacity-100"
+            />
+          </button>
         </h2>
-        {onClearAll ? (
-          <ClearAllButton onClick={() => onClearAll(notifications)} />
+        {clearable ? (
+          <MarkAllSeenButton onClick={() => onClearAll(notifications)} />
         ) : null}
       </div>
-      <ul className={cn("flex flex-col", inbox ? undefined : "gap-1.5")}>
-        <NotificationRows
-          locale={locale}
-          notifications={notifications}
-          variant={variant}
-        />
-      </ul>
+      <NotificationStacks
+        expanded={expanded}
+        locale={locale}
+        notifications={notifications}
+        variant="page"
+      />
     </section>
   );
 }
@@ -217,13 +111,11 @@ export interface NotificationListProps {
   clearAllPlacement?: "top" | "bottom";
   /** Extra actions in the bottom bar (e.g. an embed's "View all"). */
   footerStart?: ReactNode;
-  /** When false, render a flat list (an embed's attention lane). */
+  /** When false, one column of stacks instead of the two sections. */
   grouped?: boolean;
   laneFilter?: NotificationLaneFilter;
   locale: string;
   notifications: NotificationDto[];
-  /** Inbox popover uses flat rows; the full page keeps raised cards. */
-  variant?: NotificationListVariant;
 }
 
 export function NotificationList({
@@ -233,10 +125,9 @@ export function NotificationList({
   laneFilter = "all",
   locale,
   notifications,
-  variant = "page",
 }: NotificationListProps) {
   const { t } = useTranslation("common");
-  const markMutation = useMarkNotificationMutation();
+  const clearAll = useMarkAllSeen();
 
   const filtered = notifications.filter((n) =>
     matchesLaneFilter(n, laneFilter)
@@ -252,53 +143,31 @@ export function NotificationList({
     );
   }
 
-  // A decision is answered, never cleared: it stays until someone decides it.
-  const clearAll = (items: NotificationDto[]) => {
-    for (const item of items) {
-      if (item.class === "decision") {
-        continue;
-      }
-      markMutation.mutate({ action: "dismiss", id: item.id });
-    }
-  };
-
   if (!grouped || laneFilter !== "all") {
-    const canClear =
-      laneFilter === "attention" ||
-      laneFilter === "errors" ||
-      laneFilter === "hitl" ||
-      filtered.every((n) => isError(n) || isHitl(n));
-    const showTopClear =
-      canClear && clearAllPlacement === "top" && variant !== "inbox";
+    const lane: Lane = laneFilter === "updates" ? "updates" : "attention";
+    const canClear = filtered.some(canMarkSeen);
     const showBottomBar = Boolean(
       footerStart || (canClear && clearAllPlacement === "bottom")
     );
     return (
-      <NotificationSurfaceContext.Provider value={variant}>
+      <NotificationSurfaceContext.Provider value="page">
         <TooltipProvider delayDuration={300}>
-          <div className="space-y-1.5">
-            {showTopClear ? (
+          <div className="space-y-2">
+            {canClear && clearAllPlacement === "top" ? (
               <div className="flex justify-end">
-                <ClearAllButton onClick={() => clearAll(filtered)} />
+                <MarkAllSeenButton onClick={() => clearAll(filtered)} />
               </div>
             ) : null}
-            <ul
-              className={cn(
-                "flex flex-col",
-                variant === "inbox" ? undefined : "gap-1.5"
-              )}
-            >
-              <NotificationRows
-                locale={locale}
-                notifications={filtered}
-                variant={variant}
-              />
-            </ul>
+            <NotificationStacks
+              locale={locale}
+              notifications={filtered}
+              variant="page"
+            />
             {showBottomBar ? (
               <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 pt-1">
                 <div className="min-w-0">{footerStart}</div>
                 {canClear && clearAllPlacement === "bottom" ? (
-                  <ClearAllButton onClick={() => clearAll(filtered)} />
+                  <MarkAllSeenButton onClick={() => clearAll(filtered)} />
                 ) : null}
               </div>
             ) : null}
@@ -308,42 +177,27 @@ export function NotificationList({
     );
   }
 
-  const hitl = filtered.filter(isHitl);
-  const errors = filtered.filter(isError);
-  const updates = filtered.filter((n) => n.class === "update");
-  const canClearLane = (items: NotificationDto[]) =>
-    items.some((item) => item.class !== "decision");
   return (
-    <NotificationSurfaceContext.Provider value={variant}>
+    <NotificationSurfaceContext.Provider value="page">
       <TooltipProvider delayDuration={300}>
-        <div className={variant === "inbox" ? "pb-1" : "space-y-4"}>
+        <div className="space-y-6">
           <Section
-            icon={ShieldCheck}
+            icon={Bell}
+            lane="attention"
             locale={locale}
-            notifications={hitl}
-            onClearAll={canClearLane(hitl) ? clearAll : undefined}
-            title={t("notifications.lane.needsYou", {
-              defaultValue: "Needs your input",
+            notifications={filtered.filter(isAttention)}
+            onClearAll={clearAll}
+            title={t("notifications.lane.attention", {
+              defaultValue: "Notifications",
             })}
-            tone="primary"
-            variant={variant}
-          />
-          <Section
-            icon={AlertTriangle}
-            locale={locale}
-            notifications={errors}
-            onClearAll={canClearLane(errors) ? clearAll : undefined}
-            title={t("notifications.lane.errors", { defaultValue: "Errors" })}
-            tone="destructive"
-            variant={variant}
           />
           <Section
             icon={CheckCheck}
+            lane="updates"
             locale={locale}
-            notifications={updates}
-            onClearAll={canClearLane(updates) ? clearAll : undefined}
+            notifications={filtered.filter((n) => !isAttention(n))}
+            onClearAll={clearAll}
             title={t("notifications.lane.updates", { defaultValue: "Updates" })}
-            variant={variant}
           />
         </div>
       </TooltipProvider>

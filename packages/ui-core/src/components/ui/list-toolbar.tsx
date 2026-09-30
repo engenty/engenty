@@ -217,7 +217,11 @@ interface ListFilterChipOption {
 interface ListFilterChipProps {
   activeLabel?: string;
   ariaLabel: string;
+  /** Extra chip classes (e.g. `min-w-0 shrink` to truncate in a tight row). */
+  className?: string;
   clearLabel: string;
+  /** Optional leading icon on the chip. */
+  icon?: React.ComponentType<{ className?: string }>;
   isActive: boolean;
   label: string;
   /**
@@ -260,7 +264,9 @@ function FilterOptionLabel({ option }: { option: ListFilterChipOption }) {
 function ListFilterChip({
   activeLabel,
   ariaLabel,
+  className,
   clearLabel,
+  icon: Icon,
   isActive,
   label,
   multiple = false,
@@ -284,12 +290,14 @@ function ListFilterChip({
             FILTER_CHIP_CN,
             isActive
               ? "border-primary/30 bg-accent text-foreground hover:bg-accent"
-              : "border-card bg-card text-muted-foreground hover:bg-card hover:text-foreground"
+              : "border-card bg-card text-muted-foreground hover:bg-card hover:text-foreground",
+            className
           )}
           size="sm"
           type="button"
           variant="outline"
         >
+          {Icon ? <Icon aria-hidden className="size-3.5 shrink-0" /> : null}
           <span className="max-w-[12rem] truncate">
             {isActive && resolvedActiveLabel ? resolvedActiveLabel : label}
           </span>

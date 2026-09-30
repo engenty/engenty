@@ -56,15 +56,15 @@ export function useTasksTopbarActions() {
         primary_assignee_user_id: data.primary_assignee_user_id,
         primary_assignee_agent_type_key: data.primary_assignee_agent_type_key,
         collaborator_user_ids: data.collaborator_user_ids,
-        // The phase rides in the project context's metadata — that is where
-        // the projects module groups tasks into phases.
-        ...(data.project_id && data.phase_id
+        // The project context is what lists the task on the project; the
+        // phase rides in its metadata (none = the project's general tasks).
+        ...(data.project_id
           ? {
               contexts: [
                 {
                   context_id: data.project_id,
                   context_type: "project",
-                  metadata: { phase_id: data.phase_id },
+                  metadata: { phase_id: data.phase_id ?? null },
                 },
               ],
             }

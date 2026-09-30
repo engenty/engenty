@@ -22,11 +22,13 @@ import {
   activateArtifact,
   closeA2uiSurfacePaneTab,
   closeObjectPaneTab,
+  closeViewPaneTab,
   closeWorkFilePaneTab,
   getArtifactPaneOpen,
   isA2uiSurfacePaneTabKey,
   isObjectPaneTabKey,
   isTransientPaneTabKey,
+  isViewPaneTabKey,
   isWorkFilePaneTabKey,
   markUnseenArtifacts,
   setActiveArtifact,
@@ -67,6 +69,11 @@ export interface WorkspaceArtifactPaneProps {
    */
   extraScope?: ArtifactPaneScope | null;
   hostKey: string;
+  /**
+   * The View Pane's "open full page": receives the page's current path.
+   * Default: navigate there and let the pane go.
+   */
+  onOpenViewFullPage?: (path: string) => void;
   /**
    * Open the pane on the first artifact that arrives or is presented while it
    * is closed, instead of badging it. The wizard page has nothing else to
@@ -116,6 +123,7 @@ function mergeArtifacts(
 export function WorkspaceArtifactPane({
   container,
   hostKey,
+  onOpenViewFullPage,
   openOnFirstArtifact = false,
   scope,
   extraScope,
@@ -135,6 +143,7 @@ export function WorkspaceArtifactPane({
     fileTabs,
     objectTabs,
     surfaceTabs,
+    viewTabs,
     paneExpanded,
     paneOpen,
     activate,
@@ -376,6 +385,14 @@ export function WorkspaceArtifactPane({
             );
             return;
           }
+          if (isViewPaneTabKey(id)) {
+            closeViewPaneTab(
+              hostKey,
+              id,
+              artifacts.map((a) => a.id)
+            );
+            return;
+          }
           if (isA2uiSurfacePaneTabKey(id)) {
             closeA2uiSurfacePaneTab(
               hostKey,
@@ -403,6 +420,7 @@ export function WorkspaceArtifactPane({
           }
           archive.mutate(id);
         }}
+        onOpenViewFullPage={onOpenViewFullPage}
         onSaveContent={async ({ artifactId, content, expectedVersion }) => {
           await createArtifactVersion({
             serviceBaseUrl: resolveEngentyAiServiceBaseUrlSafe(),
@@ -423,6 +441,7 @@ export function WorkspaceArtifactPane({
         storeSpaceTarget={storeSpaceTarget}
         storeTaskTarget={storeTaskTarget}
         surfaceTabs={surfaceTabs}
+        viewTabs={viewTabs}
       />
     </WorkspaceEndPaneItem>,
     target
@@ -450,8 +469,15 @@ export function ArtifactPaneToggle({
 }) {
   const { t } = useTranslation("ai-ui");
   const threadId = useOptionalCopilotRiver()?.threadId?.trim() || null;
-  const { fileTabs, objectTabs, surfaceTabs, openPane, paneOpen, unseenCount } =
-    useArtifacts(hostKey);
+  const {
+    fileTabs,
+    objectTabs,
+    surfaceTabs,
+    viewTabs,
+    openPane,
+    paneOpen,
+    unseenCount,
+  } = useArtifacts(hostKey);
 
   const primaryScope: ArtifactPaneScope = scope ?? {
     type: "thread",
@@ -482,6 +508,7 @@ export function ArtifactPaneToggle({
     objectTabs.length > 0 ||
     fileTabs.length > 0 ||
     surfaceTabs.length > 0 ||
+    viewTabs.length > 0 ||
     (libraryQuery.data?.length ?? 0) > 0;
   const badgeLabel =
     unseenCount > 99 ? "99+" : unseenCount > 0 ? String(unseenCount) : null;

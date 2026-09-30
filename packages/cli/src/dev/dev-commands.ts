@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import type { Command } from "commander";
@@ -18,9 +19,10 @@ import {
  * `.env.local` carries one generated dev-URL block, and the UI is built with
  * the AI URL from it. A Portless block under plain `pnpm dev` (or the
  * reverse) sends the browser to a host that is not serving this checkout —
- * the copilot then reports "could not reach the AI service".
+ * the copilot then reports "could not reach the AI service". The block is
+ * generated, so `dev` re-syncs it to the mode being started.
  */
-function warnOnDevUrlShape(
+function alignDevUrlShape(
   root: string,
   portless: boolean,
   domain?: string
@@ -41,11 +43,25 @@ function warnOnDevUrlShape(
   if (isPortless === portless) {
     return;
   }
+  const script = portless
+    ? "scripts/sync-dev-env-from-portless.mjs"
+    : "scripts/sync-dev-env-localhost.mjs";
+  const synced = spawnSync(
+    "node",
+    [script, ...(portless && domain ? [`--domain=${domain}`] : [])],
+    { cwd: root, encoding: "utf8", stdio: "pipe" }
+  );
   const fix = portless
     ? `pnpm dev:urls:portless${domain ? ` --domain=${domain}` : ""}`
     : "pnpm dev:urls:localhost";
+  if (synced.status === 0) {
+    console.log(
+      `\n.env.local had ${isPortless ? "Portless (https://*.localhost)" : "localhost"} dev URLs; switched them to match ${portless ? "pnpm dev:portless" : "pnpm dev"} (${fix}).\n`
+    );
+    return;
+  }
   console.warn(
-    `\n.env.local has ${isPortless ? "Portless (https://*.localhost)" : "localhost"} dev URLs, but you are starting ${portless ? "pnpm dev:portless" : "pnpm dev"}. The UI would call the AI service at ${value}. Fix: ${fix}\n`
+    `\n.env.local has ${isPortless ? "Portless (https://*.localhost)" : "localhost"} dev URLs, but you are starting ${portless ? "pnpm dev:portless" : "pnpm dev"}, and switching them failed. The UI would call the AI service at ${value}. Fix: ${fix}\n`
   );
 }
 
@@ -77,7 +93,7 @@ export function registerDevCommands(program: Command): void {
           studio?: boolean;
         }) => {
           const root = requireWorkspaceRoot("dev");
-          warnOnDevUrlShape(
+          alignDevUrlShape(
             root,
             Boolean(options.portless || options.domain),
             options.domain

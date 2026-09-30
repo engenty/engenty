@@ -29,7 +29,10 @@ import {
   collectMigrations,
 } from "./aggregate-module-migrations.mjs";
 import { isClosedPath, readClosedPrefixes } from "./lib/closed-prefixes.mjs";
-import { resolveMigrationOwners } from "./lib/migration-owners.mjs";
+import {
+  resolveHeldMigrationOwners,
+  resolveMigrationOwners,
+} from "./lib/migration-owners.mjs";
 import { composeApiSchemasFromOwners } from "./supabase-sync-lib.mjs";
 
 export const PUBLISHED_NAME = "engenty";
@@ -114,9 +117,9 @@ function readJson(file) {
   return JSON.parse(fs.readFileSync(file, "utf8"));
 }
 
-function openOwners(root) {
+function openOwners(root, owners) {
   const closed = readClosedPrefixes();
-  return resolveMigrationOwners(root).filter(
+  return owners.filter(
     (owner) => !isClosedPath(path.relative(root, owner.migrationsPath), closed)
   );
 }
@@ -204,7 +207,15 @@ export function stage(root, { version }) {
     `${JSON.stringify(manifest, null, 2)}\n`
   );
 
-  const owners = openOwners(root);
+  const owners = openOwners(root, resolveMigrationOwners(root));
+  // Migrations of modules the release leaves out (below its stage): not
+  // shipped, but named, so `engenty deploy migrate` keeps a database that
+  // applied them earlier pushable (see scripts/held-migration-placeholders.mjs).
+  const heldMigrationVersions = collectMigrations(
+    openOwners(root, resolveHeldMigrationOwners(root))
+  )
+    .map(({ basename }) => basename.slice(0, 14))
+    .sort();
   const migrationCount = bakeMigrations(
     owners,
     path.join(stageDir, "migrations")
@@ -241,6 +252,7 @@ export function stage(root, { version }) {
     version,
     schemas,
     migrationsDir: "migrations",
+    heldMigrationVersions,
     supabaseCliVersion: readSupabaseCliPin(root),
   };
   fs.writeFileSync(

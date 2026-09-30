@@ -80,7 +80,7 @@ run:
   drive (the tenant commons), and `/company/spaces/<key>/` shows the `public/`
   folder of every Space that publishes to the company (`<key>` is the Space
   key), and `/company/apps/<slug>/` the source (`src/`) of every App those
-  Spaces own — changed only from the owning Space's `/sandbox/apps`. Agents write the company drive only through `company_files_publish` /
+  Spaces own — changed only from the owning Space's `/space/apps`. Agents write the company drive only through `company_files_publish` /
   `company_files_remove`, which park on an approval that a holder of
   `core.company_files.manage` decides.
 - `/task` exists only when the run has a task as its subject. `/project` exists
@@ -88,6 +88,33 @@ run:
 - `/skills` is the read-only skill library filtered to what the run may load.
 - Code-execution runs may additionally receive `/sandbox`; they do not gain
   `/home` merely because a sandbox exists.
+
+**Memory entries** (`ai.memory_entries`) are the facts kept on purpose, one row
+per fact, rendered into every run that may see them
+(`apps/ai/src/ai/memory/memory-scopes.ts` decides):
+
+- `company` — every run that knows where it is. Written only by core's
+  `company_memory_add` / `company_memory_remove`; an agent's call parks on an
+  approval a holder of `core.company_memory.manage` decides.
+- `space` — runs in that Space; any member may edit.
+- `user` — facts about one person, only on that person's private line (never
+  in a room, a shared Space thread or an unattended run).
+- `agent` — the agent's own notes: per person for a personal agent, per Space
+  for any other, per company for a run outside a Space.
+
+Each of those keys also has a **working memory** (`ai.working_memory`): how
+things are now, as the fixed fields of its scope
+(`packages/ai-core/src/memory/working-memory.ts`) — a person's language, role,
+time zone and current focus; a Space's purpose, current focus and language;
+the company's about, language and priorities; an agent's job and delivery
+style there. A new value replaces the old one. Rule of thumb: one current value
+that changes → working memory (`working_memory_set`); a fact worth keeping with
+its date → an entry (`memory_note`).
+
+A run whose Space is `unresolved` sees no memory at all. Writers nobody asked
+— river and desk chapters (entries) and the observer (working memory) — write
+only into scopes the conversation's readers already read
+(`unaskedWriteKeys`), never the company.
 
 `/data` is separate from those file contexts. It projects records from modules
 mounted in the active Space and routes reads/writes through each module's real

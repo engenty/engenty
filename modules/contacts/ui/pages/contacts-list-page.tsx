@@ -11,13 +11,7 @@ import {
 import { useFeatureFlags, usePageConfig } from "@engenty/ui-plugin-sdk";
 import { Building2, ChevronDown, Plus, Upload, User } from "lucide-react";
 import { parseAsStringLiteral, useQueryState } from "nuqs";
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import type { ContactType } from "../../src/schema/index.js";
 import { AddOrganisationDialog } from "../components/add-organisation-dialog.js";
@@ -63,7 +57,6 @@ export function ContactsListPage() {
   const [bulkEditRolesOpen, setBulkEditRolesOpen] = useState(false);
   const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
-  const [mdUp, setMdUp] = useState(false);
   const roleMenuQuery = useContactsRoleMenuQuery();
   const roleMenuItems = roleMenuQuery.data?.items ?? [];
   const { resolved } = useFeatureFlags();
@@ -171,14 +164,6 @@ export function ContactsListPage() {
       void setContactKind(null);
     }
   }, [contactKind, organisationEnabled, personEnabled, setContactKind]);
-
-  useLayoutEffect(() => {
-    const mq = window.matchMedia("(min-width: 768px)");
-    const update = () => setMdUp(mq.matches);
-    update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, []);
 
   useEffect(() => {
     const legacy = searchParams.get("type");
@@ -433,15 +418,13 @@ export function ContactsListPage() {
           total={total}
           typeFilter={typeFilter}
         />
-        {!mdUp && (
-          <ContactsListFilterBar
-            filterByRoleLabel={toolbarLabels.filterByRole}
-            onRoleChange={handleRoleChange}
-            roleAllLabel={toolbarLabels.roleAll}
-            roleFilter={roleFilter}
-            roleOptions={toolbarLabels.roleOptions}
-          />
-        )}
+        <ContactsListFilterBar
+          filterByRoleLabel={toolbarLabels.filterByRole}
+          onRoleChange={handleRoleChange}
+          roleAllLabel={toolbarLabels.roleAll}
+          roleFilter={roleFilter}
+          roleOptions={toolbarLabels.roleOptions}
+        />
       </div>
 
       <ContactsListMain

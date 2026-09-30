@@ -86,6 +86,7 @@ export {
   usePupilMouseFollow,
 } from "./components/blob-avatar";
 export {
+  AgentChip,
   acquireFurStage,
   createFurRenderer,
   ENGENTY_CORE_KINDS,
@@ -111,8 +112,13 @@ export {
   type FurUniforms,
   furPalette,
   MAX_FORM_BLOBS,
+  MockShell,
+  NewSpaceTile,
+  PERSON_HUES,
+  PersonDot,
   packFormBlobs,
   type Rgb,
+  SpaceTile,
   useEngentyGaze,
 } from "./components/engenty";
 export type { AvatarStackProfile } from "./components/layout";

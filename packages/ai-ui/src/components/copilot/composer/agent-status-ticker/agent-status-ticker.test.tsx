@@ -1,7 +1,13 @@
 /** @vitest-environment happy-dom */
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { setTestLocale } from "../../../../locales/test-translation.js";
 import { AgentStatusTicker } from "./agent-status-ticker.js";
+
+vi.mock(
+  "@engenty/i18n/ui",
+  () => import("../../../../locales/test-translation.js")
+);
 
 afterEach(() => {
   cleanup();
@@ -34,7 +40,6 @@ describe("AgentStatusTicker", () => {
             ],
           },
         ]}
-        statusOnly
       />
     );
 
@@ -46,18 +51,13 @@ describe("AgentStatusTicker", () => {
     expect(screen.getByText(/search_contacts/)).toBeTruthy();
   });
 
-  it("does not show expand control for a single idle waiting label", () => {
-    render(
-      <AgentStatusTicker
-        chatStatus="submitted"
-        messages={[{ role: "user", parts: [{ type: "text", text: "hi" }] }]}
-        statusOnly
-      />
-    );
-
-    expect(screen.getByText("Waiting…")).toBeTruthy();
-    expect(
-      screen.queryByRole("button", { name: "Show recent steps" })
-    ).toBeNull();
+  it("says what the run is doing in the person's language", () => {
+    setTestLocale("de");
+    try {
+      render(<AgentStatusTicker chatStatus="submitted" messages={[]} />);
+      expect(screen.getByText("Wartet…")).toBeTruthy();
+    } finally {
+      setTestLocale("en");
+    }
   });
 });

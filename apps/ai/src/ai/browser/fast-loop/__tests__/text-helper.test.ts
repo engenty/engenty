@@ -102,13 +102,13 @@ describe("resolveTextHelperModelId", () => {
     setPlatformBindings(undefined);
   });
 
-  it("is the model.low binding, not the classifier", () => {
+  it("is the model.normal binding, not the classifier", () => {
     setPlatformBindings(
       bindingsFromList([
         {
           gateway: "vercel",
           modelId: "openai/gpt-5.4-nano",
-          role: "model.low",
+          role: "model.normal",
         },
         { gateway: "vercel", modelId: "test/classifier", role: "classifier" },
       ])

@@ -1,5 +1,6 @@
+import type { Cover } from "@engenty/covers";
 import { useMutation, useQueryClient } from "@engenty/query-client";
-import type { KbCover, KnowledgeBase } from "../../src/schema/types.js";
+import type { KnowledgeBase } from "../../src/schema/types.js";
 import { updateKb } from "../api.js";
 import {
   applyKnowledgeBaseToKbQueries,
@@ -10,13 +11,13 @@ import {
 export function useKbCoverMutation(
   kb: KnowledgeBase,
   options: {
-    onCoverMutationError?: (cover: KbCover | null) => void;
-    onOptimisticCoverChange?: (cover: KbCover | null) => void;
+    onCoverMutationError?: (cover: Cover | null) => void;
+    onOptimisticCoverChange?: (cover: Cover | null) => void;
   } = {}
 ) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (cover: KbCover | null) => updateKb(kb.id, { cover }),
+    mutationFn: (cover: Cover | null) => updateKb(kb.id, { cover }),
     onMutate: async (nextCover) => {
       options.onOptimisticCoverChange?.(nextCover);
       const detailKey = kbDetailQueryOptions(kb.id).queryKey;

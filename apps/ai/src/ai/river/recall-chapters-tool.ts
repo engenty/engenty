@@ -24,7 +24,7 @@ export function createRecallChaptersTool(input: {
   return createTool({
     id: RECALL_CHAPTERS_TOOL_ID,
     description:
-      'Read the chapters of this conversation: its summaries by day, week or on request, each with the spaces it happened in and what to keep in mind. Use it for questions about a past stretch — "what did we discuss last Tuesday", "what was open in space engrd last week" — before searching memory. Filter by date range, space key or a word from the summaries.',
+      'Read the chapters of this conversation: its summaries by day, week or on request, each with the spaces it happened in. Use it for questions about a past stretch — "what did we discuss last Tuesday", "what was open in space engrd last week" — before searching memory. Filter by date range, space key or a word from the summaries.',
     inputSchema: z.object({
       contains: z
         .string()
@@ -32,7 +32,7 @@ export function createRecallChaptersTool(input: {
         .max(120)
         .optional()
         .describe(
-          "A word or phrase the chapter's title, summary or notes contain (case-insensitive)."
+          "A word or phrase the chapter's title or summary contains (case-insensitive)."
         ),
       from: z
         .string()
@@ -55,9 +55,6 @@ export function createRecallChaptersTool(input: {
       chapters: z.array(
         z.object({
           id: z.string(),
-          keep_in_mind: z.array(
-            z.object({ space_key: z.string().nullable(), text: z.string() })
-          ),
           kind: z.string(),
           range: z.string(),
           range_end: z.string(),
@@ -92,13 +89,7 @@ export function createRecallChaptersTool(input: {
           return false;
         }
         if (needle) {
-          const haystack = [
-            row.title,
-            row.summary,
-            ...row.keep_in_mind.map((note) => note.text),
-          ]
-            .join("\n")
-            .toLowerCase();
+          const haystack = `${row.title}\n${row.summary}`.toLowerCase();
           if (!haystack.includes(needle)) {
             return false;
           }
@@ -108,7 +99,6 @@ export function createRecallChaptersTool(input: {
       return {
         chapters: matching.slice(0, MAX_CHAPTERS).map((row) => ({
           id: row.id,
-          keep_in_mind: row.keep_in_mind,
           kind: row.kind,
           range: formatChapterRange({
             end: new Date(row.range_end),

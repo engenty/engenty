@@ -20,6 +20,10 @@
  */
 
 import { PluginOperationError } from "./operation-error.js";
+import type {
+  SpaceDataSearchInput,
+  SpaceDataSearchResult,
+} from "./space-data-search.js";
 
 /**
  * What a node IS, from the reader's point of view.
@@ -348,6 +352,12 @@ export interface SpaceDataAdapter {
     input: SpaceDataMoveInput
   ) => Promise<SpaceDataDocument>;
   nodeTypes: readonly SpaceDataNodeType[];
+  /**
+   * Listed for people only. For a root an agent already reaches another way
+   * (the Space's folder is `/space` on its computer), so one file does not
+   * sit at two paths.
+   */
+  peopleOnly?: boolean;
   read: (ctx: SpaceDataContext, path: string) => Promise<SpaceDataDocument>;
   /**
    * The record scopes this adapter can honour. A mount asking for a scope that
@@ -369,6 +379,14 @@ export interface SpaceDataAdapter {
    * the folder would be a type the tree could never use.
    */
   rootNodeType?: string;
+  /**
+   * Find nodes in this root by name or title. Absent ⇒ the root is left out
+   * of the Data tab's search. Paths in the result are relative to {@link root}.
+   */
+  search?: (
+    ctx: SpaceDataContext,
+    input: SpaceDataSearchInput
+  ) => Promise<SpaceDataSearchResult>;
   /** Absent ⇒ the whole adapter is read-only. */
   write?: (
     ctx: SpaceDataContext,

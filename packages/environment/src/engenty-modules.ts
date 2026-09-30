@@ -101,14 +101,14 @@ export function readEngentyPluginsManifest(
     rawPlugins = engenty.plugins as Record<string, unknown>;
   } else if (Array.isArray(engenty.plugins)) {
     throw new Error(
-      'engenty.plugins must be an object map — use { "my-plugin": { "source": "workspace" } }'
+      'engenty.plugins must be an object map — use { "my-plugin": "workspace" }'
     );
   } else if (Array.isArray(engenty.modules)) {
     // The pre-plugins manifest shape. Accepted silently until 2026-08-04; no
     // manifest in the repo used it, so it fails loudly now rather than quietly
     // reading a format nothing writes.
     throw new Error(
-      'engenty.modules (array) is no longer supported — use engenty.plugins: { "my-plugin": { "source": "workspace" } }'
+      'engenty.modules (array) is no longer supported — use engenty.plugins: { "my-plugin": "workspace" }'
     );
   } else {
     rawPlugins = {};
@@ -490,9 +490,10 @@ export function isEnabledModuleSlug(repoRoot: string, slug: string): boolean {
 
 function serializePluginEntry(
   spec: EngentyPluginSpec
-): Record<string, unknown> {
+): Record<string, unknown> | "workspace" {
+  // The short form: a plain workspace module is one line.
   if (spec.source === "workspace" && Object.keys(spec.config).length === 0) {
-    return { source: "workspace" };
+    return "workspace";
   }
   return { source: spec.source, ...spec.config };
 }
@@ -501,10 +502,10 @@ export function writeEngentyPluginsManifest(
   repoRoot: string,
   slugs: string[]
 ): void {
-  const plugins: Record<string, Record<string, unknown>> = {};
+  const plugins: Record<string, Record<string, unknown> | string> = {};
   for (const rawSlug of slugs) {
     const slug = parsePluginSlug(rawSlug);
-    plugins[slug] = { source: "workspace" };
+    plugins[slug] = "workspace";
   }
   writeEngentyPluginsObject(repoRoot, plugins);
 }
@@ -521,7 +522,7 @@ export function writeEngentyPluginsObject(
       ? (pkg.engenty as Record<string, unknown>)
       : {};
 
-  const nextPlugins: Record<string, Record<string, unknown>> = {};
+  const nextPlugins: Record<string, Record<string, unknown> | string> = {};
   for (const [rawSlug, value] of Object.entries(plugins)) {
     const slug = parsePluginSlug(rawSlug);
     nextPlugins[slug] = serializePluginEntry(parsePluginEntry(slug, value));
@@ -548,13 +549,13 @@ export function enablePluginsInManifest(
   slugs: string[]
 ): void {
   const current = readEngentyPluginsManifest(repoRoot);
-  const next: Record<string, Record<string, unknown>> = {};
+  const next: Record<string, Record<string, unknown> | string> = {};
   for (const slug of current.slugs) {
     next[slug] = serializePluginEntry(current.plugins[slug]!);
   }
   for (const rawSlug of slugs) {
     const slug = parsePluginSlug(rawSlug);
-    next[slug] = { source: "workspace" };
+    next[slug] = "workspace";
   }
   writeEngentyPluginsObject(
     repoRoot,
@@ -572,7 +573,7 @@ export function disablePluginsInManifest(
 ): void {
   const current = readEngentyPluginsManifest(repoRoot);
   const remove = new Set(slugs.map((slug) => parsePluginSlug(slug)));
-  const next: Record<string, Record<string, unknown>> = {};
+  const next: Record<string, Record<string, unknown> | string> = {};
   for (const slug of current.slugs) {
     if (remove.has(slug)) {
       continue;

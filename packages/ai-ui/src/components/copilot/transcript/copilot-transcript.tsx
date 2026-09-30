@@ -51,6 +51,11 @@ import {
   type TranscriptMessage,
 } from "./transcript-layout.js";
 import { TranscriptMessageRow } from "./transcript-message-row.js";
+import {
+  TurnStartedAtContext,
+  useTurnStart,
+  useTurnStartedAt,
+} from "./turn-started-at.js";
 
 export interface CopilotTranscriptProps {
   awaitingInterrupt?: boolean;
@@ -100,7 +105,7 @@ function ThinkingShimmerRow({
   agentName?: string | null;
   label: string;
 }) {
-  const elapsedSeconds = useElapsedSeconds(true);
+  const elapsedSeconds = useElapsedSeconds(true, useTurnStartedAt());
   return (
     <div
       className="flex min-w-0 items-center gap-2 py-2 pl-1 text-muted-foreground text-sm"
@@ -209,6 +214,9 @@ export const CopilotTranscript = memo(function CopilotTranscript({
   // A person sees what the agent did as clips; the step list is for
   // developers.
   const toolDetail = useDeveloperModeEnabled() ? "developer" : "person";
+  const turnStartedAt = useTurnStart(
+    status === "streaming" || status === "submitted"
+  );
   const { t } = useTranslation("ai-ui");
   const workingLabel = t("toolClip.working");
   const chatStyle = useChatStyle();
@@ -338,76 +346,78 @@ export const CopilotTranscript = memo(function CopilotTranscript({
   const drawnRows = firstDrawnRow > 0 ? rows.slice(firstDrawnRow) : rows;
 
   const thread = (
-    <ChatAgentsProvider
-      // Faces show only beside messenger bubbles.
-      enabled={chatStyle === "bubbles" && lastAssistantMessage !== null}
-    >
-      {drawnRows.map((row, drawnIndex) => {
-        if (row.kind === "pending") {
+    <TurnStartedAtContext.Provider value={turnStartedAt}>
+      <ChatAgentsProvider
+        // Faces show only beside messenger bubbles.
+        enabled={chatStyle === "bubbles" && lastAssistantMessage !== null}
+      >
+        {drawnRows.map((row, drawnIndex) => {
+          if (row.kind === "pending") {
+            return (
+              <PendingUserMessage
+                key="pending-send"
+                meetsAbove={row.meetsAbove}
+                meetsBelow={row.meetsBelow}
+                parts={pendingParts}
+                stackClassName={row.stackClassName}
+                surface={surface}
+                text={pendingText}
+              />
+            );
+          }
+          const isLastMessage = row.raw.id === lastMessageId;
+          const streaming = status === "streaming" && isLastMessage;
           return (
-            <PendingUserMessage
-              key="pending-send"
+            <TranscriptMessageRow
+              dateDividerClassName={row.dateDividerClassName}
+              deferPaint={
+                !streaming &&
+                firstDrawnRow + drawnIndex < rows.length - ALWAYS_PAINTED_ROWS
+              }
+              dockedInterruptToolCallId={dockedInterruptToolCallId}
+              isLastMessage={isLastMessage}
+              key={row.raw.id}
               meetsAbove={row.meetsAbove}
               meetsBelow={row.meetsBelow}
-              parts={pendingParts}
+              memory={
+                row.memoryDividerClassName !== undefined && memory
+                  ? memory
+                  : undefined
+              }
+              memoryDividerClassName={row.memoryDividerClassName}
+              raw={row.raw}
+              showAuthorLabels={showAuthorLabels}
+              showSenderLabel={row.showSenderLabel}
               stackClassName={row.stackClassName}
+              streaming={streaming}
+              subAgentFullViewLabel={subAgentFullViewLabel}
+              subAgentSectionLabels={sectionLabels}
               surface={surface}
-              text={pendingText}
+              threadId={threadId}
+              toolCardDensity={toolCardDensity}
+              toolDetail={toolDetail}
             />
           );
-        }
-        const isLastMessage = row.raw.id === lastMessageId;
-        const streaming = status === "streaming" && isLastMessage;
-        return (
-          <TranscriptMessageRow
-            dateDividerClassName={row.dateDividerClassName}
-            deferPaint={
-              !streaming &&
-              firstDrawnRow + drawnIndex < rows.length - ALWAYS_PAINTED_ROWS
+        })}
+        {showTrailingSandboxConfirm ? (
+          <CopilotTranscriptSandboxInterruptInline open={openInterrupt} />
+        ) : null}
+        {showThinkingShimmer ? (
+          <ThinkingShimmerRow
+            agentId={lastAssistantMessage?.authorAgentId}
+            agentName={lastAssistantMessage?.authorName}
+            label={
+              toolDetail === "person"
+                ? (runningStepLabel(lastAssistantMessage?.parts) ??
+                  (messageHasActiveToolParts(lastAssistantMessage?.parts)
+                    ? workingLabel
+                    : thinkingLabel))
+                : thinkingLabel
             }
-            dockedInterruptToolCallId={dockedInterruptToolCallId}
-            isLastMessage={isLastMessage}
-            key={row.raw.id}
-            meetsAbove={row.meetsAbove}
-            meetsBelow={row.meetsBelow}
-            memory={
-              row.memoryDividerClassName !== undefined && memory
-                ? memory
-                : undefined
-            }
-            memoryDividerClassName={row.memoryDividerClassName}
-            raw={row.raw}
-            showAuthorLabels={showAuthorLabels}
-            showSenderLabel={row.showSenderLabel}
-            stackClassName={row.stackClassName}
-            streaming={streaming}
-            subAgentFullViewLabel={subAgentFullViewLabel}
-            subAgentSectionLabels={sectionLabels}
-            surface={surface}
-            threadId={threadId}
-            toolCardDensity={toolCardDensity}
-            toolDetail={toolDetail}
           />
-        );
-      })}
-      {showTrailingSandboxConfirm ? (
-        <CopilotTranscriptSandboxInterruptInline open={openInterrupt} />
-      ) : null}
-      {showThinkingShimmer ? (
-        <ThinkingShimmerRow
-          agentId={lastAssistantMessage?.authorAgentId}
-          agentName={lastAssistantMessage?.authorName}
-          label={
-            toolDetail === "person"
-              ? (runningStepLabel(lastAssistantMessage?.parts) ??
-                (messageHasActiveToolParts(lastAssistantMessage?.parts)
-                  ? workingLabel
-                  : thinkingLabel))
-              : thinkingLabel
-          }
-        />
-      ) : null}
-    </ChatAgentsProvider>
+        ) : null}
+      </ChatAgentsProvider>
+    </TurnStartedAtContext.Provider>
   );
 
   if (containerClassName?.trim()) {

@@ -365,10 +365,10 @@ const registerNotificationsPlugin: EngentyPluginFactory = (engenty) => {
           source: "connections",
           ...(spaceId ? { spaceId } : {}),
           subject: { id: requestId, type: "approval_request" },
-          // The reason is the one line a person needs to decide; the
-          // operation's name is the title. Decided at the source (the
-          // approval card on the task or chat), shown here in short.
-          body: reason,
+          // No body: the title already says who wants to run what, and the
+          // policy's reason ("<operation_id>: needs your approval …") is
+          // machine text — it stays in the payload. Decided at the source
+          // (the approval card on the task or chat), shown here in short.
           summary: approvalSummary({
             actorLabel: origin?.metadata.actor_label,
             operationId,

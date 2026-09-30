@@ -44,6 +44,47 @@ export const SPACE_PUBLIC_FOLDER = "public";
 export const SPACE_PUBLIC_STORAGE_PREFIX = `${COMMONS_STORAGE_PREFIX}${SPACE_PUBLIC_FOLDER}/`;
 
 /**
+ * The Space's folder layout — `/space/…` on a computer, the same folders in
+ * the Data tab:
+ *
+ * ```
+ * apps/<slug>/               its Apps
+ * agent/<agent>/uploads/     files people gave that agent
+ * agent/<agent>/documents/   what the agent keeps for people
+ * agent/<agent>/work/        its working files
+ * public/                    what the company reads
+ * ```
+ */
+export const SPACE_APPS_FOLDER = "apps";
+export const SPACE_AGENT_FOLDER = "agent";
+/** The Data tree root over {@link SPACE_AGENT_FOLDER}; one folder per agent id. */
+export const SPACE_AGENTS_DATA_ROOT = "Agents";
+
+export type SpaceAgentFolder = "documents" | "uploads" | "work";
+
+/** Commons-relative folder of one agent, e.g. `agent/contacts.manager/uploads`. */
+export function spaceAgentFolderPath(
+  agentId: string,
+  folder: SpaceAgentFolder
+): string {
+  const id = agentId.trim();
+  if (!id || id.includes("/") || id.includes("..")) {
+    throw new Error("agent_id_invalid");
+  }
+  return `${SPACE_AGENT_FOLDER}/${id}/${folder}`;
+}
+
+/** Full key prefix of one agent's folder in a Space, with a trailing `/`. */
+export function spaceAgentFolderPrefix(
+  tenantId: string,
+  spaceId: string,
+  agentId: string,
+  folder: SpaceAgentFolder
+): string {
+  return `${workWorkspacePrefix(tenantId, spaceId, "space")}${spaceAgentFolderPath(agentId, folder)}/`;
+}
+
+/**
  * Full key prefix of the company drive (`/company/files`): the tenant-level
  * commons, which was `/shared` — same bytes, now read-only in every run and
  * written only by people holding `core.company_files.manage`.

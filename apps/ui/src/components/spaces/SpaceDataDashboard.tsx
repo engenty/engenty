@@ -1,7 +1,7 @@
 /**
  * The Data tab's landing page: ways in, then the same admin list as a folder.
  *
- * Entry tiles are the tree's root sections — including Artifacts / Ablage,
+ * Entry tiles are the tree's root sections — including Artifacts / Dokumente,
  * which has no DriveNode of its own. Below them, Latest is an admin list of
  * those artifacts (search, sort, table or cards, paging), not a second table
  * shape. Recents still live on the space home; this page does not repeat them.
@@ -34,7 +34,10 @@ import {
 } from "@/lib/space-data-root-sections";
 import { spaceDataSectionHeadingLabel } from "@/lib/space-data-section-label";
 import { driveNodeHref, driveNodeToListRow } from "@/lib/space-drive-href";
-import { useSpaceDrive } from "@/lib/space-drive-queries";
+import {
+  useNonEmptySpaceDataSections,
+  useSpaceDrive,
+} from "@/lib/space-drive-queries";
 import { spaceDataArtifactsPath } from "@/lib/space-routes";
 import { useSpaceModules } from "@/lib/use-space-modules";
 
@@ -78,9 +81,14 @@ export function SpaceDataDashboard({
 
   const sections = useMemo(
     () =>
-      groupSpaceDataRootSections(drive.nodes, { artifacts: artifactsLabel }),
-    [artifactsLabel, drive.nodes]
+      groupSpaceDataRootSections(drive.nodes, {
+        apps: t("spaces.data.appsSection", { defaultValue: "Apps" }),
+        artifacts: artifactsLabel,
+        files: t("spaces.data.filesSection", { defaultValue: "Files" }),
+      }),
+    [artifactsLabel, drive.nodes, t]
   );
+  const tiles = useNonEmptySpaceDataSections(spaceId, sections);
 
   const artifactRows = useMemo<FolderChildRow[]>(() => {
     const artifacts =
@@ -101,7 +109,7 @@ export function SpaceDataDashboard({
               <Spinner className="size-4" />
               {t("spaces.data.loading")}
             </div>
-          ) : sections.length === 0 ? (
+          ) : tiles.length === 0 ? (
             <p className="text-muted-foreground text-sm">
               {t("spaces.data.empty")}
             </p>
@@ -112,7 +120,7 @@ export function SpaceDataDashboard({
               })}
               className="grid grid-cols-2 gap-2.5 md:grid-cols-4"
             >
-              {sections.map((section) => (
+              {tiles.map((section) => (
                 <SectionTile
                   key={section.id}
                   labelsByModuleId={labelsByModuleId}

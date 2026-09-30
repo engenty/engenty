@@ -5,8 +5,6 @@ import type {
 import { isEngentyDevelopmentEnvironment } from "@engenty/environment";
 import { isCopilotRiverPathname } from "../../../copilot/copilot-river-paths.js";
 
-export type CopilotFloatingSnapTarget = "button" | "sidebar" | null;
-
 export type CopilotPositionMenuChoice = "drawer" | "window" | "sidebar";
 
 const POSITION_MENU_CHOICES: ReadonlySet<string> =
@@ -148,6 +146,14 @@ export function openCopilotShell(
   return "work";
 }
 
+/** Transcript / hired-Engenty lane — not the FAB — only when the companion is showing. */
+export function isCopilotCompanionSurfaceActive(input: {
+  chromeHidden?: boolean;
+  open: boolean;
+}): boolean {
+  return Boolean(input.open && !input.chromeHidden);
+}
+
 /**
  * Whether the blob is on screen.
  *
@@ -160,19 +166,9 @@ export function openCopilotShell(
  * `chromeHidden` still hides the FLOATING blob, which has no bar to sit on and
  * would cover the chat page's own composer.
  */
-/** Transcript / hired-Engenty lane — not the FAB — only when the companion is showing. */
-export function isCopilotCompanionSurfaceActive(input: {
-  chromeHidden?: boolean;
-  open: boolean;
-}): boolean {
-  return Boolean(input.open && !input.chromeHidden);
-}
-
 export function shouldShowCopilotFab(input: {
   chromeHidden?: boolean;
-  collapseToCircle: boolean;
   docked?: boolean;
-  isCollapsingToIcon: boolean;
   open: boolean;
   /** When a realtime voice session is active the voice FAB takes over. */
   voiceSessionActive?: boolean;
@@ -185,9 +181,6 @@ export function shouldShowCopilotFab(input: {
   }
   if (input.chromeHidden) {
     return false;
-  }
-  if (input.isCollapsingToIcon) {
-    return true;
   }
   return !input.open;
 }

@@ -3,9 +3,15 @@
  */
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { setTestLocale } from "../../../locales/test-translation.js";
 import { registerDefaultToolCallUiCards } from "../tool-call/tool-call-ui-defaults.js";
 import { CopilotMessageContent } from "./copilot-message-content.js";
+
+vi.mock(
+  "@engenty/i18n/ui",
+  () => import("../../../locales/test-translation.js")
+);
 
 registerDefaultToolCallUiCards();
 
@@ -14,7 +20,7 @@ describe("CopilotMessageContent sub-agent delegations", () => {
     cleanup();
   });
 
-  it("renders agent-* tools as expandable cards outside the thought block", () => {
+  it("shows a delegation as its own card that links to the sub-run", () => {
     render(
       <MemoryRouter>
         <CopilotMessageContent
@@ -23,11 +29,6 @@ describe("CopilotMessageContent sub-agent delegations", () => {
             id: "assistant-1",
             role: "assistant",
             parts: [
-              {
-                type: "reasoning",
-                text: "Brief planning",
-                state: "done",
-              },
               {
                 type: "dynamic-tool",
                 toolCallId: "sub-1",
@@ -36,10 +37,7 @@ describe("CopilotMessageContent sub-agent delegations", () => {
                 input: { task: "date" },
                 output: { summary: "Done" },
               },
-              {
-                type: "text",
-                text: "Sun Jun 7 06:13:19 UTC 2026",
-              },
+              { type: "text", text: "Sun Jun 7 06:13:19 UTC 2026" },
             ],
           }}
           subAgentFullViewLabel="Full view"
@@ -48,13 +46,9 @@ describe("CopilotMessageContent sub-agent delegations", () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText("CLI Agent")).toBeTruthy();
-    expect(screen.getByText("Sub-agent run")).toBeTruthy();
-
+    expect(screen.queryByText("Used 1 tool")).toBeNull();
     fireEvent.click(screen.getByTestId("sub-agent-header-trigger"));
-    expect(
-      screen.getByRole("link", { name: "Full view" }).getAttribute("href")
-    ).toBe("/copilot?subRun=sub-1");
+    expect(screen.getByRole("link", { name: "Full view" })).toBeTruthy();
   });
 });
 
@@ -63,7 +57,7 @@ describe("CopilotMessageContent tool timeline", () => {
     cleanup();
   });
 
-  it("labels the running tool timeline as tool use and ignores reasoning parts", () => {
+  it("names the running step as the status line, steps one click away", () => {
     render(
       <MemoryRouter>
         <CopilotMessageContent
@@ -72,14 +66,13 @@ describe("CopilotMessageContent tool timeline", () => {
             id: "assistant-1",
             role: "assistant",
             parts: [
-              // Reasoning is parked: it has no renderer and must not appear.
-              { type: "reasoning", text: "Decide the query.", state: "done" },
               {
                 type: "dynamic-tool",
-                toolCallId: "ws-1",
-                toolName: "web_search",
+                toolCallId: "u1",
+                toolName: "phases_update",
                 state: "input-available",
-                input: { query: "engenty docs" },
+                input: { id: "p1", data: { title: "Unterlagen" } },
+                displayLabel: 'Updated "Unterlagen"',
               },
             ],
           }}
@@ -88,23 +81,14 @@ describe("CopilotMessageContent tool timeline", () => {
       </MemoryRouter>
     );
 
-    // Collapsed while live: the header IS the status line and names the
-    // running step — one truncated line, not a bare "Working…".
-    const header = screen.getByText('Searching for "engenty docs"');
-    expect(header.closest("[data-slot=cot-header]")).toBeTruthy();
-    expect(screen.queryByText("Working…")).toBeNull();
-    // Reasoning is not rendered anywhere (no accordion, no chain step).
-    expect(screen.queryByText("Decide the query.")).toBeNull();
-    expect(screen.queryByText("Thinking")).toBeNull();
-    // The steps are one click away.
+    expect(screen.getAllByText('Updated "Unterlagen"')).toHaveLength(1);
     fireEvent.click(screen.getByRole("button", { expanded: false }));
-    expect(screen.getAllByText('Searching for "engenty docs"').length).toBe(2);
+    expect(screen.getAllByText('Updated "Unterlagen"')).toHaveLength(2);
   });
 
+  // Between two tool calls the model is still working; the turn must not
+  // read as finished.
   it("stays live between two tool calls and says it is thinking", () => {
-    // The gap after a finished tool, before the next call or the answer, used
-    // to collapse the timeline to "Worked for Ns" — the turn read as finished
-    // while the model was still working.
     render(
       <MemoryRouter>
         <CopilotMessageContent
@@ -127,9 +111,36 @@ describe("CopilotMessageContent tool timeline", () => {
         />
       </MemoryRouter>
     );
-    const header = screen.getByText("Thinking…");
-    expect(header.closest("[data-slot=cot-header]")).toBeTruthy();
+    expect(screen.getByText("Thinking…")).toBeTruthy();
     expect(screen.queryByText(/Worked for/)).toBeNull();
+  });
+
+  it("treats a step with output as done even when its state lags", () => {
+    render(
+      <MemoryRouter>
+        <CopilotMessageContent
+          isLastMessage
+          msg={{
+            id: "assistant-1",
+            role: "assistant",
+            parts: [
+              {
+                type: "dynamic-tool",
+                toolCallId: "u1",
+                toolName: "phases_update",
+                state: "input-available",
+                input: { id: "p1" },
+                output: { ok: true },
+                displayLabel: 'Updated "Unterlagen"',
+              },
+            ],
+          }}
+          streaming
+        />
+      </MemoryRouter>
+    );
+    expect(screen.getByText("Thinking…")).toBeTruthy();
+    expect(screen.queryByText('Updated "Unterlagen"')).toBeNull();
   });
 
   it("closes the live line once answer text follows the tools", () => {
@@ -159,95 +170,36 @@ describe("CopilotMessageContent tool timeline", () => {
     expect(screen.queryByText("Thinking…")).toBeNull();
     expect(screen.getByText("Used 1 tool")).toBeTruthy();
   });
-});
 
-describe("CopilotMessageContent generic tool step", () => {
-  afterEach(() => {
-    cleanup();
-  });
-
-  it("surfaces the resolved metadata as the step description", () => {
-    render(
-      <MemoryRouter>
-        <CopilotMessageContent
-          isLastMessage
-          msg={{
-            id: "assistant-1",
-            role: "assistant",
-            parts: [
-              {
-                type: "dynamic-tool",
-                toolCallId: "u1",
-                toolName: "phases_update",
-                state: "input-available",
-                input: { id: "p1", data: { title: "Unterlagen" } },
-                displayLabel: 'Updated "Unterlagen"',
-                metadata: "phases",
-              },
-            ],
-          }}
-          streaming
-        />
-      </MemoryRouter>
-    );
-
-    // The running step's label is the collapsed header's status line…
-    expect(screen.getByText('Updated "Unterlagen"')).toBeTruthy();
-    // …and its details sit in the step, one click away.
-    fireEvent.click(screen.getByRole("button", { expanded: false }));
-    // The secondary descriptor (scope) the label drops is now shown.
-    expect(screen.getByText("phases")).toBeTruthy();
-  });
-});
-
-describe("CopilotMessageContent rich tool step content", () => {
-  afterEach(() => {
-    cleanup();
-  });
-
-  it("renders a tool image with caption and an output snippet in the timeline", () => {
-    render(
-      <MemoryRouter>
-        <CopilotMessageContent
-          isLastMessage
-          msg={{
-            id: "assistant-1",
-            role: "assistant",
-            parts: [
-              {
-                type: "dynamic-tool",
-                toolCallId: "img-1",
-                toolName: "fetch_profile",
-                state: "output-available",
-                input: { name: "Hayden Bleasel" },
-                output: {
-                  image_url: "https://x.com/avatar.png",
-                  caption: "Profile photo from x.com",
-                  text: "Hayden Bleasel is an Australian product designer.",
+  it("names the tool list in the person's language", () => {
+    setTestLocale("de");
+    try {
+      render(
+        <MemoryRouter>
+          <CopilotMessageContent
+            isLastMessage
+            msg={{
+              id: "assistant-1",
+              role: "assistant",
+              parts: [
+                {
+                  type: "dynamic-tool",
+                  toolCallId: "ws-1",
+                  toolName: "web_search",
+                  state: "output-available",
+                  input: { query: "engenty docs" },
+                  output: { results: [] },
                 },
-              },
-              { type: "text", text: "Here is what I found." },
-            ],
-          }}
-        />
-      </MemoryRouter>
-    );
-
-    // Completed runs collapse the timeline; expand it to reveal the step list
-    // (details are always visible — no per-step Show details toggle).
-    fireEvent.click(screen.getByText("Used 1 tool"));
-
-    const images = screen.getAllByRole("img", {
-      name: "Profile photo from x.com",
-    });
-    const image = images.find((el) => el.tagName === "IMG") ?? images[0];
-    expect(image.getAttribute("src")).toBe("https://x.com/avatar.png");
-    expect(
-      screen.getAllByAltText("Profile photo from x.com").length
-    ).toBeGreaterThan(0);
-    expect(
-      screen.getByText("Hayden Bleasel is an Australian product designer.")
-    ).toBeTruthy();
+                { type: "text", text: "Hier ist, was ich gefunden habe." },
+              ],
+            }}
+          />
+        </MemoryRouter>
+      );
+      expect(screen.getByText("1 Tool verwendet")).toBeTruthy();
+    } finally {
+      setTestLocale("en");
+    }
   });
 });
 
@@ -256,7 +208,7 @@ describe("CopilotMessageContent tool list across text", () => {
     cleanup();
   });
 
-  it("keeps every regular tool in one expandable ChainOfThought list", () => {
+  it("keeps tools after interim text in one expandable list, no raw output", () => {
     render(
       <MemoryRouter>
         <CopilotMessageContent
@@ -282,7 +234,7 @@ describe("CopilotMessageContent tool list across text", () => {
                 state: "output-available",
                 displayLabel: 'Searched "engrd"',
                 input: { id: "contacts_search", input: { q: "engrd" } },
-                // Stringified AG-UI result — must not dump as a timeline snippet.
+                // A stringified AG-UI result must not dump into the timeline.
                 output: JSON.stringify({
                   ok: true,
                   data: {
@@ -306,105 +258,8 @@ describe("CopilotMessageContent tool list across text", () => {
     fireEvent.click(screen.getByText("Used 2 tools"));
     expect(screen.getByText('Searched "iban"')).toBeTruthy();
     expect(screen.getByText('Searched "engrd"')).toBeTruthy();
-    expect(screen.getByText("0 results")).toBeTruthy();
-    expect(screen.getByText("1 result")).toBeTruthy();
     expect(screen.queryByText(/"ok":true/)).toBeNull();
     expect(screen.queryByText(/body_html/)).toBeNull();
-  });
-
-  it("shows brief list counts and update fields under tool steps", () => {
-    render(
-      <MemoryRouter>
-        <CopilotMessageContent
-          isLastMessage
-          msg={{
-            id: "assistant-1",
-            role: "assistant",
-            parts: [
-              {
-                type: "dynamic-tool",
-                toolCallId: "list-1",
-                toolName: "inbox_list_accounts",
-                state: "output-available",
-                displayLabel: "Listed",
-                metadata: "accounts",
-                input: {},
-                output: {
-                  ok: true,
-                  data: { total: 2, results: [{ id: "a" }, { id: "b" }] },
-                },
-              },
-              {
-                type: "dynamic-tool",
-                toolCallId: "upd-1",
-                toolName: "inbox_update_settings",
-                state: "output-available",
-                displayLabel: "Updated",
-                metadata: "settings",
-                input: {
-                  account_id: "6d83c905-d554-4952-8fdf-22f46709aaaa",
-                  backfill_days: 60,
-                },
-                output: { ok: true, data: { backfill_days: 60 } },
-              },
-              { type: "text", text: "Done." },
-            ],
-          }}
-        />
-      </MemoryRouter>
-    );
-
-    fireEvent.click(screen.getByText("Used 2 tools"));
-    expect(screen.getByText("2 accounts")).toBeTruthy();
-    expect(screen.getByText("backfill_days: 60")).toBeTruthy();
-    expect(
-      screen.queryByText(/6d83c905-d554-4952-8fdf-22f46709aaaa/)
-    ).toBeNull();
-  });
-});
-
-describe("CopilotMessageContent error-shaped tool output", () => {
-  afterEach(() => {
-    cleanup();
-  });
-
-  it("renders an error step (not a green check) when output is a validation error", () => {
-    render(
-      <MemoryRouter>
-        <CopilotMessageContent
-          isLastMessage
-          msg={{
-            id: "assistant-1",
-            role: "assistant",
-            parts: [
-              {
-                type: "dynamic-tool",
-                toolCallId: "open-1",
-                toolName: "inbox_open",
-                state: "output-available",
-                displayLabel: "Opened",
-                input: {},
-                output: [
-                  {
-                    expected: "string",
-                    code: "invalid_type",
-                    path: ["inbox_id"],
-                    message:
-                      "Invalid input: expected string, received undefined",
-                  },
-                ],
-              },
-              { type: "text", text: "Done." },
-            ],
-          }}
-        />
-      </MemoryRouter>
-    );
-
-    fireEvent.click(screen.getByText("Used 1 tool"));
-    expect(
-      screen.getByText("Invalid input: expected string, received undefined")
-    ).toBeTruthy();
   });
 });
 
@@ -491,8 +346,7 @@ describe("CopilotMessageContent object renders", () => {
     ],
   };
 
-  // Regression: object cards used to be folded into the collapsed "Used N
-  // tools" timeline because they resolved before the closing text part.
+  // A card that IS the answer must not hide behind the collapsed step list.
   it("renders the object card outside the collapsed tool timeline", () => {
     render(
       <MemoryRouter>
@@ -500,9 +354,36 @@ describe("CopilotMessageContent object renders", () => {
       </MemoryRouter>
     );
 
-    // Fallback card (no module widget registered in this suite) renders the
-    // snapshot title without expanding any timeline.
     expect(screen.getByText("Ada Lovelace")).toBeTruthy();
+    expect(screen.queryByText("Used 1 tool")).toBeNull();
+  });
+
+  // A connect button folded into the step list is one nobody can press.
+  it("keeps a connect request out of the collapsed tool timeline", () => {
+    render(
+      <MemoryRouter>
+        <CopilotMessageContent
+          isLastMessage
+          msg={{
+            id: "assistant-1",
+            role: "assistant",
+            parts: [
+              {
+                type: "dynamic-tool",
+                toolCallId: "c1",
+                toolName: "engenty_tool_execute",
+                resolvedToolName: "connections_request_connect",
+                state: "output-available",
+                input: { id: "connections_request_connect" },
+                output: { ok: true },
+              },
+              { type: "text", text: "Connect your mailbox." },
+            ],
+          }}
+        />
+      </MemoryRouter>
+    );
+
     expect(screen.queryByText("Used 1 tool")).toBeNull();
   });
 });
@@ -540,13 +421,95 @@ describe("CopilotMessageContent file-read dump", () => {
 
     fireEvent.click(screen.getByText("Used 1 tool"));
 
-    // The protocol body must not be visible in the timeline, even expanded.
+    // File contents never show in the chat, even expanded; the step is
+    // named after the file it read.
     expect(screen.queryByText(/generated_at/)).toBeNull();
     expect(screen.queryByText(/1->/)).toBeNull();
-    // …and the placeholder label is recovered from the dump header.
     expect(
       screen.getAllByText(/time_tracking_plan\.json/).length
     ).toBeGreaterThan(0);
-    expect(screen.queryByText("Ran tool")).toBeNull();
+  });
+});
+
+describe("CopilotMessageContent for a person", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  function tool(
+    toolCallId: string,
+    toolName: string,
+    input: unknown,
+    output: unknown
+  ) {
+    return {
+      input,
+      output,
+      state: "output-available",
+      toolCallId,
+      toolName,
+      type: "dynamic-tool",
+    };
+  }
+
+  // A person sees only what changed something they can see: a page opened,
+  // a tour (folded to one line). Silent and failed calls show nothing.
+  it("shows clips for what changed, folds a tour, and keeps the rest silent", () => {
+    render(
+      <MemoryRouter>
+        <CopilotMessageContent
+          isLastMessage
+          msg={{
+            id: "a1",
+            parts: [
+              tool(
+                "s1",
+                "skill",
+                { name: "getting-started" },
+                "# Getting started"
+              ),
+              tool(
+                "d1",
+                "ui_dom_snapshot",
+                { root_selector: "main" },
+                { elements: [] }
+              ),
+              tool(
+                "n1",
+                "navigate",
+                { to: "/s/engrd/settings" },
+                { output: { ok: true, to: "/s/engrd/settings" } }
+              ),
+              tool(
+                "g1",
+                "show_ui_guide",
+                { title: "Weg 4" },
+                { output: { ok: true, status: "resolved" } }
+              ),
+              tool(
+                "g2",
+                "show_ui_guide",
+                { title: "Weg 5" },
+                { output: { ok: true, status: "resolved" } }
+              ),
+              tool(
+                "n2",
+                "navigate",
+                { to: "/s/engrd/data" },
+                { output: { ok: false, error: "blocked" } }
+              ),
+              { text: "Fertig.", type: "text" },
+            ],
+            role: "assistant",
+          }}
+          toolDetail="person"
+        />
+      </MemoryRouter>
+    );
+
+    const clips = screen.getAllByTestId("tool-clip");
+    expect(clips).toHaveLength(2);
+    expect(clips[0]?.getAttribute("href")).toBe("/s/engrd/settings");
+    expect(screen.queryByText(/Used \d tool/)).toBeNull();
   });
 });

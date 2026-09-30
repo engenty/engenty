@@ -114,9 +114,12 @@ export function useSpaceModules(spaceId: string | null): UseSpaceModulesResult {
 
 /**
  * The mounts a person actually reads as "Module": the space's mounts minus the
- * two kinds that already have a home elsewhere — a module that owns a space tab
- * (listing it twice is the duplication the sidebar exists to remove) and an
- * assistant module (Copilot has a root-level home; hired engenties are the roster).
+ * kinds that already have a home elsewhere — a module that owns a space tab
+ * (listing it twice is the duplication the sidebar exists to remove), an
+ * assistant module (Copilot has a root-level home; hired engenties are the
+ * roster), and a supporting module (company profile, commercial settings: it
+ * is mounted for another module and lives in Settings). The last is read from
+ * the setup catalog, which offers only modules that are apps of their own.
  *
  * Shared by the sidebar's Modules section and the home's Module column so the
  * two cannot disagree about what this Space contains.
@@ -126,6 +129,7 @@ export function useSpaceListedModules(
 ): UseSpaceModulesResult {
   const { contributions } = useUiContributions();
   const { modules, isPending } = useSpaceModules(spaceId);
+  const catalogQuery = useSpaceSetupCatalogQuery();
   const listed = useMemo(() => {
     const mountedIds = new Set(modules.map((module) => module.id));
     const promoted = new Set(
@@ -133,7 +137,12 @@ export function useSpaceListedModules(
         .map((tab) => spaceTabModuleId(tab))
         .filter((moduleId) => mountedIds.has(moduleId))
     );
-    return modules.filter((module) => !promoted.has(module.id));
-  }, [contributions.spaceTabs, modules]);
-  return { isPending, modules: listed };
+    const offered = new Set(
+      (catalogQuery.data?.modules ?? []).map((module) => module.id)
+    );
+    return modules.filter(
+      (module) => !promoted.has(module.id) && offered.has(module.id)
+    );
+  }, [catalogQuery.data, contributions.spaceTabs, modules]);
+  return { isPending: isPending || catalogQuery.isPending, modules: listed };
 }

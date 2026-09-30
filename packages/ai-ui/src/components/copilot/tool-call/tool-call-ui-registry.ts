@@ -46,11 +46,6 @@ export function registerToolCallUi(reg: ToolCallUiRegistration): () => void {
   };
 }
 
-export function clearToolCallUiRegistrationsForTests() {
-  registrations.clear();
-  emit();
-}
-
 export function listToolCallUiRegistrations(): ToolCallUiRegistration[] {
   return [...registrations.values()].sort(
     (a, b) => (b.priority ?? 0) - (a.priority ?? 0)

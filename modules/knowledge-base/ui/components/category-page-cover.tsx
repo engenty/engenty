@@ -1,26 +1,30 @@
 /**
  * Category view page cover band.
  *
- * Wraps the same {@link KbHubCoverDialog} the KB hub uses, but persists the
- * resulting `KbCover` on the **category** row via `useUpdateCategoryMutation`.
+ * Opens the same cover picker (`CoverDialog`) the KB hub uses, but persists the
+ * resulting `Cover` on the **category** row via `useUpdateCategoryMutation`.
  * Layout mirrors `KbHubCover` so the category page reads as a sibling surface
  * to the KB hub.
  */
 
+import { COVER_H, COVER_H_EMPTY, type Cover } from "@engenty/covers";
+import {
+  CoverDialog,
+  coverPaintStyle,
+  createCoverMediaHttpAdapter,
+  useResolvedCoverImageUrl,
+} from "@engenty/covers/ui";
 import { useTranslation } from "@engenty/i18n/ui";
 import { Button, cn } from "@engenty/ui-core";
 import { ImageIcon, Trash2 } from "lucide-react";
-import { type CSSProperties, type ReactNode, useMemo, useState } from "react";
-import type { KbCategory, KbCover } from "../../src/schema/types.js";
+import { type ReactNode, useMemo, useState } from "react";
+import type { KbCategory } from "../../src/schema/types.js";
 import { kbModuleHubCoverInnerClassName } from "../lib/kb-page-shell.js";
 import { useUpdateCategoryMutation } from "../queries.js";
-import { KB_COVER_H, KB_COVER_H_EMPTY } from "./kb-hub-cover-constants.js";
-import { KbHubCoverDialog } from "./kb-hub-cover-dialog.js";
 import {
   KbHubCoverDialogApiContext,
   useKbHubCoverDialogApi,
 } from "./kb-hub-cover-dialog-context.js";
-import { useResolvedKbCoverImageUrl } from "./kb-hub-cover-image-url.js";
 
 interface CategoryPageCoverProps {
   category: KbCategory;
@@ -28,7 +32,7 @@ interface CategoryPageCoverProps {
   /** When false, hide cover edit controls (view mode). */
   editable?: boolean;
   header?: ReactNode;
-  onOptimisticCoverChange?: (cover: KbCover | null) => void;
+  onOptimisticCoverChange?: (cover: Cover | null) => void;
 }
 
 export function CategoryPageCover({
@@ -51,24 +55,23 @@ export function CategoryPageCover({
     [mutation.isPending]
   );
 
+  const coverMedia = useMemo(
+    () =>
+      createCoverMediaHttpAdapter({
+        basePath: "/api/kb/cover",
+        ownerField: "kb_id",
+        ownerId: category.kb_id,
+      }),
+    [category.kb_id]
+  );
+
   const cover = category.cover;
   const hasCover = Boolean(cover);
-  const resolvedImageUrl = useResolvedKbCoverImageUrl(cover ?? null);
+  const resolvedImageUrl = useResolvedCoverImageUrl(cover ?? null);
 
-  const coverStyle: CSSProperties =
-    cover?.type === "image" && resolvedImageUrl
-      ? {
-          backgroundImage: `url(${resolvedImageUrl})`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }
-      : cover?.type === "color"
-        ? { backgroundColor: cover.value }
-        : cover?.type === "gradient"
-          ? { background: cover.value }
-          : {};
+  const coverStyle = coverPaintStyle(cover, resolvedImageUrl);
 
-  const applyCover = (next: KbCover | null) => {
+  const applyCover = (next: Cover | null) => {
     onOptimisticCoverChange?.(next);
     mutation.mutate({
       id: category.id,
@@ -80,9 +83,9 @@ export function CategoryPageCover({
 
   return (
     <KbHubCoverDialogApiContext.Provider value={dialogApi}>
-      <KbHubCoverDialog
+      <CoverDialog
         currentCover={cover}
-        kbId={category.kb_id}
+        media={coverMedia}
         onApplyCover={(next) => applyCover(next)}
         onOpenChange={setDialogOpen}
         open={dialogOpen}
@@ -93,7 +96,7 @@ export function CategoryPageCover({
           "group/cover relative flex min-h-0 w-full shrink-0 flex-col overflow-hidden",
           className
         )}
-        style={{ minHeight: hasCover ? KB_COVER_H : KB_COVER_H_EMPTY }}
+        style={{ minHeight: hasCover ? COVER_H : COVER_H_EMPTY }}
       >
         {hasCover ? (
           <div
@@ -126,7 +129,7 @@ export function CategoryPageCover({
                     variant="outline"
                   >
                     <ImageIcon aria-hidden className="size-3.5" />
-                    {t("hub.change_cover_hint")}
+                    {t("covers.change_cover_hint", { ns: "common" })}
                   </Button>
 
                   <Button
@@ -138,7 +141,7 @@ export function CategoryPageCover({
                     variant="outline"
                   >
                     <Trash2 aria-hidden className="size-3.5" />
-                    {t("hub.remove_cover")}
+                    {t("covers.remove_cover", { ns: "common" })}
                   </Button>
                 </div>
               ) : null}
@@ -176,7 +179,7 @@ export function CategoryPageAddCoverButton({
       variant="ghost"
     >
       <ImageIcon aria-hidden className="size-3.5" />
-      {t("hub.add_cover_hint")}
+      {t("covers.add_cover_hint", { ns: "common" })}
     </Button>
   );
 }

@@ -1,7 +1,7 @@
 // Plugin SDK contract for declarative context-graph schema and source registration.
 //
 // Modules that want to participate in the shared typed graph
-// (`@engenty/context-graph`) register entity/edge types — and optional
+// (the optional `context-graph` module) register entity/edge types — and optional
 // lifecycle event bindings — through
 // `engenty.server.registerContextGraphSchema(...)`. The host translates the
 // registration into:
@@ -21,12 +21,12 @@
 // status and sync HTTP routes without the context-graph package needing to
 // know about individual modules.
 //
-// The matching server API surface and registry implementation live in
-// `@engenty/context-graph`.
+// The matching server API surface and registry implementation live in the
+// optional `context-graph` module (`modules/context-graph`).
 
 import type { ZodType } from "zod";
 import type { PluginRegistrationReceipt } from "./index.js";
-import type { PluginEventPayload, PluginEventsApi } from "./plugin-events.js";
+import type { PluginEventPayload } from "./plugin-events.js";
 
 // Minimal shape of the context-graph server API that modules call into.
 // Defined here so module code can stay free of a hard `@engenty/context-graph`
@@ -117,18 +117,18 @@ export interface ContextGraphSourceRegistry {
   register(source: ContextGraphSourceRegistration): void;
 }
 
-// Provider contract for the shared context graph. The `@engenty/context-graph`
-// plugin owns the singletons (ontology registry, Supabase-backed server API,
-// source registry) and installs them on the host via
-// `engenty.server.registerContextGraphHost(...)`. The host then exposes
+// Provider contract for the shared context graph. The optional
+// `context-graph` module owns the singletons (ontology registry,
+// Supabase-backed server API, source registry) and installs them on the host
+// via `engenty.server.registerContextGraphHost(...)`. The host then exposes
 // `contextGraph` / `registerContextGraphSchema` / `registerContextGraphSource`
 // to every plugin by delegating here — so core stays free of any concrete
-// `@engenty/context-graph` import.
+// `@engenty/context-graph` import. Without the module those hooks do nothing.
 export interface ContextGraphHost {
-  // Build a schema registrar bound to a specific calling plugin's events and
-  // module id (used for ownership and declarative `onEvents` subscriptions).
+  // Build a schema registrar for a calling module (ownership). Declarative
+  // `onEvents` bindings are subscribed by the context-graph module itself, so
+  // they run only for Organisations that have it turned on.
   createSchemaRegistrar(
-    events: PluginEventsApi,
     moduleId: string
   ): (
     registration: ContextGraphSchemaRegistration

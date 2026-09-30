@@ -34,7 +34,7 @@ resolved run receives:
 | `code_execution` | `/skills`, `/sandbox`; `/company` (ro); conditional `/space`, `/data`, `/task`, `/project`; no `/home` |
 | `custom` | Only the declared mounts whose required bindings resolve |
 
-`/company` is read-only in every run: `/company/files` is the company drive
+`/company` is read-only in every run: `/company/files` is the organisation drive
 (the tenant commons), `/company/spaces/<key>/` shows each publishing Space's
 `public/` folder and `/company/apps/<slug>/` the source of those Spaces' Apps. `/space/public` is a folder inside `/space`, not a mount of
 its own; file-tool writes there ask for approval.

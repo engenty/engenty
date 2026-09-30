@@ -5,7 +5,6 @@
 import { requestApiJson } from "@engenty/api-client";
 import { guessFileStorageMimeFromFilename } from "@engenty/file-storage";
 import type {
-  KbCover,
   KbSource,
   KbSourceAdapterId,
   KbSourceItem,
@@ -301,59 +300,6 @@ export async function convertKbDocument(
     original_filename: file.name,
     storage_object_key: body.original?.storage_path ?? null,
   };
-}
-
-export interface KbUnsplashCoverPhoto {
-  id: string;
-  links: { html: string };
-  urls: { regular: string; small: string; thumb: string };
-  user: { links: { html: string }; name: string };
-}
-
-export async function searchKbCoverUnsplash(
-  q: string,
-  opts?: { page?: number; signal?: AbortSignal }
-): Promise<{ photos: KbUnsplashCoverPhoto[] }> {
-  const params = new URLSearchParams({ q: q.trim() });
-  if (opts?.page != null) {
-    params.set("page", String(opts.page));
-  }
-  return requestApiJson<{ photos: KbUnsplashCoverPhoto[] }>(
-    `${API}/cover/unsplash/search?${params}`,
-    { method: "GET", signal: opts?.signal }
-  );
-}
-
-export async function importKbCoverUnsplash(
-  kbId: string,
-  photoId: string
-): Promise<{ key: string; cover: KbCover }> {
-  return requestApiJson<{ key: string; cover: KbCover }>(
-    `${API}/cover/unsplash/import`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ kb_id: kbId, photo_id: photoId }),
-    }
-  );
-}
-
-export async function generateKbCoverAi(input: {
-  kb_id: string;
-  mode: "generate" | "edit";
-  prompt: string;
-  reference_object_key?: string;
-}): Promise<{ key: string; cover: KbCover }> {
-  return requestApiJson<{ key: string; cover: KbCover }>(`${API}/cover/ai`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      kb_id: input.kb_id,
-      prompt: input.prompt,
-      mode: input.mode,
-      reference_object_key: input.reference_object_key,
-    }),
-  });
 }
 
 export async function updateKbSource(

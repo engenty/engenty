@@ -676,15 +676,14 @@ export function resolveTranscriptToolDisplay(
   }
 
   if (wireToolName === "requestFeedback") {
-    const outputRecord = isRecord(params.output) ? params.output : null;
-    const resolvedLabel =
-      outputRecord && typeof outputRecord.feedback === "string"
-        ? outputRecord.feedback.trim()
-        : null;
+    // Same shape as the chooser row: the question, with the answer (read back
+    // from the resume sentence) as metadata.
+    const question = readDecisionQuestion(params.input, params.output);
+    const resolvedLabel = readDecisionResumeAnswer(params.output);
     return {
       resolvedToolName: wireToolName,
-      displayLabel:
-        resolvedLabel ?? say("feedbackRequested", "Feedback requested"),
+      displayLabel: question ?? say("feedbackRequested", "Feedback requested"),
+      ...(resolvedLabel ? { metadata: resolvedLabel } : {}),
     };
   }
 

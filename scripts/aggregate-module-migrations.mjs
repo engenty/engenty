@@ -8,9 +8,18 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import {
+  resolveHeldMigrationOwners,
   resolveMigrationOwners,
   resolveRepoRoot,
 } from "./lib/migration-owners.mjs";
+
+/**
+ * Versions held back at this ENGENTY_MODULE_STAGE (migrations of left-out
+ * modules), next to the migrations dir. The migrate step reads it to write
+ * placeholders for held versions a database already applied, so `db push`
+ * accepts that history: scripts/held-migration-placeholders.mjs.
+ */
+export const HELD_MIGRATIONS_FILE = "held-migrations.json";
 
 const TIMESTAMP_REGEX = /^(\d{14})_(.+)\.sql$/;
 const PLUGIN_SLUG_PREFIX = "plugin_";
@@ -164,6 +173,7 @@ function main() {
       const content = fs.readFileSync(outPath, "utf-8");
       if (
         entry.endsWith("_shared_stack_placeholder.sql") ||
+        entry.endsWith("_held_placeholder.sql") ||
         entry.includes("_plugin_") ||
         isAggregatedMigration(content)
       ) {
@@ -172,6 +182,15 @@ function main() {
       }
     }
   }
+
+  const held = collectMigrations(resolveHeldMigrationOwners(root))
+    .map(({ basename }) => basename.slice(0, 14))
+    .sort();
+  fs.writeFileSync(
+    path.join(root, "supabase", HELD_MIGRATIONS_FILE),
+    `${JSON.stringify({ versions: held }, null, 2)}\n`,
+    "utf-8"
+  );
 
   if (written > 0 || pruned > 0) {
     const parts = [];

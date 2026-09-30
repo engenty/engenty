@@ -96,6 +96,7 @@ function baseInput(overrides: Record<string, unknown> = {}) {
     mastra: {} as never,
     newRunId: `new-run-${Math.random().toString(36).slice(2)}`,
     registry: {} as never,
+    resolvedResult: { approved: true },
     resolvedToolCallId: "call-1",
     resumeData: { approved: true } as never,
     scope: {

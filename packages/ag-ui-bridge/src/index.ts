@@ -58,6 +58,17 @@ export {
   runRouteContextForwardedProps,
 } from "./agent-ui-state.js";
 export type {
+  AgUiBrowserAnnotation,
+  AgUiBrowserAnnotationColor,
+  AgUiBrowserAnnotationShape,
+  AgUiBrowserCredentialField,
+  AgUiBrowserCredentialFieldKind,
+  AgUiBrowserFrame,
+  AgUiBrowserPreview,
+  AgUiBrowserWindowRef,
+} from "./engenty-browser-preview.js";
+export { readAgUiBrowserPreview } from "./engenty-browser-preview.js";
+export type {
   EngentyDebugInitialPromptPayload,
   RecalledMessagePointer,
 } from "./engenty-debug-initial-prompt.js";
@@ -77,6 +88,7 @@ export {
   readEngentyEffortResolvedEventValue,
 } from "./engenty-effort-resolved.js";
 export type {
+  AgUiDecisionPreview,
   AgUiOpenInterruptKind,
   AgUiOpenInterruptMetadata,
 } from "./engenty-open-interrupt.js";

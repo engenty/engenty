@@ -1,5 +1,5 @@
 // The bell, in the app rail just above the personal avatar: how many open
-// records need attention (Wichtig — `isAttention`), seen or not. Ordinary
+// records need attention (`isAttention`). Ordinary
 // updates are FYI and stay off the badge. Mounts the client-channel watcher,
 // the realtime subscription and the `openNotificationInbox` listener, so each
 // runs exactly once per shell.
@@ -126,7 +126,9 @@ export function NotificationBell({
   };
   // Read the URL — the rail sits outside the space route's params.
   const inSpace = spaceKeyFromPathname(pathname) !== null;
-  const count = useAttentionCount(inSpace ? "space" : "tenant");
+  // The rail is global: its count is the whole tenant's. The space's own
+  // count sits on the space dashboard's bell.
+  const count = useAttentionCount("tenant");
 
   const panel = (
     <NotificationInboxPanel

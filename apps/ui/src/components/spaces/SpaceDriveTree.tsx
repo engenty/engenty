@@ -14,12 +14,16 @@ import type { DriveNode } from "@engenty/file-storage";
 import { useTranslation } from "@engenty/i18n/ui";
 import { Spinner } from "@engenty/ui-core";
 import { FolderPlus } from "lucide-react";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import {
   type DriveRowContext,
   RootSectionBody,
 } from "@/components/spaces/space-data/drive-row";
 import { SpaceDataRootSection } from "@/components/spaces/space-data/root-section";
+import {
+  SpaceDataSearchField,
+  SpaceDataSearchResults,
+} from "@/components/spaces/space-data/search-results";
 import type { SpaceSectionAddItem } from "@/components/spaces/space-section-heading";
 import type { SpaceDataCapabilities } from "@/lib/api/space-data-client";
 import {
@@ -27,8 +31,10 @@ import {
   groupSpaceDataRootSections,
   spaceDataSectionContainsSelection,
 } from "@/lib/space-data-root-sections";
+import { useSpaceDataSearch } from "@/lib/space-data-search";
 import { spaceDataSectionHeadingLabel } from "@/lib/space-data-section-label";
 import { driveNodeHref } from "@/lib/space-drive-href";
+import { useNonEmptySpaceDataSections } from "@/lib/space-drive-queries";
 import { spaceDataArtifactsPath } from "@/lib/space-routes";
 
 export interface SpaceDriveAddInput {
@@ -58,7 +64,7 @@ export interface SpaceDriveTreeProps {
   renderRowActions?: (node: DriveNode) => ReactNode;
   /** Id of the space artifact the detail pane is showing. */
   selectedArtifactId?: string;
-  /** True when the pane is the Artifacts / Ablage root listing. */
+  /** True when the pane is the Artifacts / Dokumente root listing. */
   selectedArtifactsRoot?: boolean;
   /** Id of the file the detail pane is showing. */
   selectedFileId?: string;
@@ -121,18 +127,32 @@ export function SpaceDriveTree({
     ...(selectedFolderId ? { selectedFolderId } : {}),
     ...(selectedPath ? { selectedPath } : {}),
   };
-  const sections = groupSpaceDataRootSections(nodes, {
+  const allSections = groupSpaceDataRootSections(nodes, {
+    apps: t("spaces.data.appsSection", { defaultValue: "Apps" }),
+    files: t("spaces.data.filesSection", { defaultValue: "Files" }),
     artifacts: t("spaces.data.artifactsSection", { defaultValue: "Artifacts" }),
   });
+  const sections = useNonEmptySpaceDataSections(spaceId, allSections);
+  const [query, setQuery] = useState("");
+  const search = useSpaceDataSearch(spaceId, query, allSections);
   return (
     <div className="flex flex-col gap-3">
+      <SpaceDataSearchField onChange={setQuery} value={query} />
       {unavailable.length > 0 ? (
         // Naming the missing source beats a shorter list that looks complete.
         <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs">
           {t("spaces.data.partial", { sources: unavailable.join(", ") })}
         </p>
       ) : null}
-      {isPending && nodes.length === 0 ? (
+      {search.active ? (
+        <SpaceDataSearchResults
+          context={context}
+          groups={search.groups}
+          isPending={search.isPending}
+          labelsByModuleId={labelsByModuleId}
+          unavailable={search.unavailable}
+        />
+      ) : isPending && nodes.length === 0 ? (
         <div className="flex items-center gap-2 p-3 text-muted-foreground text-sm">
           <Spinner className="size-4" />
           {t("spaces.data.loading")}

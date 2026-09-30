@@ -23,10 +23,7 @@ import {
 } from "../../../ai/frontend-tools/frontend-tool-suspend-lock.js";
 import { getEngentyToolsRunContext } from "../../../ai/tools/engenty-tools/lib/run-context.js";
 import { requestDecisionResumeSchema } from "../../../ai/tools/request-decision/native-request-decision.js";
-import {
-  buildUserBrowserSandboxId,
-  startUserBrowser,
-} from "../sandbox/space-browser.js";
+import { startUserBrowser } from "../sandbox/space-browser.js";
 import { execInSpaceComputer } from "../sandbox/space-computer.js";
 import {
   armLoopbackForward,
@@ -276,9 +273,11 @@ export function createSignInTool(input: {
       try {
         await ctx.agent?.suspend({
           ...artifact,
-          browser: {
+          // The card carries the live window with the sign-in page open.
+          preview: {
             agent_id: identity.agentId,
-            sandbox_id: buildUserBrowserSandboxId(identity),
+            kind: "browser",
+            mode: "live",
             space_id: identity.spaceId,
           },
         });

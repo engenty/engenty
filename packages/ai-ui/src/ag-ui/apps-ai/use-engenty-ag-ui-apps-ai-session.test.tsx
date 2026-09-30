@@ -809,3 +809,68 @@ describe("useEngentyAgUiAppsAiSession", () => {
     vi.mocked(postAppsAiThreadRun).mockReset();
   });
 });
+
+describe("Extra offer", () => {
+  it("holds a turn the server offers to run on Extra, then sends it once on Extra", async () => {
+    vi.mocked(postAppsAiThreadRun).mockClear();
+    vi.mocked(postAppsAiThreadRun).mockImplementationOnce(async () => {
+      throw Object.assign(
+        new Error(
+          'ai session run HTTP 409: {"error":"agent_threads.effortOffer"}'
+        ),
+        {
+          body: {
+            error: "agent_threads.effortOffer",
+            offer: { proposed: "high", reason: "multi_step" },
+          },
+          code: "agent_threads.effortOffer",
+          status: 409,
+        }
+      );
+    });
+    let session!: ReturnType<typeof useEngentyAgUiAppsAiSession>;
+    let messages: readonly EngentyAgUiMessage[] = [];
+    render(
+      <SessionProbe
+        initialMessages={[]}
+        onMessages={(next) => {
+          messages = next;
+        }}
+        onSession={(s) => {
+          session = s;
+        }}
+        threadId={CREATED_THREAD_ID}
+      />
+    );
+
+    await act(async () => {
+      session.submitMessage("Plan the whole migration");
+    });
+
+    // A question, not a failure: no error, and the turn is not in the
+    // transcript while it waits for the answer.
+    await waitFor(() =>
+      expect(session.effortOffer).toEqual({
+        proposed: "high",
+        reason: "multi_step",
+      })
+    );
+    expect(session.error).toBeNull();
+    expect(session.status).toBe("ready");
+    expect(messages.map(messageText)).not.toContain("Plan the whole migration");
+
+    await act(async () => {
+      session.answerEffortOffer("extra");
+    });
+
+    await waitFor(() => expect(session.effortOffer).toBeNull());
+    const calls = vi.mocked(postAppsAiThreadRun).mock.calls;
+    expect(calls).toHaveLength(2);
+    const [first, second] = calls.map(([params]) => params.input);
+    expect(second?.forwardedProps).toMatchObject({
+      engenty: { effort: "high" },
+    });
+    // The same turn, sent again — not a second message.
+    expect(second?.messages.at(-1)?.id).toBe(first?.messages.at(-1)?.id);
+  });
+});

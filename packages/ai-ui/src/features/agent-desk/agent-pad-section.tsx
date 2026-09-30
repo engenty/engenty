@@ -1,5 +1,5 @@
-// One of an agent's own documents — AGENTS.md (instructions), MEMORY.md or
-// TASKS.md — rendered as compact markdown (checkboxes stay checkboxes), with
+// One of an agent's own documents — AGENTS.md (instructions) or TASKS.md —
+// rendered as compact markdown (checkboxes stay checkboxes), with
 // an edit toggle that swaps in a textarea. The server owns each format and
 // cap; the section only refuses to submit what it already knows is too long.
 // Shared by the desk's Manage panel and the copilot's Settings page, which
@@ -52,7 +52,7 @@ export function AgentPadSection({
   clear?: AgentPadClear;
   editable: boolean;
   enabled: boolean;
-  kind: "instructions" | "memory" | "tasks";
+  kind: "instructions" | "tasks";
   /** Server cap; omitted when the document has none (no counter shown). */
   maxChars?: number;
   save: AgentPadSave;

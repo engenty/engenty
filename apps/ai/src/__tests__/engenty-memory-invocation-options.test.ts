@@ -135,25 +135,35 @@ describe("Engenty Mastra memory invocation options", () => {
     ).toBe(spaceId);
   });
 
-  it("gives MEMORY.md tools only to agents with a shared-observation audience", () => {
-    const shared = createEngentySessionMemoryRuntime({
-      agentId: "chief-of-staff",
+  it("binds memory tools where the run's place is known, and none where it is not", () => {
+    const memoryEntries = {
+      delete: async () => false,
+      deleteForAgent: async () => undefined,
+      insert: async () => {
+        throw new Error("not written in this test");
+      },
+      list: async () => [],
+      update: async () => null,
+    };
+    const inSpace = createEngentySessionMemoryRuntime({
+      agentId: "contacts.manager",
+      memory: { place: { kind: "space", spaceId }, privateLine: false },
+      memoryEntries,
       scope: { tenantId, userId },
-      sharedObservations: "space",
-      sharedRoom: true,
-      spaceId,
       store: makeStore(),
       threadId,
     });
-    expect(shared.memoryTools).toHaveProperty("memory_note");
+    expect(inSpace.memoryTools).toHaveProperty("memory_note");
 
-    const none = createEngentySessionMemoryRuntime({
-      agentId: "engenty.copilot",
+    const unresolved = createEngentySessionMemoryRuntime({
+      agentId: "contacts.manager",
+      memory: { place: { kind: "unresolved" }, privateLine: false },
+      memoryEntries,
       scope: { tenantId, userId },
       store: makeStore(),
       threadId,
     });
-    expect(none.memoryTools).toEqual({});
+    expect(unresolved.memoryTools).not.toHaveProperty("memory_note");
   });
 
   it("always includes Mastra memory options in execution options", () => {

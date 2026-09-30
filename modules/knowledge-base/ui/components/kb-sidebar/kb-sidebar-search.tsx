@@ -32,7 +32,8 @@ export interface KbSidebarSearchProps {
   ) => void;
   /** Article tree settings (view/sort/expand) — Articles tab only. */
   showArticleTreeMenu?: boolean;
-  /** Module nav + entity tabs below search (Tasks-style). */
+  /** Module nav, its Engentys and the entity tabs — above the search, which
+   * searches the list those tabs pick (Tasks-style). */
   sidebarChrome?: ReactNode;
 }
 
@@ -59,9 +60,11 @@ export function KbSidebarSearch({
 
   return (
     <SidebarHeader className="gap-0 p-0 pb-3">
+      {hasSearch || !sidebarChrome ? null : sidebarChrome}
+
       <div
         className={cn(
-          "flex min-w-0 items-center gap-1",
+          "flex min-w-0 items-center gap-1 pt-4",
           sidebarColumnContentInsetClassName,
           sidebarColumnContentInsetEndClassName
         )}
@@ -96,8 +99,6 @@ export function KbSidebarSearch({
           </>
         )}
       </div>
-
-      {hasSearch || !sidebarChrome ? null : sidebarChrome}
     </SidebarHeader>
   );
 }

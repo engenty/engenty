@@ -56,7 +56,7 @@ For a document you author — prose, rich output, tabular data — pass the cont
 | Call | Shape |
 | --- | --- |
 | `artifact_write` (create) | `{ type: "markdown" \| "html" \| "table", title, content }` → `{ artifact_id, version }` |
-| `table_write` (create) | `{ title, columns }` → `{ table_id, artifact_id }` — a Space **database** (not a CSV `table` artifact). Lands in Ablage. |
+| `table_write` (create) | `{ title, columns }` → `{ table_id, artifact_id }` — a Space **database** (not a CSV `table` artifact). Lands in Dokumente. |
 | `table_write` (rows) | `{ table_id, insert: [{ col: value }] }` — `update` / `delete` the same way. |
 | `table_read` | `{ table_id }` — definition + rows |
 | `artifact_write` (update) | `{ artifact_id, content, expected_version, summary }` — on `version_conflict`, `artifact_read` then retry with `current_version` |
@@ -94,7 +94,7 @@ table_write {
 
 Use `table` for CSV or a JSON array of rows — not a markdown table pasted into prose.
 
-A Space **database**, page, App, or Ablage document that should stay in this
+A Space **database**, page, App, or Dokumente document that should stay in this
 Space — and be updated later — is **space-data**, not this skill.
 
 ## Generated files

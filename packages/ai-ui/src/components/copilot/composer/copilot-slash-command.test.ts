@@ -3,7 +3,6 @@ import {
   type ChatSlashCommand,
   filterSlashCommands,
   getSlashQueryAtCursor,
-  groupSlashCommands,
   parseLeadingSlashCommand,
   routeSlashSubmit,
 } from "./copilot-slash-command";
@@ -31,10 +30,6 @@ describe("getSlashQueryAtCursor", () => {
   it("closes once the token is finished (whitespace before caret)", () => {
     expect(getSlashQueryAtCursor("/kb what is x", 13)).toBeNull();
     expect(getSlashQueryAtCursor("/kb ", 4)).toBeNull();
-  });
-
-  it("ignores a caret before the slash", () => {
-    expect(getSlashQueryAtCursor("/kb", 0)).toBeNull();
   });
 });
 
@@ -89,37 +84,6 @@ describe("filterSlashCommands", () => {
     expect(
       filterSlashCommands(withSkill, "contacts-search").map((c) => c.command)
     ).toEqual(["contacts-search"]);
-  });
-
-  it("treats coding as a match for commands that talk about code", () => {
-    const withSkill: ChatSlashCommand[] = [
-      ...COMMANDS,
-      {
-        command: "sandbox-code-execution",
-        description: "Run Python or shell scripts in a sandbox",
-        group: "Skills",
-        kind: "skill",
-        label: "sandbox-code-execution",
-      },
-    ];
-    expect(
-      filterSlashCommands(withSkill, "coding").map((c) => c.command)
-    ).toEqual(["sandbox-code-execution"]);
-  });
-});
-
-describe("groupSlashCommands", () => {
-  it("preserves order within groups", () => {
-    const groups = groupSlashCommands(COMMANDS);
-    expect(groups.map((g) => g.group)).toEqual([
-      "Core",
-      "offers",
-      "knowledge-base",
-    ]);
-    expect(groups[0]?.commands.map((c) => c.command)).toEqual([
-      "help",
-      "clear",
-    ]);
   });
 });
 

@@ -32,6 +32,7 @@ import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { getSpaces, type SpaceRef } from "../api.js";
+import { tasksPathsForSpace } from "../lib/tasks-routes.js";
 import { getWorkTabs, type WorkTab } from "../work-tabs.js";
 
 const ALL = "all";
@@ -221,7 +222,7 @@ export function WorkOverviewPage() {
                 count={group.rows.length}
                 href={
                   group.space
-                    ? `/s/${encodeURIComponent(group.space.key)}`
+                    ? tasksPathsForSpace(group.space.key).briefing
                     : null
                 }
                 name={group.space?.name ?? t("work.unknownSpace")}

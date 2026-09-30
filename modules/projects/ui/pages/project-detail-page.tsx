@@ -1,9 +1,15 @@
 import { PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { useCopilotShell } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
+import { useQueryClient } from "@engenty/query-client";
 import { InlineEditableRichText } from "@engenty/tiptap-editor";
 import "@engenty/tiptap-editor/styles.css";
 import { useTeamMembersCatalogQuery } from "@engenty/tasks/ui/assignee";
+import {
+  NewTaskDialog,
+  type TaskFormSubmitData,
+  useCreateTaskMutation,
+} from "@engenty/tasks/ui/new-task";
 import { Tabs } from "@engenty/ui-core";
 import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -36,7 +42,7 @@ import {
   useUpdateProjectPhaseMutation,
 } from "../optimistic-mutations.js";
 import type { TeamMemberCatalogRow } from "../plugins.js";
-import { useProjectSettings } from "../queries.js";
+import { projectKeys, useProjectSettings } from "../queries.js";
 
 const EMPTY_TEAM_CATALOG: TeamMemberCatalogRow[] = [];
 
@@ -50,6 +56,9 @@ export function ProjectDetailPage() {
   const [taskFormOpen, setTaskFormOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<PhaseTask | null>(null);
   const [addTaskPhaseId, setAddTaskPhaseId] = useState<string | null>(null);
+  // Creating goes through the tasks module's dialog; the side panel below is
+  // for editing an existing task only.
+  const [newTaskOpen, setNewTaskOpen] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState("");
   const [openTabsConfig, setOpenTabsConfig] = useState(false);
@@ -105,6 +114,7 @@ export function ProjectDetailPage() {
     handlePhaseDelete,
     handlePhaseVisibilityToggle,
     handleProjectSettingsSave,
+    handleCoverChange,
     handleTaskDelete,
     handleTaskStatusChange,
     handleTaskSubmit,
@@ -121,6 +131,49 @@ export function ProjectDetailPage() {
     setEditingTask,
     setAddTaskPhaseId,
   });
+
+  const queryClient = useQueryClient();
+  const createTaskMutation = useCreateTaskMutation();
+  // Same payload the tasks module sends: the project link is `project_id`,
+  // the phase rides in the project context's metadata.
+  const handleNewTaskSubmit = useCallback(
+    async (data: TaskFormSubmitData) => {
+      if (!id) {
+        return;
+      }
+      await createTaskMutation.mutateAsync({
+        title: data.title,
+        description: data.description,
+        status: data.status,
+        priority: data.priority,
+        due_date: data.due_date,
+        project_id: id,
+        primary_assignee_kind: data.primary_assignee_kind,
+        primary_assignee_user_id: data.primary_assignee_user_id,
+        primary_assignee_agent_type_key: data.primary_assignee_agent_type_key,
+        collaborator_user_ids: data.collaborator_user_ids,
+        // Always link the project context: it is what lists the task on this
+        // page. Without a phase it lands under Allgemeine Aufgaben.
+        contexts: [
+          {
+            context_id: id,
+            context_type: "project",
+            metadata: { phase_id: data.phase_id ?? null },
+          },
+        ],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: projectKeys.detail(id),
+      });
+    },
+    [createTaskMutation, id, queryClient]
+  );
+
+  // Stable identity: the dialog resets its form when this prop changes.
+  const newTaskProject = useMemo(
+    () => (project ? { id: project.id, title: project.title } : null),
+    [project?.id, project?.title]
+  );
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -232,6 +285,7 @@ export function ProjectDetailPage() {
         portalDropdownOpen={portalDropdownOpen}
         portalEnabled={!!project?.portal_enabled}
         portalUrl={id ? `${window.location.origin}/portal/${id}` : ""}
+        projectId={id}
         viewMode={viewMode}
       />
     ),
@@ -349,6 +403,15 @@ export function ProjectDetailPage() {
     projectSettingsQuery.data?.task_status_definitions ??
     BUILTIN_TASK_STATUS_DEFINITIONS;
 
+  const openTaskCount = [
+    ...project.general_tasks,
+    ...project.phases.flatMap((phase) => phase.tasks),
+  ].filter((task) => task.status !== "done").length;
+
+  const wideTab = Boolean(
+    activeContributedTab || effectiveActiveTab === "timeplan"
+  );
+
   return (
     <Tabs
       className="flex h-full flex-col overflow-hidden"
@@ -360,12 +423,15 @@ export function ProjectDetailPage() {
         editingTitle={editingTitle}
         onCancelTitle={resetTitleEditing}
         onConfigureClick={() => setOpenTabsConfig(true)}
+        onCoverChange={viewMode === "internal" ? handleCoverChange : undefined}
         onSaveTitle={handleUpdateTitle}
         onStartEditTitle={() => setEditingTitle(true)}
         onTitleChange={setTitleValue}
+        openTaskCount={openTaskCount}
         project={project}
         titleValue={titleValue}
         visibleTabs={visibleTabs}
+        wide={wideTab}
       />
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div
@@ -374,9 +440,7 @@ export function ProjectDetailPage() {
             // them use the full content width instead of the narrow reading
             // column used by the native tabs. The Gantt is the same kind of
             // surface: more width means more visible weeks.
-            activeContributedTab || effectiveActiveTab === "timeplan"
-              ? "max-w-[100rem]"
-              : "max-w-6xl"
+            wideTab ? "max-w-[100rem]" : "max-w-3xl"
           }`}
         >
           {effectiveActiveTab === "planning" && (
@@ -388,8 +452,7 @@ export function ProjectDetailPage() {
               loadProject={loadProject}
               onAddTaskToPhase={(phaseId) => {
                 setAddTaskPhaseId(phaseId);
-                setEditingTask(null);
-                setTaskFormOpen(true);
+                setNewTaskOpen(true);
               }}
               onBriefingSave={handleBriefingSave}
               onDragEnd={handleDragEnd}
@@ -408,8 +471,7 @@ export function ProjectDetailPage() {
               onPhaseVisibilityToggle={handlePhaseVisibilityToggle}
               onTaskAdd={() => {
                 setAddTaskPhaseId(null);
-                setEditingTask(null);
-                setTaskFormOpen(true);
+                setNewTaskOpen(true);
               }}
               onTaskDelete={handleTaskDelete}
               onTaskEdit={(task, phaseId) => {
@@ -502,6 +564,7 @@ export function ProjectDetailPage() {
             onSubmit={handlePhaseSubmit}
             open={phaseFormOpen}
             phase={editingPhase}
+            portalEnabled={Boolean(project.portal_enabled)}
             projectName={project.title}
             targetPhases={
               project.phases
@@ -512,6 +575,21 @@ export function ProjectDetailPage() {
               project.phases?.find((p) => p.id === editingPhase?.id)?.tasks
                 .length ?? 0
             }
+          />
+
+          <NewTaskDialog
+            defaultPhaseId={addTaskPhaseId}
+            onOpenChange={(open) => {
+              setNewTaskOpen(open);
+              if (!open) {
+                setAddTaskPhaseId(null);
+              }
+            }}
+            onSubmit={handleNewTaskSubmit}
+            open={newTaskOpen}
+            project={newTaskProject}
+            teamMembersCatalog={teamMembersCatalog}
+            teamMembersEnabled={teamMembersEnabled}
           />
 
           <TaskFormDialog
@@ -529,6 +607,7 @@ export function ProjectDetailPage() {
             phases={
               project.phases?.map((p) => ({ id: p.id, title: p.title })) ?? []
             }
+            portalEnabled={Boolean(project.portal_enabled)}
             projectMemberIds={project.project_team?.map((m) => m.user_id) ?? []}
             projectName={project.title}
             task={editingTask}

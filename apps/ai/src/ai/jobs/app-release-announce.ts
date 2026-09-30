@@ -122,9 +122,17 @@ export async function announceAppRelease(
       version: input.version,
     }),
     kind: "app_release_proposed",
+    // The build opens from the card; the card opens the conversation it
+    // was built in, where the review banner sits beside it.
+    attachments: [
+      {
+        id: input.artifactId,
+        kind: "artifact",
+        label: `${input.name} v${input.version}`,
+      },
+    ],
     metadata: {
       app_id: input.appId,
-      artifact_id: input.artifactId,
       thread_agent_id: thread.agent_id,
       thread_id: input.threadId,
       version: input.version,

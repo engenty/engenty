@@ -98,7 +98,7 @@ function PopoverContent({
         align={align}
         alignOffset={alignOffset}
         anchor={anchorRef ?? undefined}
-        className="isolate z-50"
+        className="isolate z-[130]"
         collisionPadding={collisionPadding}
         side={side}
         sideOffset={sideOffset}

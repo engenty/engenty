@@ -1,3 +1,4 @@
+import type { PluginTenantDefault } from "@engenty/plugin-sdk";
 import type { PluginCategory } from "@engenty/ui-plugin-sdk";
 import type { ComponentType } from "react";
 
@@ -28,6 +29,8 @@ export interface ModulePluginMeta {
   name: string;
   rootDir?: string;
   sourceType?: string;
+  /** From the module's stage; a module that is not `on` needs a superadmin. */
+  tenantDefault?: PluginTenantDefault;
 }
 
 export interface SettingsItemInput {
@@ -69,6 +72,10 @@ function isConnectionProvider(plugin: ModulePluginMeta): boolean {
 /** Workspace modules (and mandatory host plugins) that belong on Settings → Modules. */
 export function isSettingsCatalogPlugin(plugin: ModulePluginMeta): boolean {
   if (EXCLUDED_PLUGIN_IDS.has(plugin.id) || isConnectionProvider(plugin)) {
+    return false;
+  }
+  // An alpha module nobody turned on: a tenant admin cannot turn it on.
+  if (plugin.tenantDefault === "opt_in" && !plugin.enabled) {
     return false;
   }
   if (plugin.mandatory) {

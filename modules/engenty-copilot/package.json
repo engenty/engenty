@@ -34,10 +34,6 @@
       "types": "./ui/components/chat/copilot-effort-control.tsx",
       "default": "./dist/ui/components/chat/copilot-effort-control.js"
     },
-    "./ui/model-chooser-control": {
-      "types": "./ui/components/chat/copilot-model-chooser-control.tsx",
-      "default": "./dist/ui/components/chat/copilot-model-chooser-control.js"
-    },
     "./ui/plugin": {
       "types": "./ui/plugin.ts",
       "default": "./dist/ui/plugin.js"

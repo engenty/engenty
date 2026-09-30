@@ -19,5 +19,6 @@
     "ai": true,
     "ui": true
   },
-  "placement": "space"
+  "placement": "space",
+  "stage": "alpha"
 }

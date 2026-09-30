@@ -9,7 +9,7 @@ import { ObjectFallbackCard } from "./object-fallback-card.js";
 import { useObjectWidget } from "./object-widget-registry.js";
 
 /** The embedded page's own topbar actions, kept with it inside the pane. */
-function PanelWithPageActions({ children }: { children: ReactNode }) {
+export function PanelWithPageActions({ children }: { children: ReactNode }) {
   const { actions } = usePageHeader();
   return (
     <div className="flex min-h-0 flex-1 flex-col">

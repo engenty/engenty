@@ -1,7 +1,7 @@
 // The only generated text in the loop: values for TYPE_TEXT fields. Two
 // sources, tried in order and cached per page and goal: the classifier
 // picking a span of the goal (`span-picker.ts` — it cannot invent a value),
-// then the run's low-tier model (`model.low`, the cheapest general model the
+// then the run's Normal model (`model.normal`, the cheapest general model the
 // session already resolved) for a value that has to be rewritten. One LLM
 // call per page and goal answers EVERY typeable field on it at once, so a
 // three-field form costs one round trip, not three. Strict contract —
@@ -81,11 +81,11 @@ export interface FieldTextResult {
 export type FieldTextFn = (context: FieldContext) => Promise<FieldTextResult>;
 
 /**
- * The LLM behind the helper when the run resolved no tier: the `model.low`
- * binding. A run passes its own clamped low-tier binding instead.
+ * The LLM behind the helper when the run resolved no tier: the `model.normal`
+ * binding. A run passes its own clamped Normal binding instead.
  */
 export function resolveTextHelperModelId(): string {
-  return roleModelRef(graded("low"));
+  return roleModelRef(graded("normal"));
 }
 
 /**

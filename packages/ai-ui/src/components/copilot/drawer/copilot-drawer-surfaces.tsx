@@ -5,8 +5,8 @@ import {
   useCopilotChromeHidden,
   useCopilotHostOrNull,
 } from "@engenty/app-shell";
+import { useTranslation } from "@engenty/i18n/ui";
 import {
-  cn,
   SidePanel,
   SidePanelContent,
   SidePanelDescription,
@@ -15,7 +15,7 @@ import {
 import type { ReactNode, RefObject } from "react";
 import { createPortal } from "react-dom";
 import { useCopilotVoice } from "../../../copilot/copilot-voice-provider.js";
-import { CopilotDrawerCollapseMorphLayer } from "./copilot-drawer-collapse-morph-layer";
+import { useCopilotVoiceCallHotkey } from "../../../lib/speech/use-copilot-voice-call-hotkey.js";
 import type { CopilotDockMode } from "./copilot-drawer-types";
 import {
   isCopilotCompanionSurfaceActive,
@@ -24,6 +24,10 @@ import {
 import { CopilotFabTrigger } from "./copilot-fab-trigger";
 import { CopilotWindowSurface } from "./copilot-window-surface";
 import type { UseCopilotDrawerLayoutResult } from "./use-copilot-drawer-layout";
+import {
+  type CopilotRailSignal,
+  useCopilotRailSignal,
+} from "./use-copilot-rail-signal";
 
 export interface CopilotDrawerSurfaceTreeProps {
   closeLabel: string;
@@ -64,6 +68,8 @@ function renderFabTrigger(input: {
   onSubmitPrompt?: (text: string) => void;
   open: boolean;
   promptPlaceholder?: string;
+  signal: CopilotRailSignal;
+  signalLabels: { dismiss: string; waiting: string };
   title: string | undefined;
   triggerClick: () => void;
 }) {
@@ -76,6 +82,8 @@ function renderFabTrigger(input: {
       onOpenCopilot={input.onOpenCopilot}
       onStartVoice={input.onStartVoice}
       onSubmitPrompt={input.onSubmitPrompt}
+      signal={input.signal}
+      signalLabels={input.signalLabels}
       {...(input.promptPlaceholder
         ? { promptPlaceholder: input.promptPlaceholder }
         : {})}
@@ -83,23 +91,8 @@ function renderFabTrigger(input: {
   );
 }
 
-function renderCollapseMorph(layout: UseCopilotDrawerLayoutResult) {
-  if (!(layout.collapseMorph && layout.collapseMorphPhase)) {
-    return null;
-  }
-
-  return (
-    <CopilotDrawerCollapseMorphLayer
-      morph={layout.collapseMorph}
-      phase={layout.collapseMorphPhase}
-    />
-  );
-}
-
 function renderDrawerFallback(input: {
-  collapseMorph: ReactNode;
   fabTrigger: ReactNode;
-  layout: UseCopilotDrawerLayoutResult;
   onOpenChange: (open: boolean) => void;
   open: boolean;
   panelContent: ReactNode;
@@ -109,7 +102,6 @@ function renderDrawerFallback(input: {
   return (
     <>
       {input.fabTrigger}
-      {input.collapseMorph}
       <SidePanel
         key={`drawer:${input.surfaceInstanceKey}`}
         modal={false}
@@ -117,11 +109,7 @@ function renderDrawerFallback(input: {
         open={input.open}
       >
         <SidePanelContent
-          className={cn(
-            "flex h-full min-h-0 w-full max-w-lg flex-col gap-0 overflow-hidden rounded-none border-l-0 bg-card p-0 shadow-none sm:max-w-xl",
-            input.layout.isCollapsingToIcon &&
-              "pointer-events-none opacity-0 transition-none"
-          )}
+          className="flex h-full min-h-0 w-full max-w-lg flex-col gap-0 overflow-hidden rounded-none border-l-0 bg-card p-0 shadow-none sm:max-w-xl"
           data-copilot-drawer-panel
           hideOverlay
           showCloseButton={false}
@@ -162,8 +150,15 @@ export function CopilotDrawerSurfaceTree({
   windowTitleBar,
 }: CopilotDrawerSurfaceTreeProps) {
   const { session: voiceSession } = useCopilotVoice();
+  const { t } = useTranslation("ai-ui");
+  const signal = useCopilotRailSignal({ visible: isActive ?? open });
   const host = useCopilotHostOrNull();
   const chromeHidden = useCopilotChromeHidden();
+  useCopilotVoiceCallHotkey({
+    enabled: !chromeHidden,
+    isActive: voiceSession.isActive,
+    start: voiceSession.start,
+  });
   const dockContainer =
     host?.copilotDockReady === true
       ? (host.copilotDockRef.current ?? copilotDockRef?.current ?? null)
@@ -171,9 +166,7 @@ export function CopilotDrawerSurfaceTree({
   const docked = dockContainer != null;
   const showFab = shouldShowCopilotFab({
     chromeHidden,
-    collapseToCircle: layout.collapseToCircle,
     docked,
-    isCollapsingToIcon: layout.isCollapsingToIcon,
     open,
     voiceSessionActive: voiceSession.isActive,
   });
@@ -187,6 +180,11 @@ export function CopilotDrawerSurfaceTree({
         onSubmitPrompt,
         open,
         promptPlaceholder: composerPlaceholder,
+        signal,
+        signalLabels: {
+          dismiss: t("agentDesk.copilot.rail.dismiss"),
+          waiting: t("agentDesk.copilot.rail.waiting"),
+        },
         title,
         triggerClick: onFabClick ?? layout.handleFabTriggerClick,
       })
@@ -197,18 +195,12 @@ export function CopilotDrawerSurfaceTree({
       : docked
         ? null
         : fabTrigger;
-  const collapseMorph = renderCollapseMorph(layout);
 
   // A page that already shows the conversation full width (the river's own
   // page, a hub chat) owns the surface: nothing to draw beside it, and the
   // persisted `open` stays as it is for the next page.
   if (!isCopilotCompanionSurfaceActive({ chromeHidden, open })) {
-    return (
-      <>
-        {dockedFab}
-        {collapseMorph}
-      </>
-    );
+    return <>{dockedFab}</>;
   }
 
   if (effectiveMode === "sidebar") {
@@ -218,7 +210,6 @@ export function CopilotDrawerSurfaceTree({
     return (
       <>
         {dockedFab}
-        {collapseMorph}
         {canPortalSidebar
           ? createPortal(
               <div
@@ -237,9 +228,7 @@ export function CopilotDrawerSurfaceTree({
               "copilot-inline-sidebar"
             )
           : renderDrawerFallback({
-              collapseMorph,
               fabTrigger: dockedFab,
-              layout,
               onOpenChange,
               open,
               panelContent,
@@ -254,7 +243,6 @@ export function CopilotDrawerSurfaceTree({
     return (
       <>
         {dockedFab}
-        {collapseMorph}
         <CopilotWindowSurface
           anchorRef={host?.copilotDockRef ?? copilotDockRef}
           copilotLayout={copilotLayout}
@@ -270,9 +258,7 @@ export function CopilotDrawerSurfaceTree({
   }
 
   return renderDrawerFallback({
-    collapseMorph,
     fabTrigger: dockedFab,
-    layout,
     onOpenChange,
     open,
     panelContent,

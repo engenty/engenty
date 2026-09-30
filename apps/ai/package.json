@@ -29,7 +29,6 @@
     "@engenty/ai-core": "workspace:*",
     "@engenty/ai-skills": "workspace:*",
     "@engenty/app-shell": "workspace:*",
-    "@engenty/context-graph": "workspace:*",
     "@engenty/design-tokens": "workspace:*",
     "@engenty/doc-converter": "workspace:*",
     "@engenty/engenty-copilot": "workspace:*",

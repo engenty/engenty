@@ -81,7 +81,7 @@ fi
 has_env_files() {
   find . \
     \( -path ./node_modules -o -path ./.git \) -prune -o \
-    \( -name ".env" -o -name ".env.*" \) ! -name "*.example" -print -quit 2>/dev/null | grep -q .
+    \( -name ".env" -o -name ".env.*" \) ! -name "*.example" ! -name "*.bak" -print -quit 2>/dev/null | grep -q .
 }
 
 has_workspace_hits() {
@@ -208,7 +208,7 @@ while IFS= read -r -d '' env_file; do
 done < <(
   find . \
     \( -path ./node_modules -o -path ./.git \) -prune -o \
-    \( -name ".env" -o -name ".env.*" \) ! -name "*.example" -print0 2>/dev/null
+    \( -name ".env" -o -name ".env.*" \) ! -name "*.example" ! -name "*.bak" -print0 2>/dev/null
 )
 
 # Workspace-local runtime data

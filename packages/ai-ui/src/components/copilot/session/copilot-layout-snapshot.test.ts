@@ -32,31 +32,6 @@ describe("copilot-layout-snapshot", () => {
     expect(s?.preferredDockMode).toBeNull();
   });
 
-  it("createEmptyCopilotLayoutSnapshot", () => {
-    expect(createEmptyCopilotLayoutSnapshot()).toEqual({
-      v: 1,
-      open: false,
-      preferredDockMode: null,
-    });
-  });
-
-  it("ignores leftover fabPosition and fabAnchor keys on hydrate", () => {
-    const s = parseCopilotLayoutSnapshot({
-      v: 1,
-      open: false,
-      preferredDockMode: null,
-      fabAnchor: {
-        edgeX: "right",
-        edgeY: "bottom",
-        offsetX: 16,
-        offsetY: 16,
-      },
-      fabPosition: { x: 100, y: 200 },
-    });
-    expect(s && "fabPosition" in s).toBe(false);
-    expect(s && "fabAnchor" in s).toBe(false);
-  });
-
   it("reconciles open + collapseToCircle to expanded layout", () => {
     const s = parseCopilotLayoutSnapshot({
       v: 1,
@@ -96,39 +71,22 @@ describe("copilot-layout-snapshot", () => {
     ).toBe("sidebar");
   });
 
-  it("parses compactStatusFlapHeight from snapshot", () => {
-    const s = parseCopilotLayoutSnapshot({
-      v: 1,
-      open: false,
-      preferredDockMode: null,
-      compactStatusFlapHeight: 320,
-    });
-    expect(s?.compactStatusFlapHeight).toBe(320);
-  });
-
-  it("parses and merges floatingDockedToCorner", () => {
-    const s = parseCopilotLayoutSnapshot({
-      v: 1,
-      open: false,
-      preferredDockMode: "floating",
-      floatingDockedToCorner: false,
-      floatingPosition: { x: 120, y: 340 },
-    });
-    expect(s?.floatingDockedToCorner).toBe(false);
-    expect(s?.preferredDockMode).toBe("sidebar");
-    expect(s?.floatingPosition).toEqual({ x: 120, y: 340 });
-
-    const merged = mergeCopilotLayoutSnapshot(
+  it("restores exactly the layout that was saved", () => {
+    const saved = mergeCopilotLayoutSnapshot(
+      createEmptyCopilotLayoutSnapshot(),
       {
-        v: 1,
-        open: false,
-        preferredDockMode: "floating",
-        floatingDockedToCorner: true,
-        floatingPosition: { x: 10, y: 20 },
-      },
-      { floatingDockedToCorner: false }
+        collapseToCircle: false,
+        compactStatusFlapHeight: 320,
+        floatingDockedToCorner: false,
+        floatingPosition: { x: 120, y: 340 },
+        floatingSize: { height: 500, width: 400 },
+        open: true,
+        preferredDockMode: "window",
+        windowRect: { height: 680, width: 520, x: 68, y: 52 },
+      }
     );
-    expect(merged.floatingDockedToCorner).toBe(false);
-    expect(merged.floatingPosition).toEqual({ x: 10, y: 20 });
+    expect(
+      parseCopilotLayoutSnapshot(JSON.parse(JSON.stringify(saved)))
+    ).toEqual(saved);
   });
 });

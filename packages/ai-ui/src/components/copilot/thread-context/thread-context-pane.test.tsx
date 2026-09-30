@@ -14,8 +14,8 @@ vi.mock("../../../artifacts/artifacts-api.js", () => ({
 vi.mock("../../../lib/admin/effective-capabilities-api.js", () => ({
   useAgentEffectiveCapabilitiesQuery: () => ({ data: undefined }),
 }));
-vi.mock("../../../features/agent-desk/use-agent-memory.js", () => ({
-  useAgentMemoryQuery: () => ({ data: undefined }),
+vi.mock("../../../features/memory/memory-entries-api.js", () => ({
+  useMemoryEntriesQuery: () => ({ data: undefined }),
 }));
 vi.mock("../../../lib/admin/agent-workspace-queries.js", () => ({
   useWorkspaceTreeQuery: () => ({ data: undefined }),
@@ -29,7 +29,7 @@ describe("ThreadContextPane", () => {
     cleanup();
   });
 
-  it("renders the chat without CopilotThreadBindingProvider", () => {
+  it("mounts without a copilot river or agent host", () => {
     render(
       <ThreadContextPane
         hostKey="agent-desk:space-1:chief-of-staff"

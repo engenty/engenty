@@ -5,6 +5,7 @@
   "description": "Tenant file storage and previews",
   "version": "0.0.1",
   "kind": "module",
+  "stage": "beta",
   "category": "knowledge",
   "provides": [
     "module.files",
@@ -36,5 +37,6 @@
         "fileSizeLimit": "50MiB"
       }
     ]
-  }
+  },
+  "supporting": true
 }

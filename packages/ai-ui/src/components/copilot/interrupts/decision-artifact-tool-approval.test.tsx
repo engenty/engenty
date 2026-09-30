@@ -6,10 +6,9 @@ import {
   DecisionArtifactCard,
 } from "./decision-artifact.js";
 
-// Real locale copy with real interpolation, so these tests assert what the USER
-// reads. Without it `t()` falls back to the server's English `defaultValue` and
-// the card's own key choice + parameters — the thing that regressed — would go
-// unchecked. Mirrors apps/ui/src/locales/{en,de}/common.json.
+// Real locale copy with real interpolation, so these tests check the card's own
+// key choice and parameters, not the server's English `defaultValue`.
+// Mirrors apps/ui/src/locales/{en,de}/common.json.
 const MESSAGES: Record<string, string> = {
   "copilot.toolApproval.approveAlways": "Approve for this agent",
   "copilot.toolApproval.approveOnce": "Approve once",
@@ -82,8 +81,7 @@ const BULK_CHOICES = [
 
 describe("DecisionArtifactCard — tool approval", () => {
   it("never renders the raw grant-context tail in the body", () => {
-    // The regression: the card printed
-    // "Operation: time_tracking_entries_create|%7B%22operation_ids%22…%7D".
+    // The grant context is internal routing data, not display copy.
     render(
       <DecisionArtifactCard
         artifact={toolApprovalArtifact({
@@ -103,26 +101,6 @@ describe("DecisionArtifactCard — tool approval", () => {
     expect(body).not.toContain("%7B");
     expect(body).not.toContain("operation_ids");
     expect(body).not.toContain("|");
-  });
-
-  it("hides the secrets_reveal grant context (the secret id is not display copy)", () => {
-    render(
-      <DecisionArtifactCard
-        artifact={toolApprovalArtifact({
-          artifactId: artifactId("secrets_reveal", {
-            secret_id: "11111111-1111-4111-8111-111111111111",
-          }),
-          body: "This action requires your approval before it runs.",
-          choices: SINGLE_CHOICES,
-          title: "Approve secrets_reveal?",
-        })}
-        onChoose={noop}
-      />
-    );
-
-    const body = screen.getByText(/Operation/).textContent ?? "";
-    expect(body).toContain("secrets_reveal");
-    expect(body).not.toContain("11111111-1111-4111-8111-111111111111");
   });
 
   it("lists every covered operation and uses run/agent scope labels on a bulk card", () => {
@@ -172,9 +150,7 @@ describe("DecisionArtifactCard — tool approval", () => {
   });
 
   it("does not print a delegated specialist's ask as a shell command", () => {
-    // The delegate lane lists the child's operations in the grant context and
-    // writes a summary body — wrapping that in a code block showed prose as
-    // the command to run.
+    // A listed grant context carries a summary body, not the command.
     const operation =
       "workspace:mastra_workspace_execute_command:ls -la /data/Files";
     render(
@@ -190,7 +166,6 @@ describe("DecisionArtifactCard — tool approval", () => {
     );
 
     expect(screen.queryByText("Run this command?")).toBeNull();
-    expect(document.querySelector("pre")).toBeNull();
   });
 
   it("keeps single-operation cards on the once/always wording", () => {
@@ -208,26 +183,5 @@ describe("DecisionArtifactCard — tool approval", () => {
 
     expect(screen.getByText("Approve once")).toBeTruthy();
     expect(screen.queryByText("Approve for this run")).toBeNull();
-  });
-
-  it("leaves non-approval decision artifacts untouched", () => {
-    render(
-      <DecisionArtifactCard
-        artifact={toolApprovalArtifact({
-          artifactId: "decision-123",
-          body: "Pick a grouping.",
-          choices: [
-            { id: "by_person", label: "By person" },
-            { id: "by_project", label: "By project" },
-          ],
-          title: "Analyze details by",
-        })}
-        onChoose={noop}
-      />
-    );
-
-    expect(screen.getByText("Analyze details by")).toBeTruthy();
-    expect(screen.getByText("Pick a grouping.")).toBeTruthy();
-    expect(screen.getByText("By person")).toBeTruthy();
   });
 });

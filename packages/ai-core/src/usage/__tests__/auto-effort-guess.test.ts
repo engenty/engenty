@@ -7,9 +7,9 @@ import {
 describe("agentDefaultEffort", () => {
   it("is the agent's declared tier", () => {
     expect(agentDefaultEffort({ effort: "high" })).toBe("high");
-    expect(agentDefaultEffort({ effort: "low", toolIds: ["app_build"] })).toBe(
-      "low"
-    );
+    expect(
+      agentDefaultEffort({ effort: "normal", toolIds: ["app_build"] })
+    ).toBe("normal");
   });
 
   it("is high for whoever holds a coding tool, whatever the id", () => {
@@ -37,7 +37,7 @@ describe("guessEffortFromPrompt", () => {
       reason: "agent:apps.coder",
     });
     // Without one, the same short turn reads as cheap — which is exactly how
-    // a hired coder's "go ahead" ended up at medium.
+    // a hired coder's "go ahead" ended up on the cheap tier.
     expect(
       guessEffortFromPrompt({
         agentId: "apps.coder",
@@ -59,42 +59,31 @@ describe("guessEffortFromPrompt", () => {
     ).toMatchObject({ confidence: "certain", effort: "high" });
   });
 
-  it("floors tool / data ops at medium", () => {
-    expect(
-      guessEffortFromPrompt({
-        text: "Create a contact for Acme and add a follow-up task",
-      })
-    ).toMatchObject({ confidence: "certain", effort: "medium" });
-    expect(
-      guessEffortFromPrompt({ text: "Search projects for Q3 launch" })
-    ).toMatchObject({ confidence: "certain", effort: "medium" });
-    expect(
-      guessEffortFromPrompt({ text: "Send an email to the client" })
-    ).toMatchObject({ confidence: "certain", effort: "medium" });
+  it("keeps tool / data ops and greetings on normal without asking", () => {
+    for (const text of [
+      "Create a contact for Acme and add a follow-up task",
+      "Search projects for Q3 launch",
+      "hi",
+      "What is Engenty?",
+    ]) {
+      expect(guessEffortFromPrompt({ text })).toMatchObject({
+        confidence: "certain",
+        effort: "normal",
+      });
+    }
   });
 
-  it("keeps greetings and short simple asks on low", () => {
-    expect(guessEffortFromPrompt({ text: "hi" })).toMatchObject({
-      confidence: "certain",
-      effort: "low",
-    });
-    expect(guessEffortFromPrompt({ text: "What is Engenty?" })).toMatchObject({
-      confidence: "certain",
-      effort: "low",
-    });
-  });
-
-  it("marks ambiguous longer prompts as uncertain (router candidate)", () => {
+  it("leaves long open-ended prompts to the classifier", () => {
     const guess = guessEffortFromPrompt({
-      text: "Can you help me think through how our onboarding should work for enterprise customers next quarter?",
+      text: "Can you analyze how our onboarding should work for enterprise customers next quarter?",
     });
     expect(guess.confidence).toBe("uncertain");
-    expect(guess.effort).toBe("medium");
+    expect(guess.effort).toBe("normal");
   });
 
-  it("treats attachments as at least medium", () => {
+  it("keeps attachment-only turns on normal", () => {
     expect(
       guessEffortFromPrompt({ hasAttachments: true, text: "" })
-    ).toMatchObject({ confidence: "certain", effort: "medium" });
+    ).toMatchObject({ confidence: "certain", effort: "normal" });
   });
 });

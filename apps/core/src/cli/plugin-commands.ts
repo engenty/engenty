@@ -25,6 +25,7 @@ import {
   type PluginListItem,
   resolvePluginIdsFromArgsOrPrompt,
 } from "./plugin-id-prompt.js";
+import { runPluginPurge } from "./plugin-purge-run.js";
 
 interface PluginCommandOpts {
   apiUrl?: string;
@@ -575,6 +576,41 @@ export function registerPluginCommands(program: Command): void {
               opts,
             });
           }
+        }
+      )
+    );
+
+  plugins
+    .command("purge")
+    .description(
+      "Delete a module's data: its tables, files, space mounts and migration history. The module must be uninstalled (or below ENGENTY_MODULE_STAGE) and its code still on disk."
+    )
+    .argument("<slug>", "Workspace module slug")
+    .option(
+      "--db-url <url>",
+      "Purge in this database instead of the local stack"
+    )
+    .option(
+      "--supabase-url <url>",
+      "Storage API of that database (its SUPABASE_URL); needed when the module stores files"
+    )
+    .option(
+      "--dry-run",
+      "Show what would be deleted and the SQL; change nothing"
+    )
+    .option("--yes", "Do not ask for confirmation")
+    .action(
+      runCliAction(
+        async (
+          slug: string,
+          opts: {
+            dbUrl?: string;
+            dryRun?: boolean;
+            supabaseUrl?: string;
+            yes?: boolean;
+          }
+        ) => {
+          await runPluginPurge({ ...opts, repoRoot: resolveRepoRoot(), slug });
         }
       )
     );

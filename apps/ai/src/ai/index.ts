@@ -76,12 +76,10 @@ export type {
 } from "./memory/index.js";
 export {
   assertEngentyNativeMastraMemoryConfigured,
-  bindEngentyNativeMastraMemory,
   createEngentyAgentExecutionOptions,
   createEngentyMastraResourceId,
   createEngentyMastraThreadId,
   createEngentyMemoryInvocationOptions,
-  createEngentyNativeMastraMemoryAgent,
   createEngentySessionMastraMemory,
   createEngentySessionMemoryRuntime,
   createEngentySessionMemoryStorage,

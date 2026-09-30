@@ -44,8 +44,6 @@ export interface SpeakOnDeskInput {
   notify?:
     | boolean
     | {
-        /** The result the post is about: the inbox row opens it directly. */
-        artifactId?: string | null;
         /** The line under the title; defaults to the post's first line. */
         body?: string | null;
         /** English fallback line, said whole when the title misses a name. */
@@ -136,13 +134,25 @@ export async function speakOnDesk(
     try {
       await emitInboxNotification({
         actor: { id: input.agentId, kind: "agent" },
+        // The result under the post opens from the card; the card opens
+        // the conversation.
+        ...(input.artifact
+          ? {
+              attachments: [
+                {
+                  id: input.artifact.id,
+                  kind: "artifact" as const,
+                  label: input.artifact.title,
+                },
+              ],
+            }
+          : {}),
         audience: { kind: "space", spaceId: input.spaceId },
         coalesceKey: `agent:${input.agentId}:agent_desk_post:${input.spaceId}`,
         coalesceWindowMs: NOTIFY_WINDOW_MS,
         kind: "agent_desk_post",
         metadata: {
           agent_id: input.agentId,
-          ...(notify.artifactId ? { artifact_id: notify.artifactId } : {}),
           message_id: message.id,
           thread_agent_id: input.agentId,
           thread_id: threadId,

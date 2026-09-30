@@ -144,8 +144,8 @@ are optional surfaces around it.
 ## Modules
 
 engenty ships a basic set of modules, each an installable plugin. Use them as
-building blocks, as reference, or as they are. Modules still under heavy
-development are in the tree but not listed here (`"stability": "experimental"`
+building blocks, as reference, or as they are. Modules still in development
+or pilots are in the tree but not listed here (`"stage": "dev"` or `"alpha"`
 in their manifest).
 
 <!-- modules:start -->
@@ -155,26 +155,22 @@ in their manifest).
 |--------|--------------|
 | 🔌 **Connections** | Central external-service connections: OAuth, per-action permissions, approvals |
 | 📇 **Contacts** | Contacts and organisations module |
+| 🧩 **engenty Apps** | Tenant-owned applications with a frontend, a backend and their own storage — authored by engenty.app-coder, rendered as artifacts, used by engenty.copilot and mounted Engenties |
 | 🤖 **Engenty Copilot** | Core Engenty copilot full-page chat and apps/ai UI consumer |
 | 🗂️ **Files** | Tenant file storage and previews |
-| 📬 **Inbox** | Synced email inbox over connected mail accounts (connections framework) |
-| 📚 **Knowledge Base** | Knowledge base with articles, tags, FAQs, and AI-powered assistants |
-| 📁 **Projects** | Project management with phases, tasks, and client portal |
-| 🔐 **Secrets Vault** | Client-anchored secrets/password vault and paid-services registry; server-side encrypted, agent-grantable |
-| ✅ **Tasks** | Canonical tasks for human and agent collaboration |
+| 🫧 **Specialists** | Hired engenties — the catalog floor every specialist carries, the Space playbooks it may load, and its standing appendix. A builtin code home like engenty-copilot: never mounted, nothing here is mount-gated. |
 | 👥 **Team** | Team directory, org structure, groups, and taxonomies |
 
 ### Commercial
 
 | Module | What it does |
 |--------|--------------|
-| 🧾 **Invoices** | Invoice CRUD with SQLite and PDF export |
 | 📝 **Offers** | Offer management with draft editor, metadata, blocks, phases, taxes, and billing settings |
-| ↳ ⚙️ Commercial Settings | Shared commercial defaults: currency, tax, units, disciplines — used by Offers, Invoices |
+| ↳ ⚙️ Commercial Settings | Shared commercial defaults: currency, tax, units, disciplines — used by Offers |
 | ↳ 🏢 Company Profile | Legal entity profile and business identity settings — used by Offers |
-| ↳ 📄 PDF Templates | Shared PDF template storage, preview, and editor integration — used by Offers, Invoices |
+| ↳ 📄 PDF Templates | Shared PDF template storage, preview, and editor integration — used by Offers |
 
-**Connections** providers: External (imported), GitHub, Google, HubSpot, Local Files, Microsoft, S3, Slack.
+**Connections** providers: External (imported), Google, Local Files.
 <!-- modules:end -->
 
 Being on disk is not the same as running: the root `package.json` key

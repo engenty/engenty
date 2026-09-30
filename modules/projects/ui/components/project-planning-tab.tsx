@@ -6,6 +6,7 @@ import {
   type useSensors,
 } from "@dnd-kit/core";
 import { useTranslation } from "@engenty/i18n/ui";
+import { cn } from "@engenty/ui-core";
 import type {
   PhaseTask,
   ProjectPhase,
@@ -15,7 +16,10 @@ import type {
 import type { TeamMemberCatalogRow } from "../plugins.js";
 import { GeneralTasksSection } from "./general-tasks-section.js";
 import { PhaseSection } from "./phase-section.js";
-import { ProjectBriefSection } from "./project-brief-section.js";
+import {
+  hasBriefingText,
+  ProjectBriefSection,
+} from "./project-brief-section.js";
 import { ProjectClientInfoSection } from "./project-client-info-section.js";
 import { ProjectTeamMembersSection } from "./project-team-members-section.js";
 import { ProjectTimeplanSection } from "./project-timeplan-section.js";
@@ -93,6 +97,73 @@ export function ProjectPlanningTab({
   const { t } = useTranslation("projects");
   const timeplanEnabled = project.timeplan_enabled !== false;
 
+  const internal = viewMode === "internal";
+  // "Visible to the client" only means something while the client portal is
+  // on — without it there is no one to hide anything from.
+  const portalVisibility = project.portal_enabled;
+  const hasNotes = hasBriefingText(project.briefing ?? null);
+  const hasTeam = (project.project_team ?? []).length > 0;
+  const hasClient = Boolean(
+    project.client_id?.trim() || project.client_name?.trim()
+  );
+
+  const teamSection = teamMembersLoading ? (
+    <div className="rounded-lg border border-border-soft bg-card/50 p-3 text-muted-foreground text-sm">
+      {t("detail.members.loading")}
+    </div>
+  ) : teamMembersError ? (
+    <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-destructive text-sm">
+      {teamMembersError}
+    </div>
+  ) : (
+    <ProjectTeamMembersSection
+      catalog={teamMembersCatalog}
+      className="mt-0"
+      emptyAs={hasTeam ? "section" : "link"}
+      onProjectUpdated={() => void loadProject()}
+      projectId={project.id}
+      projectTeamMembers={project.project_team ?? []}
+    />
+  );
+  const clientSection = (
+    <ProjectClientInfoSection
+      className="mt-0"
+      editable={internal}
+      emptyAs={hasClient ? "section" : "link"}
+      onProjectUpdated={loadProject}
+      project={project}
+      projectId={projectId}
+    />
+  );
+
+  const emptyLinks = [
+    onBriefingSave && !hasNotes && internal && onViewNotes ? (
+      <ProjectBriefSection
+        briefing={null}
+        key="notes"
+        onSave={onBriefingSave}
+        onViewNotes={onViewNotes}
+      />
+    ) : null,
+    teamMembersEnabled && !hasTeam && internal ? (
+      <div key="team">{teamSection}</div>
+    ) : null,
+    !hasClient && internal ? <div key="client">{clientSection}</div> : null,
+  ].filter(Boolean);
+
+  const filledSections = [
+    teamMembersEnabled && hasTeam ? (
+      <div className="min-w-0" key="team">
+        {teamSection}
+      </div>
+    ) : null,
+    hasClient ? (
+      <div className="min-w-0" key="client">
+        {clientSection}
+      </div>
+    ) : null,
+  ].filter(Boolean);
+
   return (
     <DndContext
       onDragEnd={onDragEnd}
@@ -100,7 +171,14 @@ export function ProjectPlanningTab({
       sensors={sensors}
     >
       <div className="mt-0 space-y-6">
-        {onBriefingSave ? (
+        {/* What is still missing (notes, team, client) is one quiet row of
+            "+ …" links; each becomes its full section once it has content. */}
+        {emptyLinks.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 [&>*]:flex [&>*]:items-center">
+            {emptyLinks}
+          </div>
+        ) : null}
+        {onBriefingSave && hasNotes ? (
           <ProjectBriefSection
             briefing={project.briefing ?? null}
             disabled={viewMode === "external"}
@@ -108,47 +186,16 @@ export function ProjectPlanningTab({
             onViewNotes={onViewNotes}
           />
         ) : null}
-        {teamMembersEnabled ? (
-          <div className="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-2 lg:items-start">
-            <div className="min-w-0">
-              {teamMembersLoading ? (
-                <div className="rounded-lg border border-border-soft bg-card/50 p-3 text-muted-foreground text-sm">
-                  {t("detail.members.loading")}
-                </div>
-              ) : teamMembersError ? (
-                <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-destructive text-sm">
-                  {teamMembersError}
-                </div>
-              ) : (
-                <ProjectTeamMembersSection
-                  catalog={teamMembersCatalog}
-                  className="mt-0"
-                  onProjectUpdated={() => void loadProject()}
-                  projectId={project.id}
-                  projectTeamMembers={project.project_team ?? []}
-                />
-              )}
-            </div>
-            <div className="min-w-0">
-              <ProjectClientInfoSection
-                className="mt-0"
-                editable={viewMode === "internal"}
-                onProjectUpdated={loadProject}
-                project={project}
-                projectId={projectId}
-              />
-            </div>
+        {filledSections.length > 0 ? (
+          <div
+            className={cn(
+              "grid grid-cols-1 gap-8 lg:items-start",
+              filledSections.length > 1 && "lg:grid-cols-2"
+            )}
+          >
+            {filledSections}
           </div>
-        ) : (
-          <div className="mt-6">
-            <ProjectClientInfoSection
-              editable={viewMode === "internal"}
-              onProjectUpdated={loadProject}
-              project={project}
-              projectId={projectId}
-            />
-          </div>
-        )}
+        ) : null}
 
         {/* Lean projects (`timeplan_enabled === false`) are rooms for notes,
             files and tasks - no dates, phases or Gantt on the main page. */}
@@ -172,7 +219,9 @@ export function ProjectPlanningTab({
           onTaskDelete={onTaskDelete}
           onTaskEdit={(task) => onTaskEdit(task)}
           onTaskStatusChange={onTaskStatusChange}
-          onTaskVisibilityToggle={onTaskVisibilityToggle}
+          onTaskVisibilityToggle={
+            portalVisibility ? onTaskVisibilityToggle : undefined
+          }
           showAssignees={teamMembersEnabled}
           taskStatusDefinitions={taskStatusDefinitions}
           tasks={filteredGeneralTasks}
@@ -184,11 +233,15 @@ export function ProjectPlanningTab({
             key={phase.id}
             onAddTask={viewMode === "internal" ? onAddTaskToPhase : undefined}
             onPhaseEdit={viewMode === "internal" ? onPhaseEdit : undefined}
-            onPhaseVisibilityToggle={onPhaseVisibilityToggle}
+            onPhaseVisibilityToggle={
+              portalVisibility ? onPhaseVisibilityToggle : undefined
+            }
             onTaskDelete={onTaskDelete}
             onTaskEdit={(task) => onTaskEdit(task, phase.id)}
             onTaskStatusChange={onTaskStatusChange}
-            onTaskVisibilityToggle={onTaskVisibilityToggle}
+            onTaskVisibilityToggle={
+              portalVisibility ? onTaskVisibilityToggle : undefined
+            }
             phase={phase}
             projectId={projectId}
             showAssignees={teamMembersEnabled}
@@ -206,7 +259,7 @@ export function ProjectPlanningTab({
 
       <DragOverlay>
         {activeTask ? (
-          <div className="opacity-80">
+          <div className="ui-card-raised overflow-hidden opacity-80">
             <TaskCard
               showAssignees={teamMembersEnabled}
               task={activeTask}

@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 /**
- * MCP operation inventory guard. The live coverage report is produced by
- * apps/core inventoryMcpOperations() (see inventory.test.ts). This script
- * fails if the plugin-sdk MCP disposition contract is removed so “all
- * operations” cannot silently become ungoverned again.
+ * MCP operation inventory guard. Fails if the plugin-sdk MCP disposition
+ * contract is removed so “all operations” cannot silently become ungoverned
+ * again.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -37,5 +36,5 @@ if (missing.length > 0) {
   process.exit(1);
 }
 console.log(
-  "check-mcp-operation-inventory: MCP disposition contract is present. Runtime coverage lives in apps/core inventory tests."
+  "check-mcp-operation-inventory: MCP disposition contract is present."
 );

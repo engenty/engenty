@@ -1,3 +1,5 @@
+import { firstEngentyDraft, spaceKeyFromName } from "@engenty/ai-core/browser";
+import { pickRandomSpaceColor } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
   Button,
@@ -22,10 +24,7 @@ import {
   SpaceAgentHireFields,
   useSpaceAgentHireForm,
 } from "./SpaceAgentHireForm";
-import {
-  pickRandomSpaceColor,
-  type SpaceAppearanceValue,
-} from "./SpaceAppearanceFields";
+import type { SpaceAppearanceValue } from "./SpaceAppearanceFields";
 import { SpaceBasicsStep } from "./SpaceBasicsStep";
 import { SpaceCreateProgress } from "./SpaceCreateProgress";
 import {
@@ -33,7 +32,6 @@ import {
   SpaceCreateOptionalStep,
 } from "./SpaceCreateResourceSteps";
 import { SpaceCreateReviewStep } from "./SpaceCreateReviewStep";
-import { firstEngentyDraft } from "./space-agent-hire";
 import {
   isModuleSkill,
   syncSpaceSkills,
@@ -53,7 +51,6 @@ import {
   moduleRequiresFromItems,
   type SpaceSelection,
   selectionToPayload,
-  spaceKeyFromName,
 } from "./space-setup-selection";
 
 const NO_MOUNTS: never[] = [];

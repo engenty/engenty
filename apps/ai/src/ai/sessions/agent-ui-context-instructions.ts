@@ -70,6 +70,13 @@ function buildFrontendToolInstructions(
       '- For page-opening/navigation requests, use the "navigate" tool with an internal path such as {"to":"/mdl/<moduleId>/<page>"}. When a likely page or module route is known, navigate instead of asking which page to open. If navigate errors, it lists the routes that actually exist — pick one of those rather than rephrasing. Report a page as open only when navigate returned it in "to"; when it returns "resolved_from", the path you asked for was a prefix and "to" is where the user actually landed.'
     );
   }
+  // Without this, the navigate line above wins every "open the page" request
+  // and the page replaces the chat instead of opening beside it.
+  if (tools.some((tool) => tool.name === "open_view")) {
+    lines.push(
+      '- To show a page the person should work in while you keep talking (an import wizard, a form, a record), use "open_view" instead of "navigate": it opens the page beside this chat. Use "navigate" only when the person asks to go to a page.'
+    );
+  }
   if (hasDomTools) {
     lines.push(
       "- Prefer ui_dom_snapshot over ui_screenshot. Scope root_selector from Current page dom_entry_points (main / list / detail / app_bar / sidebar / topbar). Fall back to main if a region selector is missing. Use ui_screenshot only for visual/layout questions the DOM cannot answer."

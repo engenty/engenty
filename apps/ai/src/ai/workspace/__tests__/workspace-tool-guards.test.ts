@@ -194,6 +194,6 @@ describe("writing into /space/public", () => {
       describeWorkspaceToolCall("mastra_workspace_write_file", {
         path: "/space/public/price-list.csv",
       }).title
-    ).toBe("Publish to the company");
+    ).toBe("Share with the organisation");
   });
 });

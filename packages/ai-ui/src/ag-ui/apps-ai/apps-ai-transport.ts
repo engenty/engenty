@@ -89,10 +89,16 @@ export async function postAppsAiThreadRun(params: {
     // transient conditions (notably 409 `agent_threads.resumeInProgress`, which
     // means another resume is already driving this run — a benign race, not a
     // terminal failure). Keep the `ai session run HTTP …` message shape so
-    // formatCopilotRunError still maps it.
+    // formatCopilotRunError still maps it. `body` carries the rest of the
+    // JSON error (e.g. the `offer` of a 409 `agent_threads.effortOffer`).
+    const body = parseRunErrorBody(raw);
     throw Object.assign(
       new Error(`ai session run HTTP ${response.status}: ${raw.slice(0, 500)}`),
-      { status: response.status, code: parseRunErrorCode(raw) }
+      {
+        body,
+        code: typeof body?.error === "string" ? body.error : null,
+        status: response.status,
+      }
     );
   }
   const reader = response.body.getReader();
@@ -112,15 +118,17 @@ export async function postAppsAiThreadRun(params: {
   }
 }
 
-/** Extract the `error` code from a JSON error body, or null. */
-function parseRunErrorCode(raw: string): string | null {
+/** The JSON error body as an object, or null. */
+function parseRunErrorBody(raw: string): Record<string, unknown> | null {
   const trimmed = raw.trim();
   if (!trimmed.startsWith("{")) {
     return null;
   }
   try {
-    const parsed = JSON.parse(trimmed) as { error?: unknown };
-    return typeof parsed.error === "string" ? parsed.error : null;
+    const parsed = JSON.parse(trimmed) as unknown;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null;
   } catch {
     return null;
   }

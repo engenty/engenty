@@ -13,19 +13,31 @@
 // a room has several readers whose summaries would be nobody's: none of
 // those answer here. Reading the thread is the gate (`getThread`), the same
 // one its transcript is behind.
+//
+// Cutting a chapter also writes what is worth remembering as memory entries,
+// into the scopes the conversation's readers already read
+// (`memoryKeysForChapter`).
 
+import type { AiRegistry } from "@engenty/ai-core";
 import type { HonoBindings, HonoVariables } from "@mastra/hono";
 import type { Hono } from "hono";
 import type { AiService } from "../ai/index.js";
 import {
+  isPrivateLine,
+  memoryKeysForChapter,
+} from "../ai/memory/memory-scopes.js";
+import {
+  type ChapterMemory,
   compactRiverNow,
   ensureScheduledChapters,
   riverTimeZone,
 } from "../ai/river/index.js";
+import { sharedMastraRoomFromThread } from "../ai/sessions/thread-access.js";
 import type { AiSessionScope } from "../ai/sessions/types.js";
 import { AI_BASE_PATH } from "../config/constants.js";
+import type { MemoryEntryStore } from "../dal/memory/index.js";
 import type { ThreadStore } from "../dal/threads/index.js";
-import { threadKind } from "../dal/threads/types.js";
+import { type ThreadRow, threadKind } from "../dal/threads/types.js";
 import {
   type AiScopeResolver,
   handleRouteError,
@@ -40,6 +52,8 @@ export function registerThreadChapterRoutes(
   app: Hono<{ Bindings: HonoBindings; Variables: HonoVariables }>,
   opts: {
     aiService: AiService;
+    getRegistry: (tenantId: string) => AiRegistry;
+    memoryStore: MemoryEntryStore;
     /** The model chapters are written with — the fast-text model where one is set. */
     resolveModelId?: (scope: AiSessionScope) => Promise<string | null>;
     scopeResolver: AiScopeResolver;
@@ -59,6 +73,36 @@ export function registerThreadChapterRoutes(
     return CHAPTERED_KINDS.has(threadKind(thread)) ? thread : null;
   }
 
+  /** Where this conversation's chapters may write what they learn. */
+  async function chapterMemoryFor(
+    scope: AiSessionScope,
+    thread: ThreadRow
+  ): Promise<ChapterMemory> {
+    const config = await opts
+      .getRegistry(scope.tenantId)
+      .getAgentConfig(thread.agent_id);
+    return {
+      keys: memoryKeysForChapter({
+        agentId: thread.agent_id,
+        agentScope: config?.agentScope,
+        kind: isPrivateLine({
+          sharedRoom: sharedMastraRoomFromThread({
+            agentId: thread.agent_id,
+            agentScope: config?.agentScope,
+            thread,
+          }),
+          thread,
+        })
+          ? "dm"
+          : "desk",
+        spaceId: thread.space_id ?? null,
+        tenantId: scope.tenantId,
+        userId: scope.userId,
+      }),
+      store: opts.memoryStore,
+    };
+  }
+
   app.get(base, async (c) => {
     const scope = await resolveScope(c, opts.scopeResolver);
     if (!scope.ok) {
@@ -75,6 +119,7 @@ export function registerThreadChapterRoutes(
       }
       const timeZone = riverTimeZone();
       await ensureScheduledChapters({
+        memory: await chapterMemoryFor(scope.scope, thread),
         modelId: await opts.resolveModelId?.(scope.scope),
         riverCreatedAt: thread.created_at,
         store: opts.store,
@@ -113,6 +158,7 @@ export function registerThreadChapterRoutes(
         return c.json({ error: "agent_threads.notFound" }, 404);
       }
       const chapter = await compactRiverNow({
+        memory: await chapterMemoryFor(scope.scope, thread),
         modelId: await opts.resolveModelId?.(scope.scope),
         riverCreatedAt: thread.created_at,
         store: opts.store,

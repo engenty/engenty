@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { AI_MODEL_PURPOSES, resolvePurposeModel } from "../model-purposes.js";
 import { bindingsFromList } from "../model-roles.js";
 
-function bound(modelId: string, role = "model.medium") {
+function bound(modelId: string, role = "model.normal") {
   return bindingsFromList([{ gateway: "vercel", modelId, role }]);
 }
 
@@ -51,7 +51,7 @@ describe("resolvePurposeModel provenance", () => {
 
   it("resolves each purpose through its own role", () => {
     const bindings = bindingsFromList([
-      { gateway: "vercel", modelId: "chat/m", role: "model.medium" },
+      { gateway: "vercel", modelId: "chat/m", role: "model.normal" },
       { gateway: "vercel", modelId: "typesafe-ai/jev", role: "classifier" },
       { gateway: "vercel", modelId: "fast/m", role: "fast_text" },
     ]);

@@ -12,6 +12,7 @@ import {
 import { furPalette } from "./fur-palette";
 import { FUR_ORIGIN, FUR_SHELL_MAX, FUR_VIEW } from "./fur-shader";
 import { acquireFurStage, type EngentyCoat } from "./fur-stage";
+import { EngentyGoggles } from "./goggles";
 import { pointerPosition, subscribePointer } from "./pointer";
 
 export type FurQuality = "low" | "medium" | "high";
@@ -83,14 +84,51 @@ export interface FluffyEngentyProps {
   className?: string;
   /** Shell fur (default) or a translucent jelly over the same body. */
   coat?: EngentyCoat;
+  /** Old-school pilot goggles over the eye: the copilot's look. */
+  goggles?: boolean;
   /** Pointer-driven lean and gaze. Off for purely decorative instances. */
   interactive?: boolean;
   kind?: EngentyKind;
+  /**
+   * Where to turn the head instead of following the pointer: a direction,
+   * each axis −1..1 (x right, y down). Leans and gazes there the same way.
+   */
+  look?: { x: number; y: number } | null;
   /** Live tuning — the styleguide playground drives these. */
   overrides?: FluffyEngentyOverrides;
   quality?: FurQuality;
   /** Rendered width/height in CSS pixels. Meant to be large: 200px and up. */
   size?: number;
+}
+
+/**
+ * Moves the goggles overlay with the eye the shader draws: the shared idle
+ * drift (`blobDrift`), the top-heavy lean (`blobLean`) and, on the jelly, the
+ * spring's shear and quiver (`jelly-shader.ts`), all at the eye's height.
+ */
+function moveGoggles(
+  node: SVGGElement | null,
+  frame: {
+    coat: EngentyCoat;
+    form: (typeof ENGENTY_FORMS)[keyof typeof ENGENTY_FORMS];
+    lean: { x: number; y: number };
+    time: number;
+    wobbleX: number;
+  }
+) {
+  if (!node) {
+    return;
+  }
+  const { eye, period } = frame.form;
+  const w = (2 * Math.PI * frame.time) / period;
+  const top = Math.min(1, Math.max(0, 1 - eye.y / 120));
+  let dx = Math.sin(w) * 1.5 + frame.lean.x * (1.15 - eye.y / 120);
+  const dy = Math.cos(w * 0.8) * 1.1 + frame.lean.y * (1.15 - eye.y / 120);
+  if (frame.coat === "jelly") {
+    const jig = Math.sin((2 * Math.PI * frame.time) / (period * 0.55));
+    dx -= frame.wobbleX * 1.5 * top * top + jig * 0.45 * top;
+  }
+  node.setAttribute("transform", `translate(${dx} ${dy})`);
 }
 
 /** Percentage of the padded canvas at a given coordinate in 0..120 form space. */
@@ -109,7 +147,9 @@ const viewPercent = (value: number) => ((value - FUR_ORIGIN) / FUR_VIEW) * 100;
 export function FluffyEngenty({
   className,
   coat = "fur",
+  goggles = false,
   interactive = true,
+  look = null,
   kind = "round",
   overrides,
   quality = "high",
@@ -122,6 +162,7 @@ export function FluffyEngenty({
     phase.current = phaseCounter * PHASE_STEP;
   }
   const wrapRef = useRef<HTMLDivElement>(null);
+  const gogglesRef = useRef<SVGGElement>(null);
   const [supported, setSupported] = useState(true);
 
   const form = ENGENTY_FORMS[kind];
@@ -136,6 +177,7 @@ export function FluffyEngenty({
     form,
     interactive,
     kind,
+    look,
     overrides,
     quality,
     scale,
@@ -147,6 +189,7 @@ export function FluffyEngenty({
     form,
     interactive,
     kind,
+    look,
     overrides,
     quality,
     scale,
@@ -211,13 +254,24 @@ export function FluffyEngenty({
         )
       );
 
-      if (current.interactive && !still) {
-        const rect = wrap.getBoundingClientRect();
-        const pointer = pointerPosition();
-        const dx = pointer.x - (rect.left + rect.width * 0.5);
-        const dy = pointer.y - (rect.top + rect.height * 0.48);
-        const dist = Math.hypot(dx, dy) || 1;
-        const look = 0.35 + Math.min(1, dist / (rect.width * 2.4 || 1)) * 0.65;
+      if ((current.interactive || current.look) && !still) {
+        let dx: number;
+        let dy: number;
+        let dist: number;
+        let look: number;
+        if (current.look) {
+          dx = current.look.x;
+          dy = current.look.y;
+          dist = Math.hypot(dx, dy) || 1;
+          look = Math.min(1, dist);
+        } else {
+          const rect = wrap.getBoundingClientRect();
+          const pointer = pointerPosition();
+          dx = pointer.x - (rect.left + rect.width * 0.5);
+          dy = pointer.y - (rect.top + rect.height * 0.48);
+          dist = Math.hypot(dx, dy) || 1;
+          look = 0.35 + Math.min(1, dist / (rect.width * 2.4 || 1)) * 0.65;
+        }
         // Same easing constants as the flat engenty's gaze rig, so a row that
         // mixes flat and fluffy engenties leans as one.
         lean.x += ((dx / dist) * 5.5 * look - lean.x) * 0.16;
@@ -265,6 +319,13 @@ export function FluffyEngenty({
         wind: current.overrides?.wind ?? DEFAULT_WIND,
         wobble: [gel.x - lean.x, gel.y - lean.y],
       });
+      moveGoggles(gogglesRef.current, {
+        coat,
+        form: current.form,
+        lean,
+        time: clock + phaseOffset,
+        wobbleX: gel.x - lean.x,
+      });
 
       if (visible && !still) {
         frame = requestAnimationFrame(draw);
@@ -310,7 +371,14 @@ export function FluffyEngenty({
   }, [coat]);
 
   if (!supported) {
-    return <Engenty className={className} kind={kind} size={size} />;
+    return (
+      <Engenty
+        className={className}
+        goggles={goggles}
+        kind={kind}
+        size={size}
+      />
+    );
   }
 
   return (
@@ -337,6 +405,19 @@ export function FluffyEngenty({
         ref={canvasRef}
         style={{ display: "block", height: size, width: size }}
       />
+      {goggles ? (
+        <svg
+          aria-hidden="true"
+          height={size}
+          style={{ inset: 0, position: "absolute" }}
+          viewBox={`${FUR_ORIGIN} ${FUR_ORIGIN} ${FUR_VIEW} ${FUR_VIEW}`}
+          width={size}
+        >
+          <g ref={gogglesRef}>
+            <EngentyGoggles kind={kind} shaded />
+          </g>
+        </svg>
+      ) : null}
     </div>
   );
 }

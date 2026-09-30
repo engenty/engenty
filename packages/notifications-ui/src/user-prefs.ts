@@ -2,11 +2,8 @@
 //   notifications.<class>.<channel> = on | off | digest
 //   notifications.quiet_hours       = "HH:MM-HH:MM"
 //   notifications.quiet_hours_tz    = IANA zone
-//   notifications.views             = saved filter sets (json)
 import { requestApiJson } from "@engenty/api-client";
 import { useMutation, useQuery, useQueryClient } from "@engenty/query-client";
-import type { ListNotificationsInput } from "./api.js";
-import type { NotificationLaneFilter } from "./classification.js";
 
 const PREFIX = "notifications";
 
@@ -64,35 +61,4 @@ export function useSetNotificationSettingMutation() {
       void queryClient.invalidateQueries({ queryKey: prefsKeys.all });
     },
   });
-}
-
-export interface SavedView {
-  filter: Pick<
-    ListNotificationsInput,
-    "actor" | "class" | "kind" | "source" | "stream"
-  > & { lane?: NotificationLaneFilter; search?: string };
-  name: string;
-}
-
-export const VIEWS_SETTING = `${PREFIX}.views`;
-
-export function readSavedViews(
-  settings: Map<string, unknown> | undefined
-): SavedView[] {
-  const raw = settings?.get(VIEWS_SETTING);
-  if (!raw || typeof raw !== "object") {
-    return [];
-  }
-  const list = Array.isArray(raw)
-    ? raw
-    : Array.isArray((raw as { views?: unknown }).views)
-      ? ((raw as { views: unknown[] }).views ?? [])
-      : [];
-  return list.filter(
-    (entry): entry is SavedView =>
-      typeof entry === "object" &&
-      entry !== null &&
-      typeof (entry as SavedView).name === "string" &&
-      typeof (entry as SavedView).filter === "object"
-  );
 }

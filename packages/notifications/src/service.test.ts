@@ -333,62 +333,72 @@ describe("audience ladder", () => {
 
 describe("class channel gate", () => {
   const policy = { emailUpdateSources: ["team-chat"] };
-  it("pushes and mails decisions to subscribers; a stream goes through its routes", () => {
+  const row = (
+    over: Partial<Parameters<typeof channelsFor>[0]>
+  ): Parameters<typeof channelsFor>[0] => ({
+    audience_kind: "space",
+    class: "decision",
+    kind: "action_gate",
+    priority: "high",
+    source: "workflows",
+    ...over,
+  });
+
+  it("keeps agent decisions, alerts and todos off the phone and the mailbox", () => {
+    expect(channelsFor(row({}), policy)).toEqual([]);
+    expect(
+      channelsFor(row({ class: "alert", kind: "routine_failed" }), policy)
+    ).toEqual([]);
     expect(
       channelsFor(
-        {
-          audience_kind: "user",
-          class: "decision",
-          priority: "high",
-          source: "tasks",
-        },
-        policy
-      )
-    ).toEqual(["web_push", "email"]);
-    expect(
-      channelsFor(
-        {
-          audience_kind: "space",
-          class: "decision",
-          priority: "high",
-          source: "tasks",
-        },
-        policy
-      )
-    ).toEqual(["web_push", "email"]);
-    expect(
-      channelsFor(
-        {
-          audience_kind: "stream",
-          class: "decision",
-          priority: "high",
-          source: "tasks",
-        },
+        row({ audience_kind: "user", class: "todo", kind: "task_assigned" }),
         policy
       )
     ).toEqual([]);
   });
 
+  it("pushes a routine outcome only when its binding asked for it", () => {
+    const outcome = row({
+      class: "update",
+      kind: "routine_outcome",
+      source: "routines",
+    });
+    expect(channelsFor({ ...outcome, priority: "urgent" }, policy)).toEqual([
+      "web_push",
+    ]);
+    expect(channelsFor({ ...outcome, priority: "low" }, policy)).toEqual([]);
+  });
+
   it("keeps team-chat mention push and never mails a plain completion", () => {
     expect(
       channelsFor(
-        {
+        row({
           audience_kind: "user",
           class: "update",
-          priority: "high",
+          kind: "team_chat.message",
           source: "team-chat",
-        },
+        }),
         policy
       )
     ).toEqual(["web_push", "email"]);
     expect(
       channelsFor(
-        {
+        row({
           audience_kind: "user",
           class: "update",
+          kind: "task_completed",
           priority: "medium",
           source: "tasks",
-        },
+        }),
+        policy
+      )
+    ).toEqual([]);
+  });
+
+  it("leaves a stream to its routes", () => {
+    expect(
+      channelsFor(
+        row({ audience_kind: "stream", kind: "routine_outcome" }),
         policy
       )
     ).toEqual([]);
@@ -400,38 +410,39 @@ describe("emit", () => {
     const { created, fake, service } = serviceWith();
     const record = await service.emit({
       assigneeUserId: "user-1",
-      kind: "tool_approval",
+      kind: "team_chat.message",
       priority: "high",
-      source: "tasks",
-      subject: { id: "run-1", type: "run" },
-      summary: "Approve sending the invoice",
+      source: "team-chat",
+      subject: { id: "msg-1", type: "message" },
+      summary: "Anna mentioned you",
       tenantId: TENANT,
     });
     expect(record.audience_kind).toBe("user");
     expect(record.audience_id).toBe("user-1");
-    expect(record.class).toBe("decision");
+    expect(record.class).toBe("update");
     const deliveries = fake.tables.notification_deliveries;
     expect(deliveries.map((d) => d.channel).sort()).toEqual([
       "email",
       "web_push",
     ]);
     expect(deliveries.every((d) => d.notification_id === record.id)).toBe(true);
-    expect(created).toEqual(["tool_approval"]);
+    expect(created).toEqual(["team_chat.message"]);
   });
 
-  it("addresses a decision in a space to the space and pushes its subscribers", async () => {
-    // A graph gate in a space: every member sees it; the presser and the
-    // routine's owner get the push they got before.
+  it("addresses shared work in a space to the space and pushes its subscribers", async () => {
+    // A routine outcome in a space: every member sees it; the presser and
+    // the routine's owner get the push the binding asked for.
     const { fake, service } = serviceWith();
     const record = await service.emit({
+      audience: { kind: "space", spaceId: "space-1" },
       initiatorUserId: "presser",
-      kind: "action_gate",
+      kind: "routine_outcome",
       ownerUserId: "owner",
-      priority: "high",
-      source: "workflows",
+      priority: "urgent",
+      source: "routines",
       spaceId: "space-1",
-      subject: { id: "run-1", type: "run" },
-      summary: "Send the invoice?",
+      subject: { id: "routine-1", type: "routine" },
+      summary: "Update from Daily report",
       tenantId: TENANT,
     });
     expect(record.audience_kind).toBe("space");
@@ -565,7 +576,7 @@ describe("count and list", () => {
     ).toEqual({ inSpace: 1, total: 3 });
   });
 
-  it("counts high and urgent updates, not medium ones, until dismissed", async () => {
+  it("counts high and urgent updates, not medium ones, until this person saw them", async () => {
     const { service } = serviceWith();
     await service.emit({
       kind: "task_completed",
@@ -607,7 +618,7 @@ describe("count and list", () => {
         userId: "u1",
       })
     ).toEqual({ inSpace: 1, total: 2 });
-    // Seen is not handled: an attention FYI stays on the count.
+    // Seeing an FYI handles it for this person — and only for them.
     await service.markSeen({
       id: high.id,
       tenantId: TENANT,
@@ -620,16 +631,15 @@ describe("count and list", () => {
         tenantId: TENANT,
         userId: "u1",
       })
-    ).toEqual({ inSpace: 1, total: 1 });
-    expect(await service.dismiss({ id: high.id, tenantId: TENANT })).toBe("ok");
+    ).toEqual({ inSpace: 0, total: 0 });
     expect(
       await service.countAttention({
         accessibleSpaceIds: ["s1"],
         spaceId: "s1",
         tenantId: TENANT,
-        userId: "u1",
+        userId: "u2",
       })
-    ).toEqual({ inSpace: 0, total: 0 });
+    ).toEqual({ inSpace: 1, total: 1 });
   });
 
   it("shows a space row to its members and to nobody else", async () => {
@@ -694,10 +704,11 @@ describe("count and list", () => {
       userId: "u2",
     });
     expect(forU2.every((r) => r.seen === false)).toBe(true);
-    // Seen or not, both rows are still open: the count is the same for both.
+    // u1 saw the alert — handled for u1; the gate waits for an answer. u2
+    // has seen nothing: both still count for them.
     expect(
       await service.countAttention({ ...scope, spaceId: "s1", userId: "u1" })
-    ).toEqual({ inSpace: 2, total: 2 });
+    ).toEqual({ inSpace: 1, total: 1 });
     expect(
       await service.countAttention({ ...scope, spaceId: "s1", userId: "u2" })
     ).toEqual({ inSpace: 2, total: 2 });
@@ -801,22 +812,25 @@ describe("delivery loop", () => {
     });
     const a = await service.emit({
       assigneeUserId: "u1",
-      kind: "tool_approval",
-      source: "tasks",
+      kind: "team_chat.message",
+      priority: "high",
+      source: "team-chat",
       summary: "send me",
       tenantId: TENANT,
     });
     const b = await service.emit({
       assigneeUserId: "u1",
-      kind: "tool_approval",
-      source: "tasks",
+      kind: "team_chat.message",
+      priority: "high",
+      source: "team-chat",
       summary: "already read",
       tenantId: TENANT,
     });
     await service.emit({
       assigneeUserId: "u1",
-      kind: "tool_approval",
-      source: "tasks",
+      kind: "team_chat.message",
+      priority: "high",
+      source: "team-chat",
       summary: "fail me",
       tenantId: TENANT,
     });
@@ -936,7 +950,7 @@ describe("preferences", () => {
     const { fake, service } = serviceWith({
       user_settings: [
         {
-          name: "notifications.decision.web_push",
+          name: "notifications.update.web_push",
           user_id: "u1",
           value_string: "off",
         },
@@ -944,8 +958,9 @@ describe("preferences", () => {
     });
     await service.emit({
       assigneeUserId: "u1",
-      kind: "tool_approval",
-      source: "tasks",
+      kind: "team_chat.message",
+      priority: "high",
+      source: "team-chat",
       summary: "d",
       tenantId: TENANT,
     });

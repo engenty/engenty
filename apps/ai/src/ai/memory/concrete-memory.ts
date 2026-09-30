@@ -1,11 +1,7 @@
-import { Agent } from "@mastra/core/agent";
-import type { MastraMemory } from "@mastra/core/memory";
 import { MastraCompositeStore, type MemoryStorage } from "@mastra/core/storage";
 import { Memory } from "@mastra/memory";
-import { z } from "zod";
+import type { Extractor } from "@mastra/memory/processors";
 
-import { AiSessionError } from "../errors.js";
-import type { EngentyNativeMemoryAgent } from "./invocation-options.js";
 import { observationalMemoryLanguageModel } from "./observational-memory-model.js";
 import {
   createSemanticRecallBindings,
@@ -24,8 +20,8 @@ export function observationalMemoryEnabled(
 }
 
 /**
- * Cross-thread shared observations. Opt-in: the profile and MEMORY.md already
- * carry what a person wants kept across chats, and this layer costs a read
+ * Cross-thread shared observations. Opt-in: memory entries already carry
+ * what a person wants kept across chats, and this layer costs a read
  * before every model call plus up to 16k tokens of context.
  */
 export function sharedObservationsEnabled(
@@ -37,46 +33,6 @@ export function sharedObservationsEnabled(
   );
 }
 
-// The Observer-maintained per-USER profile (resource-scoped working memory):
-// delivered as a state signal each turn so profile updates do not invalidate
-// the provider's system-prefix cache. The main agent has no update tool.
-// Deliberately small and bounded; Settings → Memory is read-only
-// ("what the assistant knows about you") with reset as the only edit.
-// Persistence: the adapter's resource methods, delegated to ai.mastra_resources
-// keyed `${tenantId}:${resourceId}` — userId for Copilot, spaceId for shared
-// specialist rooms (threadId only when the thread has no Space).
-export const workingMemoryProfileSchema = z.object({
-  preferred_language: z
-    .string()
-    .max(32)
-    .optional()
-    .describe("Language the user prefers to be answered in"),
-  role: z
-    .string()
-    .max(200)
-    .optional()
-    .describe("The user's role/job context, in their own words"),
-  current_focus: z
-    .string()
-    .max(300)
-    .optional()
-    .describe("What the user is currently working on or toward"),
-  preferences: z
-    .array(z.string().max(200))
-    .max(12)
-    .optional()
-    .describe(
-      "At most a couple of broad, always-relevant working defaults (e.g. 'writes in German'). Keep this tiny — it is injected every turn."
-    ),
-  facts: z
-    .array(z.string().max(200))
-    .max(12)
-    .optional()
-    .describe(
-      "Only ambient context that must be in every prompt (name, timezone). Keep this tiny."
-    ),
-});
-
 // Mastra's default title instructions, plus: answer in the USER's language.
 const GENERATE_TITLE_INSTRUCTIONS = `
 - generate a short title based on the first message a user begins a conversation with
@@ -87,6 +43,8 @@ const GENERATE_TITLE_INSTRUCTIONS = `
 - the entire text you return will be used as the title`;
 
 export interface EngentySessionMastraMemoryOptions {
+  /** Extra values the observer returns with its observations (working-memory.ts). */
+  extractors?: readonly Extractor[];
   /** Fast-text model id (titles, observational memory); AI Gateway id. */
   modelId?: string | null;
   storage: MemoryStorage;
@@ -119,7 +77,8 @@ export const ENGENTY_PREVIOUS_OBSERVER_TOKENS = 8000;
 
 export function createEngentySessionMemoryOptions(
   env: NodeJS.ProcessEnv = process.env,
-  modelId?: string | null
+  modelId?: string | null,
+  extractors: readonly Extractor[] = []
 ): EngentyMemoryOptions {
   return {
     lastMessages: ENGENTY_MEMORY_LAST_MESSAGES,
@@ -128,13 +87,10 @@ export function createEngentySessionMemoryOptions(
       instructions: GENERATE_TITLE_INSTRUCTIONS,
       model: observationalMemoryLanguageModel(modelId),
     },
-    workingMemory: {
-      agentManaged: false,
-      enabled: true,
-      scope: "resource",
-      schema: workingMemoryProfileSchema,
-      useStateSignals: true,
-    },
+    // Kept across chats: memory entries and our own working memory
+    // (memory-block.ts, working-memory.ts) — one per scope, which Mastra's
+    // single per-resource working memory cannot hold.
+    workingMemory: { enabled: false },
     observationalMemory: observationalMemoryEnabled(env)
       ? {
           activateAfterIdle: "auto",
@@ -151,7 +107,6 @@ export function createEngentySessionMemoryOptions(
             // `activateAfterIdle: "auto"` still force-activates what was
             // buffered, so nothing is lost — it lands a little later.
             bufferOnIdle: false,
-            manageWorkingMemory: true,
             messageTokens: ENGENTY_OBSERVATION_MESSAGE_TOKENS,
             // The observer is handed "Previous Observations" in full unless
             // capped, so its prompt grows with the pile it is meant to condense.
@@ -160,6 +115,7 @@ export function createEngentySessionMemoryOptions(
               maxOutputTokens: ENGENTY_OBSERVER_MAX_OUTPUT_TOKENS,
             },
             observeAttachments: false,
+            ...(extractors.length > 0 ? { extract: [...extractors] } : {}),
           },
           reflection: {
             modelSettings: {
@@ -188,7 +144,11 @@ export function createEngentySessionMastraMemory(
 ): Memory {
   const semantic = createSemanticRecallBindings();
   return new Memory({
-    options: createEngentySessionMemoryOptions(process.env, options.modelId),
+    options: createEngentySessionMemoryOptions(
+      process.env,
+      options.modelId,
+      options.extractors
+    ),
     storage: new MastraCompositeStore({
       domains: { memory: options.storage },
       id: ENGENTY_MEMORY_STORE_ID,
@@ -197,53 +157,4 @@ export function createEngentySessionMastraMemory(
       ? { embedder: semantic.embedder, vector: semantic.vector }
       : {}),
   });
-}
-
-export async function createEngentyNativeMastraMemoryAgent(input: {
-  agent: Agent;
-  memory: MastraMemory;
-}): Promise<Agent> {
-  const [instructions, tools] = await Promise.all([
-    input.agent.getInstructions(),
-    input.agent.listTools(),
-  ]);
-
-  return new Agent({
-    description: input.agent.getDescription(),
-    id: input.agent.id,
-    instructions,
-    mastra: input.agent.getMastraInstance(),
-    memory: input.memory,
-    model: input.agent.model as never,
-    name: input.agent.name,
-    tools,
-  });
-}
-
-export async function bindEngentyNativeMastraMemory<
-  TAgent extends EngentyNativeMemoryAgent,
->(input: {
-  agent: TAgent;
-  details?: Record<string, unknown>;
-  memory: MastraMemory;
-}): Promise<TAgent | Agent> {
-  if (
-    input.agent.hasOwnMemory?.() === true &&
-    typeof input.agent.getMemory === "function"
-  ) {
-    return input.agent;
-  }
-
-  if (input.agent instanceof Agent) {
-    return createEngentyNativeMastraMemoryAgent({
-      agent: input.agent,
-      memory: input.memory,
-    });
-  }
-
-  throw new AiSessionError(
-    "agent_threads.nativeMemoryUnavailable",
-    "Native Mastra memory requires an agent configured with a concrete memory instance",
-    input.details
-  );
 }

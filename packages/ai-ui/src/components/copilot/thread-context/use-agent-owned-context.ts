@@ -1,5 +1,5 @@
-// What the agent itself brings to the conversation — its skills, its
-// MEMORY.md for this Space, the files it keeps at /home, the artefacts it
+// What the agent itself brings to the conversation — its skills, its own
+// memory entries for this Space, the files it keeps at /home, the artefacts it
 // owns — as the context box shows it beside a desk or room chat. The thread
 // summary says what THIS conversation touched; this says what the agent
 // carries into every one. Read from the endpoints that already serve the
@@ -9,8 +9,8 @@
 import { useMemo } from "react";
 import { useOptionalAgentHostByKey } from "../../../agent-provider/engenty-agent.js";
 import { useArtifactsListQuery } from "../../../artifacts/artifacts-api.js";
-import { useAgentMemoryQuery } from "../../../features/agent-desk/use-agent-memory.js";
 import { AGENT_HOME_MOUNT } from "../../../features/agents-workspace/use-agent-workspace-tab.js";
+import { useMemoryEntriesQuery } from "../../../features/memory/memory-entries-api.js";
 import { useWorkspaceTreeQuery } from "../../../lib/admin/agent-workspace-queries.js";
 import { useAiSkillCatalogQuery } from "../../../lib/admin/ai-runtime-queries.js";
 import { useAgentEffectiveCapabilitiesQuery } from "../../../lib/admin/effective-capabilities-api.js";
@@ -107,11 +107,10 @@ export function useAgentOwnedContext(hostKey: string): AgentOwnedContext {
     enabled,
     spaceId,
   });
-  const memory = useAgentMemoryQuery({
-    agentId: agentId ?? "",
-    enabled: enabled && Boolean(spaceId),
-    spaceId: spaceId ?? "",
-  });
+  const memory = useMemoryEntriesQuery(
+    { agentId, scope: "agent", spaceId },
+    { enabled: enabled && Boolean(agentId && spaceId) }
+  );
   const catalog = useAiSkillCatalogQuery(enabled);
   const home = useWorkspaceTreeQuery(agentId ?? "", AGENT_HOME_MOUNT);
   const artefacts = useArtifactsListQuery("agent", agentId);
@@ -159,7 +158,9 @@ export function useAgentOwnedContext(hostKey: string): AgentOwnedContext {
       .slice(0, AGENT_CONTEXT_MAX_ITEMS)
       .map((row) => ({ id: row.id, title: row.title, type: row.type }));
 
-    const stored = memory.data?.memory?.trim() ?? "";
+    const stored = (memory.data?.entries ?? [])
+      .map((entry) => entry.body)
+      .join("\n");
     return {
       agentId,
       artefacts: owned,

@@ -4,6 +4,7 @@ import {
   isIndexCompatibleEmbeddingModel,
   listRegisteredModelRoles,
   mergeDeclaredRoles,
+  parseModelRef,
   setPlatformBindings,
 } from "@engenty/ai-core";
 import { isJevModel } from "@engenty/typesafe-client";
@@ -18,6 +19,11 @@ import { type AiScopeResolver, resolveScope } from "./http.js";
 const bindingPatchSchema = z.object({
   gateway: z.string().min(1).optional(),
   model_id: z.string().min(1),
+});
+
+const customModelsSchema = z.object({
+  enabled: z.boolean(),
+  models: z.array(z.string().min(1)).max(100),
 });
 
 /**
@@ -46,8 +52,8 @@ export function registerModelBindingRoutes(
       return c.json({ error: "modelBindings.unconfiguredDatabase" }, 503);
     }
     // A tenant admin cannot change a binding, but hiding it entirely is what
-    // made the effort screen unreadable: "medium" means nothing without knowing
-    // what medium runs. They get the graded roles read-only; the specialist
+    // made the effort screen unreadable: "Extra" means nothing without knowing
+    // what Extra runs. They get the graded roles read-only; the specialist
     // roles stay superadmin-only because they are platform plumbing.
     const superAdmin = scope.scope.isSuperAdmin === true;
     // Join the known role catalogue with what is actually bound, so a role that
@@ -159,6 +165,64 @@ export function registerModelBindingRoutes(
     // This process picks the change up now; others on their next refresh.
     setPlatformBindings(await readStoreBindings(store));
     return c.json(saved);
+  });
+
+  // The composer's Custom list: whether people may pin a model for a thread,
+  // and which. Beside the bindings because it is the same decision — which
+  // models run — and ships in the same file (default-models.json).
+  const customBase = `${AI_BASE_PATH}/v1/models/custom-models`;
+
+  app.get(customBase, async (c) => {
+    const scope = await resolveScope(c, opts.scopeResolver);
+    if (!scope.ok) {
+      return scope.response;
+    }
+    if (scope.scope.isSuperAdmin !== true) {
+      return c.json({ error: "modelBindings.superadminRequired" }, 403);
+    }
+    const store = opts.getGatewayModelStore();
+    if (!store) {
+      return c.json({ error: "modelBindings.unconfiguredDatabase" }, 503);
+    }
+    return c.json(await store.getCustomModelsConfig());
+  });
+
+  app.put(customBase, async (c) => {
+    const scope = await resolveScope(c, opts.scopeResolver);
+    if (!scope.ok) {
+      return scope.response;
+    }
+    if (scope.scope.isSuperAdmin !== true) {
+      return c.json({ error: "modelBindings.superadminRequired" }, 403);
+    }
+    const store = opts.getGatewayModelStore();
+    if (!store) {
+      return c.json({ error: "modelBindings.unconfiguredDatabase" }, 503);
+    }
+    const parsed = customModelsSchema.safeParse(await c.req.json());
+    if (!parsed.success) {
+      return c.json(
+        { error: "modelBindings.invalidBody", issues: parsed.error.issues },
+        400
+      );
+    }
+    // Only models the catalog has: a ref nothing serves would sit in the
+    // composer and fail at send.
+    const catalog = await store.listGatewayModels();
+    for (const ref of parsed.data.models) {
+      const { gateway, modelId } = parseModelRef(ref);
+      if (
+        !catalog.some(
+          (row) => row.gateway === gateway && row.model_id === modelId
+        )
+      ) {
+        return c.json(
+          { error: "modelBindings.customModels.unknownModel", ref },
+          400
+        );
+      }
+    }
+    return c.json(await store.setCustomModelsConfig(parsed.data));
   });
 
   /** The role catalogue alone, for clients that only need the shape. */

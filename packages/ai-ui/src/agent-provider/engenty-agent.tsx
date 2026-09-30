@@ -118,6 +118,9 @@ function createHostConfig(props: EngentyAgentProps): HostConfig {
   if (props.modelId !== undefined) {
     hostConfig.modelId = props.modelId;
   }
+  if (props.reasoningEffort !== undefined) {
+    hostConfig.reasoningEffort = props.reasoningEffort;
+  }
   if (props.onMessagesSnapshot !== undefined) {
     hostConfig.onMessagesSnapshot = props.onMessagesSnapshot;
   }
@@ -206,6 +209,7 @@ export function EngentyAgent(props: EngentyAgentProps) {
       props.onThreadCreated,
       props.openInterruptFromSession,
       props.pathname,
+      props.reasoningEffort,
       props.routeContext,
       props.threadDetailQueryKey,
       props.threadId,
@@ -294,6 +298,7 @@ export function EngentyAgent(props: EngentyAgentProps) {
     isTransportReady: ai.isTransportReady,
     messagesQueryKey,
     modelId: effectiveHostConfig.modelId ?? "",
+    reasoningEffort: effectiveHostConfig.reasoningEffort ?? null,
     onMessagesSnapshot: effectiveHostConfig.onMessagesSnapshot,
     // Notify both the host mount (e.g. shell that mirrors localStorage) and any
     // child config (e.g. full-page chat that queues idle navigation).
@@ -348,6 +353,8 @@ export function EngentyAgent(props: EngentyAgentProps) {
   const host = useMemo(
     (): AgentHost => ({
       activeThreadId: session.activeThreadId,
+      answerEffortOffer: session.answerEffortOffer,
+      effortOffer: session.effortOffer,
       attachedRunId: session.attachedRunId,
       awaitingInterrupt: session.awaitingInterrupt,
       openInterruptFromStream: session.openInterruptFromStream,
@@ -386,6 +393,8 @@ export function EngentyAgent(props: EngentyAgentProps) {
       pendingUserParts,
       pendingUserInsertIndex,
       session.activeThreadId,
+      session.answerEffortOffer,
+      session.effortOffer,
       session.attachedRunId,
       session.awaitingInterrupt,
       session.openInterruptFromStream,
@@ -521,6 +530,7 @@ export function useAgentHostConfig(
     childPatch.onThreadCreated,
     childPatch.openInterruptFromSession,
     childPatch.pathname,
+    childPatch.reasoningEffort,
     childPatch.routeContext,
     childPatch.threadDetailQueryKey,
     childPatch.threadsListQueryKey,

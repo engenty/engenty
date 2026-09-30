@@ -179,7 +179,6 @@ export {
   FileDownloadsToolCallCard,
   formatCopilotThreadCopyText,
   HitlApprovalCard,
-  isFileDownloadsOfferOutput,
   isTalkConversationPathname,
   Message,
   MessageAction,
@@ -216,7 +215,6 @@ export {
   resolveCopilotCompanionOpen,
   resolveCopilotOpenDockMode,
   Shimmer,
-  shouldShowTopOpenInterruptBanner,
   type TextShimmerProps,
   ToolCallCard,
   ToolCallCardBase,
@@ -226,26 +224,26 @@ export {
   useCopilotToolCallActions,
   usePromptInputController,
 } from "./components/presentation.js";
-// --- Working memory (assistant's per-user profile; settings view) ---
+// --- Agent pads (AGENTS.md, TASKS.md) ---
 export {
   type AgentPadSave,
   AgentPadSection,
 } from "./features/agent-desk/agent-pad-section.js";
-// --- Effort: the end-user "how much thinking" control ---
+// --- Chat mode: the composer's Normal / Extra / Custom control ---
 export {
-  AI_EFFORT_CHOICES,
-  buildEffortChoiceOptions,
-  type EffortChoiceOption,
-  isEffortRestricted,
-  resolveEffortChoice,
-  toEffortGrant,
-} from "./features/ai-effort/effort-choices.js";
-export { useEffortLastResolved } from "./features/ai-effort/effort-resolved-flash.js";
+  CHAT_MODES,
+  type ChatMode,
+  type ChatModePick,
+  type ChatModeRunConfig,
+  chatModeRunConfig,
+  DEFAULT_CHAT_MODE_PICK,
+  isChatMode,
+} from "./features/ai-effort/chat-mode.js";
 export {
-  EffortSelector,
-  type EffortSelectorProps,
-} from "./features/ai-effort/effort-selector.js";
-export { useEffortResolvedFeedback } from "./features/ai-effort/use-effort-resolved-feedback.js";
+  ChatModeSelector,
+  type ChatModeSelectorProps,
+} from "./features/ai-effort/chat-mode-selector.js";
+export { EffortOfferCard } from "./features/ai-effort/effort-offer-card.js";
 // --- Inbox (Mastra notifications; rendered by the tasks module) ---
 export type { InboxNotificationDto } from "./features/inbox/inbox-api.js";
 export { listInbox } from "./features/inbox/inbox-api.js";
@@ -256,13 +254,16 @@ export {
   useMarkAllInboxSeenMutation,
   useMarkInboxNotificationMutation,
 } from "./features/inbox/inbox-queries.js";
+// --- Memory entries (user, Space, company, agent) ---
 export {
-  parseWorkingMemoryProfile,
-  useResetWorkingMemoryMutation,
-  useWorkingMemoryQuery,
-  type WorkingMemoryDto,
-  workingMemoryKeys,
-} from "./features/memory/working-memory-api.js";
+  type MemoryEntriesDto,
+  type MemoryEntryDto,
+  type MemoryEntryKeyInput,
+  memoryEntryKeys,
+  useMemoryEntriesQuery,
+  useMemoryEntryMutations,
+} from "./features/memory/memory-entries-api.js";
+export { MemoryEntriesSection } from "./features/memory/memory-entries-section.js";
 export {
   RoutineCanvas,
   type RoutineCanvasProps,

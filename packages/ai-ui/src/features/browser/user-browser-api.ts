@@ -92,6 +92,21 @@ export function putUserBrowserGrant(
   });
 }
 
+/**
+ * Type a login into the agent's page (`browser_request_credentials`). The
+ * values go to this route only — never into the run — and are not kept.
+ */
+export function fillUserBrowserCredentials(
+  target: SpaceRef,
+  requestId: string,
+  values: Record<string, string>
+): Promise<{ filled: string[] }> {
+  return requestAiServiceJson(
+    withSpace(`${BASE}/credentials/${encodeURIComponent(requestId)}`, target),
+    { body: JSON.stringify({ values }), method: "POST" }
+  );
+}
+
 /** `ws_url` is path-only; resolve it with {@link resolveUserBrowserWsUrl}. */
 export function mintUserBrowserTicket(target: BrowserTarget): Promise<{
   sandbox_id: string;

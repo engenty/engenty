@@ -21,7 +21,7 @@ export interface ListNotificationsInput {
   stream?: string;
 }
 
-/** Open attention rows (`isAttention`), seen or not. */
+/** Open attention rows (`isAttention`). */
 export interface AttentionCountDto {
   /** In the current space (null without one). */
   in_space: number | null;
@@ -69,10 +69,13 @@ export async function markNotification(
   );
 }
 
-export async function markAllSeen(): Promise<{ ok: boolean; updated: number }> {
+/** The caller's view: every open row, or just `ids` (one stack). */
+export async function markAllSeen(
+  ids?: readonly string[]
+): Promise<{ ok: boolean; updated: number }> {
   return requestApiJson<{ ok: boolean; updated: number }>(
     "/api/notifications/seen-all",
-    { method: "POST" }
+    { method: "POST", ...(ids ? { body: { ids } } : {}) }
   );
 }
 

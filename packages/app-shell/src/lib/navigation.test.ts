@@ -387,7 +387,7 @@ describe("navigation", () => {
       ]);
     });
 
-    it("places Engenty first in the bottom admin rail for superadmins in developer mode", () => {
+    it("shows the debugging consoles (Engenty first, Speicher) to superadmins in developer mode only", () => {
       const EngentyIcon = () => null;
       const contributions = {
         routes: [],
@@ -470,7 +470,7 @@ describe("navigation", () => {
           buildNavigationSections(contributions, options)
             .find((section) => section.label === "navigation.admin")
             ?.items.map((item) => item.to) ?? [];
-        expect(rail).toContain("/admin/files");
+        expect(rail).not.toContain("/admin/files");
         expect(rail).not.toContain("/admin/engenty");
       }
     });
@@ -911,7 +911,7 @@ describe("navigation", () => {
       })
         .flatMap((section) => section.items)
         .map((item) => item.to);
-      expect(adminTargets).toContain("/admin/files");
+      expect(adminTargets).not.toContain("/admin/files");
       expect(adminTargets).toContain("/settings");
       expect(adminTargets).toContain("/setup");
       expect(adminTargets).not.toContain("/admin/users");

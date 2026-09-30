@@ -1,75 +1,60 @@
+import type { CopilotDockMode } from "@engenty/app-shell";
 import { describe, expect, it } from "vitest";
 import {
-  isCopilotCompanionSurfaceActive,
   isTalkConversationPathname,
-  resolveCopilotCompanionOpen,
-  resolveCopilotOpenDockMode,
+  type OpenCopilotShellInput,
+  openCopilotShell,
   shouldShowCopilotFab,
 } from "./copilot-drawer-utils";
 
-describe("resolveCopilotOpenDockMode", () => {
-  it("restores Work and Window from shell preference", () => {
-    expect(resolveCopilotOpenDockMode("drawer")).toBe("drawer");
-    expect(resolveCopilotOpenDockMode("sidebar")).toBe("sidebar");
-    expect(resolveCopilotOpenDockMode("window")).toBe("window");
+function openShell(
+  input: Omit<OpenCopilotShellInput, "setOpen" | "setPreferredDockMode">
+) {
+  const state: { dock: CopilotDockMode | null; open: boolean } = {
+    dock: null,
+    open: false,
+  };
+  const result = openCopilotShell({
+    ...input,
+    setOpen: (open) => {
+      state.open = open;
+    },
+    setPreferredDockMode: (mode) => {
+      state.dock = mode;
+    },
   });
+  return { result, ...state };
+}
 
-  it("defaults to sidebar for missing preference", () => {
-    expect(resolveCopilotOpenDockMode(null)).toBe("sidebar");
-    expect(resolveCopilotOpenDockMode(undefined)).toBe("sidebar");
-  });
-
-  it("defaults to sidebar for invalid values", () => {
-    expect(resolveCopilotOpenDockMode("nope" as "drawer")).toBe("sidebar");
-  });
-});
-
-describe("resolveCopilotCompanionOpen", () => {
-  it("stays on Talk when the main area is already a conversation page", () => {
+describe("openCopilotShell", () => {
+  it("does not open the companion over a Talk page or dedicated chat chrome", () => {
     expect(
-      resolveCopilotCompanionOpen({
-        isTalkPage: true,
-        preferredDockMode: "window",
-      })
-    ).toEqual({ kind: "talk" });
-  });
-
-  it("stays on Talk when dedicated chat chrome owns the page", () => {
+      openShell({ isTalkPage: true, preferredDockMode: "window" })
+    ).toEqual({ dock: null, open: false, result: "talk" });
     expect(
-      resolveCopilotCompanionOpen({
-        chromeHidden: true,
-        isTalkPage: false,
-        preferredDockMode: "sidebar",
-      })
-    ).toEqual({ kind: "talk" });
-  });
-
-  it("opens Work as a drawer on mobile", () => {
-    expect(
-      resolveCopilotCompanionOpen({
-        isMobile: true,
-        isTalkPage: false,
-        preferredDockMode: "window",
-      })
-    ).toEqual({ kind: "work", dock: "drawer" });
+      openShell({ chromeHidden: true, preferredDockMode: "sidebar" })
+    ).toEqual({ dock: null, open: false, result: "talk" });
   });
 
   it("restores Window when that was the last companion placement", () => {
-    expect(
-      resolveCopilotCompanionOpen({
-        isTalkPage: false,
-        preferredDockMode: "window",
-      })
-    ).toEqual({ kind: "work", dock: "window" });
+    expect(openShell({ preferredDockMode: "window" })).toEqual({
+      dock: "window",
+      open: true,
+      result: "work",
+    });
   });
 
-  it("defaults to Work (sidebar)", () => {
-    expect(
-      resolveCopilotCompanionOpen({
-        isTalkPage: false,
-        preferredDockMode: null,
-      })
-    ).toEqual({ kind: "work", dock: "sidebar" });
+  it("opens Work in the sidebar without a valid stored placement", () => {
+    expect(openShell({ preferredDockMode: null })).toEqual({
+      dock: "sidebar",
+      open: true,
+      result: "work",
+    });
+    expect(openShell({ preferredDockMode: "nope" as "drawer" })).toEqual({
+      dock: "sidebar",
+      open: true,
+      result: "work",
+    });
   });
 });
 
@@ -92,38 +77,22 @@ describe("isTalkConversationPathname", () => {
 });
 
 describe("shouldShowCopilotFab", () => {
-  it("keeps the docked blob on the app bar even when the panel is open", () => {
-    expect(
-      shouldShowCopilotFab({
-        collapseToCircle: false,
-        docked: true,
-        isCollapsingToIcon: false,
-        open: true,
-      })
-    ).toBe(true);
-  });
-
   it("keeps the docked blob on dedicated chat chrome", () => {
-    // `chromeHidden` hands the COMPANION surface to the page, not the app
-    // bar's blob — the bar must not change shape when you open a chat.
+    // The docked blob is app-bar chrome; the bar must not change shape per page.
     expect(
       shouldShowCopilotFab({
         chromeHidden: true,
-        collapseToCircle: true,
         docked: true,
-        isCollapsingToIcon: false,
         open: false,
       })
     ).toBe(true);
   });
 
-  it("still hides the FLOATING blob on dedicated chat chrome", () => {
-    // Nothing to dock onto there, and it would cover the page's own composer.
+  it("still hides the floating blob on dedicated chat chrome", () => {
+    // It would cover the page's own composer.
     expect(
       shouldShowCopilotFab({
         chromeHidden: true,
-        collapseToCircle: true,
-        isCollapsingToIcon: false,
         open: false,
       })
     ).toBe(false);
@@ -132,62 +101,10 @@ describe("shouldShowCopilotFab", () => {
   it("lets a live voice session take the docked slot", () => {
     expect(
       shouldShowCopilotFab({
-        collapseToCircle: false,
         docked: true,
-        isCollapsingToIcon: false,
         open: false,
         voiceSessionActive: true,
       })
     ).toBe(false);
-  });
-
-  it("shows the mobile corner blob when copilot is closed", () => {
-    expect(
-      shouldShowCopilotFab({
-        collapseToCircle: true,
-        isCollapsingToIcon: false,
-        open: false,
-      })
-    ).toBe(true);
-  });
-
-  it("hides when shell copilot is open", () => {
-    expect(
-      shouldShowCopilotFab({
-        collapseToCircle: true,
-        isCollapsingToIcon: false,
-        open: true,
-      })
-    ).toBe(false);
-  });
-
-  it("keeps FAB mounted during collapse morph while open", () => {
-    expect(
-      shouldShowCopilotFab({
-        collapseToCircle: false,
-        isCollapsingToIcon: true,
-        open: true,
-      })
-    ).toBe(true);
-  });
-});
-
-describe("isCopilotCompanionSurfaceActive", () => {
-  it("does not mount companion content when closed", () => {
-    expect(
-      isCopilotCompanionSurfaceActive({ chromeHidden: false, open: false })
-    ).toBe(false);
-  });
-
-  it("does not mount companion content on a full-page chat route", () => {
-    expect(
-      isCopilotCompanionSurfaceActive({ chromeHidden: true, open: true })
-    ).toBe(false);
-  });
-
-  it("mounts companion content only when the drawer is open beside the page", () => {
-    expect(
-      isCopilotCompanionSurfaceActive({ chromeHidden: false, open: true })
-    ).toBe(true);
   });
 });

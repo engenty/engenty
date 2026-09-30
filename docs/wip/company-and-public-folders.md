@@ -137,7 +137,7 @@ machinery applies (`workspacePublishApprovalGate` in
 ### Phase 3 — `/company/apps/<slug>` (built)
 
 Read-only `src/` of every App a publishing Space owns; the owning Space keeps
-`/sandbox/apps/<slug>` read-write (unchanged). No schema change and no read of
+`/space/apps/<slug>` read-write (unchanged). No schema change and no read of
 the Apps module's tables: the App's folder in app-host's tree
 (`<space drive>/apps/<slug>/src`) is its placement, and slugs are unique per
 tenant (`workspace/company-apps.ts`). The same `publish_to_company` switch

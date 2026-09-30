@@ -9,8 +9,9 @@
 import { useEffect, useRef } from "react";
 import type { NotificationDto } from "./api.js";
 import { isAttention, isUnseen } from "./classification.js";
+import { readableActorLabel } from "./notification-face.js";
 import { notificationHref, notificationOrigin } from "./notification-href.js";
-import { localizedSummary, notificationBodyText } from "./notification-item.js";
+import { localizedSummary, notificationBodyText } from "./notification-text.js";
 import { useNotificationsQuery } from "./queries.js";
 
 export interface ClientChannel {
@@ -30,7 +31,7 @@ export function registerClientChannel(channel: ClientChannel): () => void {
 
 /**
  * A banner for one record, read like a macOS notification: where it came
- * from on top (space · actor), the title below, one more line when the
+ * from on top (actor · space), the title below, one more line when the
  * producer had one. `t` says the title in the viewer's language; without it
  * the server's English summary stands.
  */
@@ -42,10 +43,12 @@ export function notificationDisplayText(
   title: string;
 } {
   const origin = notificationOrigin(record);
+  const actor = origin.actorLabel
+    ? readableActorLabel(origin.actorLabel)
+    : null;
   const source =
-    [origin.spaceName, origin.actorLabel].filter(Boolean).join(" · ") ||
-    "engenty";
-  const headline = t ? localizedSummary(record, t) : record.summary;
+    [actor, origin.spaceName].filter(Boolean).join(" · ") || "engenty";
+  const headline = t ? localizedSummary(record, t, actor) : record.summary;
   const extra = notificationBodyText(record);
   const body = extra ? `${headline}\n${extra}` : headline;
   return { body: body.slice(0, 240), title: source };

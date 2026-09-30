@@ -19,7 +19,7 @@ function agent(overrides: Partial<AgentConfig> = {}): AgentConfig {
 
 const runtime: RuntimeModelConfig = {
   chatModelId: "t/chat",
-  gradedModelIds: { low: "t/low", medium: "t/medium", high: "t/high" },
+  gradedModelIds: { normal: "t/normal", high: "t/high" },
 };
 
 describe("resolveAgentModelId", () => {
@@ -37,8 +37,8 @@ describe("resolveAgentModelId", () => {
     expect(resolveAgentModelId(agent({ effort: "high" }), runtime)).toBe(
       "t/high"
     );
-    expect(resolveAgentModelId(agent({ effort: "low" }), runtime)).toBe(
-      "t/low"
+    expect(resolveAgentModelId(agent({ effort: "normal" }), runtime)).toBe(
+      "t/normal"
     );
   });
 

@@ -1,6 +1,7 @@
 import type { HonoBindings, HonoVariables } from "@mastra/hono";
 import type { Context, Hono } from "hono";
 import { z } from "zod";
+import { fillBrowserCredentials } from "../ai/browser/browser-credentials.js";
 import {
   EngentyCoreClient,
   getEngentyCoreBaseUrlFromEnv,
@@ -41,6 +42,11 @@ const killSandboxesBodySchema = z.object({
 
 const stopComputersBodySchema = z.object({
   sandbox_ids: z.array(z.string().min(1).max(256)).min(1),
+});
+
+/** Field id → what the person typed. Bounded; never logged. */
+const browserCredentialsBodySchema = z.object({
+  values: z.record(z.string().regex(/^field_[1-4]$/), z.string().max(1024)),
 });
 
 const browserGrantBodySchema = z
@@ -338,6 +344,35 @@ export function registerSandboxRoutes(
         err
       );
     }
+  });
+
+  // A login typed into the agent's page (`browser_request_credentials`). The
+  // values come here, not through the run: they are typed into the page and
+  // dropped. Nothing on this route logs the body or echoes a value back.
+  app.post(`${base}/browser/credentials/:requestId`, async (c) => {
+    const identity = await readBrowserIdentity(c);
+    if (!identity.ok) {
+      return identity.response;
+    }
+    const body = browserCredentialsBodySchema.safeParse(
+      await c.req.json().catch(() => ({}))
+    );
+    if (!body.success) {
+      return c.json({ error: "agent_sandboxes.invalidBody" }, 400);
+    }
+    const result = await fillBrowserCredentials({
+      requestId: c.req.param("requestId"),
+      spaceId: identity.identity.spaceId,
+      tenantId: identity.identity.tenantId,
+      values: body.data.values,
+    });
+    if (!result.ok) {
+      return c.json(
+        { error: `agent_sandboxes.browserCredentials.${result.error}` },
+        result.error === "not_found" ? 404 : 409
+      );
+    }
+    return c.json({ filled: result.filled });
   });
 
   // Sign out = stop + empty the profile. The only action that forgets logins.

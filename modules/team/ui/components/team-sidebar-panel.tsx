@@ -302,10 +302,21 @@ export function TeamSidebarPanel() {
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <SidebarHeader className="gap-0 p-0 pb-3">
-        {/* Search + filter + plus */}
+        {/* Tabs: Team | Agents — they pick the list the search below searches. */}
+        {isSearching ? null : (
+          <SidebarTabStrip
+            onValueChange={(v) => handleTabChange(v as "team" | "agents")}
+            value={activeTab}
+          >
+            <SidebarTab value="team">{t("sidebar.nav_team")}</SidebarTab>
+            <SidebarTab value="agents">{t("sidebar.nav_agents")}</SidebarTab>
+          </SidebarTabStrip>
+        )}
+
+        {/* Search + filter + plus, right above the list */}
         <div
           className={cn(
-            "flex min-w-0 items-center gap-1",
+            "flex min-w-0 items-center gap-1 pt-2",
             sidebarColumnContentInsetClassName,
             sidebarColumnContentInsetEndClassName
           )}
@@ -367,17 +378,6 @@ export function TeamSidebarPanel() {
             </>
           )}
         </div>
-
-        {/* Tabs: Team | Agents */}
-        {isSearching ? null : (
-          <SidebarTabStrip
-            onValueChange={(v) => handleTabChange(v as "team" | "agents")}
-            value={activeTab}
-          >
-            <SidebarTab value="team">{t("sidebar.nav_team")}</SidebarTab>
-            <SidebarTab value="agents">{t("sidebar.nav_agents")}</SidebarTab>
-          </SidebarTabStrip>
-        )}
       </SidebarHeader>
 
       {/* Content area */}

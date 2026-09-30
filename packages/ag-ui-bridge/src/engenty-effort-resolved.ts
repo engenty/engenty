@@ -1,18 +1,18 @@
 /**
- * CUSTOM AG-UI event: Auto effort finished sizing this turn.
- * The composer still shows "Auto"; the client uses this to toast and briefly
- * flash the resolved tier on the effort control.
+ * CUSTOM AG-UI event: the tier this turn runs at. A thread that went to high
+ * stays there until its next chapter, so a Normal pick can come back as
+ * `high` (source `sticky`); the composer shows the thread's tier from this.
  */
 export const ENGENTY_EFFORT_RESOLVED_EVENT = "engenty.effort.resolved";
 
-export type EngentyResolvedEffort = "low" | "medium" | "high";
+export type EngentyResolvedEffort = "normal" | "high";
 
 export interface EngentyEffortResolvedPayload {
   effort: EngentyResolvedEffort;
   /** Graded model id actually bound for this turn, when known. */
   model_id?: string | null;
   reason?: string;
-  /** How Auto decided — heuristic | router | fallback | ceiling. */
+  /** Why this tier — picked | sticky | agent | ceiling | heuristic. */
   source?: string;
 }
 
@@ -24,7 +24,7 @@ export function readEngentyEffortResolvedEventValue(
   }
   const record = value as Record<string, unknown>;
   const effort = record.effort;
-  if (effort !== "low" && effort !== "medium" && effort !== "high") {
+  if (effort !== "normal" && effort !== "high") {
     return null;
   }
   const modelId = record.model_id;

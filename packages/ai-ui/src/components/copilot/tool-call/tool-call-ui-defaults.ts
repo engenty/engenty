@@ -14,13 +14,14 @@ import {
   matchesAppBuildOutput,
 } from "./app-build-tool-call-card";
 import {
+  BROWSER_SHOW_TOOL_NAME,
+  BrowserShowToolCallCard,
+} from "./browser-show-tool-call-card";
+import {
   DecisionArtifactToolCallCard,
   matchesDecisionArtifactOutput,
 } from "./decision-artifact-tool-call-card";
-import {
-  FeedbackArtifactToolCallCard,
-  matchesFeedbackArtifactOutput,
-} from "./feedback-artifact-tool-call-card";
+import { FeedbackArtifactToolCallCard } from "./feedback-artifact-tool-call-card";
 import { McpAppToolCallCard, readMcpAppMeta } from "./mcp-app-tool-call-card";
 import {
   matchesProposeUpdatesOutput,
@@ -86,7 +87,9 @@ export function registerDefaultToolCallUiCards() {
   registerToolCallUi({
     id: "core.feedback-artifact",
     priority: 51,
-    match: (ctx) => matchesFeedbackArtifactOutput(ctx.output),
+    // By tool name only: `requestFeedback` suspends natively, so the call never
+    // carries an artifact output to match on.
+    match: (ctx) => ctx.toolName === "requestFeedback",
     Card: FeedbackArtifactToolCallCard,
   });
   registerToolCallUi({
@@ -98,8 +101,7 @@ export function registerDefaultToolCallUiCards() {
   registerToolCallUi({
     id: "core.sandbox-command-confirmation",
     priority: 54,
-    match: (ctx) =>
-      matchesSandboxCommandToolCall(ctx.toolName, ctx.state ?? "running"),
+    match: (ctx) => matchesSandboxCommandToolCall(ctx.toolName),
     Card: SandboxCommandConfirmToolCallCard,
   });
   registerToolCallUi({
@@ -144,6 +146,15 @@ export function registerDefaultToolCallUiCards() {
     priority: 91,
     match: (ctx) => ctx.toolName === "agent_look",
     Card: AgentLookToolCallCard,
+    standalone: true,
+  });
+  registerToolCallUi({
+    id: "core.browser-show",
+    priority: 92,
+    match: (ctx) =>
+      ctx.toolName === BROWSER_SHOW_TOOL_NAME ||
+      ctx.resolvedToolName === BROWSER_SHOW_TOOL_NAME,
+    Card: BrowserShowToolCallCard,
     standalone: true,
   });
   registerToolCallUi({

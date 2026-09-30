@@ -68,6 +68,11 @@
   --color-cobalt: var(--cobalt);
   --color-paper: var(--paper);
   --color-paper-2: var(--paper-2);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-moss: var(--moss);
+  --color-amber: var(--amber);
   --font-sans: var(--font-sans);
   --font-heading: var(--font-heading);
   --font-mono: var(--font-mono);

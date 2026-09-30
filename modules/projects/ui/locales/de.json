@@ -275,7 +275,12 @@
       "clientSection": "Kunde",
       "clientSectionDescription": "Kontakt oder Organisation, für die dieses Projekt läuft."
     },
-    "saveFailed": "Projekt konnte nicht gespeichert werden."
+    "saveFailed": "Projekt konnte nicht gespeichert werden.",
+    "quickAdd": {
+      "client": "Kunde",
+      "team": "Team",
+      "notes": "Notizen"
+    }
   },
   "create": {
     "title": "Projekt erstellen",
@@ -427,5 +432,14 @@
     "createFailed": "Phase konnte nicht erstellt werden.",
     "updateFailed": "Phase konnte nicht gespeichert werden.",
     "deleteFailed": "Phase konnte nicht gelöscht werden."
+  },
+  "pins": {
+    "section": "Projekte",
+    "pin": "Im Space anheften",
+    "unpin": "Vom Space lösen"
+  },
+  "cover": {
+    "openTasks_one": "{{count}} offene Aufgabe",
+    "openTasks_other": "{{count}} offene Aufgaben"
   }
 }

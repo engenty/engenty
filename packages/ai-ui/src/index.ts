@@ -58,6 +58,7 @@ export {
   clearArtifactsForTests,
   closeA2uiSurfacePaneTab,
   closeObjectPaneTab,
+  closeViewPaneTab,
   closeWorkFilePaneTab,
   getArtifactPaneOpen,
   isA2uiSurfacePaneTabKey,
@@ -71,12 +72,14 @@ export {
   openA2uiSurfacePaneTab,
   openArtifactPane,
   openObjectPaneTab,
+  openViewPaneTab,
   openWorkFilePaneTab,
   setActiveArtifact,
   setArtifactPaneExpanded,
   setArtifactPaneOpen,
   type UseArtifactPaneResult,
   useArtifacts,
+  type ViewPaneTab,
   type WorkFilePaneTab,
   workFilePaneTabKey,
 } from "./artifacts/artifact-store.js";
@@ -105,6 +108,12 @@ export {
   useMarkdownReadingStyle,
 } from "./artifacts/markdown-reading-style.js";
 export { MarkdownReadingStyleSegment } from "./artifacts/markdown-reading-style-segment.js";
+export {
+  activeViewPaneHost,
+  openViewInPane,
+  registerViewPaneHost,
+} from "./artifacts/view-pane-host.js";
+export { viewPathMatches } from "./artifacts/view-pane-routes.js";
 export {
   listWorkFiles,
   useWorkFilesQuery,
@@ -186,8 +195,6 @@ export type {
   MentionRefSearch,
 } from "./components/copilot/composer/use-copilot-composer-mention.js";
 export {
-  ContextUsageIndicator,
-  type ContextUsageIndicatorProps,
   type ContextUsageLevel,
   contextUsageCostUsd,
   contextUsageLevel,
@@ -258,6 +265,7 @@ export {
   ENGENTY_CLUSTER_MAX,
   EngentyCluster,
 } from "./components/engenty-cluster.js";
+export { ModuleSidebarAgents } from "./components/module-sidebar-agents.js";
 export {
   ThreadStatusIcon,
   type ThreadStatusIconProps,
@@ -322,7 +330,6 @@ export {
   type AgentStatusTickerVariant,
   type AgentStepKind,
   type AgentTurnMessageLike,
-  type AgentTurnPhase,
   buildAssistantActivitySignature,
   CopilotCompactComposerShell,
   type CopilotCompactComposerShellProps,
@@ -357,7 +364,6 @@ export {
   THREAD_CHAPTER_QUERY,
   type ThreadChapter,
   type ThreadChapterKind,
-  type ThreadChapterNote,
   type ThreadChapterSpace,
   type ThreadChapters,
   threadChapterKeys,
@@ -433,6 +439,7 @@ export {
   sendDeskMessageInPlace,
 } from "./features/agent-desk/send-desk-message.js";
 export { useAgentDeskFeed } from "./features/agent-desk/use-agent-desk-feed.js";
+export { useAgentDeskSlashCommands } from "./features/agent-desk/use-agent-desk-slash-commands.js";
 export {
   AGENT_LIVE_ACTIVITY_IDLE_POLL_MS,
   AGENT_LIVE_ACTIVITY_POLL_MS,
@@ -470,16 +477,11 @@ export {
 export { EngentyCanvasPageChrome } from "./features/agents-workspace/engenty-catalog-page-chrome.js";
 export { useAgentsWorkspaceShellNav } from "./features/agents-workspace/use-agents-workspace-shell-nav.js";
 export { useWorkspaceNavData } from "./features/agents-workspace/use-workspace-nav-data.js";
-export { useEffortLastResolved } from "./features/ai-effort/effort-resolved-flash.js";
-// Grant lookup is Tier 2: it reads the tenant usage policy over the admin HTTP
-// client, which the embed entry deliberately does not pull in.
-export {
-  setChatEffortChoice,
-  useChatEffortChoice,
-} from "./features/ai-effort/use-chat-effort-choice.js";
+// The pick hook is Tier 2: it reads the tenant usage policy and the composer
+// options over the admin HTTP client, which the embed entry deliberately does
+// not pull in.
+export { useChatMode } from "./features/ai-effort/use-chat-mode.js";
 export { useEffortGrant } from "./features/ai-effort/use-effort-grant.js";
-export { useEffortModelBindings } from "./features/ai-effort/use-effort-model-bindings.js";
-export { useEffortResolvedFeedback } from "./features/ai-effort/use-effort-resolved-feedback.js";
 export { CopilotAdminLinksSection } from "./features/ai-settings/copilot-admin-links-section.js";
 export { EffortTiersCard } from "./features/ai-settings/effort-tiers-card.js";
 export {

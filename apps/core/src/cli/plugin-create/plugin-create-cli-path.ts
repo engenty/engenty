@@ -27,7 +27,8 @@ export function shouldDeferPluginBoot(
     command === "db" ||
     command === "doctor" ||
     command === "deploy" ||
-    command === "plugins"
+    command === "plugins" ||
+    command === "service-token"
   ) {
     return true;
   }

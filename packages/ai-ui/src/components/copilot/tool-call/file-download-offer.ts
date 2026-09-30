@@ -1,3 +1,5 @@
+import { fileNameFromStorageKey } from "../../../artifacts/file-artifact-handle.js";
+
 export interface FileDownloadOfferItem {
   key: string;
   mime_type?: string;
@@ -9,9 +11,9 @@ export interface FileDownloadOfferItem {
 // Threads written before that still contain its tool calls, so the parser and
 // its card stay — deleting them would blank out download buttons in transcripts
 // the user can still scroll back to. Nothing emits this shape any more.
-export const FILE_DOWNLOADS_OFFER_TYPE = "file_downloads" as const;
+const FILE_DOWNLOADS_OFFER_TYPE = "file_downloads" as const;
 
-export interface FileDownloadsOfferOutput {
+interface FileDownloadsOfferOutput {
   __type: typeof FILE_DOWNLOADS_OFFER_TYPE;
   files: FileDownloadOfferItem[];
   ok?: boolean;
@@ -22,11 +24,6 @@ function readRecord(value: unknown): Record<string, unknown> | null {
     return null;
   }
   return value as Record<string, unknown>;
-}
-
-export function fileNameFromStorageKey(key: string): string {
-  const segments = key.split("/").filter(Boolean);
-  return segments.at(-1) ?? key;
 }
 
 function parseFileDownloadOfferItem(
@@ -55,9 +52,7 @@ function parseFileDownloadOfferItem(
   };
 }
 
-export function parseFileDownloadOfferItems(
-  value: unknown
-): FileDownloadOfferItem[] {
+function parseFileDownloadOfferItems(value: unknown): FileDownloadOfferItem[] {
   if (!Array.isArray(value)) {
     return [];
   }
@@ -71,7 +66,7 @@ export function parseFileDownloadOfferItems(
   return files;
 }
 
-export function isFileDownloadsOfferOutput(
+function isFileDownloadsOfferOutput(
   value: unknown
 ): value is FileDownloadsOfferOutput {
   const record = readRecord(value);

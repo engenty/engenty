@@ -121,25 +121,32 @@ export const ATTENTION_UPDATE_PRIORITIES: readonly NotificationPriority[] = [
 ];
 
 /**
- * "Needs attention" (Wichtig): an OPEN record that is a decision, todo or
- * alert, or a high/urgent update. The one rule behind the bell, the
- * attention count, the Wichtig lane and the space dashboard — seen or not:
- * an attention record nags until handled (a decision until resolved, an FYI
- * until dismissed). The UI mirrors it in
+ * "Needs attention": an OPEN record that is a decision or todo — until it is
+ * handled — or an alert or a high/urgent update this person has not seen yet.
+ * Seeing an alert or an FYI is handling it; a decision is only handled by
+ * answering. The one rule behind the bell, the attention count, the
+ * Notifications lane and the space dashboard. The UI mirrors it in
  * `packages/notifications-ui/src/classification.ts`.
  */
 export function isAttention(
-  record: Pick<NotificationRecord, "class" | "priority" | "status">
+  record: Pick<NotificationRecord, "class" | "priority" | "status"> & {
+    /** This viewer already looked at it. */
+    seen?: boolean;
+  }
 ): boolean {
   if (record.status !== "pending") {
     return false;
   }
-  if (ATTENTION_CLASSES.includes(record.class)) {
+  if (record.class === "decision" || record.class === "todo") {
     return true;
   }
+  if (record.seen) {
+    return false;
+  }
   return (
-    record.class === "update" &&
-    ATTENTION_UPDATE_PRIORITIES.includes(record.priority)
+    ATTENTION_CLASSES.includes(record.class) ||
+    (record.class === "update" &&
+      ATTENTION_UPDATE_PRIORITIES.includes(record.priority))
   );
 }
 
@@ -159,9 +166,24 @@ export interface NotificationActor {
   kind: NotificationActorKind;
 }
 
+/**
+ * A result a record carries besides its context: the artifact a routine
+ * wrote, a file, a module record. The card opens the agent's context; an
+ * attachment opens the result itself.
+ */
+export interface NotificationAttachment {
+  kind: "artifact" | "file" | "record";
+  /** What the chip says — the result's own title, never an id. */
+  label: string;
+  /** In-app route of the result (relative, starts with /). */
+  target: string;
+}
+
 export interface NotificationRecord {
   actor_id: string | null;
   actor_kind: NotificationActorKind | null;
+  /** Results to open directly (max 3); the record's `target` is the context. */
+  attachments: NotificationAttachment[];
   audience_id: string | null;
   audience_kind: NotificationAudienceKind;
   /** One plain line under the title (≤140), never raw agent output. */

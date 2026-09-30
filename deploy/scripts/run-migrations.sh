@@ -20,6 +20,11 @@ if [ -z "${SUPABASE_DB_URL:-}" ]; then
   exit 0
 fi
 
+# Held-back migrations (modules below this image's ENGENTY_MODULE_STAGE) that
+# the database applied earlier get a no-op file, so the push accepts that
+# history. Any other unknown version still stops the push.
+node ./held-migration-placeholders.mjs --db-url "$SUPABASE_DB_URL"
+
 echo "[engenty-migrate] Applying pending migrations via supabase db push…"
 # --include-all: apply pending migrations even if a newer one is already on the
 # remote (out-of-order histories across installs). Already-applied versions are

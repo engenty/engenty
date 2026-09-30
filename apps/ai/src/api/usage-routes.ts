@@ -1,4 +1,5 @@
 import {
+  AI_EFFORT_LEVELS,
   type AiUsageStore,
   DEFAULT_TENANT_USAGE_POLICY,
   resolveCurrentPeriod,
@@ -29,10 +30,7 @@ const tenantPolicyPatchSchema = z.object({
   hard_limit_cost_micros: z.number().int().nonnegative().nullable().optional(),
   allowed_models: z.array(z.string()).nullable().optional(),
   allowed_providers: z.array(z.string()).nullable().optional(),
-  allowed_efforts: z
-    .array(z.enum(["low", "medium", "high"]))
-    .nullable()
-    .optional(),
+  allowed_efforts: z.array(z.enum(AI_EFFORT_LEVELS)).nullable().optional(),
 });
 
 const adminPolicySchema = tenantPolicyPatchSchema.extend({

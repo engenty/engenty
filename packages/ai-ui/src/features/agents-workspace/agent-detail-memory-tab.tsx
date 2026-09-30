@@ -1,8 +1,8 @@
-// Memory tab of the agent's personnel file: MEMORY.md and TASKS.md, the two
-// pads the engenty keeps for itself. Both are kept PER SPACE — the same agent
-// remembers different things for Marketing and for Finance — so the tab
-// starts with the Space it is reading, and the pads under it are the very
-// ones the desk's Manage panel shows inside that Space.
+// Memory tab of the agent's personnel file: its own memory entries and
+// TASKS.md, what the engenty keeps for itself. Both are kept PER SPACE — the
+// same agent remembers different things for Marketing and for Finance — so
+// the tab starts with the Space it is reading, and the lists under it are the
+// very ones the desk's Manage panel shows inside that Space.
 import { useTranslation } from "@engenty/i18n/ui";
 import { useQuery } from "@engenty/query-client";
 import {
@@ -85,7 +85,6 @@ export function AgentDetailMemoryTab({
       </div>
       <AgentMemorySection
         agentId={agentId}
-        editable={editable}
         key={`memory:${spaceId}`}
         spaceId={spaceId}
       />

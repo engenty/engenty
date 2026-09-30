@@ -50,6 +50,10 @@ import {
   createEngentyMastraResourceId,
   createEngentySessionMemoryRuntime,
 } from "../memory/invocation-options.js";
+import {
+  isPrivateLine,
+  memoryPlaceFromResolution,
+} from "../memory/memory-scopes.js";
 import { resolveSharedObservationsScope } from "../memory/shared-observational-memory.js";
 import {
   type AiRegistry,
@@ -104,7 +108,10 @@ import {
 } from "../sessions/run-event-bus.js";
 import { createSessionRunTracker } from "../sessions/run-tracking.js";
 import { readToolApprovalGrants } from "../sessions/tool-approval-grants.js";
-import { isDecisionArtifactPayload } from "../sessions/transcript.js";
+import {
+  isDecisionArtifactPayload,
+  isFeedbackArtifactPayload,
+} from "../sessions/transcript.js";
 import { type AiSessionScope, scopeAccessToken } from "../sessions/types.js";
 import {
   emitArtifactInterrupt,
@@ -162,6 +169,13 @@ export interface ResumeConversationRunInput {
     | { sandboxProvider?: EngentySandboxProvider; workspace?: Workspace }
     | undefined
   >;
+  /**
+   * What the answered call reads as in PERSISTED history once the resume
+   * completes. The resume data itself for most tools; for `requestFeedback`
+   * the tool's own answer sentence, which is where the transcript reads the
+   * answer back from.
+   */
+  resolvedResult: unknown;
   // The just-resolved interrupt's toolCallId (the suspended tool).
   resolvedToolCallId: string;
   /**
@@ -288,9 +302,8 @@ async function buildResumeToolsRunContext(input: ResumeConversationRunInput) {
     ),
     approvalPolicy: "suspend" as const,
     // The continuation parks and resumes exactly like the start run, so a
-    // follow-up `requestDecision` may suspend too. Without this it would fall
-    // back to returning an artifact mid-conversation — two mechanisms in one
-    // thread, and the artifact would never be surfaced as a card.
+    // follow-up `requestDecision` / `requestFeedback` may suspend too. Without
+    // this it would answer "nobody was asked" mid-conversation.
     canSuspendForInteraction: true,
     goalId: input.threadId,
     // Thread-scoped tools (e.g. artifacts) read the active thread from here.
@@ -537,6 +550,11 @@ async function resumeFromSnapshot(
     const memoryRuntime = createEngentySessionMemoryRuntime({
       agentId: input.agentId,
       ...(agentConfig?.name ? { agentName: agentConfig.name } : {}),
+      memory: {
+        agentScope: agentConfig?.agentScope,
+        place: memoryPlaceFromResolution(spaceResolution),
+        privateLine: isPrivateLine({ sharedRoom, thread: resumeThread }),
+      },
       observationalModelId: input.modelConfig?.fastTextModelId,
       scope: input.scope,
       sharedObservations: agentConfig
@@ -596,7 +614,7 @@ async function resumeFromSnapshot(
         emit({ name, type: EventType.CUSTOM, value } as AGUIEvent),
       headless: false,
       tenantId: input.scope.tenantId,
-      textModelId: input.modelConfig?.gradedModelIds?.low ?? null,
+      textModelId: input.modelConfig?.gradedModelIds?.normal ?? null,
       classifierModelId: input.modelConfig?.classifierModelId ?? null,
     });
     const extraTools = {
@@ -791,7 +809,10 @@ async function emitSnapshotSuspendInterrupt(args: {
     });
     return true;
   }
-  if (isDecisionArtifactPayload(suspendedAgain.suspendPayload)) {
+  if (
+    isDecisionArtifactPayload(suspendedAgain.suspendPayload) ||
+    isFeedbackArtifactPayload(suspendedAgain.suspendPayload)
+  ) {
     return await emitArtifactInterrupt({
       ...common,
       result: suspendedAgain.suspendPayload,
@@ -898,7 +919,7 @@ export async function resumeConversationRun(
       // original row at `state:"call"`, so without this the tool renders as
       // still spinning on the next thread load even though the run completed.
       await resolveToolCallResultInHistory({
-        result: input.resumeData,
+        result: input.resolvedResult,
         scope: input.scope,
         store: input.store,
         threadId: input.threadId,

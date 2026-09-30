@@ -33,6 +33,7 @@ interface ProjectSettingsPanelProps {
   clientName: string | null;
   endDate: string | null;
   onClose: () => void;
+  /** Called on every change — the panel has no Save button. */
   onSave: (values: ProjectSettingsValues) => void | Promise<void>;
   open: boolean;
   portalEnabled: boolean;
@@ -83,6 +84,9 @@ const PASSWORD_LENGTH = 12;
  * Everything that is configured per project rather than per view: time planning
  * (the switch that separates a full project from a lean project room) and the
  * client portal. Grouped into card sections per the settings-form-section rule.
+ *
+ * Every change saves on its own (the password field on blur), so closing the
+ * panel never throws work away.
  */
 export function ProjectSettingsPanel({
   clientId: initialClientId,
@@ -112,7 +116,6 @@ export function ProjectSettingsPanel({
     Boolean(initialPassword)
   );
   const [password, setPassword] = useState(initialPassword || "");
-  const [saving, setSaving] = useState(false);
 
   const portalUrl = `${window.location.origin}/portal/${projectId}`;
 
@@ -134,41 +137,52 @@ export function ProjectSettingsPanel({
     initialPassword,
   ]);
 
+  const save = (patch: {
+    client?: ProjectClientSelection;
+    endDate?: string;
+    password?: string;
+    passwordProtected?: boolean;
+    portalEnabled?: boolean;
+    startDate?: string;
+    timeplanEnabled?: boolean;
+  }) => {
+    const next = {
+      client: patch.client ?? client,
+      endDate: patch.endDate ?? endDate,
+      password: patch.password ?? password,
+      passwordProtected: patch.passwordProtected ?? passwordProtected,
+      portalEnabled: patch.portalEnabled ?? portalEnabled,
+      startDate: patch.startDate ?? startDate,
+      timeplanEnabled: patch.timeplanEnabled ?? timeplanEnabled,
+    };
+    void onSave({
+      client_id: next.client.client_id,
+      client_name: next.client.client_name,
+      timeplan_enabled: next.timeplanEnabled,
+      // Dates belong to the time plan — turning it off clears them so a lean
+      // project does not keep an invisible schedule.
+      start_date: next.timeplanEnabled ? next.startDate || null : null,
+      end_date: next.timeplanEnabled ? next.endDate || null : null,
+      portal_enabled: next.portalEnabled,
+      portal_password:
+        next.portalEnabled && next.passwordProtected && next.password
+          ? next.password
+          : null,
+    });
+  };
+
   const generatePassword = () => {
     const nextPassword = Array.from(
       { length: PASSWORD_LENGTH },
       () => PASSWORD_CHARS[Math.floor(Math.random() * PASSWORD_CHARS.length)]
     ).join("");
     setPassword(nextPassword);
+    save({ password: nextPassword });
   };
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     // Ideally we would show a toast here
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      await onSave({
-        client_id: client.client_id,
-        client_name: client.client_name,
-        timeplan_enabled: timeplanEnabled,
-        // Dates belong to the time plan — turning it off clears them so a lean
-        // project does not keep an invisible schedule.
-        start_date: timeplanEnabled ? startDate || null : null,
-        end_date: timeplanEnabled ? endDate || null : null,
-        portal_enabled: portalEnabled,
-        portal_password:
-          portalEnabled && passwordProtected && password ? password : null,
-      });
-      onClose();
-    } catch (error) {
-      // biome-ignore lint/suspicious/noConsole: module-level error logging until evlog transport is available
-      console.error("Failed to save project settings:", error);
-    } finally {
-      setSaving(false);
-    }
   };
 
   return (
@@ -186,7 +200,10 @@ export function ProjectSettingsPanel({
             <ProjectClientPicker
               clientId={client.client_id}
               clientName={client.client_name}
-              onChange={setClient}
+              onChange={(next) => {
+                setClient(next);
+                save({ client: next });
+              }}
             />
           </CardSection>
 
@@ -198,7 +215,10 @@ export function ProjectSettingsPanel({
               action={
                 <Switch
                   checked={timeplanEnabled}
-                  onCheckedChange={setTimeplanEnabled}
+                  onCheckedChange={(next) => {
+                    setTimeplanEnabled(next);
+                    save({ timeplanEnabled: next });
+                  }}
                 />
               }
               description={t(
@@ -218,7 +238,10 @@ export function ProjectSettingsPanel({
                     <Label>{t("detail.projectSettings.startDate")}</Label>
                     <DatePicker
                       className="mt-1 w-full"
-                      onChange={(next) => setStartDate(next ?? "")}
+                      onChange={(next) => {
+                        setStartDate(next ?? "");
+                        save({ startDate: next ?? "" });
+                      }}
                       value={startDate || null}
                     />
                   </div>
@@ -226,7 +249,10 @@ export function ProjectSettingsPanel({
                     <Label>{t("detail.projectSettings.endDate")}</Label>
                     <DatePicker
                       className="mt-1 w-full"
-                      onChange={(next) => setEndDate(next ?? "")}
+                      onChange={(next) => {
+                        setEndDate(next ?? "");
+                        save({ endDate: next ?? "" });
+                      }}
                       value={endDate || null}
                     />
                   </div>
@@ -240,7 +266,10 @@ export function ProjectSettingsPanel({
               action={
                 <Switch
                   checked={portalEnabled}
-                  onCheckedChange={setPortalEnabled}
+                  onCheckedChange={(next) => {
+                    setPortalEnabled(next);
+                    save({ portalEnabled: next });
+                  }}
                 />
               }
               description={t("detail.projectSettings.portalSectionDescription")}
@@ -259,7 +288,10 @@ export function ProjectSettingsPanel({
                   label={t("detail.portal.passwordProtected", {
                     defaultValue: "Password protected",
                   })}
-                  onCheckedChange={setPasswordProtected}
+                  onCheckedChange={(next) => {
+                    setPasswordProtected(next);
+                    save({ passwordProtected: next });
+                  }}
                 />
 
                 {passwordProtected && (
@@ -270,6 +302,11 @@ export function ProjectSettingsPanel({
                     <div className="flex gap-2">
                       <Input
                         id="portal-password"
+                        onBlur={() => {
+                          if (password !== (initialPassword || "")) {
+                            save({});
+                          }
+                        }}
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder={t("detail.portal.enterPassword")}
                         type="text"
@@ -321,15 +358,6 @@ export function ProjectSettingsPanel({
               </CardSection.Body>
             )}
           </CardSection>
-
-          <div className="mt-auto flex justify-end gap-2 border-t pt-4">
-            <Button onClick={onClose} size="sm" variant="outline">
-              {t("detail.portal.cancel")}
-            </Button>
-            <Button disabled={saving} onClick={handleSave} size="sm">
-              {saving ? t("detail.portal.saving") : t("detail.portal.save")}
-            </Button>
-          </div>
         </div>
       </SidePanelContent>
     </SidePanel>

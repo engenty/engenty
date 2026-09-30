@@ -1,5 +1,6 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { SPACE_APPS_FOLDER } from "@engenty/file-storage";
 import { createLogger } from "@engenty/telemetry";
 import {
   LocalFilesystem,
@@ -101,8 +102,12 @@ export interface CreateEngentyAgentWorkspaceResult {
 // tool reads to find its own. The host owns both halves so a custom sandbox
 // image cannot silently leave the binds inert.
 const SANDBOX_CACHE_MOUNT_ROOT = "/cache";
-/** Where a space computer sees the space's Apps. */
-const SPACE_APPS_MOUNT_PATH = "/sandbox/apps";
+/**
+ * Where a space computer sees the space's Apps: inside the Space's folder, as
+ * `apps/` beside `documents/` and `agent/`. A bind of its own (the tree is
+ * app-host's, not the commons), so the Space folder's sync never uploads it.
+ */
+const SPACE_APPS_MOUNT_PATH = `${SPACE_MOUNT_PATH}/${SPACE_APPS_FOLDER}`;
 
 const SANDBOX_CACHE_ENV_VARS: Record<SandboxCacheTool, string> = {
   bun: "BUN_INSTALL_CACHE_DIR",
@@ -463,7 +468,7 @@ export async function createEngentyAgentWorkspace(
     }
 
     // The space's Apps: every App's source repository and /data directory,
-    // bound in at /sandbox/apps/<slug>/{src,data} so the agent edits the same
+    // bound in at /space/apps/<slug>/{src,data} so the agent edits the same
     // files the running App reads. app-host owns the tree (it commits and
     // deploys from it); the machine only binds it. Empty storage prefix, so
     // the sandbox's own sync never uploads a repository to object storage.

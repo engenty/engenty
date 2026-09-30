@@ -11,9 +11,9 @@
  * Roles come in two shapes:
  *
  * - **Graded** — general-purpose work, split by how much thinking it deserves:
- *   `model.low` / `model.medium` / `model.high`. This is the only axis an end
- *   user ever picks along, and it is deliberately not called `chat` because the
- *   same role serves tasks and agents.
+ *   `model.normal` / `model.high` — the composer's Normal and Extra. This is
+ *   the only axis an end user ever picks along, and it is deliberately not
+ *   called `chat` because the same role serves tasks and agents.
  * - **Fixed** — a job class with its own requirements, never surfaced to end
  *   users:
  *   - `classifier` — pick one of N options / a score / yes-no, with a
@@ -38,15 +38,19 @@
 import { bindingPackFor, seedGatewayFromEnv } from "./model-binding-packs.js";
 import { DEFAULT_MODEL_GATEWAY_ID, parseModelRef } from "./model-ref.js";
 
-/** How much thinking a piece of work deserves. The only user-facing axis. */
-export const AI_EFFORT_LEVELS = ["low", "medium", "high"] as const;
+/**
+ * How much thinking a piece of work deserves. The only user-facing axis:
+ * `normal` is the composer's Normal, `high` its Extra.
+ */
+export const AI_EFFORT_LEVELS = ["normal", "high"] as const;
 export type AiEffort = (typeof AI_EFFORT_LEVELS)[number];
 
 /**
- * `auto` is not an effort level — it is the absence of a choice, resolved per
- * turn (heuristics first; the `classifier` role only when ambiguous). Kept
- * separate so "the user picked high" and "Auto chose high" stay distinguishable
- * in provenance.
+ * `auto` is not an effort level — it is the absence of a choice: Normal, unless
+ * the turn looks like it needs high, in which case the person is asked first
+ * (heuristics; the `classifier` role only when ambiguous). Kept separate so
+ * "the user picked high" and "the thread is on high" stay distinguishable in
+ * provenance.
  */
 export type AiEffortChoice = AiEffort | "auto";
 
@@ -99,22 +103,15 @@ function packSeed(role: string): string {
 export const AI_PLATFORM_ROLES: readonly AiRoleSpec[] = [
   {
     declaredBy: null,
-    defaultModelId: packSeed("model.low"),
-    label: "General · low effort",
-    role: "model.low",
-    surface: "graded",
-  },
-  {
-    declaredBy: null,
-    defaultModelId: packSeed("model.medium"),
-    label: "General · medium effort",
-    role: "model.medium",
+    defaultModelId: packSeed("model.normal"),
+    label: "Normal",
+    role: "model.normal",
     surface: "graded",
   },
   {
     declaredBy: null,
     defaultModelId: packSeed("model.high"),
-    label: "General · high effort",
+    label: "Extra",
     role: "model.high",
     surface: "graded",
   },
@@ -171,7 +168,7 @@ export const AI_PLATFORM_ROLES: readonly AiRoleSpec[] = [
 
 /** Purpose → role: which binding a purpose resolves through. */
 export const PURPOSE_TO_ROLE: Readonly<Record<string, string>> = {
-  chat: "model.medium",
+  chat: "model.normal",
   classifier: "classifier",
   fast_text: "fast_text",
 };

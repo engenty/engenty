@@ -1,3 +1,4 @@
+import { CHAT_MODE_METADATA_KEY } from "../../ai/sessions/chat-mode-metadata.js";
 import { sessionMatchesHostKey } from "../../ai/sessions/thread-host-key.js";
 import { APP_RELEASE_MARKER_KEY } from "../../ai/threads/app-release-marker.js";
 import { type DbSource, normalizeDbSource } from "../../infra/tenant-db.js";
@@ -1109,6 +1110,22 @@ export function createThreadStore(source: DbSource) {
         .single();
       if (error) {
         throw new Error(`thread_compaction insert: ${error.message}`);
+      }
+      // A chapter is where a thread may change model without losing a warm
+      // prompt cache: it drops back to Normal (sessions/chat-mode-metadata.ts).
+      const { error: modeError } = await dbFor(input.tenant_id).rpc(
+        "merge_thread_metadata",
+        {
+          p_append_sets: {},
+          p_patch: {},
+          p_remove_keys: [CHAT_MODE_METADATA_KEY],
+          p_tenant_id: input.tenant_id,
+          p_thread_id: input.thread_id,
+          p_user_id: null,
+        }
+      );
+      if (modeError) {
+        throw new Error(`thread chat mode reset: ${modeError.message}`);
       }
       return data as ThreadCompactionRow;
     },

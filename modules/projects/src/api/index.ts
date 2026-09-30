@@ -54,6 +54,7 @@ import {
 import { buildProjectsBriefingResponse } from "../services/projects-briefing-service.js";
 import { registerProjectsGatewayMethods } from "./gateway-methods.js";
 import { getRepo, type RepoOrFactory } from "./gateway-shared.js";
+import { registerProjectCoverRoutes } from "./project-cover-routes.js";
 
 /** UUID v4 pattern to avoid /api/projects/tasks matching /api/projects/:id */
 const UUID_PARAM =
@@ -819,4 +820,6 @@ export function registerProjectsApi(
       },
     });
   }
+
+  registerProjectCoverRoutes(api, repoOrFactory);
 }

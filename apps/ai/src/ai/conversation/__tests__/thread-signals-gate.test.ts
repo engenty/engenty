@@ -196,7 +196,6 @@ function drive(agent: Agent, threadId: string, runId: string) {
     agent,
     agentId: "gate-agent",
     emit: () => {},
-    isStopOnResult: () => false,
     prompt: "hello",
     resourceId: userId,
     runId,

@@ -1,0 +1,52 @@
+{
+  "$schema": "engenty/ai-agent-manifest/v1",
+  "id": "engenty.app-coder",
+  "name": "App Coder",
+  "description": "Builds engenty Apps: single-page reactive frontends with an optional backend, their own working store, and a declared engenty capability surface. Writes real code \u2014 no DSL, no form builder.",
+  "engenty": "bean",
+  "effort": "high",
+  "module_id": "engenty-apps",
+  "skills": ["app-authoring", "engenty-bridge"],
+  "tools": [
+    "app_build",
+    "engenty_tools_search",
+    "engenty_tool_execute",
+    "artifact_write"
+  ],
+  "starters": [
+    {
+      "id": "app-scaffold",
+      "label": "Scaffold a new app",
+      "prompt": "Scaffold a new Engenty app. Ask me what it should do and which capabilities it needs.",
+      "locales": {
+        "de": {
+          "label": "Neue App anlegen",
+          "prompt": "Lege eine neue Engenty-App an. Frag mich, was sie tun soll und welche F\u00e4higkeiten sie braucht."
+        }
+      }
+    },
+    {
+      "id": "app-fix-build",
+      "label": "Fix the last build",
+      "prompt": "Look at the last app build failure and fix it.",
+      "locales": {
+        "de": {
+          "label": "Letzten Build reparieren",
+          "prompt": "Schau dir den letzten fehlgeschlagenen App-Build an und repariere ihn."
+        }
+      }
+    },
+    {
+      "id": "app-add-action",
+      "label": "Add an Engenty action",
+      "prompt": "Add an Engenty action to the current app so it can call a workspace capability.",
+      "locales": {
+        "de": {
+          "label": "Engenty-Action hinzuf\u00fcgen",
+          "prompt": "F\u00fcge der aktuellen App eine Engenty-Action hinzu, damit sie eine Workspace-F\u00e4higkeit aufrufen kann."
+        }
+      }
+    }
+  ],
+  "kind": "delegated"
+}

@@ -1,5 +1,7 @@
+import { useEffect } from "react";
 import { useCSVImportWizard } from "../hooks/useCSVImportWizard.js";
-import type { CSVImportWizardProps } from "../types.js";
+import { useInitialImportFile } from "../initial-import-file.js";
+import type { CSVImportWizardProps, ImportWizardSnapshot } from "../types.js";
 import { ImportMappingStep } from "./ImportMappingStep.js";
 import { ImportUploadStep } from "./ImportUploadStep.js";
 import { SavePresetDialog } from "./SavePresetDialog.js";
@@ -31,8 +33,10 @@ export function CSVImportWizard({
   matchByConfig,
   matchByLabels,
   onMatchByConfigChange,
+  onStateChange,
   className = "",
 }: CSVImportWizardProps) {
+  const initialFile = useInitialImportFile();
   const {
     step,
     setStep,
@@ -62,6 +66,7 @@ export function CSVImportWizard({
     setErrorAndNotify,
   } = useCSVImportWizard({
     fieldDefinitions,
+    initialFile,
     labels,
     matchByConfig,
     onAiMap,
@@ -77,6 +82,30 @@ export function CSVImportWizard({
     onSuccess,
     presetAdapter,
   });
+
+  const snapshotJson = JSON.stringify({
+    columnCount: csvData?.headers.length ?? null,
+    filename: csvFilename,
+    mappedFields: mappings
+      .filter((m) => m.csvColumnIndex !== null || m.isTemplate)
+      .map((m) => m.fieldKey),
+    rowCount: csvData?.totalRows ?? null,
+    step,
+    unmappedRequiredFields: fields
+      .filter(
+        (f) =>
+          f.required &&
+          !mappings.some(
+            (m) =>
+              m.fieldKey === f.key &&
+              (m.csvColumnIndex !== null || m.isTemplate)
+          )
+      )
+      .map((f) => f.key),
+  } satisfies ImportWizardSnapshot);
+  useEffect(() => {
+    onStateChange?.(JSON.parse(snapshotJson) as ImportWizardSnapshot);
+  }, [onStateChange, snapshotJson]);
 
   return (
     <div className={className}>

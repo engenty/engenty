@@ -4,6 +4,8 @@
  * two to six agents, opened on the host's desk). The heading itself still
  * navigates to the roster.
  */
+
+import { pickRandomHireEngenty } from "@engenty/ai-core/browser";
 import { AgentDeskNewRoomDialog } from "@engenty/ai-ui";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
@@ -19,7 +21,6 @@ import { useNavigate } from "react-router-dom";
 import { spaceRoomPath } from "@/lib/space-routes";
 import { useSpaceRosterAgents } from "@/lib/use-space-roster-agents";
 import { SpaceAgentHireWizard } from "./SpaceAgentHireWizard";
-import { pickRandomHireEngenty } from "./space-agent-hire";
 import { SpaceSectionAddMenu } from "./space-section-heading";
 
 export function SpaceAgentHireTrigger({

@@ -33,7 +33,7 @@ Default guide for contributors and coding agents in this repository.
 | `apps/ai` | Agent runtime (Mastra + AG-UI) |
 | `apps/docs` | Documentation site (Fumadocs) |
 | `packages/*` | Shared libraries (`ui-core`, `plugin-sdk`, `ai-core`, …) |
-| `modules/*` | Installable feature modules — activated via root `engenty.plugins` (currently: company-profile, connections, contacts, engenty-copilot, files, inbox, knowledge-base, projects, tasks, team, time-tracking). Connector providers are nested workspace plugins under `modules/connections/providers/*` (google, microsoft, slack) yet keep flat slugs (`connections-google`, …) in `engenty.plugins`. |
+| `modules/*` | Installable feature modules — activated via root `engenty.plugins` (currently: company-profile, connections, contacts, context-graph, engenty-copilot, files, inbox, knowledge-base, projects, tasks, team, time-tracking). Connector providers are nested workspace plugins under `modules/connections/providers/*` (google, microsoft, slack) yet keep flat slugs (`connections-google`, …) in `engenty.plugins`. |
 
 Core apps and packages must not depend on optional modules — use plugin hooks, events, and gateway methods instead.
 
@@ -63,7 +63,7 @@ CLI entry point: **`pnpm engenty …`** (same as `pnpm --filter @engenty/core ex
 - **Generate:** `pnpm engenty generate` — regenerate config.toml, the migrations aggregate, the UI catalog and UI deps from **`engenty.plugins`**. Never touches Docker, the DB or env
 - **Dev:** `pnpm dev` (= `pnpm engenty dev`) — preflight (`scripts/predev-check.sh`: Docker, Supabase, migrations, generated files, stale ports) → build packages/modules → core + ui + ai + docs. `--portless`, `--domain=<name>`, `--studio`, `--no-preflight`
 - **Doctor:** `pnpm engenty doctor` — read-only local checks with the fix for each; `--remote` (or `--url`) checks a Supabase deployment's exposed schemas + access-token hook
-- **Plugin manifest:** `pnpm engenty plugins install|uninstall|list` (`pnpm engenty install <slug>` is the shorthand) — root `package.json` → `engenty.plugins` is the SSOT (in-repo by slug; external packages by spec)
+- **Plugin manifest:** `pnpm engenty plugins install|uninstall|purge|list` (`purge` deletes an uninstalled module's data — see `docs/content/dev/plugins.md`) (`pnpm engenty install <slug>` is the shorthand) — root `package.json` → `engenty.plugins` is the SSOT (in-repo by slug; external packages by spec)
 - **Local DB:** `pnpm engenty db up|down|status|restart|migrate|reset|snapshot|restore`. `up` is lean by default; `--studio` adds Supabase Studio, `--logs` adds the Logflare/Vector pipeline. Both cost far more idle CPU than Postgres itself, and several stacks at once saturate the host — which surfaces as bogus `Unauthorized` from auth, not as slowness. Stop the stack before changing the flags (they are written into `supabase/config.toml`). `migrate` and `reset` include Mastra's schema
 - **Local env:** `pnpm engenty env` (menu), `pnpm engenty env init`, `pnpm engenty env check`, `pnpm dev:urls:localhost` — root `.env.local` only (not Docker/deploy)
 - **Deploy:** `pnpm engenty deploy` (wizard, `--dry-run`; works in `deploy/`), `pnpm engenty deploy migrate` (push aggregated migrations to the linked project). From anywhere: `npx engenty deploy` works in `./engenty-deploy/` and `npx engenty deploy migrate` uses `SUPABASE_DB_URL` + the release's baked migrations. Deploy env: copy `deploy/.env.example` → `deploy/.env` manually; `engenty env check --scope deploy`. The Supabase CLI pin lives in `packages/cli/src/supabase-cli-version.ts` (`pnpm check:supabase-pin`)
@@ -88,7 +88,7 @@ Human/CLI Vite URL: `http://localhost:5173` (proxies `/api` and `/ai`). **Agent 
 
 ## Module contract
 
-**Activation (SSOT):** root `package.json` → `engenty.plugins` — object map (`{ "slug": { "source": "workspace" } }`), pi-style. This is the **product manifest**, not app wiring. Folders under `modules/` can exist without being active. **`pnpm engenty plugins install <slug>`** is the only sanctioned way to activate a module: it adds the `engenty.plugins` entry **and** runs `engenty generate` (supabase compose → `config.toml` exposed schemas + buckets, migration aggregation, UI catalog gen, `apps/ui` dep sync) + `pnpm install`. Add `--db-migrate --db-restart` to also apply migrations locally. Do **not** hand-edit the `engenty.plugins` map, `apps/ui/package.json`, `apps/ai/package.json`, or `apps/core` imports to enable modules. **Gotcha:** if the slug is already in `engenty.plugins`, `install` early-returns and **skips generate** — so a hand-added entry leaves the derived files stale; back the entry out and re-run `install` to repair, or run `pnpm engenty generate`. (Modules with UI are loaded via the generated catalog's dynamic `import()` through pnpm root symlinks — they are correctly **absent** from `apps/ui/package.json` deps.)
+**Activation (SSOT):** root `package.json` → `engenty.plugins` — object map (`{ "slug": "workspace" }`; an npm-installed module keeps `{ "source": "registry" }`), pi-style. This is the **product manifest**, not app wiring. Folders under `modules/` can exist without being active. **`pnpm engenty plugins install <slug>`** is the only sanctioned way to activate a module: it adds the `engenty.plugins` entry **and** runs `engenty generate` (supabase compose → `config.toml` exposed schemas + buckets, migration aggregation, UI catalog gen, `apps/ui` dep sync) + `pnpm install`. Add `--db-migrate --db-restart` to also apply migrations locally. Do **not** hand-edit the `engenty.plugins` map, `apps/ui/package.json`, `apps/ai/package.json`, or `apps/core` imports to enable modules. **Gotcha:** if the slug is already in `engenty.plugins`, `install` early-returns and **skips generate** — so a hand-added entry leaves the derived files stale; back the entry out and re-run `install` to repair, or run `pnpm engenty generate`. (Modules with UI are loaded via the generated catalog's dynamic `import()` through pnpm root symlinks — they are correctly **absent** from `apps/ui/package.json` deps.)
 
 | Layer | Committed? | Who sets it |
 |-------|------------|-------------|
@@ -133,7 +133,7 @@ Two runtimes, one job each — do not add a third:
 - **Agent execution = Docker sandbox** (`apps/ai/src/ai/sandbox/`, image `deploy/Dockerfile.sandbox`). Everything an agent runs — workspace EXECUTE_COMMAND, Code Mode, future repo checkouts — goes here.
 - **Tenant Apps = agentOS** (`apps/app-host`). Platform-built Apps run here, never in the agent sandbox.
 
-The Gondolin micro-VM tier was **deleted** (recoverable from git history pre-2026-08-03). Adding another provider/isolation tier is a doctrine change requiring an explicit decision, not a config option. The hosted coder (`feat/coder`, parked — see `PLAN-coder-merge.md` on that branch) targets the Docker sandbox.
+The Gondolin micro-VM tier was **deleted** (recoverable from git history pre-2026-08-03). Adding another provider/isolation tier is a doctrine change requiring an explicit decision, not a config option.
 
 ## UI and i18n
 

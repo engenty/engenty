@@ -26,6 +26,8 @@ const detailPageHeaderVariants = cva("w-full shrink-0", {
 });
 
 const CONTAINER_MAX_WIDTH = {
+  // Reading column for a single list or text (a project's overview).
+  "3xl": "max-w-3xl",
   "5xl": "max-w-5xl",
   "6xl": "max-w-6xl",
   "7xl": "max-w-7xl",

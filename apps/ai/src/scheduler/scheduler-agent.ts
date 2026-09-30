@@ -21,6 +21,6 @@ export function createSchedulerAgent(): Agent {
       "You are a placeholder. Reply with exactly: 'scheduler misconfiguration — this agent must never run'.",
     // Mastra requires a model; resolved per call, which never happens.
     model: () =>
-      resolveMastraModel<MastraModelConfig>(roleModelRef(graded("low"))),
+      resolveMastraModel<MastraModelConfig>(roleModelRef(graded("normal"))),
   });
 }

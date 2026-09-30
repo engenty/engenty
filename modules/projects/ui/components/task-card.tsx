@@ -1,8 +1,8 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useTranslation } from "@engenty/i18n/ui";
 import {
   AvatarStack,
-  Badge,
   Button,
   cn,
   DropdownMenu,
@@ -20,15 +20,14 @@ import {
   Eye,
   EyeOff,
   GripVertical,
-  HelpCircle,
   Pencil,
-  Play,
   Trash2,
 } from "lucide-react";
 import { useState } from "react";
 import { BUILTIN_TASK_STATUS_DEFINITIONS } from "../../task-status-builtins.js";
 import type { PhaseTask, ProjectTaskStatusDefinition } from "../api.js";
 import { TASK_STATUS_FILLS } from "../lib/task-status-styles.js";
+import { useUserDirectoryNames } from "../lib/use-user-directory.js";
 import { resolveTaskStatusLabel } from "./task-status-badge.js";
 
 interface TaskCardProps {
@@ -43,53 +42,62 @@ interface TaskCardProps {
   viewMode?: "internal" | "external";
 }
 
+/**
+ * The status as a round checkbox: an open ring in the status colour, a dot
+ * inside while in progress, a filled check when done. The ring is drawn with
+ * the status's fill class (outer fill, card-coloured inner disc) so no second
+ * colour table is needed.
+ */
 function statusIconForDefinition(
   def: ProjectTaskStatusDefinition,
   size: "sm" | "md" = "md"
 ) {
-  const dotSm = "h-2.5 w-2.5";
-  const dotMd = "h-3 w-3";
-  const dot = size === "sm" ? dotSm : dotMd;
+  const box = size === "sm" ? "size-3.5" : "size-4";
   if (def.id === "done" || def.color === "green") {
     return (
       <CheckCircle2
         className={cn(
-          size === "sm" ? "h-4 w-4" : "h-5 w-5",
+          size === "sm" ? "size-4" : "size-[18px]",
           "text-emerald-600 dark:text-emerald-400"
         )}
       />
     );
   }
-  if (def.id === "request") {
-    return (
-      <HelpCircle
-        className={cn(
-          size === "sm" ? "h-4 w-4" : "h-5 w-5",
-          "text-orange-600 dark:text-orange-300"
-        )}
-      />
-    );
-  }
-  if (def.id === "in_progress") {
-    return (
-      <Play
-        className={cn(
-          size === "sm" ? "h-4 w-4" : "h-5 w-5",
-          "text-orange-500 dark:text-orange-300"
-        )}
-      />
-    );
-  }
+  const fill = TASK_STATUS_FILLS[def.color] ?? "bg-muted-foreground/40";
   return (
     <span
       className={cn(
-        "shrink-0 rounded-full",
-        dot,
-        TASK_STATUS_FILLS[def.color] ?? "bg-muted-foreground/40"
+        "grid shrink-0 place-items-center rounded-full p-[1.5px]",
+        box,
+        fill
       )}
-    />
+    >
+      <span className="grid size-full place-items-center rounded-full bg-card">
+        {def.id === "in_progress" ? (
+          <span className={cn("size-1.5 rounded-full", fill)} />
+        ) : null}
+      </span>
+    </span>
   );
 }
+
+function formatDueDate(value: string, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
+    day: "numeric",
+    month: "short",
+    weekday: "short",
+  }).format(new Date(value));
+}
+
+function isOverdue(value: string): boolean {
+  const due = new Date(value);
+  due.setHours(23, 59, 59, 999);
+  return due.getTime() < Date.now();
+}
+
+/** One card around a list of task rows, rows split by hairlines. */
+export const TASK_LIST_CARD_CLASS =
+  "ui-card-raised divide-y divide-border-soft overflow-hidden";
 
 export function TaskCard({
   task,
@@ -112,6 +120,8 @@ export function TaskCard({
     isOver,
   } = useSortable({ id: task.id });
   const [isHovered, setIsHovered] = useState(false);
+  const { i18n } = useTranslation();
+  const directoryNames = useUserDirectoryNames();
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -126,37 +136,6 @@ export function TaskCard({
       label: task.status,
       color: "slate",
     } satisfies ProjectTaskStatusDefinition);
-
-  const getStatusBadge = (status: string) => {
-    const def =
-      taskStatusDefinitions.find((d) => d.id === status) ?? currentDef;
-
-    let customClass = "";
-    if (def.color === "orange") {
-      customClass =
-        "bg-orange-500/10 text-orange-800 dark:text-orange-200 dark:bg-orange-500/20 border-orange-500/20";
-    } else if (def.color === "green") {
-      customClass =
-        "bg-emerald-500/10 text-emerald-800 dark:text-emerald-200 dark:bg-emerald-500/20 border-emerald-500/20";
-    } else if (def.color === "blue") {
-      customClass =
-        "bg-blue-500/10 text-blue-800 dark:text-blue-200 dark:bg-blue-500/20 border-blue-500/20";
-    }
-
-    return (
-      <Badge
-        className={cn(
-          "min-h-5 px-1.5 py-0 font-normal leading-none",
-          customClass,
-          !customClass && "border"
-        )}
-        variant="secondary"
-      >
-        <span className="mr-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-70" />
-        {resolveTaskStatusLabel(status, taskStatusDefinitions)}
-      </Badge>
-    );
-  };
 
   const handleVisibilityToggle = () => {
     if (onVisibilityToggle) {
@@ -178,6 +157,28 @@ export function TaskCard({
 
   const doneLike = task.status === "done";
 
+  // The person the task is assigned to first, then its collaborators.
+  const assigneeProfiles = [
+    ...(task.primary_assignee_user_id
+      ? [
+          {
+            id: task.primary_assignee_user_id,
+            full_name: directoryNames.get(task.primary_assignee_user_id) ?? "?",
+            avatar_url: null,
+            is_connected: true,
+          },
+        ]
+      : []),
+    ...(showAssignees ? (task.task_team ?? []) : [])
+      .filter((m) => m.user_id !== task.primary_assignee_user_id)
+      .map((m) => ({
+        id: m.user_id,
+        full_name: m.profile?.full_name || directoryNames.get(m.user_id) || "?",
+        avatar_url: m.profile?.avatar_url,
+        is_connected: m.profile?.is_connected ?? true,
+      })),
+  ];
+
   return (
     <div className="relative">
       {isOver && (
@@ -185,8 +186,9 @@ export function TaskCard({
       )}
       <div
         className={cn(
-          "ui-card-raised relative flex select-none items-center gap-4 p-3 pl-8",
-          viewMode === "internal" && "ui-card-interactive cursor-pointer",
+          // A flat row: the list around it is the card (`TASK_LIST_CARD_CLASS`).
+          "relative flex min-h-12 select-none items-center gap-2.5 bg-card px-3 py-1.5 pl-8",
+          viewMode === "internal" && "cursor-pointer hover:bg-muted/40",
           isDragging && "cursor-grabbing"
         )}
         onClick={handleCardClick}
@@ -265,27 +267,55 @@ export function TaskCard({
             >
               {displayTitle}
             </span>
-            {getStatusBadge(task.status)}
           </div>
-          <div className="mt-1 flex items-center gap-4 text-muted-foreground text-sm">
-            {task.discipline && <span>Discipline: {task.discipline}</span>}
-            {task.hours && (
-              <div className="flex items-center gap-1">
-                <Clock className="h-3 w-3" />
-                <span>{task.hours}h</span>
-              </div>
-            )}
-          </div>
+          {task.discipline || task.hours ? (
+            <div className="mt-0.5 flex items-center gap-4 text-muted-foreground text-xs">
+              {task.discipline && <span>Discipline: {task.discipline}</span>}
+              {task.hours && (
+                <div className="flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  <span>{task.hours}h</span>
+                </div>
+              )}
+            </div>
+          ) : null}
         </div>
-        <div className="flex shrink-0 items-center gap-1">
+        {/* At rest the row's quiet facts; on hover its actions, in the same
+            place — so the facts sit flush right instead of beside hidden
+            buttons. */}
+        {isHovered && viewMode === "internal" ? null : (
+          <div className="flex shrink-0 items-center gap-2">
+            {task.due_date ? (
+              <span
+                className={cn(
+                  "rounded-md bg-muted/60 px-1.5 py-0.5 text-muted-foreground text-xs",
+                  !doneLike &&
+                    isOverdue(task.due_date) &&
+                    "bg-destructive/10 text-destructive"
+                )}
+              >
+                {formatDueDate(task.due_date, i18n.language)}
+              </span>
+            ) : null}
+            {task.is_public && showVisibility && onVisibilityToggle ? (
+              <Eye className="h-3.5 w-3.5 text-green-600" />
+            ) : null}
+            {assigneeProfiles.length > 0 ? (
+              <AvatarStack profiles={assigneeProfiles} size="sm" />
+            ) : null}
+          </div>
+        )}
+        <div
+          className={cn(
+            "flex shrink-0 items-center gap-0.5",
+            !(isHovered && viewMode === "internal") && "hidden"
+          )}
+        >
           {viewMode === "internal" && (
             <>
               {onDelete && (
                 <Button
-                  className={cn(
-                    "h-8 w-8 p-0 text-muted-foreground transition-opacity hover:bg-muted hover:text-foreground",
-                    isHovered ? "opacity-100" : "opacity-0"
-                  )}
+                  className="h-7 w-7 p-0 text-muted-foreground hover:bg-muted hover:text-foreground"
                   onClick={(e) => {
                     e.stopPropagation();
                     onDelete(task.id);
@@ -298,10 +328,7 @@ export function TaskCard({
               )}
               {onEdit && (
                 <Button
-                  className={cn(
-                    "h-8 w-8 p-0 text-muted-foreground transition-opacity hover:bg-muted hover:text-foreground",
-                    isHovered ? "opacity-100" : "opacity-0"
-                  )}
+                  className="h-7 w-7 p-0 text-muted-foreground hover:bg-muted hover:text-foreground"
                   onClick={(e) => {
                     e.stopPropagation();
                     onEdit(task);
@@ -319,10 +346,7 @@ export function TaskCard({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    className={cn(
-                      "h-8 w-8 p-0 transition-opacity hover:bg-muted",
-                      isHovered || task.is_public ? "opacity-100" : "opacity-0"
-                    )}
+                    className="h-7 w-7 p-0 hover:bg-muted"
                     onClick={(e) => {
                       e.stopPropagation();
                       handleVisibilityToggle();
@@ -348,17 +372,6 @@ export function TaskCard({
             </TooltipProvider>
           )}
         </div>
-        {showAssignees && task.task_team && task.task_team.length > 0 && (
-          <AvatarStack
-            profiles={task.task_team.map((m) => ({
-              id: m.user_id,
-              full_name: m.profile?.full_name || "Unknown",
-              avatar_url: m.profile?.avatar_url,
-              is_connected: m.profile?.is_connected ?? true,
-            }))}
-            size="md"
-          />
-        )}
       </div>
     </div>
   );

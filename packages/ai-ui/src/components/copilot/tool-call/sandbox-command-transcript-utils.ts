@@ -31,9 +31,3 @@ export function transcriptHasActiveSandboxCommandToolPart(
   }
   return false;
 }
-
-export function shouldShowTopOpenInterruptBanner(
-  open: AgUiOpenInterruptMetadata
-): boolean {
-  return open.kind !== "frontend_tool" && open.kind !== "sandbox_command";
-}

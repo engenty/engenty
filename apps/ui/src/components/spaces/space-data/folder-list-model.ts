@@ -128,7 +128,7 @@ export const FOLDER_LIST_DISPLAY_DEFAULTS: {
   viewMode: "table",
 };
 
-/** Hub / Ablage: newest deliverables first, same chrome as a folder list. */
+/** Hub / Dokumente: newest deliverables first, same chrome as a folder list. */
 export const FOLDER_LIST_LATEST_DEFAULTS = {
   ...FOLDER_LIST_DISPLAY_DEFAULTS,
   sortBy: "updatedAt" as FolderListSortColumn,

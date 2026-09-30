@@ -1,3 +1,5 @@
+import type { Cover } from "@engenty/covers";
+
 export type { TaskStatusColor } from "./task-status-colors.js";
 
 /** Task workflow status id; allowed ids come from tenant project settings. */
@@ -27,6 +29,8 @@ export interface Project {
   briefing: string | null;
   client_id: string | null;
   client_name: string | null;
+  /** Colour, gradient or image heading the project page. */
+  cover?: Cover | null;
   created_at: string;
   created_by: string | null;
   /** Ordered ids of the detail tabs the user keeps shown; null = module default. */
@@ -84,11 +88,15 @@ export interface PhaseTask {
   content: string | null;
   created_at: string;
   discipline: string | null;
+  /** From the tasks module row; read-only here. */
+  due_date?: string | null;
   hours: number | null;
   id: string;
   is_public: boolean;
   order_index: number;
   phase_id: string | null;
+  /** The task's person assignee (tasks module), when it has one. */
+  primary_assignee_user_id?: string | null;
   project_id: string;
   scope_id: string;
   status: TaskStatus;

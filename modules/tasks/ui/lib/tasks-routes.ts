@@ -62,15 +62,6 @@ export function isBriefingPath(pathname: string): boolean {
   );
 }
 
-/**
- * The space's own home (`/s/<key>`), where this briefing is stacked under the
- * composer. Hub cards stay on the Plan tab — Inbox and the lists already live
- * in the space sidebar from there.
- */
-export function isSpaceRootPath(pathname: string): boolean {
-  return /^\/s\/[^/]+\/?$/.test(pathname);
-}
-
 export function isTasksListPath(pathname: string): boolean {
   return pathname === tasksPaths.list;
 }

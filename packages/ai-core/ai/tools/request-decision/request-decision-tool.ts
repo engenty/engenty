@@ -49,7 +49,8 @@ export interface RequestDecisionToolDefinition {
 }
 
 /**
- * How a resolved chooser reads to the MODEL when the run resumes.
+ * How a resolved chooser — or an answered `requestFeedback` question, which
+ * resumes with the `answered` prefix — reads to the MODEL when the run resumes.
  *
  * These sentences are also the ONLY trace of the user's answer once the run is
  * over: resuming replaces the tool part's output with this string, so the

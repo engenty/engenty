@@ -6,6 +6,7 @@ import type {
   RoutineDefinition,
   WorkflowDefinition,
 } from "@engenty/ai-core";
+import type { PluginTenantDefault } from "@engenty/plugin-sdk";
 
 export type EngentyApiEnvelope<T> =
   | { ok: true; data: T; meta?: unknown }
@@ -239,6 +240,8 @@ export interface EngentyPluginListItem {
   provides?: string[];
   requires?: string[];
   routesCount?: number;
+  /** Whether tenants have the module before an override (from its stage). */
+  tenantDefault?: PluginTenantDefault;
   tenantEnabled?: boolean;
   tenantOverride?: boolean | null;
   ui?: unknown;
@@ -259,8 +262,9 @@ export interface EngentyCoreModuleCapabilitySeed {
   agentConfigs?: Array<{
     /**
      * Whose agent this is once mounted (`agent_scope` in agent.json):
-     * `shared` keys rooms, observations, MEMORY.md and TASKS.md per Space,
-     * `personal` per person. Absent = no audience and none of those.
+     * `shared` keys rooms, observations, own memory entries and TASKS.md per
+     * Space, `personal` per person. Absent = no audience: no rooms,
+     * observations or pad, and memory entries keyed on where the run is.
      */
     agentScope?: "personal" | "shared";
     description?: string;
@@ -279,6 +283,8 @@ export interface EngentyCoreModuleCapabilitySeed {
     /** Empty-state composer chips declared in the module's agent.json. */
     starters?: AgentStarter[];
     toolIds?: string[];
+    /** Screen-driving frontend tools on chat surfaces; see AgentConfig.uiTools. */
+    uiTools?: "auto" | "on" | "off";
     /**
      * The agent's workspace request (files + sandbox), straight from
      * agent.json / the module registrar. Until 2026-08-29 this was dropped

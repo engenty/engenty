@@ -3,25 +3,25 @@ import path from "node:path";
 import {
   isPluginCategory,
   isPluginPlacement,
-  isPluginStability,
+  isPluginStage,
   PLUGIN_CATEGORIES,
   PLUGIN_PLACEMENTS,
-  PLUGIN_STABILITIES,
+  PLUGIN_STAGES,
   type PluginCategory,
   type PluginPlacement,
-  type PluginStability,
+  type PluginStage,
 } from "@engenty/plugin-sdk";
 import { collectManifestDiagnostics } from "./manifest-diagnostics.js";
 
 export type {
   PluginCategory,
   PluginPlacement,
-  PluginStability,
+  PluginStage,
 } from "@engenty/plugin-sdk";
 export {
   PLUGIN_CATEGORIES,
   PLUGIN_PLACEMENTS,
-  PLUGIN_STABILITIES,
+  PLUGIN_STAGES,
 } from "@engenty/plugin-sdk";
 
 export const ENGENTY_PLUGIN_MANIFEST_FILENAME = "engenty.plugin.json";
@@ -84,23 +84,22 @@ export function resolvePluginPlacement(
 }
 
 /**
- * Parse optional `stability`. Absent → undefined, read as stable. Unknown →
- * error, like `category`: a typo must not quietly promote a half-built module
- * into the README.
+ * Parse optional `stage`. Absent → undefined, read as stable. Unknown → error,
+ * like `category`: a typo must not quietly release a half-built module.
  */
-export function resolvePluginStability(
+export function resolvePluginStage(
   value: unknown
-): { ok: true; stability?: PluginStability } | { ok: false; error: string } {
+): { ok: true; stage?: PluginStage } | { ok: false; error: string } {
   if (value === undefined || value === null || value === "") {
     return { ok: true };
   }
-  if (!isPluginStability(value)) {
+  if (!isPluginStage(value)) {
     return {
       ok: false,
-      error: `engenty.plugin.json stability must be one of: ${PLUGIN_STABILITIES.join(", ")}`,
+      error: `engenty.plugin.json stage must be one of: ${PLUGIN_STAGES.join(", ")}`,
     };
   }
-  return { ok: true, stability: value };
+  return { ok: true, stage: value };
 }
 
 const CONNECTION_NEED_CAPABILITIES = new Set(["files", "storage", "stream"]);
@@ -210,8 +209,10 @@ export interface PluginManifest {
   server?: {
     entry: string;
   };
-  /** See {@link PluginStability}. Absent ⇒ stable. */
-  stability?: PluginStability;
+  /** See {@link PluginStage}. Absent ⇒ stable. */
+  stage?: PluginStage;
+  /** Never offered as an app of its own — see the plugin-sdk manifest type. */
+  supporting?: boolean;
   tier?: PluginTier;
   ui?: {
     assetOrigins?: string[];
@@ -641,12 +642,12 @@ export function loadPluginManifest(rootDir: string): PluginManifestLoadResult {
       manifestPath,
     };
   }
-  const stabilityResult = resolvePluginStability(merged.stability);
-  if (!stabilityResult.ok) {
+  const stageResult = resolvePluginStage(merged.stage);
+  if (!stageResult.ok) {
     return {
       ok: false,
       code: "plugin.manifest.invalid",
-      error: stabilityResult.error,
+      error: stageResult.error,
       manifestPath,
     };
   }
@@ -662,7 +663,8 @@ export function loadPluginManifest(rootDir: string): PluginManifestLoadResult {
     kind: typeof merged.kind === "string" ? merged.kind.trim() : undefined,
     category: categoryResult.category,
     placement: placementResult.placement,
-    stability: stabilityResult.stability,
+    stage: stageResult.stage,
+    ...(merged.supporting === true ? { supporting: true } : {}),
     ...(typeof merged.emoji === "string" && merged.emoji.trim()
       ? { emoji: merged.emoji.trim() }
       : {}),

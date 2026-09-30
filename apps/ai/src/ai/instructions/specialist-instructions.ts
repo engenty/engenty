@@ -1,13 +1,13 @@
 // The standing appendix of every specialist lives with the rest of the
 // hired-engenty code in modules/engenty-specialists (ai/instructions/
 // SPECIALIST.md + REPORT.md). apps/ai composes in what is its own: the
-// memory and tasks instructions bound to the run's MEMORY.md / TASKS.md.
+// memory and tasks instructions bound to the run's memory entries / TASKS.md.
 import {
   renderSpecialistAppendix,
   specialistInstructionParts,
 } from "@engenty/engenty-specialists/ai";
-import { AGENT_MEMORY_INSTRUCTIONS } from "../memory/agent-memory.js";
 import { AGENT_TASKS_INSTRUCTIONS } from "../memory/agent-tasks.js";
+import { AGENT_MEMORY_INSTRUCTIONS } from "../memory/memory-tools.js";
 
 export { SPECIALIST_REPORT_INSTRUCTIONS } from "@engenty/engenty-specialists/ai";
 

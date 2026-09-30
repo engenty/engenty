@@ -30,8 +30,8 @@ import {
   useWorkspaceContext,
 } from "@engenty/ui-plugin-sdk";
 import { Database, LayoutGrid, SquareCheck } from "lucide-react";
-import type { ComponentType } from "react";
-import { useMemo, useState } from "react";
+import type { ComponentType, ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { SpaceArtifactsSection } from "@/components/spaces/SpaceArtifactsSection";
 import { SpaceConversationSections } from "@/components/spaces/SpaceConversationSections";
@@ -41,6 +41,7 @@ import { SpaceMembersSection } from "@/components/spaces/SpaceMembersSection";
 import { SpaceModulesSection } from "@/components/spaces/SpaceModulesSection";
 import { SpaceMountsDialog } from "@/components/spaces/SpaceMountsDialog";
 import { NavCountBadge } from "@/components/spaces/space-nav-row";
+import { SpacePluginSidebarSections } from "@/components/spaces/space-plugin-sections";
 import type { Space } from "@/lib/api/spaces-client";
 import { type SpaceSectionId, spaceTabModuleId } from "@/lib/space-nav";
 import {
@@ -67,6 +68,7 @@ export function SpaceNavTabs({
   space,
   spaceId,
   spaceKey,
+  tabsOnly = false,
 }: {
   activeModuleId: string | undefined;
   /**
@@ -79,6 +81,11 @@ export function SpaceNavTabs({
   space: Space | null;
   spaceId: string | null;
   spaceKey: string;
+  /**
+   * Only the Work · Data · … strip, no section body — inside a module, where
+   * the module's own nav fills the column below it.
+   */
+  tabsOnly?: boolean;
 }) {
   const { t } = useTranslation("common");
   const { contributions } = useUiContributions();
@@ -95,6 +102,15 @@ export function SpaceNavTabs({
   const [editingKind, setEditingKind] = useState<SpaceResourceKind | null>(
     null
   );
+  // Back from a module, the section's list slides in from the left — the
+  // shell no longer animates this slot, since the tab strip above stays put.
+  // Read before the effect below updates it: true only on that one render.
+  const wasTabsOnly = useRef(tabsOnly);
+  const enterFromModule = wasTabsOnly.current && !tabsOnly;
+  useEffect(() => {
+    wasTabsOnly.current = tabsOnly;
+  }, [tabsOnly]);
+
   const mountedIds = useMemo(
     () => new Set(mounted.map((module) => module.id)),
     [mounted]
@@ -212,10 +228,10 @@ export function SpaceNavTabs({
         })}
       </div>
 
-      {section === "work" ? (
-        <div className="flex flex-col gap-3">
-          {/* Favoriten first, then this person's sections and the built-ins;
-              the copilot's river heads Privat. */}
+      {section === "work" && !tabsOnly ? (
+        <SectionBody slideIn={enterFromModule}>
+          {/* Favoriten first, then this person's sections and the built-ins.
+              The copilot is not listed — it lives in the app bar. */}
           <SpaceConversationSections
             canAdd={canEdit}
             canManage={canEdit}
@@ -242,6 +258,11 @@ export function SpaceNavTabs({
             onAdd={() => setEditingKind("module")}
             spaceKey={spaceKey}
           />
+          {/* Lists mounted modules add (`registerSpaceSection`): the
+              records a person pinned sit beside the modules they come from. */}
+          {spaceId ? (
+            <SpacePluginSidebarSections spaceId={spaceId} spaceKey={spaceKey} />
+          ) : null}
           {/* People remain last. A personal space shows its owner as the sole
               person, but cannot accept member rows or offer an add action. */}
           <SpaceMembersSection
@@ -251,15 +272,17 @@ export function SpaceNavTabs({
             spaceId={spaceId}
             spaceKey={spaceKey}
           />
-        </div>
+        </SectionBody>
       ) : null}
 
       {/* Data's list is a TREE, and it belongs in the same column for the same
           reason the Work list does: both answer "what is in this space", and
           both are how you get to it. The pane on the right then belongs
           entirely to whatever is selected. */}
-      {section === "data" ? (
-        <SpaceDataTree spaceId={spaceId} spaceKey={spaceKey} />
+      {section === "data" && !tabsOnly ? (
+        <SectionBody slideIn={enterFromModule}>
+          <SpaceDataTree spaceId={spaceId} spaceKey={spaceKey} />
+        </SectionBody>
       ) : null}
 
       <SpaceMountsDialog
@@ -272,6 +295,32 @@ export function SpaceNavTabs({
         open={editingKind != null}
         space={space}
       />
+    </div>
+  );
+}
+
+/**
+ * A section's list under the tabs. `slideIn` is read once, at mount: the list
+ * mounts when you come back from a module (slide) or switch Work ↔ Data (no
+ * slide), and a later re-render must not restart or drop the animation.
+ */
+function SectionBody({
+  children,
+  slideIn,
+}: {
+  children: ReactNode;
+  slideIn: boolean;
+}) {
+  const [animate] = useState(slideIn);
+  return (
+    <div
+      className={cn(
+        "flex flex-col gap-3",
+        animate &&
+          "fade-in-0 slide-in-from-left-6 animate-in duration-200 ease-out"
+      )}
+    >
+      {children}
     </div>
   );
 }

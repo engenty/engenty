@@ -217,12 +217,13 @@ function documentOf(contact: ContactRecord): SpaceDataDocument {
 
 async function listContacts(
   ctx: SpaceDataContext,
-  input: { page?: number; type?: string }
+  input: { page?: number; pageSize?: number; search?: string; type?: string }
 ): Promise<ContactsListResult> {
   const result = (await ctx.invokeOperation("contacts_list", {
     include_linked_invoice_counts: false,
     page: input.page ?? 1,
-    pageSize: PAGE_SIZE,
+    pageSize: input.pageSize ?? PAGE_SIZE,
+    ...(input.search ? { search: input.search } : {}),
     ...(input.type ? { type: input.type } : {}),
   })) as ContactsListResult | null;
   return (
@@ -398,6 +399,18 @@ export function createContactsSpaceDataAdapter(): SpaceDataAdapter {
           nodeType: CONTACTS_FOLDER_NODE_TYPE,
           path: folder.name,
         },
+        ...(result.total > result.data.length ? { truncated: true } : {}),
+      };
+    },
+
+    async search(ctx, input) {
+      const result = await listContacts(ctx, {
+        pageSize: input.limit,
+        search: input.query,
+      });
+      return {
+        entries: result.data.map(entryOf),
+        folders: [],
         ...(result.total > result.data.length ? { truncated: true } : {}),
       };
     },

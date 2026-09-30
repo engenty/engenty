@@ -11,7 +11,7 @@ import {
 
 describe("graded roles", () => {
   it("round-trips effort through the role id", () => {
-    for (const effort of ["low", "medium", "high"] as const) {
+    for (const effort of ["normal", "high"] as const) {
       expect(effortOfRole(graded(effort))).toBe(effort);
     }
   });
@@ -20,14 +20,17 @@ describe("graded roles", () => {
     expect(effortOfRole("classifier")).toBeNull();
     expect(effortOfRole("model.extreme")).toBeNull();
     // A module role that merely starts with the prefix is not graded.
-    expect(effortOfRole("model.low.extra")).toBeNull();
+    expect(effortOfRole("model.normal.extra")).toBeNull();
+    // The retired tiers are no longer graded roles.
+    expect(effortOfRole("model.low")).toBeNull();
+    expect(effortOfRole("model.medium")).toBeNull();
   });
 });
 
 describe("seedBindings", () => {
   it("seeds cheap capable chat, Jev and fast text on Vercel", () => {
     const seeded = seedBindings();
-    expect(seeded.find((b) => b.role === "model.low")).toMatchObject({
+    expect(seeded.find((b) => b.role === "model.normal")).toMatchObject({
       gateway: "vercel",
       modelId: "openai/gpt-5.4-nano",
     });
@@ -41,8 +44,7 @@ describe("seedBindings", () => {
 
   it("seeds only the platform roles", () => {
     expect(seedBindings().map((b) => b.role)).toEqual([
-      "model.low",
-      "model.medium",
+      "model.normal",
       "model.high",
       "classifier",
       "fast_text",
@@ -75,7 +77,7 @@ describe("seedBindings", () => {
       gateway: "openrouter",
       modelId: "typesafe-ai/jev",
     });
-    expect(seeded.find((b) => b.role === "model.low")?.modelId).toBe(
+    expect(seeded.find((b) => b.role === "model.normal")?.modelId).toBe(
       "z-ai/glm-5.3-flash"
     );
   });
@@ -95,7 +97,7 @@ describe("resolvePurposeModel with bindings", () => {
     {
       gateway: "vercel",
       modelId: "anthropic/claude-sonnet-5",
-      role: "model.medium",
+      role: "model.normal",
     },
     { gateway: "vercel", modelId: "vendor/fixture-fast", role: "fast_text" },
   ]);
@@ -117,7 +119,7 @@ describe("resolvePurposeModel with bindings", () => {
       {
         gateway: "openrouter",
         modelId: "meta-llama/llama-3.1-70b-instruct",
-        role: "model.medium",
+        role: "model.normal",
       },
     ]);
     expect(
@@ -143,7 +145,7 @@ describe("resolvePurposeModel with bindings", () => {
       {
         gateway: "openrouter",
         modelId: "meta-llama/llama-3.1-8b-instruct:free",
-        role: "model.medium",
+        role: "model.normal",
       },
     ]);
     expect(
@@ -168,12 +170,12 @@ describe("resolvePurposeModel with bindings", () => {
     ).toThrow('Model role "classifier" is not bound');
   });
 
-  it("classifier uses the classifier binding, not model.low", () => {
+  it("classifier uses the classifier binding, not model.normal", () => {
     const withLowAndClassifier = bindingsFromList([
       {
         gateway: "vercel",
         modelId: "deepseek/deepseek-v4-flash",
-        role: "model.low",
+        role: "model.normal",
       },
       {
         gateway: "vercel",
@@ -194,15 +196,15 @@ describe("resolvePurposeModel with bindings", () => {
     });
   });
 
-  it("classifier ignores model.low when no classifier binding exists", () => {
+  it("classifier ignores model.normal when no classifier binding exists", () => {
     const onlyLow = bindingsFromList([
       {
         gateway: "vercel",
         modelId: "deepseek/deepseek-v4-flash",
-        role: "model.low",
+        role: "model.normal",
       },
     ]);
-    // An unbound classifier fails loudly — it never borrows model.low.
+    // An unbound classifier fails loudly — it never borrows model.normal.
     expect(() =>
       resolvePurposeModel({ purpose: "classifier", bindings: onlyLow })
     ).toThrow('Model role "classifier" is not bound');

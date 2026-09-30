@@ -1,8 +1,15 @@
 import {
+  type AiEffort,
   type AiUsageStore,
+  clampEffort,
+  formatModelRef,
+  graded,
+  isEffortAllowed,
   isModelAllowed,
   isUnrestricted,
   type ModelAllowList,
+  parseModelRef,
+  supportsReasoningEffort,
 } from "@engenty/ai-core";
 import type { HonoBindings, HonoVariables } from "@mastra/hono";
 import type { Hono } from "hono";
@@ -182,6 +189,44 @@ function availabilityPatchFromBody(
   };
 }
 
+/**
+ * Governance allow-list: when the tenant's usage policy is in `enforce` mode
+ * with a non-empty allow-list, only legal models are offered in a picker.
+ * Observe mode / no list = unrestricted. A policy read failure never narrows
+ * the catalog (fail open — the resolver still enforces at runtime).
+ */
+async function readEnforcedGrants(
+  getUsageStore: (() => AiUsageStore | null) | undefined,
+  tenantId: string | null | undefined
+): Promise<ModelAllowList | null> {
+  if (!tenantId) {
+    return null;
+  }
+  try {
+    const policy = await getUsageStore?.()?.getTenantPolicy(tenantId);
+    return policy?.enforcement_mode === "enforce" && !isUnrestricted(policy)
+      ? policy
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+async function readAllowedEfforts(
+  getUsageStore: (() => AiUsageStore | null) | undefined,
+  tenantId: string | null | undefined
+): Promise<readonly AiEffort[] | null> {
+  if (!tenantId) {
+    return null;
+  }
+  try {
+    const policy = await getUsageStore?.()?.getTenantPolicy(tenantId);
+    return (policy?.allowed_efforts ?? null) as readonly AiEffort[] | null;
+  } catch {
+    return null;
+  }
+}
+
 export function registerGatewayModelRoutes(
   app: Hono<{ Bindings: HonoBindings; Variables: HonoVariables }>,
   opts: {
@@ -223,23 +268,10 @@ export function registerGatewayModelRoutes(
       );
     }
     const items = await store.store.listGatewayModels(parsed.data);
-    // Governance allow-list: when the tenant's usage policy is in `enforce`
-    // mode with a non-empty allow-list, only offer legal models in the picker.
-    // Observe mode / no list = unrestricted. A policy read failure never
-    // narrows the catalog (fail open — the resolver still enforces at runtime).
-    let grants: ModelAllowList | null = null;
-    if (scope.scope.tenantId) {
-      try {
-        const policy = await opts
-          .getUsageStore?.()
-          ?.getTenantPolicy(scope.scope.tenantId);
-        if (policy?.enforcement_mode === "enforce" && !isUnrestricted(policy)) {
-          grants = policy;
-        }
-      } catch {
-        grants = null;
-      }
-    }
+    const grants = await readEnforcedGrants(
+      opts.getUsageStore,
+      scope.scope.tenantId
+    );
     // `item.provider` is the catalog's own column, which beats deriving the
     // vendor from the id — that is what makes a provider grant exact.
     const filtered = grants
@@ -249,6 +281,94 @@ export function registerGatewayModelRoutes(
       : items;
     return c.json({
       items: filtered.map(modelOptionFromRecord),
+    });
+  });
+
+  // The composer's menu: the model behind Normal and Extra, and the
+  // platform's Custom list (in the admin's order, with what the flyout needs
+  // per model) when it is switched on. Member-readable — everyone who can chat picks from it. A listed
+  // model the catalog no longer has, or the plan no longer grants, is left
+  // out: offering it would only fail at send.
+  app.get(`${AI_BASE_PATH}/v1/gateway/composer-options`, async (c) => {
+    const scope = await resolveScope(c, opts.scopeResolver);
+    if (!scope.ok) {
+      return scope.response;
+    }
+    const store = requireGatewayModelStore(c, opts.getGatewayModelStore());
+    if (!store.ok) {
+      return store.response;
+    }
+    const tenantId = scope.scope.tenantId;
+    const [customConfig, rows, bindings, grants, allowedEfforts] =
+      await Promise.all([
+        store.store.getCustomModelsConfig(),
+        store.store.listGatewayModels(),
+        store.store.listModelBindings(),
+        readEnforcedGrants(opts.getUsageStore, tenantId),
+        readAllowedEfforts(opts.getUsageStore, tenantId),
+      ]);
+    const rowFor = (gateway: string, modelId: string) =>
+      rows.find((row) => row.model_id === modelId && row.gateway === gateway);
+
+    const customModels = (
+      customConfig.enabled ? customConfig.models : []
+    ).flatMap((ref) => {
+      const { gateway, modelId } = parseModelRef(ref);
+      const row = rowFor(gateway, modelId);
+      if (
+        !row?.available_for_agent ||
+        (grants && !isModelAllowed(modelId, grants, row.provider))
+      ) {
+        return [];
+      }
+      return [
+        {
+          ...modelOptionFromRecord(row),
+          reasoning_effort: supportsReasoningEffort(
+            ref,
+            row.tags.includes("reasoning")
+          ),
+          ref,
+        },
+      ];
+    });
+
+    // The model behind a mode, after the plan's clamp — the one the run
+    // resolves to.
+    const modeModel = (effort: AiEffort) => {
+      const clamped = clampEffort(effort, { allowed_efforts: allowedEfforts });
+      const binding = clamped
+        ? bindings.find((b) => b.role === graded(clamped))
+        : undefined;
+      if (!binding) {
+        return null;
+      }
+      const row = rowFor(binding.gateway, binding.model_id);
+      const ref = formatModelRef({
+        gateway: binding.gateway,
+        modelId: binding.model_id,
+      });
+      return {
+        display_name: row?.display_name ?? null,
+        model_id: binding.model_id,
+        price_tier: row?.price_tier ?? null,
+        provider: row?.provider ?? null,
+        reasoning_effort: supportsReasoningEffort(
+          ref,
+          row?.tags.includes("reasoning") ?? false
+        ),
+        ref,
+      };
+    };
+    return c.json({
+      custom_models: customModels,
+      modes: {
+        normal: { model: modeModel("normal") },
+        extra: {
+          allowed: isEffortAllowed("high", { allowed_efforts: allowedEfforts }),
+          model: modeModel("high"),
+        },
+      },
     });
   });
 

@@ -21,6 +21,7 @@ import {
   buildRecoveryMessagesSnapshotEvent,
   coalesceRunEventText,
   createRecoveryRunEventReplayFilter,
+  isAppsAiRunInFlightStatus,
   isCopilotRunRecoveryEnabled,
   isTerminalRunWithPotentialUnflushedText,
   partitionSnapshotForRunAttach,
@@ -40,6 +41,38 @@ import {
 } from "./apps-ai-thread-api.js";
 import { attachAppsAiRunStream } from "./apps-ai-transport.js";
 import { clearThreadLaneSnapshot } from "./thread-lane-snapshot-cache.js";
+import {
+  peekThreadRunHandoff,
+  subscribeThreadRunHandoffs,
+  takeThreadRunHandoff,
+} from "./thread-run-handoff.js";
+
+/** A handed-off run can take a moment to show in the thread's run list. */
+const HANDOFF_LIST_RETRIES = 5;
+const HANDOFF_LIST_RETRY_MS = 400;
+
+/**
+ * How often an attached run is checked on. The stream ends with the run's last
+ * event — unless the process running it dies: nothing more is written, and
+ * behind a proxy the connection can stay open, the lane "working" forever.
+ */
+export const ATTACHED_RUN_CHECK_MS = 10_000;
+/** A run seen over while its stream is still open gets this long to close. */
+export const ATTACHED_RUN_CLOSE_GRACE_MS = 2000;
+
+function waitUnlessAborted(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, ms);
+    signal.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timer);
+        resolve();
+      },
+      { once: true }
+    );
+  });
+}
 
 /**
  * Partial assistant text a cancelled/failed run left only in its event log —
@@ -183,6 +216,22 @@ export function useAppsAiActiveRunRecovery(
   const recoveryRunningRef = useRef(false);
   const submitStatusRef = useRef(options.submitStatus);
   submitStatusRef.current = options.submitStatus;
+  /** Latest `resumeActiveRun` — a pass that ends with a handoff still
+   * waiting runs again through it. */
+  const resumeActiveRunRef = useRef<() => void>(() => undefined);
+  /** Thread owed one more pass: its attached run ended without its stream
+   * saying so, and the settled transcript (failure notice, unflushed text)
+   * comes from a terminal pass. */
+  const settleAgainRef = useRef<string | null>(null);
+  /** A run handed off while another pass was busy gets its own pass — as does
+   * a thread whose attached run ended unseen. */
+  const resumeIfRunHandedOff = useCallback((threadId: string) => {
+    const owed = settleAgainRef.current === threadId;
+    settleAgainRef.current = null;
+    if (owed || peekThreadRunHandoff(threadId)) {
+      queueMicrotask(() => resumeActiveRunRef.current());
+    }
+  }, []);
 
   const stopRecovery = useCallback(() => {
     recoveryAbortRef.current?.abort();
@@ -211,12 +260,37 @@ export function useAppsAiActiveRunRecovery(
   }, [options]);
 
   const runRecoveryLoop = useCallback(
-    async (threadId: string, signal: AbortSignal) => {
-      const runsResult = await getAiSessionRuns(threadId, {
+    async (
+      threadId: string,
+      signal: AbortSignal,
+      handedRunId: string | null
+    ) => {
+      let runsResult = await getAiSessionRuns(threadId, {
         limit: 20,
         signal,
       });
-      const inFlightRun = pickLatestInFlightAppsAiRun(runsResult.runs);
+      for (
+        let attempt = 0;
+        handedRunId &&
+        attempt < HANDOFF_LIST_RETRIES &&
+        !runsResult.runs.some((run) => run.id === handedRunId);
+        attempt += 1
+      ) {
+        await waitUnlessAborted(HANDOFF_LIST_RETRY_MS, signal);
+        if (signal.aborted) {
+          return false;
+        }
+        runsResult = await getAiSessionRuns(threadId, { limit: 20, signal });
+      }
+      // The run handed to this pane is the one to follow while it is live;
+      // anything else in flight is found the usual way.
+      const handedRun = handedRunId
+        ? runsResult.runs.find((run) => run.id === handedRunId)
+        : undefined;
+      const inFlightRun =
+        handedRun && isAppsAiRunInFlightStatus(handedRun.status)
+          ? handedRun
+          : pickLatestInFlightAppsAiRun(runsResult.runs);
       if (inFlightRun && inFlightRun.id === options.activeRunIdRef?.current) {
         // This window's own POST stream is delivering these events already
         // (seen live: an artifact auto-resume attached to itself and every
@@ -319,6 +393,10 @@ export function useAppsAiActiveRunRecovery(
         return false;
       }
 
+      // A handoff for the run this pass attaches to is answered by it.
+      if (activeRun && peekThreadRunHandoff(threadId) === activeRun.id) {
+        takeThreadRunHandoff(threadId);
+      }
       logCopilotChatNew("run recovery start", {
         activeRunId: activeRun?.id ?? null,
         threadId,
@@ -399,32 +477,82 @@ export function useAppsAiActiveRunRecovery(
 
       try {
         if (activeRun) {
+          // The stream is let go of when the run is over but the stream never
+          // said so (see ATTACHED_RUN_CHECK_MS); a stop of the pass stops it too.
+          const attach = new AbortController();
+          const stopAttach = () => attach.abort();
+          signal.addEventListener("abort", stopAttach, { once: true });
+          let endedUnseen = false;
+          let graceTimer: ReturnType<typeof setTimeout> | null = null;
+          const watchdog = setInterval(() => {
+            void getAiSessionRuns(threadId, {
+              limit: 20,
+              signal: attach.signal,
+            })
+              .then(({ runs }) => {
+                const run = runs.find((row) => row.id === activeRun.id);
+                if (
+                  !run ||
+                  isAppsAiRunInFlightStatus(run.status) ||
+                  graceTimer
+                ) {
+                  return;
+                }
+                graceTimer = setTimeout(() => {
+                  endedUnseen = true;
+                  logCopilotChatNew("attached run ended unseen", {
+                    runId: activeRun.id,
+                    runStatus: run.status,
+                    threadId,
+                  });
+                  attach.abort();
+                }, ATTACHED_RUN_CLOSE_GRACE_MS);
+              })
+              .catch(() => {
+                // A failed check says nothing about the run; the next one asks again.
+              });
+          }, ATTACHED_RUN_CHECK_MS);
           // Frontend tools are native: they suspend the run and resume via the
           // interrupt/resume flow, which is transport-agnostic — so a reattached
           // run needs no special frontend-tool dispatch here.
-          await attachAppsAiRunStream({
-            onEvent: (event) => {
-              if (signal.aborted) {
-                return;
-              }
-              if (!replayEvent(event)) {
-                return;
-              }
-              options.applyEvent(event as never);
-              if (event.type === EventType.RUN_FINISHED) {
-                const outcome = (event as { outcome?: { type?: string } })
-                  .outcome;
-                options.onOpenInterrupt?.(outcome?.type === "interrupt");
-              }
-              if (event.type === EventType.RUN_ERROR) {
-                options.onOpenInterrupt?.(false);
-              }
-            },
-            runId: activeRun.id,
-            serviceBaseUrl: options.serviceBaseUrl,
-            signal,
-            since: -1,
-          });
+          try {
+            await attachAppsAiRunStream({
+              onEvent: (event) => {
+                if (signal.aborted) {
+                  return;
+                }
+                if (!replayEvent(event)) {
+                  return;
+                }
+                options.applyEvent(event as never);
+                if (event.type === EventType.RUN_FINISHED) {
+                  const outcome = (event as { outcome?: { type?: string } })
+                    .outcome;
+                  options.onOpenInterrupt?.(outcome?.type === "interrupt");
+                }
+                if (event.type === EventType.RUN_ERROR) {
+                  options.onOpenInterrupt?.(false);
+                }
+              },
+              runId: activeRun.id,
+              serviceBaseUrl: options.serviceBaseUrl,
+              signal: attach.signal,
+              since: -1,
+            });
+          } catch (error) {
+            if (!endedUnseen) {
+              throw error;
+            }
+          } finally {
+            clearInterval(watchdog);
+            if (graceTimer) {
+              clearTimeout(graceTimer);
+            }
+            signal.removeEventListener("abort", stopAttach);
+          }
+          if (endedUnseen) {
+            settleAgainRef.current = threadId;
+          }
           // The attach streamed the turn under Mastra's SESSION message ids;
           // the DB persisted it under different MessageList ids. Re-sync to the
           // persisted transcript so the lane ends every attached run on DB
@@ -501,7 +629,11 @@ export function useAppsAiActiveRunRecovery(
     recoveryDispatchedRef.current = true;
     const abortController = new AbortController();
     recoveryAbortRef.current = abortController;
-    void runRecoveryLoop(threadId, abortController.signal)
+    void runRecoveryLoop(
+      threadId,
+      abortController.signal,
+      takeThreadRunHandoff(threadId)
+    )
       .catch((error) => {
         if (error instanceof DOMException && error.name === "AbortError") {
           return;
@@ -514,8 +646,16 @@ export function useAppsAiActiveRunRecovery(
       })
       .finally(() => {
         recoveryDispatchedRef.current = false;
+        resumeIfRunHandedOff(threadId);
       });
-  }, [options, runRecoveryLoop, settleStatusIfNoLiveStream, stopRecovery]);
+  }, [
+    options,
+    resumeIfRunHandedOff,
+    runRecoveryLoop,
+    settleStatusIfNoLiveStream,
+    stopRecovery,
+  ]);
+  resumeActiveRunRef.current = resumeActiveRun;
 
   useEffect(() => {
     const threadId = options.threadId?.trim() ?? "";
@@ -547,7 +687,11 @@ export function useAppsAiActiveRunRecovery(
       submitStatusRef.current === "streaming" ||
       submitStatusRef.current === "submitted";
 
-    if (recoveryAttemptedRef.current === threadId && !needsReconnect) {
+    if (
+      recoveryAttemptedRef.current === threadId &&
+      !needsReconnect &&
+      !peekThreadRunHandoff(threadId)
+    ) {
       return;
     }
 
@@ -562,7 +706,11 @@ export function useAppsAiActiveRunRecovery(
 
     void (async () => {
       try {
-        await runRecoveryLoop(threadId, abortController.signal);
+        await runRecoveryLoop(
+          threadId,
+          abortController.signal,
+          takeThreadRunHandoff(threadId)
+        );
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") {
           return;
@@ -574,6 +722,7 @@ export function useAppsAiActiveRunRecovery(
         settleStatusIfNoLiveStream();
       } finally {
         recoveryDispatchedRef.current = false;
+        resumeIfRunHandedOff(threadId);
       }
     })();
 
@@ -586,6 +735,7 @@ export function useAppsAiActiveRunRecovery(
     options.isTransportReady,
     options.submitStatus,
     options.threadId,
+    resumeIfRunHandedOff,
     runRecoveryLoop,
     settleStatusIfNoLiveStream,
     stopRecovery,
@@ -606,8 +756,6 @@ export function useAppsAiActiveRunRecovery(
   // torn down and re-created on EVERY render — and signals that landed in the
   // resubscribe gap were lost, so a second window never learned a run started
   // (the same churn that silently broke live-cache realtime before).
-  const resumeActiveRunRef = useRef(resumeActiveRun);
-  resumeActiveRunRef.current = resumeActiveRun;
   const invalidateQueriesRef = useRef(options.invalidateQueries);
   invalidateQueriesRef.current = options.invalidateQueries;
   const submitInFlightForSignalRef = options.submitInFlightRef;
@@ -653,6 +801,20 @@ export function useAppsAiActiveRunRecovery(
     });
     return unsubscribe;
   }, [options.realtimeClient, options.threadId, submitInFlightForSignalRef]);
+
+  // A run handed to this thread while the pane is already open (the host
+  // outlives the page that sent it) — attach now rather than on next mount.
+  useEffect(() => {
+    const threadId = options.threadId?.trim() ?? "";
+    if (!threadId) {
+      return;
+    }
+    return subscribeThreadRunHandoffs((handedThreadId) => {
+      if (handedThreadId === threadId) {
+        resumeActiveRunRef.current();
+      }
+    });
+  }, [options.threadId]);
 
   return { resumeActiveRun };
 }

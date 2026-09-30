@@ -10,11 +10,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import {
-  enabledModuleSlugSet,
-  readEngentyPluginsManifest,
-  resolveEnabledModules,
-} from "./engenty-modules.mjs";
+import { partitionModulesByStage } from "./engenty-modules.mjs";
 
 export function resolveRepoRoot() {
   let dir = process.cwd();
@@ -147,9 +143,9 @@ export function discoverMigrationOwners(
  * (node_modules). Their SQL ships in the tarball under the same migrationsDir
  * convention, so they aggregate identically to workspace modules.
  */
-export function discoverRegistryMigrationOwners(root) {
+function registryMigrationOwners(modules) {
   const owners = [];
-  for (const mod of resolveEnabledModules(root, { strict: false })) {
+  for (const mod of modules) {
     if (mod.source !== "registry") {
       continue;
     }
@@ -174,36 +170,53 @@ export function discoverRegistryMigrationOwners(root) {
   return owners.sort((a, b) => a.name.localeCompare(b.name));
 }
 
+function workspaceSlugs(modules) {
+  return new Set(
+    modules.filter((mod) => mod.source !== "registry").map((mod) => mod.slug)
+  );
+}
+
+function registryModules(modules) {
+  return modules.filter((mod) => mod.source === "registry");
+}
+
 /**
- * Every migration owner this workspace ships, in aggregation order.
+ * Every migration owner this install ships, in aggregation order: core, the
+ * modules installed at ENGENTY_MODULE_STAGE, packages, registry modules.
  *
  * Registry modules live in node_modules, so a checkout that has not been
  * installed yet simply contributes none of them — callers that must know
  * compare against `readEngentyPluginsManifest`.
  */
 export function resolveMigrationOwners(root) {
-  const { plugins } = readEngentyPluginsManifest(root);
-  // Workspace scans must exclude registry-source modules — those are owned by
-  // discoverRegistryMigrationOwners (from node_modules), and a leftover
+  const { installed } = partitionModulesByStage(root, { strict: false });
+  // Workspace scans exclude registry-source modules — those are owned by
+  // registryMigrationOwners (from node_modules), and a leftover
   // modules/<slug> checkout would otherwise duplicate them.
-  const enabledModuleSlugs = new Set(
-    [...enabledModuleSlugSet(root)].filter(
-      (slug) => plugins[slug]?.source !== "registry"
-    )
-  );
-
+  const slugs = workspaceSlugs(installed);
   return [
     ...discoverMigrationOwners(path.join(root, "apps"), "core"),
+    ...discoverMigrationOwners(path.join(root, "modules"), "module", slugs),
+    ...discoverMigrationOwners(path.join(root, "packages"), "module", slugs),
+    ...registryMigrationOwners(registryModules(installed)),
+  ];
+}
+
+/**
+ * Migration owners of the modules ENGENTY_MODULE_STAGE leaves out (`dev`
+ * on a `beta` install). Their migrations are held back: not aggregated, so a
+ * fresh database never gets their tables. A database that applied them
+ * earlier keeps them; the migrate step writes placeholders for exactly those
+ * versions so `db push` accepts its history (held-migration-placeholders.mjs).
+ */
+export function resolveHeldMigrationOwners(root) {
+  const { leftOut } = partitionModulesByStage(root, { strict: false });
+  return [
     ...discoverMigrationOwners(
       path.join(root, "modules"),
       "module",
-      enabledModuleSlugs
+      workspaceSlugs(leftOut)
     ),
-    ...discoverMigrationOwners(
-      path.join(root, "packages"),
-      "module",
-      enabledModuleSlugs
-    ),
-    ...discoverRegistryMigrationOwners(root),
+    ...registryMigrationOwners(registryModules(leftOut)),
   ];
 }

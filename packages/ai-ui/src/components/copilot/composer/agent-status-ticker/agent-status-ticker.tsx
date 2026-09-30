@@ -1,10 +1,10 @@
 "use client";
 
+import { useTranslation } from "@engenty/i18n/ui";
 import { cn } from "@engenty/ui-core";
 import { AnimatedLoaderIcon } from "@engenty/ui-icons";
 import { AlertCircle, CheckCircle2, ChevronDown, Clock } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Shimmer } from "../../../ai-elements/shimmer";
 import { deriveAgentStatusTicker } from "./derive-agent-status-ticker.js";
 import { formatElapsedSeconds } from "./format-elapsed-seconds.js";
 import type {
@@ -15,20 +15,15 @@ import type {
 } from "./types.js";
 import { useElapsedSeconds } from "./use-elapsed-seconds.js";
 
-export type AgentStatusTickerProps =
-  | (DeriveAgentStatusTickerInput & {
-      className?: string;
-      enableShimmer?: boolean;
-      onExpandedChange?: (expanded: boolean) => void;
-      snapshot?: undefined;
-    })
-  | {
-      className?: string;
-      enableShimmer?: boolean;
-      labels?: AgentStatusTickerLabels;
-      onExpandedChange?: (expanded: boolean) => void;
-      snapshot: AgentStatusTickerSnapshot;
-    };
+export type AgentStatusTickerProps = Omit<
+  DeriveAgentStatusTickerInput,
+  "labels"
+> & {
+  className?: string;
+  /** Overrides for the localized labels (e.g. the just-sent message). */
+  labels?: Partial<AgentStatusTickerLabels>;
+  onExpandedChange?: (expanded: boolean) => void;
+};
 
 function variantTextClass(variant: AgentStatusTickerSnapshot["variant"]) {
   switch (variant) {
@@ -83,20 +78,15 @@ function StepGlyph({ snapshot }: { snapshot: AgentStatusTickerSnapshot }) {
 
 function StepLine({
   elapsedLabel,
-  enableShimmer,
   expanded,
-  showShimmer,
   step,
   textClass,
 }: {
   elapsedLabel?: string | null;
-  enableShimmer: boolean;
   expanded: boolean;
-  showShimmer: boolean;
   step: Pick<AgentStatusStep, "label">;
   textClass: string;
 }) {
-  const useShimmer = enableShimmer && showShimmer;
   return (
     <div
       className={cn(
@@ -109,13 +99,7 @@ function StepLine({
           {elapsedLabel} ·{" "}
         </span>
       ) : null}
-      {useShimmer ? (
-        <Shimmer as="span" duration={2} spread={2}>
-          {step.label}
-        </Shimmer>
-      ) : (
-        <span>{step.label}</span>
-      )}
+      <span>{step.label}</span>
     </div>
   );
 }
@@ -145,27 +129,29 @@ function RecentStepsList({
 }
 
 export function AgentStatusTicker(props: AgentStatusTickerProps) {
-  const { className, enableShimmer = true, onExpandedChange } = props;
+  const { className, onExpandedChange } = props;
   const [expanded, setExpanded] = useState(false);
-  const inputLabels = "labels" in props ? props.labels : undefined;
-  const snapshot =
-    "snapshot" in props && props.snapshot != null
-      ? props.snapshot
-      : deriveAgentStatusTicker({
-          activityBaselineSignature: props.activityBaselineSignature,
-          chatStatus: props.chatStatus,
-          errorMessage: props.errorMessage,
-          labels: inputLabels,
-          messages: props.messages,
-          runStatus: props.runStatus,
-          stale: props.stale,
-          statusOnly: props.statusOnly,
-        });
-  const labels = {
-    collapseSteps: "Hide recent steps",
-    expandSteps: "Show recent steps",
-    ...inputLabels,
+  const { t } = useTranslation("ai-ui");
+  const labels: AgentStatusTickerLabels = {
+    collapseSteps: t("statusTicker.collapseSteps"),
+    done: t("statusTicker.done"),
+    error: t("statusTicker.error"),
+    expandSteps: t("statusTicker.expandSteps"),
+    somethingWentWrong: t("statusTicker.somethingWentWrong"),
+    stale: t("statusTicker.stale"),
+    thinking: t("statusTicker.thinking"),
+    waiting: t("statusTicker.waiting"),
+    ...props.labels,
   };
+  const snapshot = deriveAgentStatusTicker({
+    activityBaselineSignature: props.activityBaselineSignature,
+    chatStatus: props.chatStatus,
+    errorMessage: props.errorMessage,
+    labels,
+    messages: props.messages,
+    runStatus: props.runStatus,
+    stale: props.stale,
+  });
 
   useEffect(() => {
     if (snapshot.outcome === "success" || snapshot.outcome === "error") {
@@ -182,7 +168,6 @@ export function AgentStatusTicker(props: AgentStatusTickerProps) {
     });
   };
 
-  const useShimmer = enableShimmer && snapshot.showShimmer;
   const textClass = cn(
     "min-w-0 flex-1 text-sm",
     variantTextClass(snapshot.variant)
@@ -207,9 +192,7 @@ export function AgentStatusTicker(props: AgentStatusTickerProps) {
         ) : (
           <StepLine
             elapsedLabel={expanded ? null : elapsedLabel}
-            enableShimmer={enableShimmer}
             expanded={expanded}
-            showShimmer={useShimmer}
             step={{ label: expanded ? snapshot.fullLabel : snapshot.label }}
             textClass={textClass}
           />

@@ -16,7 +16,9 @@ export {
   registerApprovalRequestRenderer,
 } from "./approval-request-notification.js";
 export {
+  canMarkSeen,
   groupAttentionByAgent,
+  groupIntoStacks,
   isAttention,
   isDismissible,
   isError,
@@ -24,6 +26,8 @@ export {
   isUnseen,
   matchesLaneFilter,
   type NotificationLaneFilter,
+  type NotificationStackGroup,
+  stackKeyOf,
 } from "./classification.js";
 export {
   browserClientChannel,
@@ -37,12 +41,25 @@ export {
   type InboxOpenRequest,
   openNotificationInbox,
 } from "./inbox-open.js";
-export { NotificationAttentionCard } from "./notification-attention-card.js";
 export {
   NOTIFICATIONS_PATH,
   NotificationBell,
   type NotificationBellProps,
 } from "./notification-bell.js";
+export {
+  NotificationCard,
+  type NotificationCardProps,
+  type NotificationCardVariant,
+} from "./notification-card.js";
+export {
+  type NotificationActorNameHook,
+  NotificationFace,
+  type NotificationFaceProps,
+  type NotificationFaceRenderer,
+  registerNotificationActorName,
+  registerNotificationFace,
+  useNotificationActorName,
+} from "./notification-face.js";
 export {
   notificationHref,
   notificationOrigin,
@@ -52,17 +69,20 @@ export {
   notificationInboxPopoverClassName,
 } from "./notification-inbox-panel.js";
 export {
-  actionVerb,
-  localizedSummary,
-  notificationBodyText,
-} from "./notification-item.js";
-export {
   NotificationList,
   type NotificationListProps,
-  type NotificationListVariant,
 } from "./notification-list.js";
 export { spaceInboxPath } from "./notification-paths.js";
 export { NotificationPreferencesSection } from "./notification-preferences-section.js";
+export {
+  NotificationStacks,
+  type NotificationStacksProps,
+} from "./notification-stack.js";
+export {
+  actionVerb,
+  localizedSummary,
+  notificationBodyText,
+} from "./notification-text.js";
 export { NotificationsPage } from "./notifications-page.js";
 export {
   notificationKeys,
@@ -72,6 +92,7 @@ export {
   useDecideApprovalMutation,
   useMarkAllSeenMutation,
   useMarkNotificationMutation,
+  useMarkSeenMutation,
   useNotificationsQuery,
   useSpaceAttention,
 } from "./queries.js";
@@ -97,9 +118,6 @@ export {
 } from "./streams-api.js";
 export { NotificationStreamsSettingsPage } from "./streams-settings-page.js";
 export {
-  readSavedViews,
-  type SavedView,
   useNotificationSettingsQuery,
   useSetNotificationSettingMutation,
-  VIEWS_SETTING,
 } from "./user-prefs.js";

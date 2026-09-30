@@ -51,19 +51,71 @@ export function isPluginPlacement(value: unknown): value is PluginPlacement {
 }
 
 /**
- * How finished a module is. `experimental` modules ship in the tree and load
- * like any other, but the README and catalogs leave them out until they are
- * ready for someone who did not build them. Absent means `stable`.
+ * How finished a module is. An install sets its stage with
+ * `ENGENTY_MODULE_STAGE` (default `beta`):
+ *
+ * - `dev`: in development. Installed only where the stage is `dev`;
+ *   everywhere else it is not loaded and not in the UI bundle.
+ * - `alpha`: usable for pilots. Always installed; below the install's stage
+ *   it is off until a superadmin turns it on for a tenant.
+ * - `beta`: public, may still change.
+ * - `stable`: released. Absent means `stable`.
  */
-export const PLUGIN_STABILITIES = ["stable", "experimental"] as const;
+export const PLUGIN_STAGES = ["dev", "alpha", "beta", "stable"] as const;
 
-export type PluginStability = (typeof PLUGIN_STABILITIES)[number];
+export type PluginStage = (typeof PLUGIN_STAGES)[number];
 
-export function isPluginStability(value: unknown): value is PluginStability {
+/** What an install uses when `ENGENTY_MODULE_STAGE` is unset. */
+export const DEFAULT_MODULE_STAGE: PluginStage = "beta";
+
+export function isPluginStage(value: unknown): value is PluginStage {
   return (
     typeof value === "string" &&
-    (PLUGIN_STABILITIES as readonly string[]).includes(value)
+    (PLUGIN_STAGES as readonly string[]).includes(value)
   );
+}
+
+function isStageAtLeast(stage: PluginStage, floor: PluginStage): boolean {
+  return PLUGIN_STAGES.indexOf(stage) >= PLUGIN_STAGES.indexOf(floor);
+}
+
+/**
+ * Whether an install at `installStage` has the module at all. A module at or
+ * above the install's stage is installed, and so is every `alpha` module (a
+ * superadmin can turn it on per tenant). Anything else is left out. The twin
+ * in scripts/lib/engenty-modules.mjs decides the UI bundle the same way.
+ */
+export function isModuleStageInstalled(
+  stage: PluginStage | undefined,
+  installStage: PluginStage
+): boolean {
+  const resolved = stage ?? "stable";
+  return resolved === "alpha" || isStageAtLeast(resolved, installStage);
+}
+
+/**
+ * Whether a tenant has an installed module before any per-tenant override:
+ * `on` (the tenant may turn it off) or `opt_in` (off until a superadmin turns
+ * it on for the tenant).
+ */
+export type PluginTenantDefault = "on" | "opt_in";
+
+/** At or above the install's stage a module is `on`; below it, `opt_in`. */
+export function moduleTenantDefault(
+  stage: PluginStage | undefined,
+  installStage: PluginStage
+): PluginTenantDefault {
+  return isStageAtLeast(stage ?? "stable", installStage) ? "on" : "opt_in";
+}
+
+/** A tenant's module state from its default and the tenant's override. */
+export function isPluginOnForTenant(
+  tenantDefault: PluginTenantDefault | undefined,
+  override: boolean | undefined
+): boolean {
+  return (tenantDefault ?? "on") === "on"
+    ? override !== false
+    : override === true;
 }
 
 /** Sort key for category display; unknown / missing sorts last. */

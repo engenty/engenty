@@ -46,7 +46,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { resolveSpaceAgentKind } from "@/lib/space-agent-nav";
 import {
   builtInSectionFor,
-  isRiverItem,
   type SpaceConversationItem,
 } from "@/lib/space-conversation-sections";
 import { useSpaceConversationSidebarActions } from "./space-conversation-sidebar-context";
@@ -83,9 +82,6 @@ export function SpaceConversationNavMenu({
     item.kind === "desk" ? null : item.key.slice("thread:".length);
   const leaveRoom = useLeaveRoomMutation();
   const updateRoom = useUpdateRoomMutation(threadId ?? "");
-  // The river: pinned by nature, filed nowhere, never hidden or archived. Only
-  // its id is worth a menu item, and the page itself offers that.
-  const river = isRiverItem(item);
 
   useEffect(
     () => () => {
@@ -144,10 +140,6 @@ export function SpaceConversationNavMenu({
       ? builtInLabel
       : (actions.personalSections.find((section) => section.id === id)?.name ??
         id);
-
-  if (river) {
-    return null;
-  }
 
   return (
     <>

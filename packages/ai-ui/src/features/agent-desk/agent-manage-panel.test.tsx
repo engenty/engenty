@@ -28,9 +28,13 @@ vi.mock("./agent-runs-panel.js", () => ({
 vi.mock("../agents-workspace/agent-connections-panel.js", () => ({
   AgentConnectionsPanel: () => null,
 }));
-vi.mock("./use-agent-memory.js", () => ({
-  useAgentMemoryQuery: () => ({ data: { content: "" }, isPending: false }),
-  useSaveAgentMemoryMutation: () => ({ isPending: false, mutate: vi.fn() }),
+vi.mock("../memory/memory-entries-api.js", () => ({
+  useMemoryEntriesQuery: () => ({ data: undefined, isLoading: false }),
+  useMemoryEntryMutations: () => ({
+    add: { isPending: false, mutate: vi.fn() },
+    edit: { isPending: false, mutate: vi.fn() },
+    remove: { isPending: false, mutate: vi.fn() },
+  }),
 }));
 vi.mock("../../lib/admin/instruction-settings-queries.js", () => ({
   useAiInstructionResolutionQuery: () => ({

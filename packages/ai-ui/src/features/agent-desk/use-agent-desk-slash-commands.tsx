@@ -4,6 +4,7 @@ import { useTranslation } from "@engenty/i18n/ui";
 import { type ReactNode, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ENGENTY_COPILOT_HOST_KEY } from "../../agent-provider/host-keys.js";
+import { ChatCommandsHelpDialog } from "../../components/copilot/composer/chat-commands-help-dialog.js";
 import type { ChatSlashCommand } from "../../components/copilot/composer/copilot-slash-command.js";
 import { PromptPreviewDialog } from "../../components/copilot/context-usage/prompt-preview-dialog.js";
 import { ThreadUsageDialog } from "../../components/copilot/context-usage/thread-usage-dialog.js";
@@ -13,12 +14,23 @@ import {
   writePendingHostMessage,
 } from "../../copilot/host-message-handoff.js";
 import { useChatSlashCommands } from "../../hooks/use-chat-slash-commands.js";
-import { AI_EFFORT_CHOICES } from "../ai-effort/effort-choices.js";
 import {
-  isEffortChoice,
-  setChatEffortChoice,
-} from "../ai-effort/use-chat-effort-choice.js";
+  baseChatModePick,
+  chatModeDraftKey,
+  readChatModeDraft,
+  setChatModeDraft,
+} from "../ai-effort/chat-mode-store.js";
 import type { AgentDeskPanel } from "./agent-desk-drawer.js";
+
+const SLASH_CHAT_MODES = ["normal", "extra"] as const;
+
+function isSlashChatMode(
+  value: string
+): value is (typeof SLASH_CHAT_MODES)[number] {
+  return (SLASH_CHAT_MODES as readonly string[]).includes(
+    value.trim().toLowerCase()
+  );
+}
 
 /** Another agent of the Space, as `/agent` finds it by name. */
 export interface AgentDeskSlashAgent {
@@ -75,7 +87,7 @@ export function matchDeskAgent(
  *   hosts it (`onOpenPanel`); the drawer and a room have none.
  * - `/context`, `/usage` open the same dialogs the composer's usage meter
  *   does, for the bound thread — a chat not yet sent has neither.
- * - `/effort <level>` sets the same pick as the composer's effort pill.
+ * - `/effort normal|extra` sets this chat's pick, like the composer's pill.
  * - `/agent <name>` (also `/engenty`, `/bot`) is a Space desk's: another
  *   agent's desk.
  * - `/copilot [message]` opens the copilot, sending the message there.
@@ -89,14 +101,21 @@ export function useAgentDeskSlashCommands(input: {
   agentScope?: string | null;
   /** The Space's other agents and how to open one's desk — `/agent`. */
   agentSwitch?: AgentDeskSlashAgentSwitch;
+  /**
+   * The lane's host — `/effort` sets the pick of its chat. Without one (and
+   * no thread yet) there is no chat to set it on, and `/effort` is absent.
+   */
+  hostKey?: string;
   onOpenPanel?: (panel: AgentDeskPanel) => void;
   skillIds: string[];
   spaceId: string | null;
   threadId: string | null;
 }): { dialogs: ReactNode; slashCommands: ChatSlashCommand[] } {
   const { t } = useTranslation("ai-ui");
-  const [dialog, setDialog] = useState<"context" | "usage" | null>(null);
-  const { agentSwitch, onOpenPanel, threadId } = input;
+  const [dialog, setDialog] = useState<"context" | "help" | "usage" | null>(
+    null
+  );
+  const { agentSwitch, hostKey, onOpenPanel, threadId } = input;
   const navigate = useNavigate();
   const location = useLocation();
   // `/copilot [message]`: the person's copilot for the place they stand on,
@@ -125,6 +144,7 @@ export function useAgentDeskSlashCommands(input: {
         description: t("agentDesk.commands.help"),
         group: "Core",
         kind: "ui",
+        run: () => setDialog("help"),
       },
     ];
     if (onOpenPanel) {
@@ -163,20 +183,29 @@ export function useAgentDeskSlashCommands(input: {
         }
       );
     }
-    commands.push({
-      accepts: (argsText) => isEffortChoice(argsText.trim().toLowerCase()),
-      argsHint: `<${AI_EFFORT_CHOICES.join("|")}>`,
-      command: "effort",
-      description: t("agentDesk.commands.effort"),
-      group: "Core",
-      kind: "ui",
-      run: (argsText) => {
-        const choice = argsText.trim().toLowerCase();
-        if (isEffortChoice(choice)) {
-          setChatEffortChoice(choice);
-        }
-      },
-    });
+    // Normal / Extra only: Custom needs a model, which is what the flyout is
+    // for. The pick is this chat's, like the composer's.
+    const effortKey =
+      threadId || hostKey ? chatModeDraftKey(hostKey ?? "", threadId) : null;
+    if (effortKey) {
+      commands.push({
+        accepts: (argsText) => isSlashChatMode(argsText),
+        argsHint: `<${SLASH_CHAT_MODES.join("|")}>`,
+        command: "effort",
+        description: t("agentDesk.commands.effort"),
+        group: "Core",
+        kind: "ui",
+        run: (argsText) => {
+          const mode = argsText.trim().toLowerCase();
+          if (isSlashChatMode(mode)) {
+            setChatModeDraft(effortKey, {
+              ...(readChatModeDraft(effortKey)?.pick ?? baseChatModePick()),
+              mode,
+            });
+          }
+        },
+      });
+    }
     if (agentSwitch && agentSwitch.agents.length > 0) {
       commands.push({
         accepts: (argsText) =>
@@ -206,7 +235,7 @@ export function useAgentDeskSlashCommands(input: {
       });
     }
     return commands;
-  }, [agentSwitch, onOpenPanel, openCopilot, t, threadId]);
+  }, [agentSwitch, hostKey, onOpenPanel, openCopilot, t, threadId]);
 
   const slashCommands = useChatSlashCommands({
     agentId: input.agentId,
@@ -220,20 +249,29 @@ export function useAgentDeskSlashCommands(input: {
       setDialog(null);
     }
   };
-  const dialogs = threadId ? (
+  const dialogs = (
     <>
-      <PromptPreviewDialog
+      <ChatCommandsHelpDialog
+        commands={slashCommands}
         onOpenChange={close}
-        open={dialog === "context"}
-        threadId={threadId}
+        open={dialog === "help"}
       />
-      <ThreadUsageDialog
-        onOpenChange={close}
-        open={dialog === "usage"}
-        threadId={threadId}
-      />
+      {threadId ? (
+        <>
+          <PromptPreviewDialog
+            onOpenChange={close}
+            open={dialog === "context"}
+            threadId={threadId}
+          />
+          <ThreadUsageDialog
+            onOpenChange={close}
+            open={dialog === "usage"}
+            threadId={threadId}
+          />
+        </>
+      ) : null}
     </>
-  ) : null;
+  );
 
   return { dialogs, slashCommands };
 }

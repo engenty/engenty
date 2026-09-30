@@ -49,6 +49,7 @@ function defineContactsAi(_options: {
         instructions: buildContactsManagerSystemPrompt(),
         skillIds: CONTACTS_MANAGER_SKILL_IDS,
         toolIds: CONTACTS_MANAGER_DYNAMIC_TOOL_IDS,
+        uiTools: "on",
       },
     ],
     dir: import.meta.url,

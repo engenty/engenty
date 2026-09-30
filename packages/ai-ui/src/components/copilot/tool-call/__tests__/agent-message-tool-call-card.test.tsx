@@ -24,8 +24,8 @@ describe("AgentMessageToolCallCard", () => {
     cleanup();
   });
 
-  it("shows what the colleague is doing while the hand-off is in flight", () => {
-    renderCard({
+  it("shows only the newest progress line while the hand-off runs", () => {
+    const { rerender } = renderCard({
       input: { agent_id: "tim", message: "Your turn." },
       progressLines: ["Running table_read", "Running table_write"],
       state: "running",
@@ -34,20 +34,25 @@ describe("AgentMessageToolCallCard", () => {
     expect(screen.getByTestId("agent-message-progress").textContent).toBe(
       "Running table_write"
     );
-  });
 
-  it("keeps the finished hand-off a single line", () => {
-    renderCard({
-      input: { agent_id: "tim", message: "Your turn." },
-      output: { agent: "Tim", agent_id: "tim", ok: true, result: "x→5" },
-      progressLines: ["Running table_write"],
-      state: "completed",
-    });
+    rerender(
+      <EngentyQueryProvider>
+        <MemoryRouter>
+          <AgentMessageToolCallCard
+            input={{ agent_id: "tim", message: "Your turn." }}
+            output={{ agent: "Tim", agent_id: "tim", ok: true, result: "x→5" }}
+            progressLines={["Running table_write"]}
+            state="completed"
+            toolName="message_agent"
+          />
+        </MemoryRouter>
+      </EngentyQueryProvider>
+    );
 
     expect(screen.queryByTestId("agent-message-progress")).toBeNull();
   });
 
-  it("a room post names every member and says the room was opened", () => {
+  it("names every room member instead of the room host", () => {
     renderCard({
       input: { agent_ids: ["tim", "tom"], message: "Let's play." },
       output: {
@@ -66,7 +71,6 @@ describe("AgentMessageToolCallCard", () => {
     });
 
     const row = screen.getByTestId("agent-message-row");
-    expect(row.textContent).toContain("agentMessage.openedRoom");
     expect(row.textContent).toContain("Tim");
     expect(row.textContent).toContain("Tom");
     expect(row.textContent).not.toContain("chief");

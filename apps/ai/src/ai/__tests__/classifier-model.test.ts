@@ -39,7 +39,7 @@ describe("resolvePlatformClassifierModelId", () => {
       {
         gateway: "vercel",
         model_id: "x",
-        role: "model.medium",
+        role: "model.normal",
         scope: "platform",
       },
     ]);

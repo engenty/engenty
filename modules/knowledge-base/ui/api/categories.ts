@@ -3,12 +3,12 @@
  */
 
 import { requestApiJson } from "@engenty/api-client";
+import type { Cover } from "@engenty/covers";
 import type {
   KbCategory,
   KbCategoryPageSettings,
   KbCategoryViewType,
   KbCommentsModeBinding,
-  KbCover,
   KbTemplateBindingMode,
 } from "../../src/schema/types.js";
 
@@ -51,7 +51,7 @@ export async function createCategory(input: {
 
 export interface UpdateCategoryInput {
   comments_mode?: KbCategory["comments_mode"];
-  cover?: KbCover | null;
+  cover?: Cover | null;
   cover_inheritance?: KbCategory["cover_inheritance"];
   description?: string | null;
   icon?: string | null;

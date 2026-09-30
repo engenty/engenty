@@ -618,7 +618,27 @@
       "zoomOut": "Zoom out",
       "copy": "Copy",
       "untitledImage": "image",
-      "untitledFile": "file"
+      "untitledFile": "file",
+      "blocked": {
+        "empty": "“{{name}}” is empty and was not attached.",
+        "executable": "“{{name}}” is a program and was not attached.",
+        "too_large": "“{{name}}” is larger than 25 MB and was not attached."
+      },
+      "ask": {
+        "archive": "is an archive — the agent can’t read what’s inside. Attach anyway?",
+        "macro": "can contain macros. Attach anyway?",
+        "mismatch": "doesn’t contain what its name says. Attach anyway?",
+        "attach": "Attach",
+        "skip": "Skip"
+      },
+      "drop": {
+        "title_one": "Drop to attach 1 file",
+        "title_other": "Drop to attach {{count}} files",
+        "titleUnknown": "Drop files to attach",
+        "executable": "Programs can’t be attached",
+        "limits": "Up to {{maxFiles}} files, {{maxMb}} MB each"
+      },
+      "dismissError": "Close"
     },
     "references": {
       "remove": "Remove reference"
@@ -1338,7 +1358,7 @@
         "pinned": "Favourites",
         "active": "Active",
         "quiet": "Inactive",
-        "attention": "Important"
+        "attention": "Notifications"
       },
       "attention": {
         "all": "All ({{count}})"
@@ -1410,12 +1430,14 @@
         "confirmLabel": "Type {{name}} to confirm",
         "confirmAction": "Delete space",
         "marked": "This space is marked for deletion. It will be permanently removed on {{date}}.",
-        "defaultHint": "The company space is the tenant's front door and cannot be deleted.",
-        "defaultBody": "Create another space if you need a separate work area. The company space stays."
+        "defaultHint": "The organisation space is the organisation's front door and cannot be deleted.",
+        "defaultBody": "Create another space if you need a separate work area. The organisation space stays."
       },
       "descriptionPlaceholder": "What is this space for?",
-      "publishTitle": "Share the public folder with the company",
-      "publishHint": "Files in /space/public are readable by every space as /company/spaces/{{key}}. Agents ask before writing there."
+      "publishTitle": "Share the public folder with the organisation",
+      "publishHint": "Files in /space/public are readable by every space as /company/spaces/{{key}}. Agents ask before writing there.",
+      "memoryTitle": "Memory",
+      "memoryHint": "What every Engenty in this space is told on every turn: how things are now, and the facts kept for it. Agents keep it up to date; any member can change it."
     },
     "data": {
       "derived": "Derived",
@@ -1454,6 +1476,12 @@
       "empty": "Nothing in this space yet.",
       "projectsFolder": "Projects",
       "partial": "Part of the data tree could not be loaded ({{sources}}); what you see is incomplete.",
+      "searchPlaceholder": "Search data",
+      "searchEmpty": "Nothing found",
+      "searchTruncated": "More matches — refine the search",
+      "searchPartial": "Could not search {{sources}}",
+      "searchClear": "Clear search",
+      "searchLoading": "Searching…",
       "folderFailed": "This folder could not be loaded.",
       "truncated": "Showing the first results only.",
       "emptyFolder": "Empty.",
@@ -1499,8 +1527,10 @@
         "moveSelectedTitle_other": "Move {{count}} items",
         "movedSelected": "Moved {{count}}"
       },
-      "artifactsSection": "Artifacts",
+      "artifactsSection": "Documents",
       "filesSection": "Files",
+      "appsSection": "Apps",
+      "publicSection": "Shared",
       "pagesSection": "Pages",
       "addInSection": "Add",
       "newFolder": "New folder",
@@ -1560,7 +1590,7 @@
         "deleteFolderDescription": "This folder is archived and leaves Artifacts. This cannot be undone from here.",
         "deleted": "Deleted",
         "deleteFailed": "Could not delete",
-        "root": "Artifacts",
+        "root": "Documents",
         "askEditHtml": "Edit the HTML artifact «{{name}}» in this Space's Artifacts.",
         "askEditTable": "Edit the table artifact «{{name}}» in this Space's Artifacts.",
         "askEditApp": "Change the app «{{name}}» in this Space's Artifacts.",
@@ -1623,7 +1653,7 @@
         "readingLarge": "Large",
         "readingNormal": "Default",
         "readingTone": "Reader",
-        "root": "Artifacts",
+        "root": "Documents",
         "type": "Type",
         "typeMarkdown": "Markdown",
         "untitled": "Untitled",
@@ -1663,7 +1693,6 @@
       "openDm": "Direct message",
       "newDm": "New direct message",
       "dmLine": "Only you",
-      "riverLine": "Only you · everywhere",
       "newRoomWith": "New group chat with {{name}}",
       "hide": "Hide from sidebar",
       "leave": "Leave",
@@ -1705,7 +1734,10 @@
       "pin": "Pin",
       "unpin": "Unpin"
     },
-    "dashboard": "Dashboard"
+    "dashboard": "Dashboard",
+    "nav": {
+      "backToSpace": "Back to the space"
+    }
   },
   "notifications": {
     "action": {
@@ -1716,7 +1748,7 @@
       "continue": "Continue"
     },
     "approval": {
-      "allowAlways": "Always allow for this agent",
+      "allowAlways": "Allow for agent",
       "allowAlwaysInbox": "For agent",
       "alreadyDecided": "Already handled by someone else.",
       "allowOnce": "Allow once",
@@ -1727,40 +1759,27 @@
       "risk": "{{level}} risk"
     },
     "bell": "Notifications",
-    "clearAll": "Clear all",
     "count": "{{count}} items",
     "dismiss": "Dismiss",
     "empty": "Nothing new — approvals, failures and completed work land here.",
-    "emptyHint": "Approvals and updates land here.",
     "emptyTitle": "Nothing new",
     "filter": {
       "all": "All",
       "errors": "Errors",
       "hitl": "Needs your input",
       "updates": "Updates",
-      "attention": "Important"
-    },
-    "inboxTitle": {
-      "errors_one": "{{count}} error",
-      "errors_other": "{{count}} errors",
-      "hitl_one": "{{count}} open approval",
-      "hitl_other": "{{count}} open approvals",
-      "updates_one": "{{count}} update",
-      "updates_other": "{{count}} updates",
-      "attention_one": "{{count}} important",
-      "attention_other": "{{count}} important"
+      "attention": "Notifications",
+      "label": "Filter",
+      "space": "Space",
+      "allSpaces": "All spaces"
     },
     "lane": {
-      "approvals": "Approvals",
-      "errors": "Errors",
-      "needsYou": "Needs your input",
       "updates": "Updates",
-      "attention": "Important"
+      "attention": "Notifications"
     },
     "loadFailed": "Failed to load notifications.",
     "loading": "Loading…",
     "markAllSeen": "Mark all seen",
-    "markSeen": "Mark as seen",
     "scope": {
       "all": "All",
       "space": "Space",
@@ -1771,9 +1790,6 @@
     "subtitle": "Approvals, failures and completed agent work that need your attention.",
     "title": "Notifications",
     "viewAll": "View all",
-    "views": {
-      "save": "Save current filter"
-    },
     "actorFilter": {
       "clear": "Show everyone"
     },
@@ -1816,16 +1832,37 @@
       "workflow_proposed": "Workflow \"{{name}}\" to review",
       "workflow_revised": "Workflow \"{{name}}\" v{{version}} to review"
     },
+    "headlines": {
+      "agent_desk_post": "Posted an update",
+      "agent_look_proposed": "Proposed a new look",
+      "agent_question": "Has a question",
+      "agent_run_suspended": "Proposed changes to review",
+      "approval_requested": "Wants to run {{operation}}",
+      "records_written": "Ran {{operation}}",
+      "routine_created": "Created the routine \"{{name}}\"",
+      "stream_escalation": "Needs your attention",
+      "stream_update": "Posted an update",
+      "team_chat_dm": "Sent you a message",
+      "team_chat_mention": "Mentioned you in {{name}}",
+      "team_chat_message": "Wrote in {{name}}",
+      "team_chat_reply": "Replied in {{name}}",
+      "tool_approval": "Wants to use {{operation}}"
+    },
     "group": {
-      "more": "+{{count}} more",
-      "moreFrom": "+{{count}} more from {{name}}",
-      "less": "Show less"
-    }
+      "more": "+{{count}} more"
+    },
+    "emptyHintAttention": "Nothing waits for you.",
+    "emptyHintUpdates": "What your agents finish lands here.",
+    "close": "Close",
+    "fromEngenty": "Engenty",
+    "expand": "Open as page",
+    "markSeen": "Mark as seen",
+    "showMore": "Show more"
   },
   "company": {
-    "title": "Company files",
-    "description": "What every space can read. Agents see these folders read-only under /company; the company drive is written by people allowed to publish, and each space's folder by its own people.",
-    "driveTitle": "Company drive",
+    "title": "Organisation files",
+    "description": "What every space can read. Agents see these folders read-only under /company; the organisation drive is written by people allowed to publish, and each space's folder by its own people.",
+    "driveTitle": "Organisation drive",
     "spacesTitle": "Shared by spaces",
     "noSpaces": "No space shares a public folder yet.",
     "empty": "No files yet.",
@@ -1835,6 +1872,51 @@
     "uploadFailed": "Could not upload.",
     "deleteFailed": "Could not delete.",
     "downloadFailed": "Could not open the file.",
-    "openLink": "Open company files"
+    "openLink": "Open organisation files",
+    "memoryTitle": "Organisation memory",
+    "memoryDescription": "What every engenty in every Space is told on every turn. An engenty asks for approval before adding here."
+  },
+  "covers": {
+    "add_cover_hint": "Add cover",
+    "change_cover_hint": "Change cover",
+    "cover_ai_failed": "Image generation failed.",
+    "cover_ai_mode_edit": "Edit",
+    "cover_ai_mode_generate": "Generate",
+    "cover_ai_prompt_label": "Prompt",
+    "cover_ai_prompt_placeholder": "Describe the cover image you want…",
+    "cover_ai_ref_ready": "Reference image uploaded.",
+    "cover_ai_ref_upload": "Reference image (optional)",
+    "cover_ai_ref_upload_button": "Choose reference file",
+    "cover_ai_run": "Generate image",
+    "cover_ai_use_current": "Use current cover image as reference",
+    "cover_ai_use_current_hint": "Set a vault-stored cover (upload or Unsplash) to use it as a reference, or upload a reference image below.",
+    "cover_attribution_on": "on",
+    "cover_attribution_photo_by": "Photo by",
+    "cover_dialog_description": "Pick a colour, gradient or image. Images can be uploaded, found on Unsplash or generated with AI.",
+    "cover_dialog_title": "Cover",
+    "cover_image_sub_ai": "AI",
+    "cover_image_sub_upload": "Upload",
+    "cover_picker_apply": "Apply",
+    "cover_picker_color_tab": "Color",
+    "cover_picker_gradient_tab": "Gradient",
+    "cover_picker_image_or_url": "or URL",
+    "cover_picker_image_placeholder": "Paste an image URL…",
+    "cover_picker_image_tab": "Image",
+    "cover_picker_image_url_invalid": "Enter a valid image URL (https://…).",
+    "cover_picker_tone_light": "Light",
+    "cover_picker_tone_vibrant": "Vibrant",
+    "cover_picker_upload_button": "Choose image file",
+    "cover_picker_upload_failed": "Could not upload the image.",
+    "cover_picker_upload_not_image": "Please choose an image file (JPEG, PNG, WebP, or GIF).",
+    "cover_picker_upload_too_large": "Image must be at most 12 MB.",
+    "cover_picker_uploading": "Uploading…",
+    "cover_unsplash_error": "Could not load Unsplash results. Check that Unsplash is configured on the server.",
+    "cover_unsplash_import_failed": "Could not import that photo.",
+    "cover_unsplash_placeholder": "Search photos…",
+    "cover_unsplash_query_required": "Enter a search term.",
+    "cover_unsplash_search": "Search",
+    "cover_unsplash_terms": "Photos from photographers on Unsplash — use per Unsplash guidelines.",
+    "cover_upload_drop_hint": "Drag and drop an image here, or use the button below.",
+    "remove_cover": "Remove cover"
   }
 }

@@ -1,6 +1,8 @@
 import {
   AGENT_STARTER_DECLARE_MAX,
   type AgentWorkspaceConfig,
+  AI_EFFORT_LEVELS,
+  type AiEffort,
   agentGuardrailsConfigSchema,
   agentLimitsConfigSchema,
   agentStarterSchema,
@@ -181,8 +183,8 @@ function resolveAgentSandbox(
   return { ...base, ...declared.data, requireApproval: true };
 }
 
-function isEffort(value: unknown): value is "low" | "medium" | "high" {
-  return value === "low" || value === "medium" || value === "high";
+function isEffort(value: unknown): value is AiEffort {
+  return (AI_EFFORT_LEVELS as readonly unknown[]).includes(value);
 }
 
 function isUiTools(value: unknown): value is "auto" | "on" | "off" {

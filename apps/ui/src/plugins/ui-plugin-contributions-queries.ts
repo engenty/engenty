@@ -269,6 +269,10 @@ export function pruneStaleUiPluginContributionsData(
     data.contributions.spaceTabs ?? [],
     pluginId
   );
+  const spaceSections = removePluginOwnedItems(
+    data.contributions.spaceSections ?? [],
+    pluginId
+  );
   // `?? []`: cached query data may predate this contribution kind.
   const chatCommands = removePluginOwnedItems(
     data.contributions.chatCommands ?? [],
@@ -286,6 +290,7 @@ export function pruneStaleUiPluginContributionsData(
     settingsItems.removed +
     tabs.removed +
     spaceTabs.removed +
+    spaceSections.removed +
     chatCommands.removed;
 
   if (removed === 0) {
@@ -310,6 +315,7 @@ export function pruneStaleUiPluginContributionsData(
       i18nNamespaces: i18nNamespaces.items,
       navigationPrefetch: navigationPrefetch.items,
       settingsItems: settingsItems.items,
+      spaceSections: spaceSections.items,
       spaceTabs: spaceTabs.items,
       tabs: tabs.items,
       chatCommands: chatCommands.items,

@@ -46,9 +46,42 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
+const DNS_HOST =
+  /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?::\d{1,5})?$/;
+
+/**
+ * A declared domain as a CSP source: one exact https/wss origin, or nothing.
+ * The domains come from an MCP server or an App manifest, so a `*`, a bare
+ * scheme, a wildcard host or anything that is not a plain origin would widen
+ * the policy (or break out of it) at the guest's say-so. A bare host means
+ * https.
+ */
+function toCspSource(declared: string): string | null {
+  const value = declared.trim();
+  let url: URL;
+  try {
+    url = new URL(
+      /^[a-z][a-z0-9+.-]*:/i.test(value) ? value : `https://${value}`
+    );
+  } catch {
+    return null;
+  }
+  const isOrigin =
+    (url.protocol === "https:" || url.protocol === "wss:") &&
+    !(url.username || url.password || url.search || url.hash) &&
+    (url.pathname === "/" || url.pathname === "") &&
+    DNS_HOST.test(url.host);
+  return isOrigin ? `${url.protocol}//${url.host}` : null;
+}
+
+function cspSources(declared: string[] | undefined): string {
+  const sources = (declared ?? []).map(toCspSource).filter(Boolean);
+  return [...new Set(sources)].join(" ");
+}
+
 export function buildWidgetCsp(csp?: BridgedFrameCsp): string {
-  const connect = csp?.connectDomains?.join(" ") ?? "";
-  const resources = csp?.resourceDomains?.join(" ") ?? "";
+  const connect = cspSources(csp?.connectDomains);
+  const resources = cspSources(csp?.resourceDomains);
   return [
     "default-src 'none'",
     "script-src 'unsafe-inline'",
@@ -61,7 +94,11 @@ export function buildWidgetCsp(csp?: BridgedFrameCsp): string {
 }
 
 export function injectCspMeta(html: string, cspValue: string): string {
-  const meta = `<meta http-equiv="Content-Security-Policy" content="${cspValue}">`;
+  const content = cspValue
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;");
+  const meta = `<meta http-equiv="Content-Security-Policy" content="${content}">`;
   const headMatch = html.match(/<head[^>]*>/i);
   if (headMatch?.index !== undefined) {
     const insertAt = headMatch.index + headMatch[0].length;

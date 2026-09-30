@@ -271,6 +271,7 @@ export async function buildAgentWorkspaceForRun(input: {
     ...(sandboxEnabled
       ? {
           computeInstructions: buildComputeInstructions({
+            agentId: input.agentId,
             lifecycle: sandboxLifecycle,
             mounts: input.mounts,
             network:

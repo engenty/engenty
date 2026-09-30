@@ -19,6 +19,7 @@ import type {
   UiRouteContribution,
   UiRouteScope,
   UiSettingsItemContribution,
+  UiSpaceSectionContribution,
   UiSpaceTabContribution,
   UiTabContribution,
 } from "@engenty/ui-plugin-sdk";
@@ -41,6 +42,7 @@ interface MutableUiContributions {
   navigationPrefetch: UiNavigationPrefetchContribution[];
   routes: UiRouteContribution[];
   settingsItems: UiSettingsItemContribution[];
+  spaceSections: UiSpaceSectionContribution[];
   spaceTabs: UiSpaceTabContribution[];
   tabs: UiTabContribution[];
 }
@@ -117,6 +119,7 @@ export function createUiPluginRuntime(
       liveBindings: [],
       navigationPrefetch: [],
       settingsItems: [],
+      spaceSections: [],
       spaceTabs: [],
       tabs: [],
     },
@@ -242,13 +245,29 @@ export function createEngentyUiApi(
         sourceInfo: sourceInfoFor(catalogSourceInfo, "ui.tab"),
       });
     },
+    registerSpaceSection: (input) => {
+      const id = normalizeId(input.id, "space section");
+      if (input.slots.length === 0) {
+        throw new Error(`space section "${id}" needs at least one slot`);
+      }
+      runtime.contributions.spaceSections.push({
+        id,
+        pluginId: normalizedPluginId,
+        label: input.label?.trim(),
+        labelKey: input.labelKey?.trim(),
+        moduleId: input.moduleId?.trim() || undefined,
+        order: input.order,
+        slots: [...new Set(input.slots)],
+        sourceInfo: sourceInfoFor(catalogSourceInfo, "ui.spaceSection"),
+        useItems: input.useItems,
+      });
+    },
     registerSpaceTab: (input) => {
       const id = normalizeId(input.id, "space tab");
       const rest = input.path?.trim().replace(/^\/+/, "");
       runtime.contributions.spaceTabs.push({
         id,
         pluginId: normalizedPluginId,
-        ...(input.embedOnHome ? { embedOnHome: true } : {}),
         icon: input.icon,
         label: input.label?.trim(),
         labelKey: input.labelKey?.trim(),
@@ -383,6 +402,7 @@ export async function resolveUiContributions(
     liveBindings,
     navigationPrefetch,
     settingsItems,
+    spaceSections,
     spaceTabs,
     tabs,
     chatCommands,
@@ -415,6 +435,9 @@ export async function resolveUiContributions(
     runtime.hooks.emit("ui.settingsItems", [
       ...runtime.contributions.settingsItems,
     ]),
+    runtime.hooks.emit("ui.spaceSections", [
+      ...runtime.contributions.spaceSections,
+    ]),
     runtime.hooks.emit("ui.spaceTabs", [...runtime.contributions.spaceTabs]),
     runtime.hooks.emit("ui.tabs", [...runtime.contributions.tabs]),
     runtime.hooks.emit("ui.chatCommands", [
@@ -437,6 +460,7 @@ export async function resolveUiContributions(
     liveBindings,
     navigationPrefetch,
     settingsItems,
+    spaceSections,
     spaceTabs,
     tabs,
   };

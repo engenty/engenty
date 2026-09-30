@@ -12,11 +12,11 @@ import {
   buildCompanyFilesPublishMethod,
   buildCompanyFilesRemoveMethod,
 } from "./methods/company-files/company-files-methods.js";
-import { buildCoreAgentsEnsureMethod } from "./methods/core-agents/ensure-method.js";
 import {
-  buildChatThreadIndexHealthMethod,
-  buildChatThreadSearchMethod,
-} from "./methods/core-ai-methods-removed.js";
+  buildCompanyMemoryAddMethod,
+  buildCompanyMemoryRemoveMethod,
+} from "./methods/company-memory/company-memory-methods.js";
+import { buildCoreAgentsEnsureMethod } from "./methods/core-agents/ensure-method.js";
 import { buildCoreUsersCreateInTenantMethod } from "./methods/core-users/create-in-tenant-method.js";
 
 function registerCoreMethodIfAbsent(
@@ -111,8 +111,11 @@ export function registerCoreMethods(
     registry,
     buildEngentyApiCatalogMethod(helpers.getApiCatalog)
   );
-  registerCoreMethodIfAbsent(registry, buildChatThreadIndexHealthMethod());
-  registerCoreMethodIfAbsent(registry, buildChatThreadSearchMethod());
   registerCoreMethodIfAbsent(registry, buildCompanyFilesPublishMethod(config));
   registerCoreMethodIfAbsent(registry, buildCompanyFilesRemoveMethod(config));
+  registerCoreMethodIfAbsent(registry, buildCompanyMemoryAddMethod(registry));
+  registerCoreMethodIfAbsent(
+    registry,
+    buildCompanyMemoryRemoveMethod(registry)
+  );
 }

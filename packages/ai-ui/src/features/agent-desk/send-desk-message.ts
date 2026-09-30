@@ -5,8 +5,8 @@
 // server before the page moves: the thread is created when the desk has none,
 // the run is started, and this returns the moment the server accepts it. The
 // run keeps going detached (thread-run-routes D1 — a dropped client never
-// aborts a run), and the desk attaches to it on arrival through active-run
-// recovery, with the person's turn already in the transcript it hydrates.
+// aborts a run), and the desk attaches to it on arrival: the run id is handed
+// to it (thread-run-handoff), so it follows this run from the first second.
 import { createAgUiSseParser, EventType } from "@engenty/ag-ui-bridge";
 import {
   appsAiRequestHeaders,
@@ -14,7 +14,12 @@ import {
 } from "../../ag-ui/apps-ai/apps-ai-api.js";
 import { createAppsAiThread } from "../../ag-ui/apps-ai/apps-ai-transport.js";
 import { buildAppsAiRunInput } from "../../ag-ui/apps-ai/build-apps-ai-run-input.js";
+import { handOffThreadRun } from "../../ag-ui/apps-ai/thread-run-handoff.js";
 import type { EngentyAgUiRouteContext } from "../../ag-ui/engenty-ag-ui-route-context.js";
+import {
+  buildChatReferencePart,
+  type ChatReferenceItem,
+} from "../../lib/chat-reference-part.js";
 
 /** How long to wait for the server's RUN_STARTED before trusting the 200. */
 const RUN_STARTED_WAIT_MS = 2500;
@@ -23,6 +28,8 @@ export interface SendDeskMessageInput {
   /** The desk's agent — needed only when the thread has to be created. */
   agentId?: string | null;
   hostKey: string;
+  /** Typed @-mention references carried on the turn, as the desk sends them. */
+  refs?: readonly ChatReferenceItem[];
   routeContext: EngentyAgUiRouteContext;
   serviceBaseUrl: string;
   text: string;
@@ -97,7 +104,9 @@ export async function sendDeskMessageInPlace(
   const runInput = buildAppsAiRunInput({
     frontendTools: [],
     message: {
-      content: text,
+      content: input.refs?.length
+        ? [{ text, type: "text" }, buildChatReferencePart([...input.refs])]
+        : text,
       id: globalThis.crypto?.randomUUID?.() ?? `user-${Date.now()}`,
       role: "user",
     },
@@ -124,5 +133,8 @@ export async function sendDeskMessageInPlace(
   if (response.body) {
     await awaitRunStarted(response.body);
   }
+  // The pane that opens next follows exactly this run instead of hoping to
+  // discover it (it may not be listed yet, and no "running" signal follows).
+  handOffThreadRun(threadId, runInput.runId);
   return { runId: runInput.runId, threadId };
 }

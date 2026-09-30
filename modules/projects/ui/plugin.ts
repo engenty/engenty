@@ -28,6 +28,7 @@ import {
 import { setProjectsPluginsApi } from "./plugins.js";
 import { projectsLiveBinding } from "./projects-live-binding.js";
 import { projectsPublicUiContributions } from "./public-plugin.js";
+import { registerProjectsSpaceSections } from "./space-sections.js";
 import { projectsWorkTab } from "./work-tab.js";
 
 const PROJECTS_TASKS_LIST_ENRICHER_ID = "projects";
@@ -80,6 +81,7 @@ export default function plugin(engenty: EngentyPluginContext) {
   engenty.UI.registerLiveBinding(projectsLiveBinding);
   setProjectsPluginsApi(engenty.plugins);
   projectsPublicUiContributions(engenty);
+  registerProjectsSpaceSections(engenty);
 
   engenty.plugins.expose({
     getProjects: async (signal?: AbortSignal) => {

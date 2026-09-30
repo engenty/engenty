@@ -1,7 +1,7 @@
+import type { Cover } from "@engenty/covers";
 import { z } from "zod";
 import type { KbCommentsModeBinding } from "./comments.js";
 import { kbCommentsModeBindingSchema } from "./comments.js";
-import type { KbCover } from "./knowledge-bases.js";
 import type { ArticleStatus } from "./shared.js";
 import { articleWritableStatusSchema, slugSchema } from "./shared.js";
 import type { Tag } from "./tags.js";
@@ -38,7 +38,7 @@ export interface Article {
   /** Populated on article detail GET. */
   effective_comments_mode?: "none" | "enabled" | "closed";
   /** Populated on detail GET when a parent category cover applies to this page. */
-  effective_cover?: KbCover | null;
+  effective_cover?: Cover | null;
   /** Populated on detail/list contexts that resolve template inheritance. */
   effective_template?: KbArticleTemplate | null;
   id: string;

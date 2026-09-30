@@ -91,6 +91,7 @@ import {
 import { type AiScopeResolver, createCoreAiScopeResolver } from "./api/http.js";
 import { registerInstructionRoutes } from "./api/instruction-routes.js";
 import { registerMcpAppRoutes } from "./api/mcp-app-routes.js";
+import { registerMemoryEntryRoutes } from "./api/memory-entry-routes.js";
 import { registerModelBindingRoutes } from "./api/model-binding-routes.js";
 import { registerModelDefaultsRoutes } from "./api/model-defaults-routes.js";
 import {
@@ -134,7 +135,6 @@ import { registerUsageRoutes } from "./api/usage-routes.js";
 import { registerWorkFilesRoutes } from "./api/work-files-routes.js";
 import { registerWorkflowPressRoutes } from "./api/workflow-press-routes.js";
 import { registerWorkflowRoutes } from "./api/workflow-routes.js";
-import { registerWorkingMemoryRoutes } from "./api/working-memory-routes.js";
 import { registerWorkspaceRoutes } from "./api/workspace-routes.js";
 import { AI_BASE_PATH } from "./config/constants.js";
 import { isMastraStudioApiEnabled } from "./config/mastra-studio-api.js";
@@ -142,6 +142,12 @@ import { readStudioTenantIdFromEnv } from "./config/mastra-studio-tenant.js";
 import { createApiCatalogSearchStore } from "./dal/api-catalog/api-catalog-search-store.js";
 import type { ArtifactStore } from "./dal/artifacts/index.js";
 import type { ChatSearchRetrieval } from "./dal/chat-search/index.js";
+import {
+  getMemoryEntryStore,
+  getWorkingMemoryStore,
+  type MemoryEntryStore,
+  type WorkingMemoryStore,
+} from "./dal/memory/index.js";
 import type { AgentRunStore, ThreadStore } from "./dal/threads/index.js";
 import { seedAiUsageModelPricing } from "./dal/usage/index.js";
 import {
@@ -188,6 +194,7 @@ export interface CreateAppOptions {
   elevenLabsRealtimeApiKey?: () => string | null;
   elevenLabsVoicesFetch?: typeof fetch;
   events?: PluginEventsApi;
+  memoryStore?: MemoryEntryStore | null;
   mistralRealtimeApiKey?: () => string | null;
   moduleCapabilityLoader?: DynamicAiModuleCapabilityLoader | null;
   openAiRealtimeApiKey?: () => string | null;
@@ -198,6 +205,7 @@ export interface CreateAppOptions {
   searchIndexRegistry?: SearchIndexRegistry;
   threadStore?: ThreadStore | null;
   usageStore?: AiUsageStore | null;
+  workingMemoryStore?: WorkingMemoryStore | null;
 }
 
 // Canonical entity event payload for chat-session lifecycle. Subscribers
@@ -309,6 +317,13 @@ export async function createApp(options: CreateAppOptions = {}) {
     ("threadStore" in options
       ? options.threadStore
       : createThreadStoreFromEnv()) ?? null;
+  const memoryStore =
+    ("memoryStore" in options ? options.memoryStore : getMemoryEntryStore()) ??
+    null;
+  const workingMemoryStore =
+    ("workingMemoryStore" in options
+      ? options.workingMemoryStore
+      : getWorkingMemoryStore()) ?? null;
   const agentRunStore =
     ("agentRunStore" in options
       ? options.agentRunStore
@@ -601,8 +616,17 @@ export async function createApp(options: CreateAppOptions = {}) {
       scopeResolver,
       store: threadStore,
     });
+  }
+  if (threadStore && memoryStore) {
     registerThreadChapterRoutes(app, {
       aiService,
+      getRegistry: (tenantId) =>
+        createDefaultAiRegistry({
+          databaseStore: registryStore,
+          moduleLoader: moduleCapabilityLoader,
+          tenantId,
+        }),
+      memoryStore,
       resolveModelId: async (scope) => {
         const config = await resolveRuntimeModelConfig(
           {
@@ -927,15 +951,19 @@ export async function createApp(options: CreateAppOptions = {}) {
           tenantId,
         }),
     });
-    registerWorkingMemoryRoutes(app, {
-      getRegistry: (tenantId) =>
-        createDefaultAiRegistry({
-          databaseStore: registryStore,
-          moduleLoader: moduleCapabilityLoader,
-          tenantId,
-        }),
-      scopeResolver,
-    });
+    if (memoryStore && workingMemoryStore) {
+      registerMemoryEntryRoutes(app, {
+        getRegistry: (tenantId) =>
+          createDefaultAiRegistry({
+            databaseStore: registryStore,
+            moduleLoader: moduleCapabilityLoader,
+            tenantId,
+          }),
+        scopeResolver,
+        store: memoryStore,
+        workingStore: workingMemoryStore,
+      });
+    }
 
     // UI-4 Part A: dispatch status endpoint. getQueue is populated by the
     // task dispatcher below — until then it returns null and the endpoint

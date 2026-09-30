@@ -462,4 +462,22 @@ html.dark .ui-chrome-sharp {
       transparent 100%
     );
   }
+
+  /**
+   * The same mask at the top, for a page scroller under a transparent
+   * topbar (`topbarOverlap`): content scrolling up blends out under the
+   * shell row instead of running into the breadcrumb and actions.
+   */
+  .ui-scroll-fade-t {
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      transparent calc(var(--shell-row) - 1rem),
+      #000 calc(var(--shell-row) + 1rem)
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      transparent calc(var(--shell-row) - 1rem),
+      #000 calc(var(--shell-row) + 1rem)
+    );
+  }
 }

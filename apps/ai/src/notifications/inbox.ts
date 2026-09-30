@@ -14,6 +14,7 @@ import {
   createWebPushChannel,
   type EmitNotificationInput,
   type NotificationActor,
+  type NotificationAttachmentInput,
   type NotificationAudience,
   type NotificationPriority,
   type NotificationRecord,
@@ -64,6 +65,8 @@ export interface EmitInboxNotificationInput {
   actor?: NotificationActor | null;
   /** Task lanes: the task's primary assignee — the audience of assigned work. */
   assigneeUserId?: string | null;
+  /** Results the card opens directly; the row itself opens the context. */
+  attachments?: readonly NotificationAttachmentInput[] | null;
   audience?: NotificationAudience | null;
   /** One plain line under the title (a question, an error class); cut to 140. */
   body?: string | null;
@@ -124,6 +127,7 @@ export async function emitInboxNotification(
     ...(input.body ? { body: input.body } : {}),
     ...(input.target ? { target: input.target } : {}),
     ...(input.actor ? { actor: input.actor } : {}),
+    ...(input.attachments?.length ? { attachments: input.attachments } : {}),
     ...(input.assigneeUserId ? { assigneeUserId: input.assigneeUserId } : {}),
     ...(input.audience
       ? { audience: input.audience }

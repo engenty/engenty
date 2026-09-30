@@ -82,6 +82,32 @@ export function listSpaceData(
   );
 }
 
+/** One root's hits; paths are full tree paths, like a listing's. */
+export interface SpaceDataSearchRoot {
+  entries: SpaceDataListing["entries"];
+  folders: SpaceDataListing["folders"];
+  moduleId: string;
+  root: string;
+  truncated?: boolean;
+}
+
+export interface SpaceDataSearchResponse {
+  roots: SpaceDataSearchRoot[];
+  /** Roots whose search failed, by root name. */
+  unavailable: string[];
+}
+
+export function searchSpaceData(
+  spaceId: string,
+  query: string,
+  signal?: AbortSignal
+): Promise<SpaceDataSearchResponse> {
+  return request<SpaceDataSearchResponse>(
+    `/api/spaces/${encodeURIComponent(spaceId)}/data/search?q=${encodeURIComponent(query)}`,
+    { signal }
+  );
+}
+
 export function readSpaceData(
   spaceId: string,
   path: string,

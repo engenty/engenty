@@ -15,6 +15,10 @@ COPY scripts ./scripts
 COPY apps ./apps
 COPY modules ./modules
 COPY packages ./packages
+# Modules below this stage are left out and their migrations held back (unset
+# = beta, what the published images ship). Match the UI build's stage.
+ARG ENGENTY_MODULE_STAGE=
+ENV ENGENTY_MODULE_STAGE=$ENGENTY_MODULE_STAGE
 RUN node scripts/aggregate-module-migrations.mjs
 
 # --- Stage 2: runtime — Supabase CLI + the aggregated migrations ---
@@ -25,6 +29,8 @@ FROM node:24-bookworm-slim AS runtime
 RUN npm install -g supabase@2.113.0
 WORKDIR /app
 COPY --from=aggregate /app/supabase/migrations ./supabase/migrations
+COPY --from=aggregate /app/supabase/held-migrations.json ./supabase/held-migrations.json
+COPY scripts/held-migration-placeholders.mjs ./held-migration-placeholders.mjs
 # `supabase db push` locates the project by supabase/config.toml; a minimal
 # project id is all it needs when targeting an explicit --db-url.
 RUN printf 'project_id = "engenty"\n' > supabase/config.toml

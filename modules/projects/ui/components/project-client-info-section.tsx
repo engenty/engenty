@@ -14,6 +14,8 @@ export interface ProjectClientInfoSectionProps {
   className?: string;
   /** Omit (or pass `false`) for read-only surfaces such as the client portal. */
   editable?: boolean;
+  /** `"link"`: with no client, render only a quiet "+ Kunde" picker trigger. */
+  emptyAs?: "link" | "section";
   onProjectUpdated?: () => void | Promise<void>;
   project: Pick<ProjectListItem, "client_id" | "client_name">;
   projectId?: string;
@@ -22,6 +24,7 @@ export interface ProjectClientInfoSectionProps {
 export function ProjectClientInfoSection({
   className,
   editable = false,
+  emptyAs = "section",
   onProjectUpdated,
   project,
   projectId,
@@ -46,6 +49,26 @@ export function ProjectClientInfoSection({
       setSaving(false);
     }
   };
+
+  if (emptyAs === "link" && !hasAny) {
+    return canEdit ? (
+      <ProjectClientPicker
+        clientId={null}
+        clientName={null}
+        disabled={saving}
+        onChange={handleChange}
+        trigger={
+          <button
+            className="inline-flex items-center gap-1 text-muted-foreground text-sm transition-colors hover:text-foreground"
+            type="button"
+          >
+            <Plus className="size-3.5" />
+            {t("detail.quickAdd.client")}
+          </button>
+        }
+      />
+    ) : null;
+  }
 
   return (
     <div className={cn("space-y-3", className)}>

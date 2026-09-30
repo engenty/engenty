@@ -3,7 +3,6 @@ import { useTranslation } from "@engenty/i18n/ui";
 import { DetailPageHeader, uiPageScrollClassName } from "@engenty/ui-core";
 import { usePageConfig } from "@engenty/ui-plugin-sdk";
 import { useEffect, useMemo, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
 import type { TasksBriefingMode } from "../../src/schema/types.js";
 import { BUILTIN_TASK_STATUS_DEFINITIONS } from "../../task-status-builtins.js";
 import { BriefingDayColumn } from "../components/briefing/briefing-day-column.js";
@@ -13,8 +12,6 @@ import { BriefingModeToggle } from "../components/briefing-mode-toggle.js";
 import { useTasksBriefingAgentUiSlice } from "../hooks/use-tasks-agent-ui-slice.js";
 import { useTasksModuleSecondaryShellNav } from "../hooks/use-tasks-module-secondary-shell-nav.js";
 import { useTasksTopbarActions } from "../hooks/use-tasks-topbar-actions.js";
-import { isSpaceRootPath } from "../lib/tasks-routes.js";
-import { useTasksPaths } from "../lib/use-tasks-paths.js";
 import {
   useTaskSettingsQuery,
   useTasksBriefingQuery,
@@ -23,12 +20,8 @@ import {
 export function BriefingPage() {
   const { t, i18n } = useTranslation("tasks");
   const locale = i18n.language || "en";
-  const { pathname } = useLocation();
-  const tasksPaths = useTasksPaths();
   const { setCopilotContext } = useCopilotShell();
   const [mode, setMode] = useState<TasksBriefingMode>("oversight");
-  const isSpaceHome = isSpaceRootPath(pathname);
-  const showHubs = !isSpaceHome;
   const { openCreateTask, pageActions, topbarDialogs } =
     useTasksTopbarActions();
   const settingsQuery = useTaskSettingsQuery();
@@ -102,23 +95,13 @@ export function BriefingPage() {
             personalLabel={t("briefing.mode.personal")}
           />
         }
-        title={
-          isSpaceHome ? (
-            <Link className="hover:text-primary" to={tasksPaths.briefing}>
-              {t("briefing.title")}
-            </Link>
-          ) : (
-            t("briefing.title")
-          )
-        }
+        title={t("briefing.title")}
         titleClassName="text-2xl leading-8"
         variant="canvas"
       />
 
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 px-page">
-        {showHubs ? (
-          <BriefingHubCards mode={mode} onCreateTask={() => openCreateTask()} />
-        ) : null}
+        <BriefingHubCards mode={mode} onCreateTask={() => openCreateTask()} />
 
         {briefingQuery.isLoading ? (
           <p className="text-muted-foreground text-sm">

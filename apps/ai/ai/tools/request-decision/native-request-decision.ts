@@ -52,7 +52,12 @@ export type NativeRequestDecisionResumeData = z.infer<
   typeof requestDecisionResumeSchema
 >;
 
-function suspendLockKey(): string {
+/**
+ * The per-thread key of the suspend lock every interaction tool shares
+ * (`requestDecision`, `requestFeedback`): two of them in one step must queue,
+ * not suspend side by side.
+ */
+export function interactionSuspendLockKey(): string {
   const ctx = getEngentyToolsRunContext();
   return (
     ctx.orchestratorThreadId?.trim() ||
@@ -114,7 +119,7 @@ export function createNativeRequestDecisionTool() {
       const resume = ctx.agent?.resumeData as
         | NativeRequestDecisionResumeData
         | undefined;
-      const lockKey = suspendLockKey();
+      const lockKey = interactionSuspendLockKey();
       if (resume) {
         // Resume re-enters execute; the original `await suspend()` never
         // continues, so release the suspending call's slot for the next one.

@@ -50,6 +50,12 @@ export { AgentLoginPage } from "./routes/agent-login-page";
 export { CallbackPage } from "./routes/callback-page";
 export { DevLoginPage } from "./routes/dev-login-page";
 export { InitialSetupPage } from "./routes/initial-setup-page";
+export { InitialSetupPreviewPage } from "./routes/initial-setup-preview-page";
 export { LoginPage } from "./routes/login-page";
 export { OAuthConsentPage } from "./routes/oauth-consent-page";
 export { ServiceUnavailablePage } from "./routes/service-unavailable-page";
+export { TenantSetupPage } from "./routes/tenant-setup-page";
+export {
+  TENANT_SETUP_DONE_SETTING,
+  TENANT_SETUP_PATH,
+} from "./routes/tenant-setup-path";

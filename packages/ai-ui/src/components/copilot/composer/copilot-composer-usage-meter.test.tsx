@@ -1,8 +1,6 @@
 /** @vitest-environment happy-dom */
-// The composer's usage line has three states, and the one that shipped wrong
-// was the first one a user ever sees: a brand-new thread reports a ZEROED usage
-// summary (not null), so the line rendered a naked "0" with no ring and no
-// duration next to it — indistinguishable from a broken meter.
+// A brand-new thread reports a ZEROED usage summary (not null); the line must
+// read as "nothing used yet", not as a naked "0" from a broken meter.
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -115,12 +113,7 @@ describe("CopilotComposerUsageMeter", () => {
     render(<CopilotComposerUsageMeter chatStatus="ready" threadId="t1" />);
 
     expect(lineText()).toContain("31.3k / 97.8k · 10s");
-  });
-
-  it("renders nothing without a thread", () => {
-    const { container } = render(
-      <CopilotComposerUsageMeter chatStatus="ready" threadId={null} />
-    );
-    expect(container.firstChild).toBeNull();
+    // The ring states the window fill for screen readers: 31.2k of 1M.
+    expect(screen.getByRole("img", { name: /\(3%\)/ })).toBeTruthy();
   });
 });

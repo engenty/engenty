@@ -3,6 +3,7 @@
  */
 
 import { canonicalModulePathname } from "@engenty/ai-core/browser";
+import { ModuleSidebarAgents } from "@engenty/ai-ui";
 import { shellSecondaryNavItemProps } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import {
@@ -116,6 +117,8 @@ export function KbSidebarChrome({
           />
         </SidebarNavList>
       </nav>
+
+      <ModuleSidebarAgents moduleId="knowledge-base" />
 
       <SidebarTabStrip
         onValueChange={(value) => onTabChange(value as KbSidebarTab)}

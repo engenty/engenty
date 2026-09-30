@@ -24,25 +24,6 @@ const artifactOutput = {
 };
 
 describe("DecisionArtifactToolCallCard", () => {
-  it("shows choice buttons while the tool call is in the pending set (executing)", () => {
-    render(
-      <CopilotToolCallActionsProvider
-        pendingInterruptToolCallIds={new Set([TOOL_CALL_ID])}
-        respond={vi.fn()}
-      >
-        <DecisionArtifactToolCallCard
-          output={artifactOutput}
-          state="completed"
-          toolCallId={TOOL_CALL_ID}
-          toolName="requestDecision"
-        />
-      </CopilotToolCallActionsProvider>
-    );
-
-    expect(screen.getByRole("button", { name: "Keep entry A" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Keep entry B" })).toBeTruthy();
-  });
-
   it("collapses to the selected choice when the output carries a resolution", () => {
     render(
       <CopilotToolCallActionsProvider respond={vi.fn()}>
@@ -64,11 +45,11 @@ describe("DecisionArtifactToolCallCard", () => {
     expect(screen.getByText("Which entry should I keep?")).toBeTruthy();
   });
 
-  it("collapses optimistically when an optimistic result is present", () => {
+  it("collapses on the optimistic answer while the call is still pending", () => {
     render(
       <CopilotToolCallActionsProvider
         optimisticInterruptResults={{ [TOOL_CALL_ID]: "Keep entry B" }}
-        pendingInterruptToolCallIds={new Set()}
+        pendingInterruptToolCallIds={new Set([TOOL_CALL_ID])}
         respond={vi.fn()}
       >
         <DecisionArtifactToolCallCard
@@ -116,7 +97,40 @@ describe("DecisionArtifactToolCallCard", () => {
     expect(screen.getByRole("button", { name: "Keep entry A" })).toBeTruthy();
   });
 
-  it("renders the resolved summary for a historical decision not in the pending set", () => {
+  it("does not hydrate another decision's choices into this row", () => {
+    render(
+      <CopilotToolCallActionsProvider
+        openInterrupt={{
+          artifact_id: "artifact-other",
+          choices: [{ id: "x", label: "Other choice" }],
+          interrupt_id: "artifact-other",
+          kind: "decision",
+          title: "Another question?",
+          // Names no call, so only the artifact id can tell the rows apart.
+          tool_call_id: "",
+        }}
+        pendingInterruptToolCallIds={new Set([TOOL_CALL_ID])}
+        respond={vi.fn()}
+      >
+        <DecisionArtifactToolCallCard
+          output={{
+            artifact_id: "artifact-1",
+            artifact_type: "decision",
+            interrupt_id: "artifact-1",
+            title: artifactOutput.title,
+          }}
+          state="completed"
+          toolCallId={TOOL_CALL_ID}
+          toolName="requestDecision"
+        />
+      </CopilotToolCallActionsProvider>
+    );
+
+    expect(screen.queryByRole("button", { name: "Other choice" })).toBeNull();
+    expect(screen.queryByText("Another question?")).toBeNull();
+  });
+
+  it("offers no buttons for a historical decision not in the pending set", () => {
     render(
       <CopilotToolCallActionsProvider
         pendingInterruptToolCallIds={new Set()}
@@ -131,13 +145,12 @@ describe("DecisionArtifactToolCallCard", () => {
       </CopilotToolCallActionsProvider>
     );
 
-    expect(screen.queryByRole("button", { name: "Keep entry A" })).toBeNull();
-    expect(screen.getByText("Decision submitted")).toBeTruthy();
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.getByText("Which entry should I keep?")).toBeTruthy();
   });
 
-  // `requestDecision` suspends the run instead of returning its artifact
-  // (apps/ai native-request-decision.ts), so these calls reach the card with NO
-  // output at all — the choices exist only on the open interrupt.
+  // `requestDecision` suspends the run, so the call has no output: the choices
+  // exist only on the open interrupt.
   describe("a natively suspended decision (no tool output)", () => {
     const openInterrupt = {
       artifact_id: "artifact-1",
@@ -149,29 +162,9 @@ describe("DecisionArtifactToolCallCard", () => {
       tool_call_id: TOOL_CALL_ID,
     };
 
-    it("renders the chooser from the open interrupt", () => {
-      render(
-        <CopilotToolCallActionsProvider
-          openInterrupt={openInterrupt}
-          pendingInterruptToolCallIds={new Set([TOOL_CALL_ID])}
-          respond={vi.fn()}
-        >
-          <DecisionArtifactToolCallCard
-            state="running"
-            toolCallId={TOOL_CALL_ID}
-            toolName="requestDecision"
-          />
-        </CopilotToolCallActionsProvider>
-      );
-
-      expect(screen.getByRole("button", { name: "Keep entry A" })).toBeTruthy();
-      expect(screen.getByText("Which entry should I keep?")).toBeTruthy();
-    });
-
     it("still renders it after a reload, with no pending set from the stream", () => {
-      // `pendingInterruptToolCallIds` comes from RUN_FINISHED; a reload replays
-      // no stream, so it is empty. Reading that as "complete" reported a card
-      // the user never answered as answered.
+      // A reload replays no stream, so the pending set is empty; the open
+      // interrupt alone must keep the card answerable.
       render(
         <CopilotToolCallActionsProvider
           openInterrupt={openInterrupt}
@@ -191,10 +184,8 @@ describe("DecisionArtifactToolCallCard", () => {
     });
 
     it("does not borrow ANOTHER call's open interrupt", () => {
-      // Routing is by tool name now, so every unanswered decision row in the
-      // thread reaches this card. Without the id check they would all render
-      // whichever chooser is currently open — the same question several times,
-      // only one of which can be answered.
+      // Every unanswered decision row reaches this card; only the call the
+      // interrupt names may show its question.
       render(
         <CopilotToolCallActionsProvider
           openInterrupt={{ ...openInterrupt, tool_call_id: "tc-other" }}
@@ -210,11 +201,7 @@ describe("DecisionArtifactToolCallCard", () => {
       );
 
       expect(screen.queryByRole("button", { name: "Keep entry A" })).toBeNull();
-      // Not just "no buttons": the other call's QUESTION must not appear here
-      // at all. Borrowing it rendered this row as an already-answered copy of a
-      // decision that belongs to a different tool call.
       expect(screen.queryByText("Which entry should I keep?")).toBeNull();
-      expect(screen.getByText("Decision needed")).toBeTruthy();
     });
 
     it("falls back to the transcript row instead of erasing the call", () => {
@@ -276,9 +263,8 @@ describe("DecisionArtifactToolCallCard", () => {
     };
 
     it("shows the final approval row the moment it is answered", () => {
-      // The optimistic label lands instantly; the server's `{approved,
-      // operation_id}` only after the run resumes. In between, the row used to
-      // render the whole question card with the picked option under it.
+      // The optimistic label lands before the server's `{approved,
+      // operation_id}`; the row must not show the question card in between.
       render(
         <CopilotToolCallActionsProvider
           optimisticInterruptResults={{
@@ -319,8 +305,8 @@ describe("DecisionArtifactToolCallCard", () => {
     });
 
     it("never reads an unrecognised answer as approval", () => {
-      // A custom typed answer is not one of the gate's options — guessing a
-      // verdict here would report an approval the user never gave.
+      // A custom answer is not one of the gate's options; guessing a verdict
+      // would report an approval the user never gave.
       render(
         <CopilotToolCallActionsProvider
           optimisticInterruptResults={{ [TOOL_CALL_ID]: "only for today" }}
@@ -340,9 +326,7 @@ describe("DecisionArtifactToolCallCard", () => {
     });
 
     it("says what was approved instead of falling back to a generic row", () => {
-      // The resume overwrites the artifact with `{approved, operation_id}`, so
-      // the row used to land on the generic card labelled "Decision needed"
-      // with a raw `approved: true` behind the chevron.
+      // The resume overwrites the artifact with `{approved, operation_id}`.
       render(
         <CopilotToolCallActionsProvider respond={vi.fn()}>
           <DecisionArtifactToolCallCard

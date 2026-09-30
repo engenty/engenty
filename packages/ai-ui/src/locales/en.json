@@ -416,7 +416,7 @@
       "agent": "Open another agent's desk in this Space (also /engenty, /bot)",
       "context": "Show what the agent sees in this chat",
       "copilot": "Open your copilot, or send it the message you type after this",
-      "effort": "Set how much thinking the next turns get",
+      "effort": "Switch the next turns to Normal or Extra",
       "help": "Browse all commands",
       "learn": "Turn what worked in this conversation into a skill",
       "remember": "Keep a note in this agent's memory",
@@ -443,14 +443,6 @@
       "connectorsDescription": "External services this agent can reach.",
       "managedByLabel": "Owning module",
       "mandateTitle": "What it does",
-      "memoryTitle": "Memory",
-      "memoryDescription": "MEMORY.md — the notes this engenty keeps for itself here, one dated line per fact. It writes and forgets on its own; you can correct it.",
-      "memoryEmpty": "Nothing kept yet.",
-      "memoryPlaceholder": "- 2026-09-03: one fact per line",
-      "memorySave": "Save",
-      "memoryClear": "Clear",
-      "memoryCount": "{{count}} / {{max}} characters",
-      "memoryTooLarge": "Too long — at most {{max}} characters.",
       "tasksTitle": "Tasks (TASKS.md)",
       "tasksDescription": "TASKS.md — this engenty's own open items and goals. Private: nothing here is delegated or visible to anyone else; work for others lives in the Tasks app. Done items disappear after 7 days.",
       "tasksEmpty": "Nothing open.",
@@ -462,7 +454,7 @@
       "padEdit": "Edit",
       "padCancel": "Cancel",
       "instructionsTitle": "Instructions (AGENTS.md)",
-      "instructionsDescription": "AGENTS.md — who this engenty is and how it works, as every run reads it. Edits here hold for the whole company; the module's or hire's own text stays underneath and can be restored.",
+      "instructionsDescription": "AGENTS.md — who this engenty is and how it works, as every run reads it. Edits here hold for the whole organisation; the module's or hire's own text stays underneath and can be restored.",
       "instructionsEmpty": "No instructions.",
       "instructionsPlaceholder": "# Role\n…",
       "instructionsSave": "Save",
@@ -609,6 +601,10 @@
         "copyJson": "Copy as JSON",
         "copyMarkdown": "Copy as Markdown",
         "copyId": "Copy ID"
+      },
+      "rail": {
+        "dismiss": "Dismiss",
+        "waiting": "Waiting for you"
       }
     },
     "subAgent": {
@@ -667,7 +663,7 @@
       "workspace": "Workspace"
     },
     "memory": {
-      "hint": "What this Engenty keeps for itself — per Space. The run writes these; you may correct or clear them.",
+      "hint": "What this Engenty keeps for itself — per Space. The run writes these; you may correct or remove them.",
       "loading": "Loading Spaces…",
       "noSpaces": "No Space to read memory for.",
       "space": "Space"
@@ -707,7 +703,7 @@
     "saveFailed": "Saving the agent failed.",
     "saving": "Saving…",
     "scopeField": "Agent scope",
-    "scopeHint": "Personal agents keep user-owned state. Shared agents keep company state per active space.",
+    "scopeHint": "Personal agents keep user-owned state. Shared agents keep organisation state per active space.",
     "scopePersonal": "Personal — one user",
     "scopeShared": "Shared — one space",
     "spacesEmpty": "No spaces are available to mount this agent on.",
@@ -920,6 +916,8 @@
     "untitled": "Artifact"
   },
   "artifacts": {
+    "viewOpenFullPage": "Open full page",
+    "viewNoPage": "This page cannot be shown here.",
     "paneLabel": "Artifacts",
     "empty": "Artifacts published in this thread appear here.",
     "liveSurface": "Dashboard",
@@ -1127,40 +1125,61 @@
   "effort": {
     "ariaLabel": "Choose effort",
     "label": "Effort",
-    "notInPlan": "Not included in your plan",
+    "notInPlan": "Not in your plan",
     "choice": {
       "auto": {
-        "label": "Auto",
-        "desc": "Let Engenty size the work for each request."
+        "label": "Inherit",
+        "desc": "Uses the workspace default."
       },
-      "low": {
-        "label": "Low",
-        "desc": "Quick lookups and short edits."
-      },
-      "medium": {
-        "label": "Medium",
-        "desc": "Everyday work — the balanced default."
+      "normal": {
+        "label": "Normal",
+        "desc": "Fast model for most work."
       },
       "high": {
-        "label": "High",
-        "desc": "Hard problems worth the extra thinking."
+        "label": "Extra",
+        "desc": "Stronger model for hard work."
       }
     },
     "tiers": {
-      "title": "Effort tiers",
-      "description": "How much thinking your workspace may buy. People pick a tier, never a model id; the platform binds each tier to a model.",
-      "managedNote": "Your plan decides which effort tiers this workspace can use.",
-      "keepOne": "At least one tier has to stay available.",
-      "save": "Save tiers",
-      "loadError": "Couldn't load the effort tiers."
+      "title": "Extra",
+      "description": "Extra answers with a stronger, more expensive model. Normal is always available.",
+      "extraAllowed": "Allow Extra",
+      "extraAllowedHint": "People can switch a chat to Extra, and Engenty offers it for bigger tasks.",
+      "managedNote": "Your plan decides whether this workspace can use Extra.",
+      "loadError": "Couldn't load the effort settings."
     },
     "expert": {
       "toggle": "Expert: pin models by id",
       "hint": "Self-hosted and expert installs can still pin a model per purpose. A pinned model wins over the effort tier.",
       "pickModel": "Pick a model…"
     },
-    "autoResolvedInline": "Auto: {{effort}}",
-    "autoActiveHint": "currently active"
+    "mode": {
+      "normal": {
+        "label": "Normal",
+        "desc": "For most tasks."
+      },
+      "extra": {
+        "label": "Extra",
+        "desc": "Stronger model for hard tasks."
+      },
+      "custom": {
+        "label": "Custom",
+        "desc": "Pick a specific model."
+      }
+    },
+    "reasoning": {
+      "label": "Reasoning",
+      "default": "Default",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High"
+    },
+    "offer": {
+      "title": "This looks like a bigger task",
+      "body": "With Extra, the stronger model answers. The chat stays on Extra until the next chapter.",
+      "extra": "Send with Extra",
+      "normal": "Send with Normal"
+    }
   },
   "fields": {
     "chatModel": "Chat model",
@@ -2138,7 +2157,21 @@
     "loadOlder": "Load older messages",
     "loadingOlder": "Loading…",
     "showMore": "Show more",
-    "showLess": "Show less"
+    "showLess": "Show less",
+    "thinking": "Thinking…",
+    "workedFor": "Worked for {{seconds}}s",
+    "usedTools_one": "Used {{count}} tool",
+    "usedTools_other": "Used {{count}} tools"
+  },
+  "statusTicker": {
+    "collapseSteps": "Hide recent steps",
+    "done": "Done",
+    "error": "Error",
+    "expandSteps": "Show recent steps",
+    "somethingWentWrong": "Something went wrong.",
+    "stale": "Out of date",
+    "thinking": "Thinking…",
+    "waiting": "Waiting…"
   },
   "appReview": {
     "headline": "Release {{version}} ({{sha}}) is waiting for you.",
@@ -2231,6 +2264,31 @@
       "caption": "{{name}}'s browser",
       "open": "Open the browser",
       "absentHint": "No browser is running yet. Start it so this engenty can work on the web — you watch live here."
+    },
+    "chat": {
+      "title": "Browser",
+      "watchLive": "Watch live",
+      "openPane": "Open in the browser panel",
+      "screenshotAlt": "Screenshot of {{page}}",
+      "enlarge": "Show larger",
+      "screenshotTitle": "What the Engenty sees"
+    },
+    "credentials": {
+      "goesTo": "Goes straight into the page on",
+      "private": "What you type goes into the page only. The Engenty never sees it, and it is not kept.",
+      "fill": "Enter into the page",
+      "filling": "Entering…",
+      "decline": "Not now",
+      "filled": "Filled in",
+      "errors": {
+        "origin_changed": "The page moved to another site since the Engenty asked. Nothing was entered.",
+        "field_missing": "A field is no longer on the page. Nothing more was entered — ask the Engenty to try again.",
+        "not_a_password_field": "The password field is not a password input. Nothing was entered.",
+        "not_an_input": "A marked field is not an input. Nothing was entered.",
+        "not_found": "This request has expired. Ask the Engenty again.",
+        "expired": "This request has expired. Ask the Engenty again.",
+        "fill_failed": "Entering failed. Try again, or take over in the browser."
+      }
     }
   },
   "gateSurface": {
@@ -2296,7 +2354,6 @@
     "nothingToCompact": "Nothing new since the last entry.",
     "empty": "No history yet. The conversation is summarized every day and every week, or now, when you ask.",
     "weekOf": "Week of {{date}}",
-    "keepInMind": "Keep in mind",
     "backToNow": "Back to now",
     "everywhere": "Outside any space",
     "kind": {
@@ -2309,12 +2366,54 @@
     "label": "{{name}}'s Copilot",
     "labelSibilant": "{{name}}' Copilot"
   },
-  "workingMemory": {
-    "title": "Memory",
-    "subtitle": "The always-in-context profile the copilot maintains about you. It updates itself; reset is the only edit.",
-    "reset": "Reset",
+  "memoryEntries": {
     "loading": "Loading…",
-    "empty": "No profile yet."
+    "empty": "Nothing kept yet.",
+    "add": "Add",
+    "addPlaceholder": "One fact, one sentence",
+    "edit": "Edit",
+    "save": "Save",
+    "remove": "Remove",
+    "count": "{{count}} / {{max}} characters",
+    "saveFailed": "Could not save.",
+    "agentTitle": "Memory",
+    "agentDescription": "What this engenty keeps for its own work here, one line per fact. It notes and forgets on its own; you can correct it.",
+    "userTitle": "What your assistants know about you",
+    "userDescription": "Facts about you that every assistant sees when you talk to it alone — never in rooms or shared threads.",
+    "spaceTitle": "Space memory",
+    "spaceDescription": "What every agent in this Space is told on every turn.",
+    "companyTitle": "Organisation memory",
+    "companyDescription": "What every agent in every Space is told. An agent asks for approval before adding here.",
+    "working": {
+      "title": "Now",
+      "hint": "How things are right now. A new value replaces the old one; agents keep it up to date from conversations.",
+      "empty": "Not set",
+      "save": "Save",
+      "edit": "Edit {{field}}",
+      "clear": "Clear",
+      "fields": {
+        "user": {
+          "language": "Language",
+          "role": "Role",
+          "timezone": "Time zone",
+          "current_focus": "Current focus"
+        },
+        "space": {
+          "purpose": "Purpose",
+          "current_focus": "Current focus",
+          "language": "Language"
+        },
+        "company": {
+          "about": "About",
+          "language": "Language",
+          "priorities": "Priorities"
+        },
+        "agent": {
+          "job": "Job here",
+          "style": "How to deliver"
+        }
+      }
+    }
   },
   "uiGuideFollowUp": {
     "withTitle": "{{action}} — guide: {{title}}",
@@ -2344,7 +2443,9 @@
       "rooms": "the room",
       "settings": "Settings",
       "other": "a page"
-    }
+    },
+    "workingSet": "Updated working memory",
+    "workingCleared": "Cleared a working-memory field"
   },
   "messageActions": {
     "openInPane": "Open beside the chat",
@@ -2440,5 +2541,14 @@
     "tools": "Tools",
     "loadFailed": "The skill could not be loaded.",
     "empty": "This skill has no playbook text."
+  },
+  "chatCommandsHelp": {
+    "title": "Chat commands",
+    "description": "Every command this chat offers.",
+    "search": "Search commands…",
+    "empty": "No commands found.",
+    "hintSlash": "Command menu",
+    "hintMention": "Reference agents, people, records",
+    "close": "Close"
   }
 }

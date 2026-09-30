@@ -57,41 +57,13 @@ export function getAgentDeskGeneratedStarters(
   );
 }
 
-/** The agent's MEMORY.md for this Space — its own notes, human-editable. */
-export interface AgentDeskMemory {
-  enabled: boolean;
-  max_chars: number;
-  memory: string;
-}
-
-/** A personal-scope agent's pads are one row per person; no space needed. */
-function memoryQuery(input: { agent_id: string; space_id: string | null }) {
+/** A personal-scope agent's pad is one row per person; no space needed. */
+function padQuery(input: { agent_id: string; space_id: string | null }) {
   const query = new URLSearchParams({ agent_id: input.agent_id });
   if (input.space_id) {
     query.set("space_id", input.space_id);
   }
   return query.toString();
-}
-
-export function getAgentDeskMemory(
-  input: { agent_id: string; space_id: string | null },
-  signal?: AbortSignal
-): Promise<AgentDeskMemory> {
-  return requestAiServiceJson<AgentDeskMemory>(
-    `/ai/v1/agent-desk/memory?${memoryQuery(input)}`,
-    { signal }
-  );
-}
-
-export function putAgentDeskMemory(input: {
-  agent_id: string;
-  memory: string;
-  space_id: string | null;
-}): Promise<AgentDeskMemory> {
-  return requestAiServiceJson<AgentDeskMemory>(
-    `/ai/v1/agent-desk/memory?${memoryQuery(input)}`,
-    { body: JSON.stringify({ memory: input.memory }), method: "PUT" }
-  );
 }
 
 /** The agent's TASKS.md for this Space — its own open items and goals, human-editable. */
@@ -106,7 +78,7 @@ export function getAgentDeskTasks(
   signal?: AbortSignal
 ): Promise<AgentDeskTasks> {
   return requestAiServiceJson<AgentDeskTasks>(
-    `/ai/v1/agent-desk/tasks?${memoryQuery(input)}`,
+    `/ai/v1/agent-desk/tasks?${padQuery(input)}`,
     { signal }
   );
 }
@@ -117,7 +89,7 @@ export function putAgentDeskTasks(input: {
   tasks: string;
 }): Promise<AgentDeskTasks> {
   return requestAiServiceJson<AgentDeskTasks>(
-    `/ai/v1/agent-desk/tasks?${memoryQuery(input)}`,
+    `/ai/v1/agent-desk/tasks?${padQuery(input)}`,
     { body: JSON.stringify({ tasks: input.tasks }), method: "PUT" }
   );
 }

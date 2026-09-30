@@ -1,3 +1,4 @@
+import { type Cover, coverSchema } from "@engenty/covers";
 import {
   normalizeKbCategoryPageSettings,
   normalizeKbCoverInheritance,
@@ -6,10 +7,7 @@ import type {
   KbCommentsModeBinding,
   KbEffectiveCommentsMode,
 } from "../schema/comments.js";
-import {
-  articlePropertyDefinitionsSchema,
-  kbCoverSchema,
-} from "../schema/knowledge-bases.js";
+import { articlePropertyDefinitionsSchema } from "../schema/knowledge-bases.js";
 import { KB_HUB_PAGE_LAYOUT_DEFAULTS } from "../schema/page-blocks.js";
 import { kbTemplatePropertyDefinitionsSchema } from "../schema/templates.js";
 import type {
@@ -20,7 +18,6 @@ import type {
   KbCategory,
   KbCategoryViewType,
   KbChunking,
-  KbCover,
   KbDisplay,
   KbPageLayoutSettings,
   KbSettings,
@@ -210,11 +207,11 @@ function parseTiptapJson(raw: unknown): Record<string, unknown> | null {
   return null;
 }
 
-function parseKbCover(raw: unknown): KbCover | null {
+function parseKbCover(raw: unknown): Cover | null {
   if (!raw) {
     return null;
   }
-  const parsed = kbCoverSchema.safeParse(raw);
+  const parsed = coverSchema.safeParse(raw);
   return parsed.success ? parsed.data : null;
 }
 

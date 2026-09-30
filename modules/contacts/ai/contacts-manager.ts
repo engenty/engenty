@@ -23,6 +23,7 @@ export const CONTACTS_MANAGER_SKILL_IDS = [
   "contacts-content-management",
   "contacts-enrichment",
   "contacts-email-extraction",
+  "contacts-import",
 ];
 
 const contactsManagerAssets = {
@@ -67,6 +68,8 @@ export const contactsManagerAgentConfig: AgentConfig = {
   skillIds: CONTACTS_MANAGER_SKILL_IDS,
   source: "module",
   toolIds: CONTACTS_MANAGER_DYNAMIC_TOOL_IDS,
+  // Opens the import page beside the chat (`open_view`) instead of narrating it.
+  uiTools: "on",
 };
 
 export function buildContactsManagerDynamicTools(): Record<string, object> {

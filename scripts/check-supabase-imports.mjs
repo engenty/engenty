@@ -26,7 +26,7 @@ const ALLOWED_PATTERNS = [
   /^modules\/[^/]+\/src\/dal\//,
   /^modules\/[^/]+\/providers\/[^/]+\/src\/dal\//,
   /^packages\/[^/]+\/src\/dal\//,
-  /^packages\/[^/]+\/scripts\//, // ops/backfill scripts need a real client
+  /^(?:packages|modules)\/[^/]+\/scripts\//, // ops/backfill scripts need a real client
   /^packages\/auth-ui\//, // the Supabase auth adapter package
   // Tests may construct real clients against local supabase.
   /\.test\.tsx?$/,

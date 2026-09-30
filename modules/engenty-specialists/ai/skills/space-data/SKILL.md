@@ -61,7 +61,7 @@ On `version_conflict`, `artifact_read` that id and retry with `current_version`.
 - **Artifacts html/file** — a document or file handle to open beside chat. A
   Engenty run stores it on the Space by default; Copilot must pass
   `store_to: { scope_type: "space", scope_id: "<current space id>" }` or it
-  stays on the thread. To keep it with an Engenty instead of Ablage, use
+  stays on the thread. To keep it with an Engenty instead of Dokumente, use
   `store_to: { scope_type: "agent", scope_id: "<agent id>" }`.
 - **Knowledge** — only if the module is mounted and the work is the KB library.
 

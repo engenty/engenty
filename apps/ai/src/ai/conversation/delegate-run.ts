@@ -47,6 +47,7 @@ import {
   createEngentyMastraResourceId,
   createEngentySessionMemoryRuntime,
 } from "../memory/invocation-options.js";
+import { isPrivateLine, memoryPlaceFromGate } from "../memory/memory-scopes.js";
 import { resolveSharedObservationsScope } from "../memory/shared-observational-memory.js";
 import {
   type AiRegistry,
@@ -515,6 +516,14 @@ export async function runDelegatedConversation(
             agentId: input.childAgentId,
             alterEgo: childAlterEgo,
             ...(childConfig?.name ? { agentName: childConfig.name } : {}),
+            memory: {
+              agentScope: childConfig?.agentScope,
+              place: memoryPlaceFromGate(childToolsContext.space),
+              privateLine: isPrivateLine({
+                sharedRoom: childSharedRoom,
+                thread: childThread,
+              }),
+            },
             observationalModelId: input.modelConfig?.fastTextModelId,
             scope: input.scope,
             sharedObservations: childConfig
@@ -619,7 +628,7 @@ export async function runDelegatedConversation(
             : {}),
           headless: scopeAttributionUserId(input.scope) === null,
           tenantId: input.scope.tenantId,
-          textModelId: childModelConfig?.gradedModelIds?.low ?? null,
+          textModelId: childModelConfig?.gradedModelIds?.normal ?? null,
           classifierModelId: childModelConfig?.classifierModelId ?? null,
         });
         const agent = await assembleDynamicAgent(

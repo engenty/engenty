@@ -1,8 +1,10 @@
 /**
  * The company's files, as every Space sees them under `/company`: the company
  * drive and each Space's public folder. Agents read the same folders
- * read-only; people add to them here.
+ * read-only; people add to them here. Beside the drive, the company's memory:
+ * the facts every engenty in every Space is told.
  */
+import { MemoryEntriesSection } from "@engenty/ai-ui";
 import { useTranslation } from "@engenty/i18n/ui";
 import { useMutation, useQuery, useQueryClient } from "@engenty/query-client";
 import { Button, Spinner } from "@engenty/ui-core";
@@ -207,6 +209,11 @@ export function CompanyFilesPage() {
         mountPath="/company/files"
         prefix={COMPANY_FILES_PREFIX}
         title={t("company.driveTitle")}
+      />
+      <MemoryEntriesSection
+        description={t("company.memoryDescription")}
+        entryKey={{ scope: "company" }}
+        title={t("company.memoryTitle")}
       />
       <h2 className="pt-2 font-medium text-sm">{t("company.spacesTitle")}</h2>
       {(view.data?.spaces ?? []).length === 0 ? (

@@ -8,8 +8,10 @@ import type {
   FormEvent,
   FormEventHandler,
   HTMLAttributes,
+  ReactNode,
 } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   LocalAttachmentsContext,
   LocalReferencedSourcesContext,
@@ -50,7 +52,24 @@ export type PromptInputProps = Omit<
     message: PromptInputMessage,
     event: FormEvent<HTMLFormElement>
   ) => void | Promise<void>;
+  /**
+   * Screens picked or dropped files before they attach. Receives the files and
+   * the unscreened `add`; it calls `add` with what may attach — now, or later
+   * after asking the person. Absent: every file goes straight to `add`.
+   */
+  screenFiles?: (files: File[], add: (files: File[]) => void) => void;
+  /**
+   * Shown over the input while files are dragged over the chat (or the form,
+   * outside one). Receives the dragged files' media types.
+   */
+  renderDropOverlay?: (drag: FileDragInfo) => ReactNode;
 };
+
+/** Files being dragged over the drop zone, before the drop. */
+export interface FileDragInfo {
+  /** One media type per file; empty when the OS does not say. */
+  types: string[];
+}
 
 export const PromptInput = ({
   className,
@@ -63,9 +82,15 @@ export const PromptInput = ({
   plain = false,
   onError,
   onSubmit,
+  screenFiles,
+  renderDropOverlay,
   children,
   ...props
 }: PromptInputProps) => {
+  const [fileDrag, setFileDrag] = useState<FileDragInfo | null>(null);
+  // The drop overlay covers the enclosing card (`data-drop-overlay-host`)
+  // when there is one, not just the form inside its padding.
+  const [overlayHost, setOverlayHost] = useState<HTMLElement | null>(null);
   // Try to use a provider controller if present
   const controller = useOptionalPromptInputController();
   const usingProvider = !!controller;
@@ -244,7 +269,22 @@ export const PromptInput = ({
     []
   );
 
-  const add = usingProvider ? addWithProviderValidation : addLocal;
+  const addValidated = usingProvider ? addWithProviderValidation : addLocal;
+  const add = useCallback(
+    (fileList: File[] | FileList) => {
+      const incoming = [...fileList];
+      if (!screenFiles) {
+        addValidated(incoming);
+        return;
+      }
+      screenFiles(incoming, (allowed) => {
+        if (allowed.length > 0) {
+          addValidated(allowed);
+        }
+      });
+    },
+    [addValidated, screenFiles]
+  );
   const remove = usingProvider ? controller.attachments.remove : removeLocal;
   const openFileDialog = usingProvider
     ? controller.attachments.openFileDialog
@@ -271,7 +311,8 @@ export const PromptInput = ({
     }
   }, [files, syncHiddenInput]);
 
-  // Attach drop handlers on nearest form and document (opt-in)
+  // Attach drop handlers on the surrounding chat (`data-chat-dropzone`) or,
+  // outside one, the form itself; the document when global drop is on.
   useEffect(() => {
     const form = formRef.current;
     if (!form) {
@@ -281,25 +322,70 @@ export const PromptInput = ({
       // when global drop is on, let the document-level handler own drops
       return;
     }
+    const zone =
+      form.closest<HTMLElement>("[data-chat-dropzone]") ??
+      (form as HTMLElement);
+    setOverlayHost(form.closest<HTMLElement>("[data-drop-overlay-host]"));
 
+    // dragenter/dragleave fire for every child crossed, so count the depth.
+    let depth = 0;
+    const setDragging = (e: DragEvent | null) => {
+      if (!e) {
+        setFileDrag(null);
+        return;
+      }
+      // Names are hidden until the drop; the media types are readable now.
+      const items = [...(e.dataTransfer?.items ?? [])].filter(
+        (item) => item.kind === "file"
+      );
+      setFileDrag({ types: items.map((item) => item.type) });
+    };
+    const hasFiles = (e: DragEvent) =>
+      Boolean(e.dataTransfer?.types?.includes("Files"));
+
+    const onDragEnter = (e: DragEvent) => {
+      if (!hasFiles(e)) {
+        return;
+      }
+      depth += 1;
+      if (depth === 1) {
+        setDragging(e);
+      }
+    };
+    const onDragLeave = (e: DragEvent) => {
+      if (!hasFiles(e)) {
+        return;
+      }
+      depth = Math.max(0, depth - 1);
+      if (depth === 0) {
+        setDragging(null);
+      }
+    };
     const onDragOver = (e: DragEvent) => {
-      if (e.dataTransfer?.types?.includes("Files")) {
+      if (hasFiles(e)) {
         e.preventDefault();
       }
     };
     const onDrop = (e: DragEvent) => {
-      if (e.dataTransfer?.types?.includes("Files")) {
+      if (hasFiles(e)) {
         e.preventDefault();
       }
+      depth = 0;
+      setDragging(null);
       if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
         add(e.dataTransfer.files);
       }
     };
-    form.addEventListener("dragover", onDragOver);
-    form.addEventListener("drop", onDrop);
+    zone.addEventListener("dragenter", onDragEnter);
+    zone.addEventListener("dragleave", onDragLeave);
+    zone.addEventListener("dragover", onDragOver);
+    zone.addEventListener("drop", onDrop);
     return () => {
-      form.removeEventListener("dragover", onDragOver);
-      form.removeEventListener("drop", onDrop);
+      zone.removeEventListener("dragenter", onDragEnter);
+      zone.removeEventListener("dragleave", onDragLeave);
+      zone.removeEventListener("dragover", onDragOver);
+      zone.removeEventListener("drop", onDrop);
+      setDragging(null);
     };
   }, [add, globalDrop]);
 
@@ -459,7 +545,7 @@ export const PromptInput = ({
         type="file"
       />
       <form
-        className={cn("w-full", className)}
+        className={cn("w-full", renderDropOverlay && "relative", className)}
         onSubmit={handleSubmit}
         ref={formRef}
         {...props}
@@ -469,6 +555,11 @@ export const PromptInput = ({
         ) : (
           <InputGroup className="overflow-hidden">{children}</InputGroup>
         )}
+        {fileDrag && renderDropOverlay
+          ? overlayHost
+            ? createPortal(renderDropOverlay(fileDrag), overlayHost)
+            : renderDropOverlay(fileDrag)
+          : null}
       </form>
     </>
   );

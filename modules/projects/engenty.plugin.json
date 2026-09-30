@@ -19,5 +19,6 @@
     "ai": true,
     "frontendTools": true
   },
-  "placement": "space"
+  "placement": "space",
+  "stage": "alpha"
 }

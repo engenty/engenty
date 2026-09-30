@@ -18,6 +18,7 @@ const dal = vi.hoisted(() => ({
   markSpaceDeleted: vi.fn(),
   removeSpaceMember: vi.fn(),
   resolveSpaceResourceSurface: vi.fn(),
+  updateSpace: vi.fn(),
   upsertSpaceMount: vi.fn(),
 }));
 
@@ -68,6 +69,7 @@ vi.mock("../../dal/spaces.js", async (importOriginal) => {
     listCompanyPublishingSpaces: dal.listCompanyPublishingSpaces,
     listMarkedDeletedSpaces: dal.listMarkedDeletedSpaces,
     markSpaceDeleted: dal.markSpaceDeleted,
+    updateSpace: dal.updateSpace,
   };
 });
 
@@ -313,6 +315,79 @@ describe("spaces HTTP routes", () => {
     });
     expect(res.status).toBe(403);
     expect(dal.upsertSpaceMount).not.toHaveBeenCalled();
+  });
+
+  describe("PUT /setup with a dormant module", () => {
+    // `banking` is mounted but this install does not load it (a `dev` module
+    // on a `beta` install, or its code is gone). The dialog never shows it.
+    const BANKING_MOUNT = {
+      agentAccess: "read" as const,
+      createdAt: "2026-08-10T00:00:00Z",
+      isRequired: false,
+      recordScope: "space" as const,
+      reportsTo: null,
+      resourceKey: "banking",
+      resourceType: "module" as const,
+      spaceId: COMPANY.id,
+      tenantId: TENANT,
+    };
+
+    async function put(mounts: unknown[]) {
+      return await createApp().request("/api/spaces/company/setup", {
+        body: JSON.stringify({ mounts }),
+        headers: {
+          authorization: `Bearer ${await token({})}`,
+          "content-type": "application/json",
+        },
+        method: "PUT",
+      });
+    }
+
+    beforeEach(() => {
+      dal.isAuthUserAdmin.mockResolvedValue(true);
+      dal.findAccessibleSpace.mockResolvedValue(COMPANY);
+      dal.listSpaceMounts.mockResolvedValue([BANKING_MOUNT]);
+      dal.applySpaceSetup.mockResolvedValue({
+        plan: { protectedRemovals: [], remove: [], unchanged: [], upsert: [] },
+        surface: { connections: [], modules: [] },
+      });
+      dal.updateSpace.mockResolvedValue(COMPANY);
+    });
+
+    it("saves, and keeps the dormant mount the dialog could not send", async () => {
+      const res = await put([
+        {
+          agent_access: "write",
+          resource_key: "tasks",
+          resource_type: "module",
+        },
+      ]);
+      expect(res.status).toBe(200);
+      const desired = dal.applySpaceSetup.mock.calls[0][3] as Array<{
+        agentAccess: string | null;
+        resourceKey: string;
+      }>;
+      expect(desired.map((mount) => mount.resourceKey).sort()).toEqual([
+        "banking",
+        "tasks",
+      ]);
+      // Kept as stored, not as whatever a client might post for it.
+      expect(
+        desired.find((m) => m.resourceKey === "banking")?.agentAccess
+      ).toBe("read");
+    });
+
+    it("still refuses a module the install does not have and the space never had", async () => {
+      const res = await put([
+        {
+          agent_access: "write",
+          resource_key: "payroll",
+          resource_type: "module",
+        },
+      ]);
+      expect(res.status).toBe(400);
+      expect(dal.applySpaceSetup).not.toHaveBeenCalled();
+    });
   });
 
   describe("POST /setup/add", () => {

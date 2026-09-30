@@ -258,7 +258,12 @@
       "clientSection": "Client",
       "clientSectionDescription": "The contact or organisation this project runs for."
     },
-    "saveFailed": "Could not save the project."
+    "saveFailed": "Could not save the project.",
+    "quickAdd": {
+      "client": "Client",
+      "team": "Team",
+      "notes": "Notes"
+    }
   },
   "create": {
     "title": "Create project",
@@ -410,5 +415,14 @@
     "createFailed": "Could not create the phase.",
     "updateFailed": "Could not save the phase.",
     "deleteFailed": "Could not delete the phase."
+  },
+  "pins": {
+    "section": "Projects",
+    "pin": "Pin to space",
+    "unpin": "Unpin from space"
+  },
+  "cover": {
+    "openTasks_one": "{{count}} open task",
+    "openTasks_other": "{{count}} open tasks"
   }
 }

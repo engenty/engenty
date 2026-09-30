@@ -1,6 +1,7 @@
 /** @vitest-environment happy-dom */
 import { cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { AiAgentRunSummary } from "../../lib/admin/ai-runtime-types.js";
 import {
   cancelAiRun,
   getAiRunEvents,
@@ -17,6 +18,14 @@ import {
   postAppsAiThreadRun,
 } from "./apps-ai-transport.js";
 import { resetThreadLaneSnapshotCacheForTests } from "./thread-lane-snapshot-cache.js";
+import {
+  handOffThreadRun,
+  resetThreadRunHandoffsForTests,
+} from "./thread-run-handoff.js";
+import {
+  ATTACHED_RUN_CHECK_MS,
+  ATTACHED_RUN_CLOSE_GRACE_MS,
+} from "./use-apps-ai-active-run-recovery.js";
 import { useEngentyAgUiAppsAiSession } from "./use-engenty-ag-ui-apps-ai-session.js";
 
 vi.mock("../../lib/runtime/runs-api.js", () => ({
@@ -143,6 +152,7 @@ describe("useAppsAiActiveRunRecovery", () => {
     cleanup();
     vi.clearAllMocks();
     resetThreadLaneSnapshotCacheForTests();
+    resetThreadRunHandoffsForTests();
   });
 
   it("hydrates partial assistant text from server polling without aborting on streaming status", async () => {
@@ -736,5 +746,149 @@ describe("useAppsAiActiveRunRecovery", () => {
       },
       { timeout: 5000 }
     );
+  });
+
+  it("lets go of an attached run whose process died — its stream stays open, the run is over", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const original = vi.mocked(getAiSessionRuns).getMockImplementation();
+    // The stream of a run whose executor died: nothing more arrives and it
+    // never closes on its own; only letting go of it ends it.
+    vi.mocked(attachAppsAiRunStream).mockImplementationOnce(
+      ({ signal }) =>
+        new Promise((_, reject) => {
+          signal?.addEventListener("abort", () =>
+            reject(new DOMException("Aborted", "AbortError"))
+          );
+        })
+    );
+    let runStatus = "running";
+    vi.mocked(getAiSessionRuns).mockImplementation(async () => ({
+      runs: [
+        {
+          agent_id: "engenty.copilot",
+          created_at: "2026-01-01T00:10:00.000Z",
+          error: runStatus === "failed" ? "executor_lost" : null,
+          finished_at:
+            runStatus === "failed" ? "2026-01-01T00:11:00.000Z" : null,
+          id: "run-1",
+          request_id: null,
+          started_at: "2026-01-01T00:10:00.000Z",
+          status: runStatus,
+          summary: null,
+          tenant_id: "tenant-1",
+          thread_id: "thread-a",
+          trigger: "message",
+          workflow_id: null,
+        } as AiAgentRunSummary,
+      ],
+    }));
+    const statuses: string[] = [];
+    try {
+      render(
+        <SessionProbe
+          onMessages={() => {}}
+          onStatus={(status) => {
+            statuses.push(status);
+          }}
+          threadId="thread-a"
+        />
+      );
+      await waitFor(() => {
+        expect(statuses.at(-1)).toBe("streaming");
+      });
+
+      // The server restarts and marks the run failed; the stream stays open.
+      runStatus = "failed";
+      await vi.advanceTimersByTimeAsync(
+        ATTACHED_RUN_CHECK_MS + ATTACHED_RUN_CLOSE_GRACE_MS + 100
+      );
+
+      await waitFor(() => {
+        expect(statuses.at(-1)).toBe("ready");
+      });
+    } finally {
+      vi.mocked(getAiSessionRuns).mockImplementation(original as never);
+      vi.useRealTimers();
+    }
+  });
+
+  describe("a run handed off by a send from outside the pane", () => {
+    function runningRun(id: string): AiAgentRunSummary {
+      return {
+        agent_id: "engenty.copilot",
+        created_at: "2026-01-01T00:10:00.000Z",
+        error: null,
+        finished_at: null,
+        id,
+        request_id: null,
+        started_at: "2026-01-01T00:10:00.000Z",
+        status: "running",
+        summary: null,
+        tenant_id: "tenant-1",
+        thread_id: "thread-a",
+        trigger: "message",
+        workflow_id: null,
+      };
+    }
+
+    it("attaches the open pane to it — the thread was already running, so no signal comes", async () => {
+      const original = vi.mocked(getAiSessionRuns).getMockImplementation();
+      let listed: AiAgentRunSummary[] = [];
+      vi.mocked(getAiSessionRuns).mockImplementation(async () => ({
+        runs: listed,
+      }));
+      try {
+        render(
+          <SessionProbe
+            onMessages={() => {}}
+            onStatus={() => {}}
+            threadId="thread-a"
+          />
+        );
+        // The mount pass found nothing to follow and settled.
+        await waitFor(() => {
+          expect(vi.mocked(listAppsAiThreadMessages)).toHaveBeenCalled();
+        });
+        expect(vi.mocked(attachAppsAiRunStream)).not.toHaveBeenCalled();
+
+        listed = [runningRun("run-2")];
+        handOffThreadRun("thread-a", "run-2");
+
+        await waitFor(
+          () => {
+            expect(vi.mocked(attachAppsAiRunStream)).toHaveBeenCalledWith(
+              expect.objectContaining({ runId: "run-2" })
+            );
+          },
+          { timeout: 5000 }
+        );
+      } finally {
+        vi.mocked(getAiSessionRuns).mockImplementation(original as never);
+      }
+    });
+
+    it("waits for it to be listed instead of settling on an idle thread", async () => {
+      vi.mocked(getAiSessionRuns)
+        .mockResolvedValueOnce({ runs: [] })
+        .mockResolvedValueOnce({ runs: [runningRun("run-2")] });
+      handOffThreadRun("thread-a", "run-2");
+
+      render(
+        <SessionProbe
+          onMessages={() => {}}
+          onStatus={() => {}}
+          threadId="thread-a"
+        />
+      );
+
+      await waitFor(
+        () => {
+          expect(vi.mocked(attachAppsAiRunStream)).toHaveBeenCalledWith(
+            expect.objectContaining({ runId: "run-2" })
+          );
+        },
+        { timeout: 5000 }
+      );
+    });
   });
 });

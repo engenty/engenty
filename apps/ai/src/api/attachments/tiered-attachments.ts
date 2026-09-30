@@ -94,11 +94,6 @@ export function isModelNativeMime(mimeType: string): boolean {
   return mimeType.startsWith("image/");
 }
 
-/** @deprecated Prefer isModelNativeMime — kept for existing tests/imports. */
-export function isModelFeedableMime(mimeType: string): boolean {
-  return isModelNativeMime(mimeType);
-}
-
 export function isTextLikeAttachment(
   mimeType: string,
   filename?: string

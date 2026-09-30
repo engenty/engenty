@@ -15,12 +15,15 @@
  * Switching spaces is the rail's job (current tile opens the chooser). The
  * column still *names* the space at every level, and that name is the link
  * home — there is no Dashboard row under it any more. Inside a module the
- * back-row sits under that name, so the space is not replaced by a second
- * copy of the module title.
+ * header is one row: a back arrow to the space, the space's tile, the
+ * module's name.
  */
+import { useTranslation } from "@engenty/i18n/ui";
+import { Button, cn } from "@engenty/ui-core";
 import { useUiContributions } from "@engenty/ui-plugin-sdk";
+import { ArrowLeft } from "lucide-react";
 import { useMemo } from "react";
-import { SpaceModuleNavHeader } from "@/components/spaces/SpaceModuleNavHeader";
+import { Link } from "react-router-dom";
 import { SpaceNavFooter } from "@/components/spaces/SpaceNavFooter";
 import {
   SpaceNavCrumb,
@@ -28,8 +31,9 @@ import {
 } from "@/components/spaces/SpaceNavHeader";
 import { SpaceNavTabs } from "@/components/spaces/SpaceNavTabs";
 import { spaceNavLevel, spaceSectionFor } from "@/lib/space-nav";
-import { spaceRootPath } from "@/lib/space-routes";
+import { spaceModulePath, spaceRootPath } from "@/lib/space-routes";
 import { useSpacesQuery } from "@/lib/spaces-queries";
+import { useSpaceModules } from "@/lib/use-space-modules";
 
 function useSpaceByKey(spaceKey: string) {
   const spacesQuery = useSpacesQuery();
@@ -39,16 +43,65 @@ function useSpaceByKey(spaceKey: string) {
   );
 }
 
-/** Column header at every space level: the space's name, linking home. */
-export function SpaceNavTitleSlot({ spaceKey }: { spaceKey: string }) {
+/**
+ * Column header: the space's tile, then where you are. At the space's own
+ * level that is the space's name, linking home; inside a module it is the
+ * module's name, linking to the module root, with the way back to the space
+ * as an arrow at the far left of the same row. The arrow returns to the space
+ * root, never `history.back()`: it means "up one level".
+ */
+export function SpaceNavTitleSlot({
+  moduleLevelId,
+  spaceKey,
+}: {
+  /** The open module, when the column is at module level. */
+  moduleLevelId?: string;
+  spaceKey: string;
+}) {
+  const { t } = useTranslation("common");
   const space = useSpaceByKey(spaceKey);
+  const { modules } = useSpaceModules(space?.id ?? null);
+  const module = moduleLevelId
+    ? modules.find((entry) => entry.id === moduleLevelId)
+    : undefined;
+  const atModule = Boolean(moduleLevelId);
+  // ONE tree for both levels, so going into a module and back animates rather
+  // than swapping rows: the arrow grows in from zero width and pushes the
+  // tile over, and only the label's text changes.
   return (
-    <SpaceNavTitle
-      color={space?.color}
-      icon={space?.icon}
-      name={space?.name ?? spaceKey}
-      to={spaceRootPath(spaceKey)}
-    />
+    <div className="flex min-w-0 items-center">
+      <div
+        className={cn(
+          "shrink-0 overflow-hidden transition-[width,margin,opacity] duration-200 ease-out",
+          atModule ? "mr-0.5 -ml-1.5 w-7 opacity-100" : "w-0 opacity-0"
+        )}
+      >
+        <Button
+          aria-hidden={!atModule}
+          aria-label={t("spaces.nav.backToSpace", { defaultValue: "Back" })}
+          asChild
+          className="size-7 text-muted-foreground hover:text-foreground"
+          size="icon"
+          tabIndex={atModule ? undefined : -1}
+          variant="ghost"
+        >
+          <Link to={spaceRootPath(spaceKey)}>
+            <ArrowLeft className="size-4" />
+          </Link>
+        </Button>
+      </div>
+      <SpaceNavTitle
+        color={space?.color}
+        icon={space?.icon}
+        label={moduleLevelId ? (module?.label ?? moduleLevelId) : undefined}
+        name={space?.name ?? spaceKey}
+        to={
+          moduleLevelId
+            ? spaceModulePath(spaceKey, moduleLevelId)
+            : spaceRootPath(spaceKey)
+        }
+      />
+    </div>
   );
 }
 
@@ -78,18 +131,14 @@ export function SpaceNavLeadingSlot({
   const space = useSpaceByKey(spaceKey);
   const { contributions } = useUiContributions();
   const spaceTabs = contributions.spaceTabs ?? [];
-  // At the module level the body belongs entirely to that module's own nav —
-  // the tabs and the mount list slid away with the back arrow. Copilot drills
-  // in the same way: its thread list is that nav, not a mix-in on Work.
-  if (moduleId && spaceNavLevel(moduleId, spaceTabs) === "module") {
-    return (
-      <SpaceModuleNavHeader
-        moduleId={moduleId}
-        spaceId={space?.id ?? null}
-        spaceKey={spaceKey}
-      />
-    );
-  }
+  // At the module level the body belongs to that module's own nav — the
+  // space's section lists slide away, but its tab strip stays, so the other
+  // sections are one click away from inside a module. The header row above
+  // names the module and carries the way back. Copilot drills in the same
+  // way: its thread list is that nav, not a mix-in on Work.
+  const moduleLevel = Boolean(
+    moduleId && spaceNavLevel(moduleId, spaceTabs) === "module"
+  );
   return (
     <SpaceNavTabs
       activeModuleId={moduleId}
@@ -100,6 +149,7 @@ export function SpaceNavLeadingSlot({
       space={space}
       spaceId={space?.id ?? null}
       spaceKey={spaceKey}
+      tabsOnly={moduleLevel}
     />
   );
 }

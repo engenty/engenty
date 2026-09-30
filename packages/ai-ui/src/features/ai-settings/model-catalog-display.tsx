@@ -14,6 +14,20 @@ const TIER_RANK: Record<GatewayModelPriceTier, number> = {
   expensive: 4,
 };
 
+/** Vendor names whose slug does not simply capitalise. */
+const PROVIDER_NAMES: Record<string, string> = {
+  deepseek: "DeepSeek",
+  moonshotai: "Moonshot AI",
+  openai: "OpenAI",
+  xai: "xAI",
+  zai: "Z.ai",
+};
+
+/** A catalog `provider` slug as people read it: `anthropic` → "Anthropic". */
+export function providerName(slug: string): string {
+  return PROVIDER_NAMES[slug] ?? slug.charAt(0).toUpperCase() + slug.slice(1);
+}
+
 /** Keep models at or below the chosen tier; unpriced models always pass. */
 export function withinPriceTier(
   model: GatewayModelOption,

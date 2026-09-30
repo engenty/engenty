@@ -1,4 +1,5 @@
 import { canonicalModulePathname } from "@engenty/ai-core/browser";
+import { ModuleSidebarAgents } from "@engenty/ai-ui";
 import { shellSecondaryNavItemProps } from "@engenty/app-shell";
 import { useTranslation } from "@engenty/i18n/ui";
 import { useQuery } from "@engenty/query-client";
@@ -11,25 +12,31 @@ import {
   SidebarGroupContent,
   SidebarHeader,
   SidebarNavList,
-  SidebarNavSectionLabel,
   SidebarRow,
   SidebarRowButton,
   Skeleton,
   sidebarColumnContentInsetClassName,
   sidebarColumnContentInsetEndClassName,
 } from "@engenty/ui-core";
-import { useSecondaryNavSearchResultsOnly } from "@engenty/ui-plugin-sdk";
+import { DockContactsIcon } from "@engenty/ui-icons";
+import {
+  type UiIconComponent,
+  useSecondaryNavSearchResultsOnly,
+} from "@engenty/ui-plugin-sdk";
 import { Loader2, Search, X } from "lucide-react";
 import { parseAsString, useQueryState } from "nuqs";
 import { useEffect, useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { getRolePluralLabel } from "../api/role-menu-settings.js";
-import type { ContactListItem } from "../api.js";
+import type { ContactListItem, ContactRole } from "../api.js";
+import { useContactsSidebarPrefs } from "../lib/use-contacts-sidebar-prefs.js";
 import {
   contactsListOptions,
   useContactsListQuery,
   useContactsRoleMenuQuery,
 } from "../queries.js";
+import { ContactsSidebarAddMenu } from "./contacts-sidebar-add-menu.js";
+import { ContactsSidebarListSettings } from "./contacts-sidebar-settings.js";
 
 function contactListSecondaryNavLabel(entity: ContactListItem): string {
   return entity.type === "organisation"
@@ -39,11 +46,13 @@ function contactListSecondaryNavLabel(entity: ContactListItem): string {
 
 function ContactNavRow({
   to,
+  icon: Icon,
   label,
   active,
   search: linkSearch,
 }: {
   to: string;
+  icon?: UiIconComponent;
   label: string;
   active: boolean;
   search?: string;
@@ -55,6 +64,7 @@ function ContactNavRow({
           to={linkSearch ? { pathname: to, search: linkSearch } : to}
           {...shellSecondaryNavItemProps}
         >
+          {Icon ? <Icon aria-hidden className="size-4 shrink-0" /> : null}
           <span className="truncate">{label}</span>
         </Link>
       </SidebarRowButton>
@@ -63,45 +73,57 @@ function ContactNavRow({
 }
 
 /**
- * Unified sidebar panel: search input → role filter links → recent contacts.
- * When search is active, replaces the list with matching contact results.
+ * Unified sidebar panel: Contacts (the list page) → the module's Engentys →
+ * search with filters and "+" → the contact list those filter. While searching,
+ * matching contacts replace the list.
  * Suppresses shell-managed role links (via useSecondaryNavSearchResultsOnly).
  */
 export function ContactsSidebarPanel() {
   const { t, i18n } = useTranslation("contacts");
   // Canonical, not raw: in a space this is `/s/<key>/<segment>/…`, and every
   // matcher below is written against `/mdl/<module>/…`.
-  const { pathname: rawPathname, search: locationSearch } = useLocation();
+  const { pathname: rawPathname } = useLocation();
   const pathname = canonicalModulePathname(rawPathname);
 
   useEffect(() => {
     void i18n.loadNamespaces(["contacts"]);
   }, [i18n]);
 
-  // Always suppress shell-registered role links — we render our own below.
+  // Suppress the shell-registered role links; role filters live on the list.
   useSecondaryNavSearchResultsOnly(true);
 
   const [search, setSearch] = useQueryState("q", parseAsString.withDefault(""));
   const trimmed = search.trim();
   const isSearching = trimmed.length > 0;
 
-  // Role menu config
+  const { filtered, prefs, updatePrefs } = useContactsSidebarPrefs();
   const roleMenuQuery = useContactsRoleMenuQuery();
-  const roleItems = useMemo(
+  const roleOptions = useMemo(
     () =>
-      roleMenuQuery.data?.items
-        .filter((i) => i.visible)
-        .sort((a, b) => a.order - b.order) ?? [],
-    [roleMenuQuery.data]
+      (roleMenuQuery.data?.items ?? [])
+        .filter((item) => item.visible)
+        .sort((a, b) => a.order - b.order)
+        .map((item) => ({
+          label:
+            item.plural?.trim() ||
+            item.title?.trim() ||
+            getRolePluralLabel(item.slug, (key) =>
+              t(key, { defaultValue: item.slug })
+            ),
+          value: item.slug,
+        })),
+    [roleMenuQuery.data, t]
   );
 
-  // Recent contacts (shown when not searching)
+  // The list (shown when not searching), as the filter popover sets it.
   const recentQuery = useContactsListQuery({
     page: 1,
     pageSize: 20,
-    sortBy: "created_at",
-    sortOrder: "desc",
+    sortBy: prefs.sortBy,
+    sortOrder: prefs.sortOrder,
     include_linked_invoice_counts: false,
+    ...(prefs.role === "all" ? {} : { role: prefs.role as ContactRole }),
+    ...(prefs.type === "all" ? {} : { type: prefs.type }),
   });
   const recent = recentQuery.data?.data ?? [];
   const recentLoading = recentQuery.isLoading;
@@ -124,18 +146,31 @@ export function ContactsSidebarPanel() {
 
   const resultLinkSearch = trimmed ? `?q=${encodeURIComponent(trimmed)}` : "";
 
-  // Determine active role from URL search params
-  const urlSearchParams = new URLSearchParams(locationSearch);
-  const activeRole = urlSearchParams.get("role");
-
-  const allActive = pathname === "/mdl/contacts" && !activeRole;
+  const listActive = pathname === "/mdl/contacts";
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <SidebarHeader className="gap-0 p-0 pb-3">
+        {isSearching ? null : (
+          <>
+            <SidebarGroup className="p-0">
+              <SidebarNavList>
+                <ContactNavRow
+                  active={listActive}
+                  icon={DockContactsIcon}
+                  label={t("menu.contacts")}
+                  to="/mdl/contacts"
+                />
+              </SidebarNavList>
+            </SidebarGroup>
+            <ModuleSidebarAgents moduleId="contacts" />
+          </>
+        )}
+
+        {/* Search, filters and "+" sit right above the list they act on. */}
         <div
           className={cn(
-            "flex min-w-0 items-center",
+            "flex min-w-0 items-center gap-1 pt-4",
             sidebarColumnContentInsetClassName,
             sidebarColumnContentInsetEndClassName
           )}
@@ -176,6 +211,17 @@ export function ContactsSidebarPanel() {
               </Button>
             ) : null}
           </div>
+          {isSearching ? null : (
+            <>
+              <ContactsSidebarListSettings
+                filtered={filtered}
+                prefs={prefs}
+                roleOptions={roleOptions}
+                updatePrefs={updatePrefs}
+              />
+              <ContactsSidebarAddMenu />
+            </>
+          )}
         </div>
       </SidebarHeader>
 
@@ -221,78 +267,37 @@ export function ContactsSidebarPanel() {
             </SidebarGroupContent>
           </SidebarGroup>
         ) : (
-          <>
-            <SidebarGroup className="p-0 pb-2">
-              <nav
-                aria-label={t("listSidebar.contactsNavAria", {
-                  defaultValue: "Contact groups",
-                })}
-              >
-                <SidebarNavList>
-                  <ContactNavRow
-                    active={allActive}
-                    label={t("menu.all", { defaultValue: "All" })}
-                    to="/mdl/contacts"
-                  />
-                  {roleItems.map((item) => {
-                    const label =
-                      item.plural?.trim() ||
-                      item.title?.trim() ||
-                      getRolePluralLabel(item.slug, (key) =>
-                        t(key, { defaultValue: item.slug })
-                      );
-                    const active =
-                      pathname === "/mdl/contacts" && activeRole === item.slug;
+          <SidebarGroup className="min-h-0 flex-1 p-0">
+            <SidebarGroupContent className="min-h-0 flex-1">
+              {recentLoading ? (
+                <div className="flex flex-col gap-1.5 pl-2">
+                  {Array.from({ length: 5 }, (_, i) => (
+                    <Skeleton className="h-6 w-full" key={`rsk-${i}`} />
+                  ))}
+                </div>
+              ) : recent.length === 0 ? (
+                <p className="pl-2 text-muted-foreground text-xs">
+                  {filtered
+                    ? t("listSidebar.noMatches")
+                    : t("listSidebar.noRecent")}
+                </p>
+              ) : (
+                <SidebarNavList className="min-h-0 flex-1 overflow-y-auto pb-2">
+                  {recent.map((c) => {
+                    const active = pathname === `/mdl/contacts/${c.id}`;
                     return (
                       <ContactNavRow
                         active={active}
-                        key={item.slug}
-                        label={label}
-                        to={`/mdl/contacts?role=${item.slug}`}
+                        key={c.id}
+                        label={contactListSecondaryNavLabel(c)}
+                        to={`/mdl/contacts/${c.id}`}
                       />
                     );
                   })}
                 </SidebarNavList>
-              </nav>
-            </SidebarGroup>
-
-            <div className="shrink-0 border-border-soft border-t" />
-
-            <SidebarGroup className="min-h-0 flex-1 p-0 pt-3">
-              <SidebarNavSectionLabel>
-                {t("listSidebar.recentSection", { defaultValue: "Recent" })}
-              </SidebarNavSectionLabel>
-              <SidebarGroupContent className="min-h-0 flex-1">
-                {recentLoading ? (
-                  <div className="flex flex-col gap-1.5 pl-2">
-                    {Array.from({ length: 5 }, (_, i) => (
-                      <Skeleton className="h-6 w-full" key={`rsk-${i}`} />
-                    ))}
-                  </div>
-                ) : recent.length === 0 ? (
-                  <p className="pl-2 text-muted-foreground text-xs">
-                    {t("listSidebar.noRecent", {
-                      defaultValue: "No contacts yet.",
-                    })}
-                  </p>
-                ) : (
-                  <SidebarNavList className="min-h-0 flex-1 overflow-y-auto pb-2">
-                    {recent.map((c) => {
-                      const active = pathname === `/mdl/contacts/${c.id}`;
-                      return (
-                        <ContactNavRow
-                          active={active}
-                          key={c.id}
-                          label={contactListSecondaryNavLabel(c)}
-                          to={`/mdl/contacts/${c.id}`}
-                        />
-                      );
-                    })}
-                  </SidebarNavList>
-                )}
-              </SidebarGroupContent>
-            </SidebarGroup>
-          </>
+              )}
+            </SidebarGroupContent>
+          </SidebarGroup>
         )}
       </SidebarContent>
     </div>

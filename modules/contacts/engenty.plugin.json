@@ -5,6 +5,7 @@
   "description": "Contacts and organisations module",
   "version": "0.0.1",
   "kind": "module",
+  "stage": "beta",
   "category": "work",
   "provides": [
     "module.contacts",

@@ -1,10 +1,10 @@
+import { type Cover, coverSchema } from "@engenty/covers";
 import { z } from "zod";
 import { type KbChunking, kbChunkingSchema } from "./chunking.js";
 import {
   type KbSidebarArticleTreePrefs,
   kbSidebarArticleTreePrefsSchema,
 } from "./kb-sidebar-article-tree.js";
-import { type KbCover, kbCoverSchema } from "./knowledge-bases.js";
 import {
   type KbPageLayoutSettings,
   kbPageLayoutSettingsSchema,
@@ -13,13 +13,13 @@ import {
 /* ── KB Display (per-KB visual settings stored in kb_settings) ── */
 
 export interface KbDisplay {
-  cover?: KbCover | null;
+  cover?: Cover | null;
   icon?: string | null;
 }
 
 export const kbDisplaySchema = z.object({
   icon: z.string().max(10).nullable().optional(),
-  cover: kbCoverSchema.nullable().optional(),
+  cover: coverSchema.nullable().optional(),
 });
 
 /* ── KB Settings ── */

@@ -1,6 +1,12 @@
 import type { AgentExecutionOptionsBase } from "@mastra/core/agent";
 import type { MastraMemory } from "@mastra/core/memory";
 import type { Processor } from "@mastra/core/processors";
+import {
+  getMemoryEntryStore,
+  getWorkingMemoryStore,
+  type MemoryEntryStore,
+  type WorkingMemoryStore,
+} from "../../dal/memory/index.js";
 import type { ThreadStore } from "../../dal/threads/index.js";
 import type { TurnContext } from "../conversation/turn-context.js";
 import { AiSessionError } from "../errors.js";
@@ -17,7 +23,6 @@ import {
 import { createSpeakerTurnProcessor } from "../sessions/speaker-turn-processor.js";
 import { scopeAttributionUserId } from "../sessions/types.js";
 import { createEngentySupervisorDelegationConfig } from "../supervisor/delegation.js";
-import { type AgentMemoryTools, createAgentMemory } from "./agent-memory.js";
 import { type AgentTasksTools, createAgentTasks } from "./agent-tasks.js";
 import {
   createEngentySessionMastraMemory,
@@ -27,14 +32,26 @@ import {
   createEngentySessionMemoryStorage,
   type EngentySessionMemoryScope,
 } from "./engenty-session-memory-storage.js";
+import { createMemoryProcessor } from "./memory-block.js";
+import {
+  type MemoryPlace,
+  memoryKeysForRun,
+  unaskedWriteKeys,
+} from "./memory-scopes.js";
+import { createMemoryTools, type MemoryTools } from "./memory-tools.js";
 import { createSharedObservationalMemoryProcessor } from "./shared-observational-memory.js";
+import {
+  createWorkingMemoryExtractor,
+  createWorkingMemoryTool,
+  type WorkingMemoryTools,
+} from "./working-memory.js";
 
 export interface EngentyMemoryIdentityInput {
   scope: EngentySessionMemoryScope;
   /**
-   * Shared specialist rooms and task-bound rooms key Mastra working memory on the
-   * Space (`spaceId`) so every chat with that agent in the Space shares one
-   * profile. `threadId` is only the fallback when the thread has no Space.
+   * Shared specialist rooms and task-bound rooms key the Mastra resource on
+   * the Space (`spaceId`) so every chat with that agent in the Space shares
+   * it. `threadId` is only the fallback when the thread has no Space.
    * Copilot stays per-user.
    */
   sharedRoom?: boolean;
@@ -58,6 +75,18 @@ export interface EngentySessionMemoryRuntimeInput
   agentName?: string;
   /** The person this agent writes for in a room (rooms/alter-ego.ts). */
   alterEgo?: AlterEgo | null;
+  /** Who and where, for memory entries (memory-scopes.ts). */
+  memory: {
+    agentScope?: "personal" | "shared" | null;
+    place: MemoryPlace;
+    /**
+     * Nobody but the person speaking reads this thread — not a room, not a
+     * shared Space thread, not a messenger channel. Opens the `user` scope.
+     */
+    privateLine: boolean;
+  };
+  /** The entries store; the env-configured one when omitted. */
+  memoryEntries?: MemoryEntryStore | null;
   /**
    * Configured fast-text model id. Observational memory and thread titles use
    * the AI Gateway with this id (or the platform fast-text default).
@@ -84,6 +113,8 @@ export interface EngentySessionMemoryRuntimeInput
   // Client-assigned id of the current user turn — the persisted row adopts it
   // so DB snapshots and the run stream agree on the message id. See the storage.
   userMessageId?: string | null;
+  /** The working-memory store; the env-configured one when omitted. */
+  workingMemory?: WorkingMemoryStore | null;
 }
 
 export interface EngentyNativeMemoryAgent {
@@ -174,10 +205,63 @@ export function createEngentySessionMemoryRuntime(
         threadId: input.threadId,
       })
     : null;
-  // MEMORY.md rides the same audience as the shared observations: the agent's
-  // notes for this Space (or this user, for a personal agent). Independent of
-  // the OM switch — notes the agent chose to keep are not an observer feature.
-  const agentMemory = createAgentMemory({ identity, store: storage });
+  // Memory entries: every scope this run may see, one block, one pair of
+  // tools. Independent of the OM switch — facts kept on purpose are not an
+  // observer feature.
+  const memoryEntries =
+    input.memoryEntries === undefined
+      ? getMemoryEntryStore()
+      : input.memoryEntries;
+  const speakerUserId = scopeAttributionUserId(input.scope);
+  const memoryKeys = memoryKeysForRun({
+    agentId: input.agentId,
+    agentScope: input.memory.agentScope,
+    place: input.memory.place,
+    privateSpeakerUserId: input.memory.privateLine ? speakerUserId : null,
+    tenantId: input.scope.tenantId,
+    userId: speakerUserId,
+  });
+  const workingMemory =
+    input.workingMemory === undefined
+      ? getWorkingMemoryStore()
+      : input.workingMemory;
+  const memoryProcessor =
+    memoryEntries && Object.keys(memoryKeys).length > 0
+      ? createMemoryProcessor({
+          keys: memoryKeys,
+          store: memoryEntries,
+          tenantId: input.scope.tenantId,
+          working: workingMemory,
+        })
+      : null;
+  const workingMemoryTools = workingMemory
+    ? createWorkingMemoryTool({
+        keys: memoryKeys,
+        store: workingMemory,
+        tenantId: input.scope.tenantId,
+        userId: speakerUserId,
+      })
+    : null;
+  const workingMemoryExtractor = workingMemory
+    ? createWorkingMemoryExtractor({
+        keys: unaskedWriteKeys(memoryKeys, {
+          agentScope: input.memory.agentScope,
+          privateLine: input.memory.privateLine,
+        }),
+        store: workingMemory,
+        tenantId: input.scope.tenantId,
+        userId: speakerUserId,
+      })
+    : null;
+  const agentMemoryTools = memoryEntries
+    ? createMemoryTools({
+        keys: memoryKeys,
+        store: memoryEntries,
+        tenantId: input.scope.tenantId,
+        threadId: input.threadId,
+        userId: speakerUserId,
+      })
+    : null;
   // TASKS.md — the agent's own open items, on the same row (metadata). The
   // copilot has no shared-OM audience and keeps its pad on its profile row.
   const agentTasks = createAgentTasks({ identity, store: storage });
@@ -190,13 +274,16 @@ export function createEngentySessionMemoryRuntime(
   const processors: Processor[] = [
     ...(speakerProcessor ? [speakerProcessor] : []),
     ...(sharedProcessor ? [sharedProcessor] : []),
-    ...(agentMemory ? [agentMemory.processor] : []),
+    ...(memoryProcessor ? [memoryProcessor] : []),
     ...(agentTasks ? [agentTasks.processor] : []),
   ];
-  const memoryTools: Partial<AgentMemoryTools & AgentTasksTools> & {
+  const memoryTools: Partial<
+    MemoryTools & WorkingMemoryTools & AgentTasksTools
+  > & {
     [RECALL_CHAPTERS_TOOL_ID]?: ReturnType<typeof createRecallChaptersTool>;
   } = {
-    ...(agentMemory?.tools ?? {}),
+    ...(agentMemoryTools ?? {}),
+    ...(workingMemoryTools ?? {}),
     ...(agentTasks?.tools ?? {}),
     ...(input.threadChapters
       ? {
@@ -211,13 +298,16 @@ export function createEngentySessionMemoryRuntime(
   };
   return {
     memory: createEngentySessionMastraMemory({
+      ...(workingMemoryExtractor
+        ? { extractors: [workingMemoryExtractor] }
+        : {}),
       storage,
       ...(input.observationalModelId
         ? { modelId: input.observationalModelId }
         : {}),
     }),
     memoryProcessors: processors,
-    /** `memory_note` / `memory_forget` / `todo_edit`, bound to this run's MEMORY.md + TASKS.md row; empty without one. */
+    /** `memory_note` / `memory_forget` / `working_memory_set` bound to this run's memory keys, `todo_edit` to its TASKS.md row; empty without them. */
     memoryTools,
     storage,
     invocationOptions: createEngentyMemoryInvocationOptions(input),

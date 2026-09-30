@@ -13,6 +13,7 @@ export function buildPluginCapabilityRegistryFromCoreList(
       requires: plugin.requires ?? [],
       dependencies: plugin.dependencies ?? [],
       provides: plugin.provides ?? [],
+      tenantDefault: plugin.tenantDefault,
     })),
   };
 }

@@ -6,6 +6,7 @@ import {
   clearArtifactsForTests,
   closeA2uiSurfacePaneTab,
   closeObjectPaneTab,
+  closeViewPaneTab,
   closeWorkFilePaneTab,
   getArtifactPaneOpen,
   LIVE_A2UI_SURFACE_TAB_KEY,
@@ -14,6 +15,7 @@ import {
   openA2uiSurfacePaneTab,
   openArtifactPane,
   openObjectPaneTab,
+  openViewPaneTab,
   openWorkFilePaneTab,
   setActiveArtifact,
   setArtifactPaneExpanded,
@@ -396,5 +398,36 @@ describe("live A2UI surface tabs", () => {
 
     act(() => closeA2uiSurfacePaneTab(HOST, LIVE_A2UI_SURFACE_TAB_KEY, []));
     expect(result.current.paneOpen).toBe(false);
+  });
+});
+
+describe("view pane tab", () => {
+  const HOST = "view-pane-test";
+  beforeEach(() => clearArtifactsForTests(HOST));
+
+  it("holds one page per host and a second open replaces the path", () => {
+    const { result } = renderHook(() => useArtifacts(HOST));
+    act(() => {
+      openViewPaneTab(HOST, { path: "/s/a/contacts/import", title: "Import" });
+    });
+    act(() => {
+      openViewPaneTab(HOST, { path: "/s/a/contacts" });
+    });
+    expect(result.current.viewTabs).toEqual([
+      { key: "view:page", path: "/s/a/contacts", title: "/s/a/contacts" },
+    ]);
+    expect(result.current.activeId).toBe("view:page");
+    expect(result.current.paneOpen).toBe(true);
+  });
+
+  it("closes the pane when its page was the last tab", () => {
+    const { result } = renderHook(() => useArtifacts(HOST));
+    act(() => {
+      openViewPaneTab(HOST, { path: "/s/a/contacts" }, { expanded: true });
+    });
+    act(() => closeViewPaneTab(HOST, "view:page"));
+    expect(result.current.viewTabs).toEqual([]);
+    expect(result.current.paneOpen).toBe(false);
+    expect(result.current.paneExpanded).toBe(false);
   });
 });

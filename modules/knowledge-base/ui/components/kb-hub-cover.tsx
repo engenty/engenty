@@ -4,19 +4,23 @@
  * Hover reveals "Change cover" / "Remove" actions (Notion-style chrome).
  */
 
+import { COVER_H, COVER_H_EMPTY, type Cover } from "@engenty/covers";
+import {
+  CoverDialog,
+  coverPaintStyle,
+  createCoverMediaHttpAdapter,
+  useResolvedCoverImageUrl,
+} from "@engenty/covers/ui";
 import { useTranslation } from "@engenty/i18n/ui";
 import { Button, cn } from "@engenty/ui-core";
 import { ImageIcon, Trash2 } from "lucide-react";
-import { type CSSProperties, type ReactNode, useMemo, useState } from "react";
-import type { KbCover, KnowledgeBase } from "../../src/schema/types.js";
+import { type ReactNode, useMemo, useState } from "react";
+import type { KnowledgeBase } from "../../src/schema/types.js";
 import { kbModuleHubCoverInnerClassName } from "../lib/kb-page-shell.js";
-import { KB_COVER_H, KB_COVER_H_EMPTY } from "./kb-hub-cover-constants.js";
-import { KbHubCoverDialog } from "./kb-hub-cover-dialog.js";
 import {
   KbHubCoverDialogApiContext,
   useKbHubCoverDialogApi,
 } from "./kb-hub-cover-dialog-context.js";
-import { useResolvedKbCoverImageUrl } from "./kb-hub-cover-image-url.js";
 import { useKbCoverMutation } from "./use-kb-cover-mutation.js";
 
 export function KbHubCover({
@@ -33,8 +37,8 @@ export function KbHubCover({
   editable?: boolean;
   /** Title / description / icon chrome — rendered over the cover with `surface="on-cover"`. */
   header?: ReactNode;
-  onCoverMutationError?: (cover: KbCover | null) => void;
-  onOptimisticCoverChange?: (cover: KbCover | null) => void;
+  onCoverMutationError?: (cover: Cover | null) => void;
+  onOptimisticCoverChange?: (cover: Cover | null) => void;
 }) {
   const { t } = useTranslation("kb");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -52,28 +56,27 @@ export function KbHubCover({
     [mutation.isPending]
   );
 
+  const coverMedia = useMemo(
+    () =>
+      createCoverMediaHttpAdapter({
+        basePath: "/api/kb/cover",
+        ownerField: "kb_id",
+        ownerId: kb.id,
+      }),
+    [kb.id]
+  );
+
   const cover = kb.cover;
   const hasCover = Boolean(cover);
-  const resolvedImageUrl = useResolvedKbCoverImageUrl(cover ?? null);
+  const resolvedImageUrl = useResolvedCoverImageUrl(cover ?? null);
 
-  const coverStyle: CSSProperties =
-    cover?.type === "image" && resolvedImageUrl
-      ? {
-          backgroundImage: `url(${resolvedImageUrl})`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }
-      : cover?.type === "color"
-        ? { backgroundColor: cover.value }
-        : cover?.type === "gradient"
-          ? { background: cover.value }
-          : {};
+  const coverStyle = coverPaintStyle(cover, resolvedImageUrl);
 
   return (
     <KbHubCoverDialogApiContext.Provider value={dialogApi}>
-      <KbHubCoverDialog
+      <CoverDialog
         currentCover={cover}
-        kbId={kb.id}
+        media={coverMedia}
         onApplyCover={(next) => mutation.mutate(next)}
         onOpenChange={setDialogOpen}
         open={dialogOpen}
@@ -84,7 +87,7 @@ export function KbHubCover({
           "group/cover relative flex min-h-0 w-full shrink-0 flex-col overflow-hidden",
           className
         )}
-        style={{ minHeight: hasCover ? KB_COVER_H : KB_COVER_H_EMPTY }}
+        style={{ minHeight: hasCover ? COVER_H : COVER_H_EMPTY }}
       >
         {hasCover ? (
           <div
@@ -102,7 +105,7 @@ export function KbHubCover({
          * the text sits, leaving the upper portion of the image clean.
          *
          * Color / gradient covers are excluded: their text color is chosen
-         * dynamically via `kbCoverIsLight`, so they don't need a scrim — and
+         * dynamically via `coverIsLight`, so they don't need a scrim — and
          * adding one on a vibrant solid would mute the chosen tone.
          */}
         {cover?.type === "image" ? (
@@ -129,7 +132,7 @@ export function KbHubCover({
                     variant="outline"
                   >
                     <ImageIcon aria-hidden className="size-3.5" />
-                    {t("hub.change_cover_hint")}
+                    {t("covers.change_cover_hint", { ns: "common" })}
                   </Button>
 
                   <Button
@@ -141,7 +144,7 @@ export function KbHubCover({
                     variant="outline"
                   >
                     <Trash2 aria-hidden className="size-3.5" />
-                    {t("hub.remove_cover")}
+                    {t("covers.remove_cover", { ns: "common" })}
                   </Button>
                 </div>
               ) : null}
@@ -165,8 +168,8 @@ export function KbHubAddCoverButton({
 }: {
   kb: KnowledgeBase;
   className?: string;
-  onCoverMutationError?: (cover: KbCover | null) => void;
-  onOptimisticCoverChange?: (cover: KbCover | null) => void;
+  onCoverMutationError?: (cover: Cover | null) => void;
+  onOptimisticCoverChange?: (cover: Cover | null) => void;
 }) {
   const { t } = useTranslation("kb");
   const dialogApi = useKbHubCoverDialogApi();
@@ -192,7 +195,7 @@ export function KbHubAddCoverButton({
       variant="ghost"
     >
       <ImageIcon aria-hidden className="size-3.5" />
-      {t("hub.add_cover_hint")}
+      {t("covers.add_cover_hint", { ns: "common" })}
     </Button>
   );
 }

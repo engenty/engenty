@@ -2,11 +2,10 @@
  * TASKS.md — an engenty's own task pad: what it still owes, and the standing
  * goals it works toward.
  *
- * Private to the agent for one audience, exactly like MEMORY.md, and kept on
- * the same `ai.mastra_resources` row: MEMORY.md is the row's `workingMemory`,
- * this pad is `metadata.tasks_md`. Mastra's `updateResource` merges metadata
- * shallowly and leaves `workingMemory` alone when it is omitted, so the two
- * never clobber each other and there is no second store.
+ * Private to the agent for one audience, kept on the `ai.mastra_resources`
+ * row its shared observations key on, as `metadata.tasks_md`. Mastra's
+ * `updateResource` merges metadata shallowly, so the pad never clobbers what
+ * else the row carries.
  *
  * It is NOT the tasks module. A tasks-module task is delegable, visible to the
  * people and colleagues of the Space, and a record with a lifecycle. A pad
@@ -19,9 +18,9 @@
  * makes the cleanup rule trivial: done lines older than the retention are
  * dropped without any model call, on every write and at the start of a turn.
  *
- * Audience: exactly MEMORY.md's — the shared-observation resource id
- * (agent×Space for shared engenties, agent×user for personal ones; the copilot
- * is a personal agent, so its pad is per person across Spaces).
+ * Audience: the shared-observation resource id (agent×Space for shared
+ * engenties, agent×user for personal ones; the copilot is a personal agent,
+ * so its pad is per person across Spaces).
  */
 import { createHash } from "node:crypto";
 import type {
@@ -29,11 +28,19 @@ import type {
   ComputeStateSignalResult,
   Processor,
 } from "@mastra/core/processors";
+import type { MemoryStorage } from "@mastra/core/storage";
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
-import type { AgentMemoryStore } from "./agent-memory.js";
-import { agentMemoryResourceId } from "./agent-memory.js";
-import type { SharedObservationalMemoryIdentity } from "./shared-observational-memory.js";
+import {
+  type SharedObservationalMemoryIdentity,
+  sharedObservationalMemoryResourceId,
+} from "./shared-observational-memory.js";
+
+/** The `ai.mastra_resources` rows the pad lives on. */
+export type AgentTasksStore = Pick<
+  MemoryStorage,
+  "getResourceById" | "updateResource"
+>;
 
 export const AGENT_TASKS_MAX_CHARS = 6000;
 export const TASKS_DONE_RETENTION_DAYS = 7;
@@ -59,11 +66,11 @@ export interface AgentTasks {
   tasks: AgentTask[];
 }
 
-/** The row an engenty's TASKS.md lives on — MEMORY.md's — or null when it has no audience. */
+/** The row an engenty's TASKS.md lives on, or null when it has no audience. */
 export function agentTasksResourceId(
   identity: SharedObservationalMemoryIdentity
 ): string | null {
-  return agentMemoryResourceId(identity);
+  return sharedObservationalMemoryResourceId(identity);
 }
 
 function isoDate(now: Date): string {
@@ -247,7 +254,7 @@ export function applyTodoEdit(
 }
 
 export async function readAgentTasks(
-  store: AgentMemoryStore,
+  store: AgentTasksStore,
   resourceId: string
 ): Promise<string> {
   const record = await store.getResourceById({ resourceId });
@@ -271,7 +278,7 @@ export class AgentTasksTooLargeError extends Error {
  * canonical text that was stored (empty clears the pad).
  */
 export async function writeAgentTasks(
-  store: AgentMemoryStore,
+  store: AgentTasksStore,
   resourceId: string,
   contents: string,
   now = new Date()
@@ -296,20 +303,20 @@ Your own pad, delivered every turn as "TASKS.md": the goals you work toward at t
 - Edit it with \`${TODO_EDIT_TOOL_ID}\`: \`add\` what you accepted but did not finish this turn or what you still owe; \`done\` what you finished (do this at the end of a turn, in the same call); \`drop\` what no longer applies; \`goals\` rewrites the Goals section (a few standing aims, not tasks).
 - Before you start, read it: pick up what is open, drop what is stale.
 - Done items disappear on their own after ${TASKS_DONE_RETENTION_DAYS} days. The file holds at most ${AGENT_TASKS_MAX_CHARS} characters; when a write is refused as too large, finish or drop items first.
-- Facts to remember belong in MEMORY.md, not here.`;
+- Facts to remember belong in memory (\`memory_note\`), not here.`;
 
 class AgentTasksProcessor implements Processor {
   readonly id = AGENT_TASKS_PROCESSOR_ID;
   readonly name = "Engenty agent tasks";
   readonly stateId = AGENT_TASKS_STATE_ID;
   readonly #resourceId: string;
-  readonly #store: AgentMemoryStore;
+  readonly #store: AgentTasksStore;
   readonly #now: () => Date;
 
   constructor(input: {
     now?: () => Date;
     resourceId: string;
-    store: AgentMemoryStore;
+    store: AgentTasksStore;
   }) {
     this.#resourceId = input.resourceId;
     this.#store = input.store;
@@ -355,7 +362,7 @@ class AgentTasksProcessor implements Processor {
 export function createAgentTasksTools(input: {
   now?: () => Date;
   resourceId: string;
-  store: AgentMemoryStore;
+  store: AgentTasksStore;
 }) {
   const now = input.now ?? (() => new Date());
   const edit = createTool({
@@ -440,7 +447,7 @@ export type AgentTasksTools = ReturnType<typeof createAgentTasksTools>;
 export function createAgentTasks(input: {
   identity: SharedObservationalMemoryIdentity;
   now?: () => Date;
-  store: AgentMemoryStore;
+  store: AgentTasksStore;
 }): { processor: Processor; tools: AgentTasksTools } | null {
   const resourceId = agentTasksResourceId(input.identity);
   if (!resourceId) {

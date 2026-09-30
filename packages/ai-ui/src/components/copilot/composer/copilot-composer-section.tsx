@@ -3,11 +3,13 @@
 import { useTranslation } from "@engenty/i18n/ui";
 import { Button, cn } from "@engenty/ui-core";
 import { AnimatedSendIcon } from "@engenty/ui-icons";
+import { useWorkspaceSpace } from "@engenty/ui-plugin-sdk";
 import { ImageIcon, Mic, MicOff, XIcon } from "lucide-react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useOptionalAgentHost } from "../../../agent-provider/engenty-agent.js";
 import { EngentyAIContext } from "../../../agent-provider/engenty-ai-provider.js";
+import { ACTIVE_COPILOT_AGENT_ID } from "../../../agent-provider/host-keys.js";
 import type { SubmitMessage } from "../../../agent-provider/types.js";
 import { registerCopilotComposerRefAdder } from "../../../copilot/copilot-composer-draft-intent.js";
 import type { ChatReferenceItem } from "../../../lib/chat-reference-part.js";
@@ -17,11 +19,13 @@ import {
 } from "../../../lib/speech/use-copilot-voice-input-hotkey.js";
 import type { TranscribeSpeechAudio } from "../../../lib/speech/use-speech-to-text.js";
 import {
+  agentUploadsFolderKey,
   CHAT_ATTACHMENT_MAX_BYTES,
   CHAT_ATTACHMENT_MAX_FILES,
   uploadChatAttachmentParts,
 } from "../../../lib/upload-chat-attachment.js";
 import {
+  type FileDragInfo,
   PromptInput,
   PromptInputActionMenu,
   PromptInputActionMenuContent,
@@ -37,6 +41,11 @@ import {
   usePromptInputAttachments,
   usePromptInputController,
 } from "../../ai-elements/prompt-input";
+import {
+  type AttachmentError,
+  AttachmentErrorLine,
+} from "./attachment-error-line";
+import { ComposerDropOverlay } from "./composer-drop-overlay";
 import type { StarterPromptItem } from "./copilot-composer";
 import {
   CopilotComposerMentionBackdrop,
@@ -49,6 +58,7 @@ import {
   type ChatSlashCommand,
   routeSlashSubmit,
 } from "./copilot-slash-command";
+import { useAttachmentScreening } from "./use-attachment-screening";
 import {
   type MentionRefCandidate,
   type MentionRefSearch,
@@ -140,7 +150,20 @@ export function CopilotComposerSection({
   const aiContext = useContext(EngentyAIContext);
   const tenantId = aiContext?.tenantId ?? null;
   const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
-  const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const [attachmentError, setAttachmentErrorState] =
+    useState<AttachmentError | null>(null);
+  const setAttachmentError = useCallback(
+    (message: string | null, opts?: { sticky?: boolean }) =>
+      setAttachmentErrorState(
+        message ? { message, sticky: opts?.sticky } : null
+      ),
+    []
+  );
+  const dismissAttachmentError = useCallback(
+    () => setAttachmentErrorState(null),
+    []
+  );
+  const screening = useAttachmentScreening({ setAttachmentError });
   useEffect(() => {
     controller.textInput.setInput(draft);
   }, [draft, controller.textInput]);
@@ -168,7 +191,10 @@ export function CopilotComposerSection({
   }, [draft]);
   // A surface outside the chat (a routine's Edit) can hand this composer a
   // reference pill: registered under the host the composer belongs to.
-  const hostKey = useOptionalAgentHost()?.hostKey ?? null;
+  const agentHost = useOptionalAgentHost();
+  const hostKey = agentHost?.hostKey ?? null;
+  const hostAgentId = agentHost?.config.agentId ?? ACTIVE_COPILOT_AGENT_ID;
+  const currentSpace = useWorkspaceSpace();
   const [refFocusKey, setRefFocusKey] = useState(0);
   useEffect(() => {
     if (!hostKey) {
@@ -352,16 +378,30 @@ export function CopilotComposerSection({
         [];
       if (files.length > 0) {
         if (!tenantId) {
-          setAttachmentError(t("copilot.attachments.unavailable"));
+          setAttachmentError(t("copilot.attachments.unavailable"), {
+            sticky: true,
+          });
           // Throw so PromptInput keeps the draft + attachments for a retry.
           throw new Error("chat_attachment_tenant_unavailable");
         }
         setAttachmentError(null);
         setIsUploadingAttachments(true);
         try {
-          attachments = await uploadChatAttachmentParts({ files, tenantId });
+          // Into the agent's uploads folder in the Space — the Data tab and
+          // the agent's computer (`/space/agent/<agent>/uploads/`) both see it.
+          attachments = await uploadChatAttachmentParts({
+            files,
+            folderKey: agentUploadsFolderKey({
+              agentId: resolved.requestedAgentId ?? hostAgentId,
+              spaceId: currentSpace?.id ?? null,
+              tenantId,
+            }),
+            tenantId,
+          });
         } catch {
-          setAttachmentError(t("copilot.attachments.uploadFailed"));
+          setAttachmentError(t("copilot.attachments.uploadFailed"), {
+            sticky: true,
+          });
           throw new Error("chat_attachment_upload_failed");
         } finally {
           setIsUploadingAttachments(false);
@@ -390,6 +430,8 @@ export function CopilotComposerSection({
       submitMessage,
       t,
       tenantId,
+      hostAgentId,
+      currentSpace?.id,
     ]
   );
 
@@ -487,21 +529,23 @@ export function CopilotComposerSection({
   // Renders inside PromptInputProvider so it can read the live attachment state.
   const attachmentsPreview = (
     <>
+      {screening.notice}
       <PromptInputAttachments className="mx-1 mb-2" />
-      {isUploadingAttachments || attachmentError ? (
-        <div
-          className={cn(
-            "mx-1 rounded px-2 py-1.5 text-xs",
-            attachmentError ? "text-destructive" : "text-muted-foreground"
-          )}
-        >
-          {attachmentError ?? t("copilot.attachments.uploading")}
+      {attachmentError ? (
+        <AttachmentErrorLine
+          error={attachmentError}
+          onDismiss={dismissAttachmentError}
+        />
+      ) : isUploadingAttachments ? (
+        <div className="mx-1 rounded px-2 py-1.5 text-muted-foreground text-xs">
+          {t("copilot.attachments.uploading")}
         </div>
       ) : null}
     </>
   );
 
-  // Any file type is accepted — non-model files still land in the Vault.
+  // Most file types attach — non-model files still land in the Vault; programs
+  // are blocked and archives/macro files ask first (chat-attachment-screen).
   // Desktop shell: dropping a file anywhere in the window attaches it here
   // (the shell disables Tauri's drag-drop interception so HTML5 drops work).
   const attachmentInputProps = {
@@ -511,6 +555,10 @@ export function CopilotComposerSection({
     maxFiles: CHAT_ATTACHMENT_MAX_FILES,
     multiple: true,
     onError: handleAttachmentError,
+    renderDropOverlay: (drag: FileDragInfo) => (
+      <ComposerDropOverlay drag={drag} />
+    ),
+    screenFiles: screening.screenFiles,
   } as const;
 
   if (composerOverride) {

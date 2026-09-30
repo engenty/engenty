@@ -140,7 +140,4 @@ export function FileDownloadsToolCallCard(props: ToolCallCardProps) {
   );
 }
 
-export {
-  isFileDownloadsOfferOutput,
-  matchesFileDownloadsToolCall,
-} from "./file-download-offer.js";
+export { matchesFileDownloadsToolCall } from "./file-download-offer.js";

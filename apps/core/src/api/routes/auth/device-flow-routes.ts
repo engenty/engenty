@@ -26,7 +26,7 @@ const USER_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const POLL_INTERVAL_SECONDS = 5;
 const MAX_TTL_MINUTES = 15;
 
-export function generateUserCode(): string {
+function generateUserCode(): string {
   const bytes = randomBytes(8);
   const chars = [...bytes].map(
     (byte) => USER_CODE_ALPHABET[byte % USER_CODE_ALPHABET.length]
@@ -34,7 +34,7 @@ export function generateUserCode(): string {
   return `${chars.slice(0, 4).join("")}-${chars.slice(4).join("")}`;
 }
 
-export function normalizeUserCode(raw: string): string {
+function normalizeUserCode(raw: string): string {
   const cleaned = raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
   return cleaned.length === 8
     ? `${cleaned.slice(0, 4)}-${cleaned.slice(4)}`

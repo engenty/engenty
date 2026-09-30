@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { tryReadClosedPrefixes } from "../../../scripts/lib/closed-prefixes.mjs";
-import { resolveEnabledModules } from "../../../scripts/lib/engenty-modules.mjs";
+import { resolveInstalledModules } from "../../../scripts/lib/engenty-modules.mjs";
 import {
   collectChangedGeneratedArtifacts,
   createUiCatalogSourceInfo,
@@ -71,9 +71,10 @@ function listPackageDirs(rootDir) {
 }
 
 function listWorkspacePackageDirs() {
-  // Enabled modules resolved to their on-disk dir (top-level or nested
+  // Installed modules resolved to their on-disk dir (top-level or nested
   // modules/*/providers/*), so nested connector providers with UI are included.
-  const moduleDirs = resolveEnabledModules(repoRootDir).map((mod) => mod.dir);
+  // A module below ENGENTY_MODULE_STAGE is left out of the bundle entirely.
+  const moduleDirs = resolveInstalledModules(repoRootDir).map((mod) => mod.dir);
   return [...moduleDirs, ...listPackageDirs(packagesDir)];
 }
 

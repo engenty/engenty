@@ -7,10 +7,14 @@ import type {
   JsonValue,
   RunAgentInput,
 } from "@engenty/ag-ui-bridge";
-import type { AiEffortChoice } from "@engenty/ai-core/browser";
+import type {
+  AiEffortChoice,
+  AiReasoningEffort,
+} from "@engenty/ai-core/browser";
 import type { QueryClient } from "@engenty/query-client";
 import type { ReactNode } from "react";
 import type {
+  EffortOffer,
   EngentyAgUiPendingSend,
   ResumeInterruptFeedback,
 } from "../ag-ui/apps-ai/use-engenty-ag-ui-apps-ai-session.js";
@@ -102,6 +106,8 @@ export interface HostConfig {
   onThreadCreated?: (threadId: string) => void;
   openInterruptFromSession?: AgUiOpenInterruptMetadata | null;
   pathname?: string;
+  /** How long a reasoning model thinks (`forwardedProps.engenty.reasoning_effort`). */
+  reasoningEffort?: AiReasoningEffort | null;
   routeContext: EngentyAgUiRouteContext;
   stableSessionKey?: string | null;
   threadDetailQueryKey?: readonly unknown[];
@@ -115,6 +121,8 @@ export interface EngentyAgentProps extends HostConfig {
 
 export interface AgentHost {
   activeThreadId: string | null;
+  /** Send the turn an Extra offer holds: on Extra (and stay there), or on Normal. */
+  answerEffortOffer?: (choice: "extra" | "normal") => void;
   /** A run this window streams but did not start — a colleague's turn, another window's. */
   attachedRunId?: string | null;
   awaitingInterrupt: boolean;
@@ -124,6 +132,8 @@ export interface AgentHost {
   copilotMessages: CopilotPanelContentProps["messages"];
   /** The interrupt card's ✕: hide it now and clear it on the server, without answering. */
   dismissInterrupt: (open: AgUiOpenInterruptMetadata) => void;
+  /** The server asks to run the held Normal turn on Extra; null when not asking. */
+  effortOffer?: EffortOffer | null;
   error: Error | null;
   events: EngentyAgUiEvent[];
   hostKey: string;

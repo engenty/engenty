@@ -5,6 +5,7 @@
   "description": "Core Engenty copilot full-page chat and apps/ai UI consumer",
   "version": "0.0.1",
   "kind": "module",
+  "stage": "beta",
   "category": "engenty",
   "provides": [
     "module.engenty-copilot",
@@ -194,70 +195,10 @@
         "secret": true
       },
       {
-        "description": "Set to false to disable Mastra thread observational memory for agent chat. Enabled by default.",
-        "feature": "ai",
-        "group": "AI",
-        "key": "ENGENTY_AI_OBSERVATIONAL_MEMORY",
-        "obtain": {
-          "kind": "manual"
-        },
-        "required": "optional",
-        "scopes": ["root", "deploy"],
-        "secret": false
-      },
-      {
-        "description": "Set to true to add cross-thread shared observations (per user for personal agents, per Space for shared ones) to every turn. Off by default: it adds a DB read before the model call and up to 16k tokens of context. Needs ENGENTY_AI_OBSERVATIONAL_MEMORY on.",
-        "feature": "ai",
-        "group": "AI",
-        "key": "ENGENTY_AI_SHARED_OBSERVATIONS",
-        "obtain": {
-          "kind": "manual"
-        },
-        "required": "optional",
-        "scopes": ["root", "deploy"],
-        "secret": false
-      },
-      {
         "description": "Set to true to enable Mastra thread-scoped semantic recall (embeds every saved chat turn and queries pgvector on each turn). Off by default. Requires AI Gateway embeddings and a Postgres vector URL.",
         "feature": "ai",
         "group": "AI",
         "key": "ENGENTY_AI_SEMANTIC_RECALL",
-        "obtain": {
-          "kind": "manual"
-        },
-        "required": "optional",
-        "scopes": ["root", "deploy"],
-        "secret": false
-      },
-      {
-        "description": "Time budget for ONE model call in an agent run, in milliseconds. Default 180000 (3 min); a call past it fails the run with a named timeout instead of hanging. 0 disables.",
-        "feature": "ai",
-        "group": "AI",
-        "key": "ENGENTY_AI_STEP_TIMEOUT_MS",
-        "obtain": {
-          "kind": "manual"
-        },
-        "required": "optional",
-        "scopes": ["root", "deploy"],
-        "secret": false
-      },
-      {
-        "description": "Hard override for the recalled-history token budget of every agent, in tokens. Unset: derived per run from the model's catalog context window minus the tool block, the reply reserve and the runtime tail (100000 when the window is unknown).",
-        "feature": "ai",
-        "group": "AI",
-        "key": "ENGENTY_AI_HISTORY_TOKEN_LIMIT",
-        "obtain": {
-          "kind": "manual"
-        },
-        "required": "optional",
-        "scopes": ["root", "deploy"],
-        "secret": false
-      },
-      {
-        "description": "Time budget for a WHOLE agent run (every step, tool call and retry), in milliseconds. Default 1200000 (20 min). 0 disables.",
-        "feature": "ai",
-        "group": "AI",
-        "key": "ENGENTY_AI_RUN_TIMEOUT_MS",
         "obtain": {
           "kind": "manual"
         },
@@ -366,5 +307,6 @@
       }
     ]
   },
-  "placement": "space"
+  "placement": "space",
+  "supporting": true
 }

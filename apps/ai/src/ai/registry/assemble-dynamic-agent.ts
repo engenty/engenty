@@ -1,6 +1,7 @@
 import {
   type AgentResolveContext,
   type AiEffort,
+  type AiReasoningEffort,
   agentDefaultEffort,
   isModelAllowed,
   type ModelAllowList,
@@ -55,13 +56,14 @@ import { createShowObjectsTool } from "../../../ai/tools/show-objects-tool.js";
 import { createShowUiTool } from "../../../ai/tools/show-ui-tool.js";
 import { createShowWidgetTool } from "../../../ai/tools/show-widget-tool.js";
 import { WEB_FETCH_TOOL_ID } from "../../../ai/tools/web-fetch/index.js";
+import { workspaceFilePublishTool } from "../../../ai/tools/workspace-file-publish-tool.js";
 import { workspaceTransferTools } from "../../../ai/tools/workspace-move/index.js";
 import { resolveMastraModel } from "../../model-gateways/resolve-language-model.js";
 import { AiSessionError } from "../errors.js";
 import { REPLY_STYLE_INSTRUCTIONS } from "../instructions/reply-style.js";
 import { specialistInstructionsForRun } from "../instructions/specialist-instructions.js";
-import { AGENT_MEMORY_INSTRUCTIONS } from "../memory/agent-memory.js";
 import { AGENT_TASKS_INSTRUCTIONS } from "../memory/agent-tasks.js";
+import { AGENT_MEMORY_INSTRUCTIONS } from "../memory/memory-tools.js";
 import { nativeModuleToolMeta } from "../native-module-tool-meta.js";
 import { createRuntimeContextProcessor } from "../sessions/runtime-context-processor.js";
 import { SHARED_ROOM_INSTRUCTIONS } from "../sessions/speaker-turn-processor.js";
@@ -71,6 +73,10 @@ import {
   estimateToolBlockTokens,
   historyTokenLimit,
 } from "./history-token-budget.js";
+import {
+  type ReasoningSupportResolver,
+  resolveReasoningOptions,
+} from "./reasoning-options.js";
 import {
   createSkillGatedToolsProcessor,
   SKILL_GATED_TOOLS_INSTRUCTIONS,
@@ -188,11 +194,19 @@ export interface RuntimeModelConfig {
    */
   grants?: ModelAllowList | null;
   /**
+   * How long a reasoning model thinks, as the person picked it (Extra, or a
+   * Custom model's level). Applied to whichever model each agent lands on,
+   * and only where the catalog says that model reasons.
+   */
+  reasoningEffort?: AiReasoningEffort | null;
+  /**
    * The model's context window from the platform catalog, for the recalled-
    * history budget (history-token-budget.ts). Absent or null = unknown window,
    * fixed default budget.
    */
   resolveContextTokens?: ContextTokensResolver;
+  /** The catalog's `reasoning` tag per model ref — gates `reasoningEffort`. */
+  resolveReasoningSupport?: ReasoningSupportResolver;
 }
 
 export async function assembleDynamicAgent(
@@ -381,6 +395,19 @@ async function assembleDynamicAgentWithAncestors(
       engentyCodeModeTool as unknown as MastraToolDefinition;
   }
 
+  // Any agent with a computer can hand a file it made to a page mid-run:
+  // `workspace_file_publish` uploads one path and answers with its key.
+  if (
+    options.workspace?.sandbox != null &&
+    !(
+      workspaceFilePublishTool.id in agentTools ||
+      blockedToolIds.has(workspaceFilePublishTool.id)
+    )
+  ) {
+    agentTools[workspaceFilePublishTool.id] =
+      workspaceFilePublishTool as unknown as MastraToolDefinition;
+  }
+
   // Skills are no longer inlined into the prompt. `skillIds` are now *preferred
   // skill names*: the agent loads their SKILL.md on demand via the Mastra
   // Workspace `skill`/`skill_search` tools (file-storage discovery). We only
@@ -443,6 +470,11 @@ async function assembleDynamicAgentWithAncestors(
       (await options.modelConfig?.resolveContextTokens?.(modelId)) ?? null,
     toolTokens: estimateToolBlockTokens(agentTools),
   });
+  const reasoningOptions = await resolveReasoningOptions(
+    modelId,
+    options.modelConfig?.reasoningEffort,
+    options.modelConfig?.resolveReasoningSupport
+  );
   const toolGating = effectiveToolGating(config);
   const inputProcessors: Processor[] = [
     // Lane tools ride with their lane skill (`AgentConfig.toolGating`, plus
@@ -506,6 +538,11 @@ async function assembleDynamicAgentWithAncestors(
       : {}),
     ...(options.mastra ? { mastra: options.mastra } : {}),
     ...(attachMemory && options.memory ? { memory: options.memory } : {}),
+    // The picked reasoning level. A default, not a call option: the lanes
+    // call `stream()` through `@ag-ui/mastra`, which passes none of its own.
+    ...(reasoningOptions
+      ? { defaultOptions: { providerOptions: reasoningOptions } }
+      : {}),
     model: resolveAgentModel(config, options.modelConfig),
     name: config.name,
     ...([...outputProcessors, ...(options.memoryProcessors ?? [])].length > 0
@@ -638,12 +675,15 @@ export function buildAgentInstructions(
     parts.push(
       ...specialistInstructionsForRun({ topLevel: extras?.topLevel === true })
     );
-  } else if (config.agentScope) {
-    // Specialists carry these inside the specialist appendix. Any other agent
-    // with an audience — the personal copilot, an interface declaring
-    // `agent_scope` — has the same MEMORY.md and TASKS.md bound to its run
-    // and needs to be told about them.
-    parts.push(AGENT_MEMORY_INSTRUCTIONS, AGENT_TASKS_INSTRUCTIONS);
+  } else {
+    // Specialists carry these inside the specialist appendix. Every other
+    // agent runs in a Space or the company and keeps memory entries there;
+    // one with an audience — the personal copilot, an interface declaring
+    // `agent_scope` — also has TASKS.md bound to its run.
+    parts.push(AGENT_MEMORY_INSTRUCTIONS);
+    if (config.agentScope) {
+      parts.push(AGENT_TASKS_INSTRUCTIONS);
+    }
   }
   // Last, and only on a run nobody asked for: how to behave having woken up on
   // its own (Phase 7 #10). Absent from every other run, where it would be false.
