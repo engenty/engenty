@@ -593,35 +593,38 @@ export const actionProposeTool = createTool({
         tenantId,
       });
 
-      await emitInboxNotification({
-        dedupeKey: `flow-graph-proposal:${tenantId}:${graphId}`,
-        spaceId: executionSpaceId(ctx.space) ?? null,
-        kind: "workflow_proposed",
-        ...(ctx.agentTypeKey
-          ? { actor: { id: ctx.agentTypeKey, kind: "agent" as const } }
-          : {}),
-        body: input.description,
-        metadata: {
-          workflow_id: graphId,
-          version: version.version,
-          ...(ownerAgentId ? { owner_agent_id: ownerAgentId } : {}),
-        },
-        priority: "medium",
-        source: "workflows",
-        // An owned Workflow opens on its owner's manage panel (built from
-        // workflow_id + owner_agent_id); a library one has no desk, so its
-        // own editor page, where Publish sits.
-        ...(ownerAgentId ? {} : { target: workflowEditorRoute(graphId) }),
-        tenantId,
-        title: { key: "workflow_proposed", params: { name: input.name } },
-      });
-
       const live = await publishWhenAuto({
         agentTypeKey: ownerAgentId ?? ctx.agentTypeKey?.trim() ?? null,
         spaceId: executionSpaceId(ctx.space) ?? null,
         tenantId,
         versionId: version.id,
       });
+      // Only a draft needs a person: an auto-published version is live
+      // already, and a "to review" ask for it could never be resolved.
+      if (!live?.published) {
+        await emitInboxNotification({
+          dedupeKey: `flow-graph-proposal:${tenantId}:${graphId}`,
+          spaceId: executionSpaceId(ctx.space) ?? null,
+          kind: "workflow_proposed",
+          ...(ctx.agentTypeKey
+            ? { actor: { id: ctx.agentTypeKey, kind: "agent" as const } }
+            : {}),
+          body: input.description,
+          metadata: {
+            workflow_id: graphId,
+            version: version.version,
+            ...(ownerAgentId ? { owner_agent_id: ownerAgentId } : {}),
+          },
+          priority: "medium",
+          source: "workflows",
+          // An owned Workflow opens on its owner's manage panel (built from
+          // workflow_id + owner_agent_id); a library one has no desk, so its
+          // own editor page, where Publish sits.
+          ...(ownerAgentId ? {} : { target: workflowEditorRoute(graphId) }),
+          tenantId,
+          title: { key: "workflow_proposed", params: { name: input.name } },
+        });
+      }
       if (live?.published) {
         return {
           ok: true as const,

@@ -195,35 +195,38 @@ export function createWorkflowSelfReviseTools(
             workflowId: existing.id,
           });
 
-          await emitInboxNotification({
-            dedupeKey: `flow-graph-proposal:${tenantId}:${existing.id}`,
-            spaceId: executionSpaceId(ctx.space) ?? null,
-            kind: "workflow_proposed",
-            actor: { id: agentId, kind: "agent" },
-            // The agent's one-line why; the title names the Workflow.
-            body: input.summary,
-            // Opens the owner's manage panel (workflow_id + owner_agent_id).
-            metadata: {
-              owner_agent_id: agentId,
-              version: version.version,
-              workflow_id: existing.id,
-            },
-            priority: "medium",
-            source: "workflows",
-            summary: "A Workflow revision is waiting for review",
-            tenantId,
-            title: {
-              key: "workflow_revised",
-              params: { name: existing.name, version: version.version },
-            },
-          });
-
           const live = await publishWhenAuto({
             agentTypeKey: agentId,
             spaceId: executionSpaceId(ctx.space) ?? null,
             tenantId,
             versionId: version.id,
           });
+          // Only a draft needs a person: an auto-published version is live
+          // already, and a "to review" ask for it could never be resolved.
+          if (!live?.published) {
+            await emitInboxNotification({
+              dedupeKey: `flow-graph-proposal:${tenantId}:${existing.id}`,
+              spaceId: executionSpaceId(ctx.space) ?? null,
+              kind: "workflow_proposed",
+              actor: { id: agentId, kind: "agent" },
+              // The agent's one-line why; the title names the Workflow.
+              body: input.summary,
+              // Opens the owner's manage panel (workflow_id + owner_agent_id).
+              metadata: {
+                owner_agent_id: agentId,
+                version: version.version,
+                workflow_id: existing.id,
+              },
+              priority: "medium",
+              source: "workflows",
+              summary: "A Workflow revision is waiting for review",
+              tenantId,
+              title: {
+                key: "workflow_revised",
+                params: { name: existing.name, version: version.version },
+              },
+            });
+          }
           if (live?.published) {
             return {
               ok: true as const,
