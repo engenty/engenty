@@ -16,23 +16,42 @@ import { ListChecks } from "lucide-react";
 import { Link } from "react-router-dom";
 import { SpaceHomeSectionHeading } from "./SpaceHomeSectionHeading";
 
-/** The rows the card lists: published wizards, in catalog order. */
+/**
+ * The rows the card lists: published wizards whose owner is mounted in this
+ * Space, in catalog order. A wizard runs its owner's specialist steps in the
+ * Space it starts from, so one whose owner lives elsewhere can only fail here.
+ */
 export function selectSpaceHomeWorkflows(
-  graphs: readonly WorkflowDto[]
+  graphs: readonly WorkflowDto[],
+  mountedAgentIds: ReadonlySet<string>
 ): WorkflowDto[] {
   return graphs.filter(
-    (graph) => graph.surface === "wizard" && graph.status === "active"
+    (graph) =>
+      graph.surface === "wizard" &&
+      graph.status === "active" &&
+      Boolean(graph.owner_agent_id) &&
+      mountedAgentIds.has(graph.owner_agent_id ?? "")
   );
 }
 
-export function SpaceHomeWorkflows({ spaceKey }: { spaceKey: string }) {
+export function SpaceHomeWorkflows({
+  mountedAgentIds,
+  spaceKey,
+}: {
+  /** The agents mounted in this Space — the roster. */
+  mountedAgentIds: ReadonlySet<string>;
+  spaceKey: string;
+}) {
   const { t } = useTranslation("common");
   const query = useQuery({
     queryFn: ({ signal }) => listWorkflows({ surface: "wizard" }, signal),
     queryKey: ["workflows", "list", "*", "wizard"],
     staleTime: 10_000,
   });
-  const rows = selectSpaceHomeWorkflows(query.data?.graphs ?? []);
+  const rows = selectSpaceHomeWorkflows(
+    query.data?.graphs ?? [],
+    mountedAgentIds
+  );
 
   if (rows.length === 0) {
     return null;

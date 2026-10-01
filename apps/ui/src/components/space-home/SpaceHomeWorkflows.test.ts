@@ -18,13 +18,22 @@ function graph(patch: Partial<WorkflowDto>): WorkflowDto {
 }
 
 describe("selectSpaceHomeWorkflows", () => {
-  it("lists only published wizards", () => {
-    const rows = selectSpaceHomeWorkflows([
-      graph({ id: "wizard", surface: "wizard" }),
-      graph({ id: "draft", status: "draft", surface: "wizard" }),
-      graph({ id: "chat", surface: "chat" }),
-      graph({ id: "untagged" }),
-    ]);
+  it("lists only published wizards whose owner is mounted in the Space", () => {
+    const rows = selectSpaceHomeWorkflows(
+      [
+        graph({ id: "wizard", owner_agent_id: "mounted", surface: "wizard" }),
+        graph({ id: "elsewhere", owner_agent_id: "other", surface: "wizard" }),
+        graph({ id: "library", owner_agent_id: null, surface: "wizard" }),
+        graph({
+          id: "draft",
+          owner_agent_id: "mounted",
+          status: "draft",
+          surface: "wizard",
+        }),
+        graph({ id: "chat", owner_agent_id: "mounted", surface: "chat" }),
+      ],
+      new Set(["mounted"])
+    );
     expect(rows.map((row) => row.id)).toEqual(["wizard"]);
   });
 });

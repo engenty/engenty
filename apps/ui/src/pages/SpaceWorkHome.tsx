@@ -97,6 +97,10 @@ export function SpaceWorkHome() {
     () => new Map(agents.map((agent) => [agent.id, agent])),
     [agents]
   );
+  const mountedAgentIds = useMemo(
+    () => new Set(agents.map((agent) => agent.id)),
+    [agents]
+  );
   const home = useSpaceHome(space?.id ?? null);
   const attention = useSpaceAttention();
   const deskAttention = (card: SpaceHomeCardModel) =>
@@ -144,7 +148,10 @@ export function SpaceWorkHome() {
             sidebar={
               <div className="flex min-w-0 flex-col gap-5">
                 <SpaceHomeArtifacts spaceId={space.id} spaceKey={space.key} />
-                <SpaceHomeWorkflows spaceKey={space.key} />
+                <SpaceHomeWorkflows
+                  mountedAgentIds={mountedAgentIds}
+                  spaceKey={space.key}
+                />
                 <SpaceHomeFiles spaceId={space.id} spaceKey={space.key} />
                 <SpacePluginHomeSections
                   slot="space.home.aside"
