@@ -15,6 +15,8 @@ import { readSandboxAdmissionState } from "../ai/sandbox/sandbox-admission.js";
 import { submitSecretRequest } from "../ai/sandbox/secret-requests.js";
 import {
   readUserBrowserStatus,
+  rememberSpaceBrowserMemoryMb,
+  restartUserBrowser,
   signOutUserBrowser,
   startUserBrowser,
   stopUserBrowser,
@@ -56,10 +58,14 @@ const secretRequestBodySchema = z.object({
 const browserGrantBodySchema = z
   .object({
     autostart: z.boolean().optional(),
+    memory_mb: z.number().int().min(512).max(32_768).nullable().optional(),
     unattended: z.boolean().optional(),
   })
   .refine(
-    (body) => body.autostart !== undefined || body.unattended !== undefined
+    (body) =>
+      body.autostart !== undefined ||
+      body.unattended !== undefined ||
+      body.memory_mb !== undefined
   );
 
 export function registerSandboxRoutes(
@@ -150,10 +156,13 @@ export function registerSandboxRoutes(
         response: c.json({ error: "agent_sandboxes.coreUnavailable" }, 503),
       };
     }
+    const identity = { spaceId, tenantId: scope.scope.tenantId };
     try {
-      await new EngentyCoreClient({ accessToken, coreBaseUrl }).getSpaceSurface(
-        spaceId
-      );
+      const surface = await new EngentyCoreClient({
+        accessToken,
+        coreBaseUrl,
+      }).getSpaceSurface(spaceId);
+      rememberSpaceBrowserMemoryMb(identity, surface.browserGrant?.memory_mb);
     } catch {
       return {
         ok: false as const,
@@ -161,7 +170,7 @@ export function registerSandboxRoutes(
       };
     }
     return {
-      identity: { spaceId, tenantId: scope.scope.tenantId },
+      identity,
       ok: true as const,
     };
   };
@@ -403,6 +412,34 @@ export function registerSandboxRoutes(
       );
     }
     return c.json({ ok: true });
+  });
+
+  // Restart = recreate the container; the profile (logins) stays.
+  app.post(`${base}/browser/restart`, async (c) => {
+    const identity = await readBrowserIdentity(c);
+    if (!identity.ok) {
+      return identity.response;
+    }
+    try {
+      return c.json(await restartUserBrowser(identity.identity));
+    } catch (err) {
+      if (err instanceof UserBrowserLimitError) {
+        return c.json(
+          {
+            dimension: err.dimension,
+            error: "agent_sandboxes.browserLimit",
+            limit: err.limit,
+          },
+          429
+        );
+      }
+      return handleRouteError(
+        c,
+        "restartUserBrowser failed",
+        "agent_sandboxes.browserRestartFailed",
+        err
+      );
+    }
   });
 
   // Sign out = stop + empty the profile. The only action that forgets logins.

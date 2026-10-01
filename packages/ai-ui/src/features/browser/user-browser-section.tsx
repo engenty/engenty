@@ -7,7 +7,16 @@
 // autostart and unattended — which only its owners may change (the server
 // enforces that).
 import { useTranslation } from "@engenty/i18n/ui";
-import { Button, CardSection, Switch } from "@engenty/ui-core";
+import {
+  Button,
+  CardSection,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Switch,
+} from "@engenty/ui-core";
 import type { BrowserTarget } from "./browser-target.js";
 import {
   useUserBrowserGrantMutation,
@@ -16,6 +25,9 @@ import {
   useUserBrowserStatusQuery,
 } from "./user-browser-api.js";
 import { setUserBrowserPaneOpen } from "./user-browser-pane-store.js";
+
+/** The memory caps a tenant admin may pick; the server clamps to its own maximum. */
+const MEMORY_CHOICES_MB = [1024, 2048, 4096, 8192] as const;
 
 /**
  * The Space's two standing consents. `compact` shortens the labels and
@@ -88,6 +100,39 @@ export function UserBrowserConsents({
           </span>
         </div>
       ))}
+      {!compact && grantQuery.data?.memory_editable ? (
+        <div className="flex flex-col gap-1">
+          <span className="text-foreground text-sm">
+            {t("browser.settings.memory")}
+          </span>
+          <Select
+            disabled={grantQuery.isLoading || grant.isPending}
+            onValueChange={(next) =>
+              grant.mutate({
+                memory_mb: next === "default" ? null : Number(next),
+              })
+            }
+            value={String(grantQuery.data.memory_mb ?? "default")}
+          >
+            <SelectTrigger aria-label={t("browser.settings.memory")}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="default">
+                {t("browser.settings.memoryDefault")}
+              </SelectItem>
+              {MEMORY_CHOICES_MB.map((mb) => (
+                <SelectItem key={mb} value={String(mb)}>
+                  {mb / 1024} GB
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <span className="text-muted-foreground text-xs">
+            {t("browser.settings.memoryHint")}
+          </span>
+        </div>
+      ) : null}
       {grant.isError ? (
         <p className="text-destructive text-xs">
           {t("browser.settings.failed")}
@@ -104,10 +149,11 @@ export function UserBrowserSection({
 }) {
   const { t } = useTranslation("ai-ui");
   const statusQuery = useUserBrowserStatusQuery(target, 30_000);
-  const { signOut, start, stop } = useUserBrowserMutations(target);
+  const { restart, signOut, start, stop } = useUserBrowserMutations(target);
   const state = statusQuery.data?.state ?? "absent";
-  const busy = start.isPending || stop.isPending || signOut.isPending;
-  const failed = start.isError || signOut.isError;
+  const busy =
+    start.isPending || stop.isPending || restart.isPending || signOut.isPending;
+  const failed = start.isError || restart.isError || signOut.isError;
 
   return (
     <CardSection
@@ -136,6 +182,15 @@ export function UserBrowserSection({
                 variant="outline"
               >
                 {t("browser.panel.stop")}
+              </Button>
+              <Button
+                className="h-8 text-xs"
+                disabled={busy}
+                onClick={() => restart.mutate()}
+                size="sm"
+                variant="outline"
+              >
+                {t("browser.panel.restart")}
               </Button>
             </>
           ) : (

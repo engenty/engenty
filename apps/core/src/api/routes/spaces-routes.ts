@@ -1678,6 +1678,7 @@ export function registerSpacesRoutes(params: {
       browserGrant: browserGrant
         ? {
             autostart: browserGrant.autostart,
+            memory_mb: browserGrant.memoryMb,
             unattended: browserGrant.unattended,
           }
         : null,

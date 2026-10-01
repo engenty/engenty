@@ -6,7 +6,7 @@
 // desk's browser pane, whose top bar carries the title and close (pane).
 import { useTranslation } from "@engenty/i18n/ui";
 import { Button, cn } from "@engenty/ui-core";
-import { Globe, Pause, Play } from "lucide-react";
+import { Globe, Pause, Play, RotateCw } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useBrowserTarget } from "./browser-target.js";
 import {
@@ -36,9 +36,9 @@ export function CopilotBrowserPanel({
     throw new Error("CopilotBrowserPanel needs a BrowserTargetProvider");
   }
   const status = useUserBrowserStatusQuery(target, 30_000);
-  const { start, stop } = useUserBrowserMutations(target);
+  const { restart, start, stop } = useUserBrowserMutations(target);
   const state = status.data?.state ?? "absent";
-  const busy = start.isPending || stop.isPending;
+  const busy = start.isPending || stop.isPending || restart.isPending;
   const running = state === "running";
   // In the pane the view's own toolbar carries Stop; the state row is for
   // the card, and for the pane while there is nothing to show yet.
@@ -107,6 +107,19 @@ export function CopilotBrowserPanel({
           </span>
           {state === "running" ? (
             <Button
+              aria-label={t("browser.panel.restart")}
+              className="size-7"
+              disabled={busy}
+              onClick={() => restart.mutate()}
+              size="icon"
+              title={t("browser.panel.restart")}
+              variant="ghost"
+            >
+              <RotateCw aria-hidden className="size-3.5" />
+            </Button>
+          ) : null}
+          {state === "running" ? (
+            <Button
               aria-label={t("browser.panel.stop")}
               className="size-7"
               disabled={busy}
@@ -134,6 +147,7 @@ export function CopilotBrowserPanel({
         <UserBrowserView
           chromeSlot={chromeSlot}
           className="min-h-0 flex-1"
+          onRestart={viewOwnsToolbar ? () => restart.mutate() : undefined}
           onStop={viewOwnsToolbar ? () => stop.mutate() : undefined}
           stopPending={busy}
           target={target}

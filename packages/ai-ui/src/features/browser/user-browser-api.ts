@@ -21,6 +21,10 @@ export interface UserBrowserStatus {
 export interface UserBrowserGrant {
   /** Agents may start the Space's browser without asking first. */
   autostart: boolean;
+  /** The viewer is a tenant admin and may set `memory_mb`. */
+  memory_editable?: boolean;
+  /** Browser memory cap in MiB; null = server default. */
+  memory_mb?: number | null;
   /** Agents may drive the Space's browser while nobody watches. */
   unattended: boolean;
 }
@@ -61,6 +65,15 @@ export function startUserBrowser(target: SpaceRef): Promise<UserBrowserStatus> {
 
 export function stopUserBrowser(target: SpaceRef): Promise<UserBrowserStatus> {
   return requestAiServiceJson(withSpace(`${BASE}/stop`, target), {
+    method: "POST",
+  });
+}
+
+/** Recreate the browser container; logins stay (the profile is a bind). */
+export function restartUserBrowser(
+  target: SpaceRef
+): Promise<UserBrowserStatus> {
+  return requestAiServiceJson(withSpace(`${BASE}/restart`, target), {
     method: "POST",
   });
 }
@@ -144,7 +157,7 @@ export function useUserBrowserStatusQuery(
   });
 }
 
-/** Start / stop / sign out, each refreshing the status. */
+/** Start / stop / restart / sign out, each refreshing the status. */
 export function useUserBrowserMutations(target: SpaceRef) {
   const queryClient = useQueryClient();
   const refresh = () =>
@@ -157,11 +170,15 @@ export function useUserBrowserMutations(target: SpaceRef) {
     mutationFn: () => stopUserBrowser(target),
     onSuccess: refresh,
   });
+  const restart = useMutation({
+    mutationFn: () => restartUserBrowser(target),
+    onSuccess: refresh,
+  });
   const signOut = useMutation({
     mutationFn: () => signOutUserBrowser(target),
     onSuccess: refresh,
   });
-  return { signOut, start, stop };
+  return { restart, signOut, start, stop };
 }
 
 export function useUserBrowserGrantQuery(target: SpaceRef) {

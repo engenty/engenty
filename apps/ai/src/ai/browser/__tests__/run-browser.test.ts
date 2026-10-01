@@ -33,7 +33,7 @@ describe("resolveRunBrowser", () => {
         source: {
           kind: "resolved",
           space: {
-            browser: { autostart: true, unattended: true },
+            browser: { autostart: true, memoryMb: 4096, unattended: true },
             spaceId: SPACE_ID,
           },
         },
@@ -41,6 +41,7 @@ describe("resolveRunBrowser", () => {
     ).toEqual({
       agentId: "agent-a",
       autostart: true,
+      memoryMb: 4096,
       spaceId: SPACE_ID,
       unattended: true,
     });
@@ -58,6 +59,7 @@ describe("resolveRunBrowser", () => {
     ).toEqual({
       agentId: "agent-a",
       autostart: false,
+      memoryMb: null,
       spaceId: SPACE_ID,
       unattended: false,
     });

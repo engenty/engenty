@@ -82,14 +82,48 @@ export function resolveSpaceBrowserImage(): string {
   );
 }
 
-// Chromium's ceiling. Above the sandbox default on purpose — modern pages OOM
-// a 512 MB cap routinely.
-function resolveSpaceBrowserMemoryBytes(): number {
-  const parsed = Number.parseInt(
-    process.env.ENGENTY_BROWSER_MEMORY_BYTES?.trim() ?? "",
-    10
+const MIB = 1024 * 1024;
+
+// Chromium's default ceiling. Above the sandbox default on purpose — modern
+// pages OOM a 512 MB cap routinely.
+function resolveSpaceBrowserDefaultMemoryBytes(): number {
+  return readPositiveIntEnv("ENGENTY_BROWSER_MEMORY_BYTES", 1024 * MIB);
+}
+
+/** What a Space's setting may not exceed: the host's RAM is shared. */
+function resolveSpaceBrowserMemoryMaxBytes(): number {
+  return Math.max(
+    resolveSpaceBrowserDefaultMemoryBytes(),
+    readPositiveIntEnv("ENGENTY_BROWSER_MEMORY_MAX_BYTES", 8192 * MIB)
   );
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1024 * 1024 * 1024;
+}
+
+/**
+ * A Space's memory setting (`core.space_browser_grants.memory_mb`), as last
+ * seen by this process — from the surface a run or the browser routes already
+ * fetched, so every start path (UI, agent wake) sees it without its own core
+ * call. Absent = the server default.
+ */
+const memoryMbBySandbox = new Map<string, number>();
+
+export function rememberSpaceBrowserMemoryMb(
+  identity: UserBrowserIdentity,
+  memoryMb: number | null | undefined
+): void {
+  const sandboxId = buildUserBrowserSandboxId(identity);
+  if (typeof memoryMb === "number" && memoryMb > 0) {
+    memoryMbBySandbox.set(sandboxId, memoryMb);
+  } else {
+    memoryMbBySandbox.delete(sandboxId);
+  }
+}
+
+function resolveSpaceBrowserMemoryBytes(sandboxId: string): number {
+  const requestedMb = memoryMbBySandbox.get(sandboxId);
+  if (requestedMb === undefined) {
+    return resolveSpaceBrowserDefaultMemoryBytes();
+  }
+  return Math.min(requestedMb * MIB, resolveSpaceBrowserMemoryMaxBytes());
 }
 
 export function resolveUserBrowserIdleStopMs(): number {
@@ -370,7 +404,9 @@ export async function startUserBrowser(
       // A live symlink target it cannot resolve; Chromium re-creates these.
     }
   }
-  const memory = resolveSpaceBrowserMemoryBytes();
+  const memory = resolveSpaceBrowserMemoryBytes(sandboxId);
+  // Chromium renders in /tmp and /dev/shm: scale the tmpfs with the cap.
+  const tmpMb = Math.max(512, Math.floor(memory / MIB / 2));
   // A dev host reaches the browser only through a published loopback port;
   // a container created before that (or by an older build) without one is
   // recreated — the profile is a bind, nothing is lost.
@@ -407,7 +443,7 @@ export async function startUserBrowser(
       // Chromium renders in /tmp and /dev/shm; --disable-dev-shm-usage moves
       // the latter into /tmp, so one capped tmpfs covers both.
       "--tmpfs",
-      "/tmp:rw,size=512m,mode=1777",
+      `/tmp:rw,size=${tmpMb}m,mode=1777`,
       "-v",
       `${profilePath}:/profile`,
       "-v",
@@ -463,6 +499,27 @@ export async function stopUserBrowser(
     sandboxId,
     state: row ? "stopped" : "absent",
   };
+}
+
+/**
+ * Restart: stop, remove the container, start a fresh one. The profile and
+ * downloads are binds, so logins survive; recreating (not just `docker
+ * restart`) is what makes a changed memory cap or image take effect, and
+ * clears a wedged Chromium.
+ */
+export async function restartUserBrowser(
+  identity: UserBrowserIdentity
+): Promise<UserBrowserStatus> {
+  const sandboxId = buildUserBrowserSandboxId(identity);
+  const row = await findBrowserRow(sandboxId);
+  if (row) {
+    if (row.state === "running") {
+      await notifyStop(sandboxId);
+    }
+    await execFileAsync("docker", ["rm", "-f", row.container_id]);
+    lastUsedMs.delete(sandboxId);
+  }
+  return startUserBrowser(identity);
 }
 
 /**
@@ -569,6 +626,7 @@ export async function sweepIdleUserBrowsers(
 
 /** Tests only — the last-used table and stop listener are process-global. */
 export function resetUserBrowserStateForTests(): void {
+  memoryMbBySandbox.clear();
   lastUsedMs.clear();
   stopListener = null;
 }

@@ -26,10 +26,14 @@ import { requireAuth } from "./authz.js";
 const browserGrantBodySchema = z
   .object({
     autostart: z.boolean().optional(),
+    memory_mb: z.number().int().min(512).max(32_768).nullable().optional(),
     unattended: z.boolean().optional(),
   })
   .refine(
-    (body) => body.autostart !== undefined || body.unattended !== undefined,
+    (body) =>
+      body.autostart !== undefined ||
+      body.unattended !== undefined ||
+      body.memory_mb !== undefined,
     { message: "Nothing to set" }
   );
 
@@ -95,6 +99,12 @@ export function registerBrowserGrantRoutes(params: {
     );
     return jsonApiSuccess(c, {
       autostart: grant?.autostart ?? false,
+      // Tells the UI whether to offer the memory control (the PUT enforces it).
+      memory_editable: capabilityCovers(
+        [...who.capabilities],
+        "core.users.manage"
+      ),
+      memory_mb: grant?.memoryMb ?? null,
       unattended: grant?.unattended ?? false,
     });
   });
@@ -126,14 +136,30 @@ export function registerBrowserGrantRoutes(params: {
     if (!parsed.success) {
       return jsonApiError(c, 400, { message: "Invalid browser grant" });
     }
+    // Memory comes out of the host's shared RAM: tenant admins only, not
+    // the Space's owners.
+    if (
+      parsed.data.memory_mb !== undefined &&
+      !capabilityCovers([...who.capabilities], "core.users.manage")
+    ) {
+      return jsonApiError(c, 403, {
+        message: "Only a tenant admin can change the browser's memory.",
+      });
+    }
+    const { memory_mb: memoryMb, ...flags } = parsed.data;
     const grant = await upsertSpaceBrowserGrant(
       db(who.tenantId),
       who.tenantId,
       who.spaceId,
-      { ...parsed.data, updatedBy: who.userId }
+      { ...flags, memoryMb, updatedBy: who.userId }
     );
     return jsonApiSuccess(c, {
       autostart: grant.autostart,
+      memory_editable: capabilityCovers(
+        [...who.capabilities],
+        "core.users.manage"
+      ),
+      memory_mb: grant.memoryMb,
       unattended: grant.unattended,
     });
   });

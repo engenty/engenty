@@ -9,6 +9,8 @@ export interface RunBrowser {
   /** The agent whose window this run drives. */
   agentId: string;
   autostart: boolean;
+  /** The Space's browser memory cap in MiB; null = server default. */
+  memoryMb: number | null;
   spaceId: string;
   unattended: boolean;
 }
@@ -19,7 +21,11 @@ export type RunBrowserSource =
   | {
       kind: "resolved";
       space: {
-        browser?: { autostart?: boolean; unattended?: boolean } | null;
+        browser?: {
+          autostart?: boolean;
+          memoryMb?: number | null;
+          unattended?: boolean;
+        } | null;
         spaceId: string;
       };
     }
@@ -41,6 +47,7 @@ export function resolveRunBrowser(input: {
   return {
     agentId,
     autostart: grant?.autostart === true,
+    memoryMb: grant?.memoryMb ?? null,
     spaceId: input.source.space.spaceId,
     unattended: grant?.unattended === true,
   };

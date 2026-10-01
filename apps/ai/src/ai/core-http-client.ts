@@ -93,7 +93,11 @@ export interface EngentySpaceSurface {
    * set one. Never a widening: no grant means a headless run stops with
    * `needs_user`.
    */
-  browserGrant?: { autostart?: boolean; unattended: boolean } | null;
+  browserGrant?: {
+    autostart?: boolean;
+    memory_mb?: number | null;
+    unattended: boolean;
+  } | null;
   capabilities: string[];
   /**
    * Every space in the tenant whose `public/` folder the company reads — a
@@ -625,20 +629,31 @@ export class EngentyCoreClient {
 
   /** A Space's browser consent (members read; owners set — core decides). */
   getSpaceBrowserGrant(spaceId: string) {
-    return this.request<{ autostart: boolean; unattended: boolean }>(
-      `/api/spaces/${encodeURIComponent(spaceId)}/browser-grant`
-    );
+    return this.request<{
+      autostart: boolean;
+      memory_editable: boolean;
+      memory_mb: number | null;
+      unattended: boolean;
+    }>(`/api/spaces/${encodeURIComponent(spaceId)}/browser-grant`);
   }
 
   /** Set one or both consents; an omitted flag keeps its value. */
   putSpaceBrowserGrant(
     spaceId: string,
-    patch: { autostart?: boolean; unattended?: boolean }
+    patch: {
+      autostart?: boolean;
+      memory_mb?: number | null;
+      unattended?: boolean;
+    }
   ) {
-    return this.request<{ autostart: boolean; unattended: boolean }>(
-      `/api/spaces/${encodeURIComponent(spaceId)}/browser-grant`,
-      { body: JSON.stringify(patch), method: "PUT" }
-    );
+    return this.request<{
+      autostart: boolean;
+      memory_mb: number | null;
+      unattended: boolean;
+    }>(`/api/spaces/${encodeURIComponent(spaceId)}/browser-grant`, {
+      body: JSON.stringify(patch),
+      method: "PUT",
+    });
   }
 
   /** The explicit mount rows of a space — where an agent's `reportsTo` lives. */

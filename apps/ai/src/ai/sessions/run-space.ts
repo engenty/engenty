@@ -186,7 +186,12 @@ export interface RunSpace {
    * The Space's consents for its browser (PLAN-user-browser.md §2.2, D3):
    * may agents drive it unattended, and start it without asking.
    */
-  browser: { autostart: boolean; unattended: boolean };
+  browser: {
+    autostart: boolean;
+    /** Browser memory cap in MiB; null/absent = server default. */
+    memoryMb?: number | null;
+    unattended: boolean;
+  };
   /**
    * Tool prefixes of the connectors this run may call: the ones enabled on
    * this space, plus — for the Copilot — those of its person's own accounts.
@@ -506,6 +511,7 @@ function runSpaceFromSurface(
     allConnectorPrefixes: new Set(prefixesById.values()),
     browser: {
       autostart: surface.browserGrant?.autostart === true,
+      memoryMb: surface.browserGrant?.memory_mb ?? null,
       unattended: surface.browserGrant?.unattended === true,
     },
     connectorPrefixes,

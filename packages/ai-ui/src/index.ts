@@ -492,6 +492,7 @@ export { CopilotBrowserPanel } from "./features/browser/copilot-browser-panel.js
 export {
   mintUserBrowserTicket,
   readUserBrowser,
+  restartUserBrowser,
   signOutUserBrowser,
   startUserBrowser,
   stopUserBrowser,

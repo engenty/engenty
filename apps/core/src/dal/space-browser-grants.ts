@@ -15,6 +15,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 export interface SpaceBrowserGrant {
   autostart: boolean;
+  /** Browser container memory cap in MiB; null = server default. */
+  memoryMb: number | null;
   spaceId: string;
   unattended: boolean;
   updatedAt: string;
@@ -22,16 +24,18 @@ export interface SpaceBrowserGrant {
 
 interface SpaceBrowserGrantRow {
   autostart: boolean;
+  memory_mb: number | null;
   space_id: string;
   unattended: boolean;
   updated_at: string;
 }
 
-const COLUMNS = "space_id, unattended, autostart, updated_at";
+const COLUMNS = "space_id, unattended, autostart, memory_mb, updated_at";
 
 function mapRow(row: SpaceBrowserGrantRow): SpaceBrowserGrant {
   return {
     autostart: row.autostart === true,
+    memoryMb: row.memory_mb ?? null,
     spaceId: row.space_id,
     unattended: row.unattended === true,
     updatedAt: row.updated_at,
@@ -62,7 +66,13 @@ export async function upsertSpaceBrowserGrant(
   client: SupabaseClient,
   tenantId: string,
   spaceId: string,
-  input: { autostart?: boolean; unattended?: boolean; updatedBy: string }
+  input: {
+    autostart?: boolean;
+    /** Omitted keeps the value; null resets to the server default. */
+    memoryMb?: number | null;
+    unattended?: boolean;
+    updatedBy: string;
+  }
 ): Promise<SpaceBrowserGrant> {
   const current = await getSpaceBrowserGrant(client, tenantId, spaceId);
   const { data, error } = await client
@@ -71,6 +81,10 @@ export async function upsertSpaceBrowserGrant(
     .upsert(
       {
         autostart: input.autostart ?? current?.autostart ?? false,
+        memory_mb:
+          input.memoryMb === undefined
+            ? (current?.memoryMb ?? null)
+            : input.memoryMb,
         space_id: spaceId,
         tenant_id: tenantId,
         unattended: input.unattended ?? current?.unattended ?? false,

@@ -338,6 +338,8 @@ of a fresh container per run. Operator knobs, all env on `engenty-ai`:
 | `ENGENTY_SPACE_COMPUTER_IDLE_STOP_MS` | 30 min | Idle machines are `docker stop`ped (installed programs survive; the next command wakes them). |
 | `ENGENTY_BROWSER_DOCKER_IMAGE` | the release's `engenty-browser` image | User browser image. Published per release like the sandbox image, and the prebuilt compose files set this to the fully qualified name — a bare name would send the host daemon to Docker Hub. Building on the server instead (`docker-compose.yaml`) builds it locally. |
 | `ENGENTY_BROWSER_MEMORY_BYTES` | 1 GiB | Chromium's memory cap per user browser. |
+| `ENGENTY_BROWSER_MEMORY_MAX_BYTES` | 8 GiB | Ceiling for a Space's browser memory setting (tenant admins set it per Space; `/tmp` scales to half of it). |
+| `ENGENTY_BROWSER_TOOL_TIMEOUT_MS` | 60000 | Ceiling for one agent browser step; past it the agent gets `browser_timeout` and is told to `browser_restart`. |
 | `ENGENTY_BROWSER_IDLE_STOP_MS` | 15 min | A user browser nobody used (no agent step, no open view) is `docker stop`ped; logins survive in the profile bind. |
 | `ENGENTY_BROWSER_MAX_PER_TENANT` / `_PER_USER` | 4 / 2 | Running user browsers per tenant / per person, host-wide. Over the ceiling, Start answers 429. |
 | `ENGENTY_BROWSER_EGRESS_NETWORK` / `ENGENTY_BROWSER_EGRESS_PROXY_URL` / `ENGENTY_BROWSER_VIEW_NETWORK` | set by compose | The browser's sealed network and proxy, and the view network it shares with `engenty-ai`. See below. |

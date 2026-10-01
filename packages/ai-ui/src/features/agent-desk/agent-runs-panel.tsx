@@ -6,7 +6,7 @@
 // trust a routine is to see the runs it produced, whether they succeeded, and
 // what failed when they did not.
 import { useTranslation } from "@engenty/i18n/ui";
-import { useQuery } from "@engenty/query-client";
+import { useMutation, useQuery, useQueryClient } from "@engenty/query-client";
 import { Badge, Button, CardSection, Skeleton } from "@engenty/ui-core";
 import {
   AlertCircle,
@@ -14,11 +14,12 @@ import {
   ChevronRight,
   Loader2,
   MinusCircle,
+  Square,
 } from "lucide-react";
 import { useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { AiAgentRunSummary } from "../../lib/admin/ai-runtime-types.js";
-import { listAgentRuns } from "../../lib/runtime/runs-api.js";
+import { cancelAiRun, listAgentRuns } from "../../lib/runtime/runs-api.js";
 import { AgentRunDetail } from "./agent-run-detail.js";
 import { runDuration, runStamp } from "./run-format.js";
 
@@ -41,52 +42,93 @@ function StatusIcon({ status }: { status: RunStatus }) {
   return <MinusCircle className="size-4 shrink-0 text-muted-foreground" />;
 }
 
+/** Runs a person can stop: executing or queued, not parked on an ask. */
+const STOPPABLE: ReadonlySet<string> = new Set(["queued", "running"]);
+
+/** Nothing pushes run state to the browser: poll while any run is live. */
+const LIVE_RUNS_POLL_MS = 5000;
+
 function useAgentRunsQuery(agentId: string) {
   return useQuery({
     queryFn: ({ signal }) => listAgentRuns(agentId, { limit: 50, signal }),
     queryKey: ["ai", "agent-runs", agentId],
+    refetchInterval: (query) =>
+      query.state.data?.runs.some((run) => STOPPABLE.has(run.status))
+        ? LIVE_RUNS_POLL_MS
+        : false,
+  });
+}
+
+function useStopRun(agentId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (runId: string) =>
+      cancelAiRun(runId, { reason: "user_cancel" }),
+    onSettled: () =>
+      queryClient.invalidateQueries({ queryKey: ["ai", "agent-runs"] }),
   });
 }
 
 function RunRow({
   locale,
   onOpen,
+  onStop,
   run,
+  stopping,
 }: {
   locale: string;
   onOpen: () => void;
+  onStop?: () => void;
   run: AiAgentRunSummary;
+  stopping?: boolean;
 }) {
+  const { t } = useTranslation("ai-ui");
   const ran = runDuration(run);
   return (
-    <button
-      className="flex w-full items-start gap-2.5 px-3 py-2 text-left transition-colors hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none"
-      onClick={onOpen}
-      type="button"
-    >
-      <span className="pt-0.5">
-        <StatusIcon status={run.status} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="truncate font-medium text-sm">
-          {run.summary?.trim() || "Run"}
-        </p>
-        <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-muted-foreground text-xs">
-          <span className="tabular-nums">
-            {runStamp(run.started_at ?? run.created_at, locale)}
-          </span>
-          {ran ? <span className="tabular-nums">· {ran}</span> : null}
-        </p>
-        {run.error ? (
-          <p className="mt-1 break-words text-destructive text-xs">
-            {run.error}
+    <div className="flex items-start transition-colors focus-within:bg-muted/50 hover:bg-muted/50">
+      <button
+        className="flex min-w-0 flex-1 items-start gap-2.5 px-3 py-2 text-left focus-visible:outline-none"
+        onClick={onOpen}
+        type="button"
+      >
+        <span className="pt-0.5">
+          <StatusIcon status={run.status} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-medium text-sm">
+            {run.summary?.trim() || "Run"}
           </p>
-        ) : null}
-      </div>
-      <Badge className="shrink-0" variant="outline">
-        {run.status}
-      </Badge>
-    </button>
+          <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-muted-foreground text-xs">
+            <span className="tabular-nums">
+              {runStamp(run.started_at ?? run.created_at, locale)}
+            </span>
+            {ran ? <span className="tabular-nums">· {ran}</span> : null}
+          </p>
+          {run.error ? (
+            <p className="mt-1 break-words text-destructive text-xs">
+              {run.error}
+            </p>
+          ) : null}
+        </div>
+        <Badge className="shrink-0" variant="outline">
+          {run.status}
+        </Badge>
+      </button>
+      {onStop && STOPPABLE.has(run.status) ? (
+        <Button
+          aria-label={t("agentDesk.runs.stop")}
+          className="mt-1.5 mr-2 size-7 shrink-0"
+          disabled={stopping}
+          onClick={onStop}
+          size="icon"
+          title={t("agentDesk.runs.stop")}
+          type="button"
+          variant="ghost"
+        >
+          <Square aria-hidden className="size-3.5" />
+        </Button>
+      ) : null}
+    </div>
   );
 }
 
@@ -106,6 +148,7 @@ export function AgentRecentRuns({
   const { t } = useTranslation("ai-ui");
   const [searchParams, setSearchParams] = useSearchParams();
   const runsQuery = useAgentRunsQuery(agentId);
+  const stopRun = useStopRun(agentId);
   const openRuns = useCallback(
     (runId: string | null) => {
       const next = new URLSearchParams(searchParams);
@@ -133,7 +176,13 @@ export function AgentRecentRuns({
       <ul className="divide-y divide-border">
         {runs.map((run) => (
           <li key={run.id}>
-            <RunRow locale={locale} onOpen={() => openRuns(run.id)} run={run} />
+            <RunRow
+              locale={locale}
+              onOpen={() => openRuns(run.id)}
+              onStop={() => stopRun.mutate(run.id)}
+              run={run}
+              stopping={stopRun.isPending}
+            />
           </li>
         ))}
       </ul>
@@ -176,6 +225,7 @@ export function AgentRunsPanel({
     [searchParams, setSearchParams]
   );
   const runsQuery = useAgentRunsQuery(agentId);
+  const stopRun = useStopRun(agentId);
 
   if (openRunId) {
     return (
@@ -246,7 +296,9 @@ export function AgentRunsPanel({
           <RunRow
             locale={locale}
             onOpen={() => setOpenRunId(run.id)}
+            onStop={() => stopRun.mutate(run.id)}
             run={run}
+            stopping={stopRun.isPending}
           />
         </li>
       ))}

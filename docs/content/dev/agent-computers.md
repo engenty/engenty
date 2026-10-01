@@ -438,7 +438,7 @@ container is refused. Background processes outlive their ticket and get none
 | `GET /ai/sandboxes` | the Computers view: every container for the caller's scope, with state, age and queue depth |
 | `POST /ai/sandboxes/stop` | stop named space computers (`docker stop`; installed state stays) |
 | `DELETE /ai/sandboxes` | Reset — `docker rm`, the only thing that discards a machine's installed state |
-| `GET`/`POST /ai/sandboxes/browser`, `POST …/browser/stop`, `…/browser/ticket`, `…/browser/sign-out`, `GET`/`PUT …/browser/grant` | a Space's browser (`?space_id=`, required — outside a Space there is none; Space members only), one agent's live-view ticket (`&agent_id=`) and the Space's consents (proxied to core) |
+| `GET`/`POST /ai/sandboxes/browser`, `POST …/browser/stop`, `…/browser/restart` (recreate the container; the profile stays), `…/browser/ticket`, `…/browser/sign-out`, `GET`/`PUT …/browser/grant` | a Space's browser (`?space_id=`, required — outside a Space there is none; Space members only), one agent's live-view ticket (`&agent_id=`) and the Space's consents (proxied to core) |
 
 Two sweeps run on the staging reaper's tick: idle space computers are stopped,
 idle space browsers are stopped on their own TTL. On AI shutdown, space

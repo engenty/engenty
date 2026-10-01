@@ -369,6 +369,9 @@
     }
   },
   "agentDesk": {
+    "runs": {
+      "stop": "Lauf stoppen"
+    },
     "actions": {
       "addRoutine": "Routine hinzufügen",
       "assignWork": "Arbeit zuweisen",
@@ -2201,6 +2204,7 @@
   "browser": {
     "panel": {
       "title": "Browser",
+      "restart": "Neu starten",
       "start": "Starten",
       "stop": "Stoppen",
       "hint": "Starte den angemeldeten Browser dieses Spaces. Jeder Engenty hier arbeitet in seinem eigenen Fenster; Anmeldungen sind geteilt. Du kannst jederzeit übernehmen.",
@@ -2233,6 +2237,9 @@
       "signedOut": "Abgemeldet – alle Logins im Browser dieses Spaces vergessen.",
       "failed": "Das hat nicht geklappt. Versuch es noch einmal.",
       "autostart": "Engentys dürfen ihn ohne Nachfrage starten",
+      "memory": "Browser-Speicher",
+      "memoryDefault": "Server-Standard",
+      "memoryHint": "Nur Tenant-Admins. Wirkt nach dem nächsten Neustart des Browsers.",
       "autostartHint": "Aus: Ein Engenty, der ins Web muss, fragt im Chat, bevor der Browser startet. Nur Space-Owner.",
       "unattended": "Engentys dürfen ihn unbeaufsichtigt nutzen",
       "unattendedHint": "Routinen und Aufgaben dürfen den angemeldeten Browser des Spaces ohne Aufsicht steuern. Aus: sie halten an und fragen. Nur Space-Owner.",

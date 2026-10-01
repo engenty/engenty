@@ -369,6 +369,9 @@
     }
   },
   "agentDesk": {
+    "runs": {
+      "stop": "Stop run"
+    },
     "actions": {
       "addRoutine": "Add routine",
       "assignWork": "Assign work",
@@ -2201,6 +2204,7 @@
   "browser": {
     "panel": {
       "title": "Browser",
+      "restart": "Restart",
       "start": "Start",
       "stop": "Stop",
       "hint": "Start this Space's logged-in browser. Every Engenty here works in its own window; logins are shared. You can take over any time.",
@@ -2233,6 +2237,9 @@
       "signedOut": "Signed out — every login in this Space's browser forgotten.",
       "failed": "That did not work. Try again.",
       "autostart": "Let Engentys start it without asking",
+      "memory": "Browser memory",
+      "memoryDefault": "Server default",
+      "memoryHint": "Only tenant admins. Applies after the next restart of the browser.",
       "autostartHint": "Off: an Engenty that needs the web asks in the chat before the browser starts. Space owners only.",
       "unattended": "Let Engentys use it unattended",
       "unattendedHint": "Routines and tasks may drive the Space's logged-in browser without anyone watching. Off: they stop and ask. Space owners only.",

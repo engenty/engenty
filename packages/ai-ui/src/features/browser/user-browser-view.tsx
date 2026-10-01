@@ -105,6 +105,7 @@ function modifiersOf(event: {
 export function UserBrowserView({
   chromeSlot,
   className,
+  onRestart,
   onSeatChange,
   onStop,
   preview = false,
@@ -120,6 +121,8 @@ export function UserBrowserView({
   className?: string;
   /** Who drives right now — the header badge mirrors it. */
   onSeatChange?: (seat: Seat) => void;
+  /** Present = the toolbar carries a Restart (recreate container) button. */
+  onRestart?: () => void;
   /** Present = the toolbar carries a Stop (sleep) button. */
   onStop?: () => void;
   /**
@@ -544,6 +547,20 @@ export function UserBrowserView({
         )}
         {holding ? t("browser.view.handBack") : t("browser.view.takeOver")}
       </Button>
+      {onRestart ? (
+        <Button
+          aria-label={t("browser.panel.restart")}
+          className="size-7 shrink-0"
+          disabled={stopPending}
+          onClick={onRestart}
+          size="icon"
+          title={t("browser.panel.restart")}
+          type="button"
+          variant="ghost"
+        >
+          <RotateCw aria-hidden className="size-3.5" />
+        </Button>
+      ) : null}
       {onStop ? (
         <Button
           aria-label={t("browser.panel.stop")}

@@ -30,6 +30,8 @@ import {
   buildUserBrowserSandboxId,
   markUserBrowserUsed,
   readUserBrowserStatus,
+  rememberSpaceBrowserMemoryMb,
+  restartUserBrowser,
   startUserBrowser,
 } from "../sandbox/space-browser.js";
 import {
@@ -70,6 +72,8 @@ export const BROWSER_REQUEST_USER_TOOL_ID = "browser_request_user";
 /** The seat switch without waiting: hand the page to the person, or take it back. */
 export const BROWSER_HAND_OVER_TOOL_ID = "browser_hand_over";
 export const BROWSER_START_TOOL_ID = "browser_start";
+/** Recreate the Space's browser container (logins stay) when it is wedged or out of memory. */
+export const BROWSER_RESTART_TOOL_ID = "browser_restart";
 /** Experimental (PLAN-browser-fast-loop.md): a classifier drives bounded sub-goals. */
 export const BROWSER_RUN_FAST_TOOL_ID = "browser_run_fast";
 /** The decision-card answer that lets the agent create the browser. */
@@ -87,6 +91,7 @@ export interface UserBrowserToolsInput {
     | {
         agentId: string;
         autostart?: boolean;
+        memoryMb?: number | null;
         spaceId: string;
         unattended: boolean;
       }
@@ -394,6 +399,32 @@ function createStartTool(input: {
   });
 }
 
+function createRestartTool(input: { identity: BrowserWindowIdentity }) {
+  return createTool({
+    id: BROWSER_RESTART_TOOL_ID,
+    description:
+      "Restart this Space's browser: it is stopped and recreated fresh. Logins and downloads stay; open tabs and page state are lost. Use only when the browser is unresponsive, crashed, or a page keeps failing to load. Afterwards start again with browser_goto.",
+    inputSchema: z.object({
+      reason: z
+        .string()
+        .min(1)
+        .max(500)
+        .describe("Why a restart is needed, one sentence."),
+    }),
+    execute: async () => {
+      try {
+        await restartUserBrowser(input.identity);
+      } catch (err) {
+        logger.warn("agent browser restart failed", {
+          message: err instanceof Error ? err.message : String(err),
+        });
+        return "The browser could not be restarted. Tell the person; do not retry." as never;
+      }
+      return "The browser was restarted with a fresh window. Continue with browser_goto." as never;
+    },
+  });
+}
+
 /**
  * Resume lane, BEFORE the toolset is rebuilt: an "Allow" on the start card
  * creates the browser now, so the continuation's `createUserBrowserTools`
@@ -436,6 +467,21 @@ export async function startUserBrowserOnResume(
  * Wrap one Mastra browser tool with the seat, the unattended gate, the
  * wake-on-first-use and the audit event.
  */
+const TIMED_OUT = Symbol("browser_timed_out");
+
+/** One browser step's ceiling, wake-up included; a hung step must not hold the run. */
+function toolTimeoutMs(toolId: string): number {
+  // The fast loop is many steps in one call.
+  if (toolId === BROWSER_RUN_FAST_TOOL_ID) {
+    return 10 * 60_000;
+  }
+  const parsed = Number.parseInt(
+    process.env.ENGENTY_BROWSER_TOOL_TIMEOUT_MS?.trim() ?? "",
+    10
+  );
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 60_000;
+}
+
 function wrapBrowserTool(params: {
   emit?: UserBrowserToolsInput["emit"];
   headless: boolean;
@@ -502,12 +548,32 @@ function wrapBrowserTool(params: {
         }
         return execute(inputData, ctx);
       };
+      let timer: ReturnType<typeof setTimeout> | undefined;
       try {
         const result = await Promise.race([
           run(),
           seat.interrupted.then(() => INTERRUPTED),
+          new Promise<typeof TIMED_OUT>((resolve) => {
+            timer = setTimeout(
+              () => resolve(TIMED_OUT),
+              toolTimeoutMs(params.id)
+            );
+          }),
         ]);
+        clearTimeout(timer);
         markUserBrowserUsed(sandboxId);
+        if (result === TIMED_OUT) {
+          audit({
+            ms: Date.now() - startedAt,
+            ok: false,
+            refused: "timed_out",
+          });
+          releaseAgentSeat(windowKey, runId);
+          return {
+            error: "browser_timeout",
+            note: `The browser did not answer within ${Math.round(toolTimeoutMs(params.id) / 1000)} s. It is probably stuck or out of memory. Call browser_restart (logins stay), then continue with browser_goto. Do not retry the same step first.`,
+          } as never;
+        }
         if (result === INTERRUPTED) {
           audit({
             ms: Date.now() - startedAt,
@@ -522,6 +588,7 @@ function wrapBrowserTool(params: {
         audit({ ms: Date.now() - startedAt, ok: true });
         return result as never;
       } catch (err) {
+        clearTimeout(timer);
         const message = err instanceof Error ? err.message : String(err);
         audit({ error: message, ms: Date.now() - startedAt, ok: false });
         logger.warn("browser window tool failed", {
@@ -645,6 +712,7 @@ export async function createUserBrowserTools(
     spaceId: input.browser.spaceId,
     tenantId: input.tenantId,
   };
+  rememberSpaceBrowserMemoryMb(identity, input.browser.memoryMb);
   let status: Awaited<ReturnType<typeof readUserBrowserStatus>>;
   try {
     status = await readUserBrowserStatus(identity);
@@ -679,6 +747,9 @@ export async function createUserBrowserTools(
     headless: input.headless,
     identity,
     windowKey,
+  }) as unknown as MastraToolDefinition;
+  tools[BROWSER_RESTART_TOOL_ID] = createRestartTool({
+    identity,
   }) as unknown as MastraToolDefinition;
   tools[BROWSER_SIGN_IN_TOOL_ID] = createSignInTool({
     audit: (value) =>
