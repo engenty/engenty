@@ -223,11 +223,11 @@ export function DeskFrame(props: DeskFrameProps) {
           {...(chatIsConversation ? {} : { header: scrollHeader })}
           hostKey={props.hostKey}
           layout="column"
+          overlay={props.chapterCard}
           // The host's skills and memory say nothing about a thread between
           // two agents.
           showContext={!header.pairTitle}
         >
-          {props.chapterCard}
           {lane}
         </ThreadContextPane>
       </ObjectDisplayIntentProvider>

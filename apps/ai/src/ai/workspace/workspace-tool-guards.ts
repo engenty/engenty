@@ -54,6 +54,8 @@ import {
  * one destroys only the agent's own work.
  */
 const EXECUTE_COMMAND_TOOL = WORKSPACE_TOOLS.SANDBOX.EXECUTE_COMMAND;
+/** `git_remote` (sandbox/git-remote-tool.ts): only its push is gated. */
+export const GIT_REMOTE_TOOL_ID = "git_remote";
 const DELETE_TOOL = WORKSPACE_TOOLS.FILESYSTEM.DELETE;
 
 const OWN_SCRATCH_MOUNTS = ["/home", "/task", "/sandbox"] as const;
@@ -124,6 +126,9 @@ export function workspaceToolGrantId(
   toolName: string,
   args: Record<string, unknown>
 ): string {
+  if (toolName === GIT_REMOTE_TOOL_ID) {
+    return `workspace:${toolName}:${gitPushTarget(args)}`;
+  }
   const target =
     toolName === EXECUTE_COMMAND_TOOL ? commandOf(args) : pathOf(args);
   return target ? `workspace:${toolName}:${target}` : `workspace:${toolName}`;
@@ -163,11 +168,23 @@ export function workspaceDeleteNeedsApproval(
  * explicitly, because that is the part someone approving in a hurry would
  * otherwise not see. A command is shown as the command itself.
  */
+/** `feature → main in /sandbox/repo`: what a push sends, and from where. */
+function gitPushTarget(args: Record<string, unknown>): string {
+  const text = (value: unknown) =>
+    typeof value === "string" ? value.trim() : "";
+  const branch = text(args.branch);
+  const remoteBranch = text(args.remote_branch) || branch;
+  return `${branch} → ${remoteBranch} in ${text(args.path)}`;
+}
+
 export function describeWorkspaceToolCall(
   toolName: string,
   args: unknown
 ): { target: string; title: string } {
   const record = (args ?? {}) as Record<string, unknown>;
+  if (toolName === GIT_REMOTE_TOOL_ID) {
+    return { target: gitPushTarget(record), title: "Push to the git remote" };
+  }
   if (toolName === EXECUTE_COMMAND_TOOL) {
     return { target: commandOf(record), title: "Run command" };
   }
@@ -191,7 +208,10 @@ export function describeWorkspaceToolCall(
  * so the answer is no and the caller gates, which is the correct direction to
  * fail.
  */
-function isGranted(toolName: string, args: Record<string, unknown>): boolean {
+export function isGranted(
+  toolName: string,
+  args: Record<string, unknown>
+): boolean {
   try {
     const grants = getEngentyToolsRunContext().approvalGrants ?? [];
     return grants.includes(workspaceToolGrantId(toolName, args));

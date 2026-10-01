@@ -1,6 +1,7 @@
-// One transcript row: a message with the date / memory lines above it. The
-// row renders from its own descriptor (see transcript-layout.ts) and is
-// memoized, so a streaming token redraws the row it lands in — not the rest.
+// One transcript row: a message with the chapter / memory / date lines above
+// it. The row renders from its own descriptor (see transcript-layout.ts) and
+// is memoized, so a streaming token redraws the row it lands in — not the
+// rest.
 "use client";
 
 import {
@@ -13,6 +14,7 @@ import { useWorkspaceContext } from "@engenty/ui-plugin-sdk";
 import { memo } from "react";
 import { Link } from "react-router-dom";
 import { InlineAppArtifact } from "../../../artifacts/inline-app-artifact.js";
+import type { ThreadChapter } from "../../../copilot/thread-chapters-api.js";
 import { spaceAgentDeskPath } from "../../../features/agent-form/hire-spaces.js";
 import type { ThreadMemoryObservations } from "../../../threads/thread-memory-observations.js";
 import { Message, MessageContent } from "../../ai-elements/message";
@@ -20,6 +22,7 @@ import { alterEgoLabel } from "../../alter-ego-label.js";
 import type { SubAgentRunSectionLabels } from "../sub-agent-run/sub-agent-run-sections.js";
 import type { ToolCallCardProps } from "../tool-call/tool-call-card.types";
 import { AgentReplyPreview } from "./agent-reply-preview.js";
+import { ChapterBreakDivider } from "./chapter-break-divider.js";
 import { ChatAgentFace } from "./chat-agent-face.js";
 import { useChatStyle } from "./chat-style.js";
 import { chatUserBubbleClassName } from "./chat-user-bubble.js";
@@ -148,6 +151,10 @@ const TRANSCRIPT_ROW_DEFER_PAINT_CLASS =
   "[content-visibility:auto] [contain-intrinsic-size:auto_16rem_auto_120px] has-[[data-state=open]]:[content-visibility:visible]";
 
 export interface TranscriptMessageRowProps {
+  /** Set on the one row the chapter line sits above. */
+  chapter: ThreadChapter | undefined;
+  /** Class of the chapter line above the row; undefined = no chapter line. */
+  chapterDividerClassName: string | undefined;
   /** Class of the date line above the row; undefined = no date line. */
   dateDividerClassName: string | undefined;
   /**
@@ -181,6 +188,7 @@ export const TranscriptMessageRow = memo(function TranscriptMessageRow(
   props: TranscriptMessageRowProps
 ) {
   const dividers =
+    props.chapterDividerClassName !== undefined ||
     props.memoryDividerClassName !== undefined ||
     props.dateDividerClassName !== undefined;
   const message = <TranscriptMessageBody {...props} />;
@@ -189,6 +197,12 @@ export const TranscriptMessageRow = memo(function TranscriptMessageRow(
   }
   return (
     <>
+      {props.chapterDividerClassName !== undefined && props.chapter ? (
+        <ChapterBreakDivider
+          chapter={props.chapter}
+          className={props.chapterDividerClassName || undefined}
+        />
+      ) : null}
       {props.memoryDividerClassName !== undefined && props.memory ? (
         <MemoryBreakDivider
           className={props.memoryDividerClassName || undefined}

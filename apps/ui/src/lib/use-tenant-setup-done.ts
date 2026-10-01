@@ -13,17 +13,22 @@ export function useTenantSetupDone(isAdmin: boolean): boolean | undefined {
     queryFn: ({ signal }) =>
       getTenantSetting(TENANT_SETUP_DONE_SETTING, signal),
     queryKey: ["tenant-settings", TENANT_SETUP_DONE_SETTING],
+    // The wizard writes the marker and navigates in-app; a cached "not done"
+    // from before it would send the admin straight back to `/welcome`.
+    refetchOnMount: "always",
     staleTime: Number.POSITIVE_INFINITY,
   });
   if (!isAdmin) {
     return true;
   }
-  if (query.isPending) {
+  const done = query.data && "value" in query.data && query.data.value === true;
+  // Not done in the cache: wait for the re-read before sending anyone back.
+  if (query.isPending || (query.isFetching && !done)) {
     return;
   }
   // A failed read must not lock the team out of its own app.
   if (query.isError) {
     return true;
   }
-  return "value" in query.data && query.data.value === true;
+  return Boolean(done);
 }

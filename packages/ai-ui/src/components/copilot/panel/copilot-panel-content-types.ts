@@ -4,6 +4,7 @@ import type {
 } from "@engenty/ag-ui-bridge";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { SubmitMessage } from "../../../agent-provider/types.js";
+import type { TranscriptChapterBreak } from "../../../copilot/use-transcript-chapter-break.js";
 import type { TranscribeSpeechAudio } from "../../../lib/speech/use-speech-to-text.js";
 import type { ChatKind } from "../chat-kind-badge.js";
 import type { StarterPromptItem } from "../composer/copilot-composer";
@@ -33,6 +34,8 @@ export interface CopilotPanelContentProps {
 
   /** When false, empty-state composer stays bottom-aligned (widget / embed chat). Default: centered dock landing. */
   centerEmptyLanding?: boolean;
+  /** Where a chaptered thread started over (`/chapter`) — see CopilotTranscript. */
+  chapterBreak?: TranscriptChapterBreak | null;
   /** The badge in the header saying what kind of conversation this is. */
   chatKind?: ChatKind | null;
   /** Label for `onNewChat`. */

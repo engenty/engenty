@@ -37,7 +37,11 @@ import type { AiSessionScope } from "../ai/sessions/types.js";
 import { AI_BASE_PATH } from "../config/constants.js";
 import type { MemoryEntryStore } from "../dal/memory/index.js";
 import type { ThreadStore } from "../dal/threads/index.js";
-import { type ThreadRow, threadKind } from "../dal/threads/types.js";
+import {
+  type ThreadCompactionRow,
+  type ThreadRow,
+  threadKind,
+} from "../dal/threads/types.js";
 import {
   type AiScopeResolver,
   handleRouteError,
@@ -47,6 +51,33 @@ import {
 
 /** The thread kinds that are cut into chapters. */
 const CHAPTERED_KINDS = new Set(["desk", "dm"]);
+
+/** Each chapter's spaces by the key and name they have now. */
+async function withSpaceLabels(
+  store: ThreadStore,
+  tenantId: string,
+  chapters: ThreadCompactionRow[]
+) {
+  const spaceIds = new Set(
+    chapters.flatMap((chapter) => chapter.spaces.map((space) => space.id))
+  );
+  const labels = new Map(
+    (await store.listSpaceLabels({ spaceIds: [...spaceIds], tenantId })).map(
+      (label) => [label.id, label]
+    )
+  );
+  return chapters.map((chapter) => ({
+    ...chapter,
+    spaces: chapter.spaces.map((space) => {
+      const label = labels.get(space.id);
+      return {
+        id: space.id,
+        key: label?.key ?? space.key,
+        name: label?.name ?? null,
+      };
+    }),
+  }));
+}
 
 export function registerThreadChapterRoutes(
   app: Hono<{ Bindings: HonoBindings; Variables: HonoVariables }>,
@@ -132,7 +163,14 @@ export function registerThreadChapterRoutes(
         tenantId: scope.scope.tenantId,
         threadId,
       });
-      return c.json({ chapters, time_zone: timeZone });
+      return c.json({
+        chapters: await withSpaceLabels(
+          opts.store,
+          scope.scope.tenantId,
+          chapters
+        ),
+        time_zone: timeZone,
+      });
     } catch (err) {
       return handleRouteError(
         c,
@@ -171,7 +209,12 @@ export function registerThreadChapterRoutes(
         // Nothing new to cut: no turn of the person's since the last chapter.
         return c.json({ error: "agent_threads.nothingToCompact" }, 409);
       }
-      return c.json({ chapter }, 201);
+      const [labelled] = await withSpaceLabels(
+        opts.store,
+        scope.scope.tenantId,
+        [chapter]
+      );
+      return c.json({ chapter: labelled }, 201);
     } catch (err) {
       return handleRouteError(
         c,

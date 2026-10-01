@@ -344,6 +344,11 @@
     "reflected_other": "Bis hier erinnert · verdichtet · {{count}} Beobachtungen",
     "title": "Erinnert von oben"
   },
+  "chapterBreak": {
+    "closing": "Kapitel wird abgeschlossen…",
+    "failed": "Das Kapitel konnte nicht abgeschlossen werden.",
+    "label": "Kapitelende · {{title}}"
+  },
   "agentSurface": {
     "title": "Oberflächen",
     "description": "Wo dieser Engenty außer an seinem Desk wirken darf: auf dem Bildschirm der Person, während sie mit ihm chattet, und in Kanälen als er selbst.",
@@ -414,6 +419,7 @@
     "brand": "engenty",
     "commands": {
       "agent": "Den Arbeitsplatz eines anderen Agenten in diesem Space öffnen (auch /engenty, /bot)",
+      "chapter": "Dieses Kapitel abschließen: Bisheriges einklappen und neu beginnen",
       "context": "Anzeigen, was der Agent in diesem Chat sieht",
       "copilot": "Deinen Copilot öffnen oder ihm die dahinter getippte Nachricht schicken",
       "effort": "Die nächsten Antworten auf Normal oder Extra stellen",
@@ -2159,7 +2165,8 @@
     "thinking": "Denkt nach…",
     "workedFor": "{{seconds}} s gearbeitet",
     "usedTools_one": "{{count}} Tool verwendet",
-    "usedTools_other": "{{count}} Tools verwendet"
+    "usedTools_other": "{{count}} Tools verwendet",
+    "showOlder": "Ältere Nachrichten anzeigen"
   },
   "statusTicker": {
     "collapseSteps": "Letzte Schritte ausblenden",
@@ -2348,8 +2355,8 @@
   },
   "river": {
     "history": "Verlauf",
-    "compactNow": "Jetzt zusammenfassen",
-    "compacting": "Fasse zusammen…",
+    "newChapter": "Neues Kapitel",
+    "closingChapter": "Schließe ab…",
     "nothingToCompact": "Nichts Neues seit dem letzten Eintrag.",
     "empty": "Noch kein Verlauf. Die Unterhaltung wird täglich und wöchentlich zusammengefasst – oder jetzt, wenn du es sagst.",
     "weekOf": "Woche vom {{date}}",
@@ -2606,6 +2613,25 @@
       "look_other": "{{count}} Seiten gelesen",
       "act_one": "{{count}} Aktion im Browser",
       "act_other": "{{count}} Aktionen im Browser"
+    }
+  },
+  "secretRequest": {
+    "for": "Wird auf dem Server verwendet für",
+    "private": "Der Engenty sieht nie, was du eingibst. Es bleibt nur für dieses Gespräch im Speicher und wird nach 8 Stunden oder einem Neustart vergessen.",
+    "usernameHint": "Für GitHub optional",
+    "field": {
+      "username": "Benutzername",
+      "password": "Token oder Passwort"
+    },
+    "submit": "Verwenden",
+    "submitting": "Speichert…",
+    "decline": "Nicht jetzt",
+    "entered": "Eingegeben",
+    "errors": {
+      "not_found": "Diese Anfrage ist abgelaufen. Frag den Engenty noch einmal.",
+      "expired": "Diese Anfrage ist abgelaufen. Frag den Engenty noch einmal.",
+      "missing_value": "Gib zuerst den Token ein.",
+      "failed": "Speichern fehlgeschlagen. Versuch es erneut."
     }
   }
 }

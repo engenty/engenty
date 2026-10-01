@@ -24,6 +24,7 @@ import type { StoredGraph } from "../../../features/workflow-canvas/graph-model.
 import { WorkflowCanvas } from "../../../features/workflow-canvas/workflow-canvas.js";
 import { InterruptCardBody } from "./interrupt-card-body.js";
 import { InterruptCardDismissButton } from "./interrupt-card-dismiss-button.js";
+import { SecretRequestCard } from "./secret-request-card.js";
 import { parseToolApprovalArtifactId } from "./tool-approval-artifact-id.js";
 
 /** Server tool-approval artifacts use stable ids — localize their display
@@ -422,6 +423,18 @@ export function DecisionArtifactCard(props: DecisionArtifactCardProps) {
       />
     );
   }
+  if (preview?.kind === "secret_request") {
+    return (
+      <SecretRequestCard
+        artifactId={props.artifact.artifactId}
+        declineChoiceId={props.artifact.choices[0]?.id}
+        onChoose={props.onChoose}
+        onDismiss={props.onDismiss}
+        preview={preview}
+        title={props.artifact.title}
+      />
+    );
+  }
   return <DecisionChoiceCard {...props} />;
 }
 
@@ -649,7 +662,8 @@ function DecisionChoiceCard(props: DecisionArtifactCardProps) {
           ) : null}
           {props.artifact.preview &&
           props.artifact.preview.kind !== "workflow" &&
-          props.artifact.preview.kind !== "browser_credentials" ? (
+          props.artifact.preview.kind !== "browser_credentials" &&
+          props.artifact.preview.kind !== "secret_request" ? (
             <div className="pt-1">
               <BrowserChatWidget autoConnect preview={props.artifact.preview} />
             </div>

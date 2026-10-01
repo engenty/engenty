@@ -1,7 +1,73 @@
 [
   {
+    "version": "v0.2.34",
+    "timestamp": 1790844662,
+    "commits": [
+      {
+        "id": "50db478",
+        "message": "finishing the setup wizard no longer loops back to /welcome",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
+    "version": "v0.2.32",
+    "timestamp": 1790840754,
+    "commits": [
+      {
+        "id": "d292294",
+        "message": "/chapter command folds the stream at the newest chapter",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "c3049e3",
+        "message": "chapters show their spaces by name",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "14c0be7",
+        "message": "opened chapter floats below the desk header, not under it",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "bce316b",
+        "message": "Zeitplanung tab at the header's width",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "dd65bc9",
+        "message": "files and artifacts tabs centered at the header's width",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "3d12f8f",
+        "message": "no settings sidebar on the Zeitplanung tab",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "fc22d55",
+        "message": "git_remote reaches private repositories with a token the agent never sees",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "ee3c419",
+        "message": "default browser logins to the guided form instead of handing the window over",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.2.31",
-    "timestamp": 1790783884,
+    "timestamp": 1790783888,
     "commits": [
       {
         "id": "12aa40c",

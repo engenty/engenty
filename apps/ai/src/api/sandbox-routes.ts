@@ -12,6 +12,7 @@ import {
   stopEngentySpaceComputersForScope,
 } from "../ai/sandbox/engenty-sandbox-catalog.js";
 import { readSandboxAdmissionState } from "../ai/sandbox/sandbox-admission.js";
+import { submitSecretRequest } from "../ai/sandbox/secret-requests.js";
 import {
   readUserBrowserStatus,
   signOutUserBrowser,
@@ -46,6 +47,10 @@ const stopComputersBodySchema = z.object({
 /** Field id → what the person typed. Bounded; never logged. */
 const browserCredentialsBodySchema = z.object({
   values: z.record(z.string().regex(/^field_[1-4]$/), z.string().max(1024)),
+});
+
+const secretRequestBodySchema = z.object({
+  values: z.record(z.string().regex(/^[a-z_]{1,32}$/), z.string().max(4096)),
 });
 
 const browserGrantBodySchema = z
@@ -369,6 +374,35 @@ export function registerSandboxRoutes(
       );
     }
     return c.json({ filled: result.filled });
+  });
+
+  // A secret a host tool asked for (`secret_request` card, e.g. git_remote's
+  // token). The value is kept in memory for the tool and never reaches the
+  // run. Nothing on this route logs the body or echoes a value back.
+  app.post(`${base}/secrets/:requestId`, async (c) => {
+    const identity = await readBrowserIdentity(c);
+    if (!identity.ok) {
+      return identity.response;
+    }
+    const body = secretRequestBodySchema.safeParse(
+      await c.req.json().catch(() => ({}))
+    );
+    if (!body.success) {
+      return c.json({ error: "agent_sandboxes.invalidBody" }, 400);
+    }
+    const result = submitSecretRequest({
+      requestId: c.req.param("requestId"),
+      spaceId: identity.identity.spaceId,
+      tenantId: identity.identity.tenantId,
+      values: body.data.values,
+    });
+    if (!result.ok) {
+      return c.json(
+        { error: `agent_sandboxes.secretRequest.${result.error}` },
+        result.error === "not_found" ? 404 : 409
+      );
+    }
+    return c.json({ ok: true });
   });
 
   // Sign out = stop + empty the profile. The only action that forgets logins.

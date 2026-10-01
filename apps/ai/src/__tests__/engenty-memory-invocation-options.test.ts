@@ -83,6 +83,7 @@ function makeStore(overrides: Partial<ThreadStore> = {}): ThreadStore {
     listAgentMembers: vi.fn(async () => []),
     markAgentOnBehalfOf: vi.fn(async () => {}),
     listCompactions: vi.fn(async () => []),
+    listSpaceLabels: vi.fn(async () => []),
     getCompaction: vi.fn(async () => null),
     latestCompactionEnd: vi.fn(async () => null),
     insertCompaction: vi.fn(async () => {

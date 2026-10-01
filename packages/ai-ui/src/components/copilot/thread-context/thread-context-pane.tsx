@@ -60,6 +60,7 @@ export function ThreadContextPane({
   header,
   hostKey,
   layout = "float",
+  overlay,
   showContext = true,
 }: {
   children: ReactNode;
@@ -67,6 +68,11 @@ export function ThreadContextPane({
   header?: ReactNode;
   hostKey: string;
   layout?: "column" | "float";
+  /**
+   * Floats over the top of the chat — below the topbar and any band, left of
+   * the context card — e.g. an opened chapter.
+   */
+  overlay?: ReactNode;
   /**
    * False where the host's skills and memory say nothing about the thread —
    * an agent-to-agent thread on its desk. The card and its topbar icon hide.
@@ -171,6 +177,20 @@ export function ThreadContextPane({
     </aside>
   ) : null;
 
+  // Under the desk's band (z-15), over the transcript's top fade and the
+  // context card (z-10).
+  const topOverlay = overlay ? (
+    <div
+      className="pointer-events-none absolute inset-x-0 top-0 z-[12] flex justify-center px-4"
+      style={{
+        paddingRight: `calc(1rem + var(${THREAD_CONTEXT_INLINE_PAD_VAR}, 0px))`,
+        paddingTop: topClearance,
+      }}
+    >
+      <div className="pointer-events-auto w-full max-w-3xl">{overlay}</div>
+    </div>
+  ) : null;
+
   if (layout === "column") {
     return (
       <div
@@ -182,6 +202,7 @@ export function ThreadContextPane({
           {children}
         </div>
         {contextOverlay}
+        {topOverlay}
       </div>
     );
   }
@@ -195,6 +216,7 @@ export function ThreadContextPane({
         {children}
       </div>
       {contextOverlay}
+      {topOverlay}
     </div>
   );
 }

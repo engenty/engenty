@@ -61,6 +61,7 @@ import {
   assembleDynamicAgent,
   type RuntimeModelConfig,
 } from "../registry/index.js";
+import { createGitRemoteTools } from "../sandbox/git-remote-tool.js";
 import { frontendToolGrantForRun } from "../sessions/frontend-tool-grant.js";
 import {
   enrichToolsSpaceForAgentRun,
@@ -622,6 +623,12 @@ async function resumeFromSnapshot(
       ...rootDelegation.extraTools,
       ...memoryRuntime.memoryTools,
       ...browserTools,
+      ...createGitRemoteTools({
+        agentId: input.agentId,
+        spaceId: resolvedRunSpace(spaceResolution)?.spaceId,
+        tenantId: input.scope.tenantId,
+        workspace: resolved?.workspace,
+      }),
     };
     const agent = await assembleDynamicAgent(input.registry, input.agentId, {
       space: toolsSpace,

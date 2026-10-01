@@ -20,7 +20,7 @@ export function ProjectArtifactsTab({ params }: UiTabRenderProps) {
 
   return (
     <WorkPanel
-      className="mt-4 max-w-4xl"
+      className="mt-4"
       container={{ id: projectId, tier: "project" }}
       hostKey={ENGENTY_PROJECT_WORK_HOST_KEY}
       showViewToggle

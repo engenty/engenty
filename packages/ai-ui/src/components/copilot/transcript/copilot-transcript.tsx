@@ -6,6 +6,7 @@ import { isSandboxCommandOpenInterrupt } from "@engenty/ag-ui-bridge";
 import { useTranslation } from "@engenty/i18n/ui";
 import { cn } from "@engenty/ui-core";
 import {
+  Fragment,
   memo,
   startTransition,
   useEffect,
@@ -14,6 +15,8 @@ import {
   useRef,
   useState,
 } from "react";
+import { chapterBreakIndex } from "../../../copilot/thread-chapters-api.js";
+import type { TranscriptChapterBreak } from "../../../copilot/use-transcript-chapter-break.js";
 import { readChatReferencePart } from "../../../lib/chat-reference-part.js";
 import {
   resolveMemoryBreakIndex,
@@ -33,6 +36,10 @@ import { SandboxCommandConfirmCard } from "../interrupts/sandbox-command-confirm
 import type { SubAgentRunSectionLabels } from "../sub-agent-run/sub-agent-run-sections.js";
 import { transcriptHasActiveSandboxCommandToolPart } from "../tool-call/sandbox-command-transcript-utils";
 import type { ToolCallCardProps } from "../tool-call/tool-call-card.types";
+import {
+  ChapterBreakDivider,
+  ChapterCutStatus,
+} from "./chapter-break-divider.js";
 import { ChatAgentFace, ChatAgentsProvider } from "./chat-agent-face.js";
 import { useChatStyle } from "./chat-style.js";
 import {
@@ -60,6 +67,11 @@ import {
 
 export interface CopilotTranscriptProps {
   awaitingInterrupt?: boolean;
+  /**
+   * Where the conversation started over (`/chapter`): the turns before it
+   * fold away and a line marks it. Only a chaptered thread's host passes it.
+   */
+  chapterBreak?: TranscriptChapterBreak | null;
   /** Optional wrapper for readable max-width columns (e.g. full-page chat). */
   containerClassName?: string;
   /** `tool_call_id` of a decision/feedback chooser rendered in the docked surface; its inline copy is suppressed. */
@@ -195,6 +207,7 @@ function areTranscriptPropsEqual(
  * memoized too, so a streaming token redraws the row it lands in.
  */
 export const CopilotTranscript = memo(function CopilotTranscript({
+  chapterBreak = null,
   containerClassName,
   messages,
   pendingUserInsertIndex,
@@ -225,6 +238,19 @@ export const CopilotTranscript = memo(function CopilotTranscript({
     () => messages.filter(isTranscriptRole),
     [messages]
   );
+  // Where the conversation started over, and what of it is folded away.
+  const chapter = chapterBreak?.chapter ?? null;
+  const breakAt = useMemo(
+    () =>
+      chapter ? chapterBreakIndex(filteredMessages, chapter.range_end) : null,
+    [chapter, filteredMessages]
+  );
+  const foldedCount = chapterBreak?.collapsed && breakAt !== null ? breakAt : 0;
+  const shownMessages = useMemo(
+    () =>
+      foldedCount > 0 ? filteredMessages.slice(foldedCount) : filteredMessages,
+    [filteredMessages, foldedCount]
+  );
   const pendingText = pendingUserText?.trim() || null;
   const pendingParts = pendingUserParts ?? EMPTY_PARTS;
   const showPending = pendingText != null || pendingParts.length > 0;
@@ -234,12 +260,12 @@ export const CopilotTranscript = memo(function CopilotTranscript({
         Math.min(
           typeof pendingUserInsertIndex === "number" &&
             Number.isFinite(pendingUserInsertIndex)
-            ? pendingUserInsertIndex
+            ? pendingUserInsertIndex - foldedCount
             : 0,
-          filteredMessages.length
+          shownMessages.length
         )
       )
-    : filteredMessages.length;
+    : shownMessages.length;
 
   const lastAssistantMessage = useMemo(() => {
     for (let i = filteredMessages.length - 1; i >= 0; i--) {
@@ -280,29 +306,46 @@ export const CopilotTranscript = memo(function CopilotTranscript({
   );
   const memory = memoryQuery.data ?? null;
   const memoryBreakIndex = useMemo(
-    () => resolveMemoryBreakIndex(filteredMessages, memory),
-    [filteredMessages, memory]
+    () => resolveMemoryBreakIndex(shownMessages, memory),
+    [shownMessages, memory]
   );
 
   const rows = useMemo(
     () =>
       layoutTranscriptRows({
+        chapterBreakIndex: breakAt === null ? null : breakAt - foldedCount,
         memoryBreakIndex,
-        messages: filteredMessages,
+        messages: shownMessages,
         pendingInsertIndex,
         showPending,
         surface,
         toolDetail,
       }),
     [
-      filteredMessages,
+      breakAt,
+      foldedCount,
       memoryBreakIndex,
       pendingInsertIndex,
+      shownMessages,
       showPending,
       surface,
       toolDetail,
     ]
   );
+  // Nothing said since the cut yet: the line closes the stream instead.
+  const trailingChapter =
+    chapter !== null &&
+    !rows.some((row) => row.chapterDividerClassName !== undefined);
+  // A cut that did not land says so until the conversation moves on.
+  const cut = chapterBreak?.cut ?? null;
+  const lastSaidAt =
+    filteredMessages.length === 0
+      ? 0
+      : Date.parse(filteredMessages.at(-1)?.createdAt ?? "");
+  const showCut =
+    cut !== null &&
+    (cut.state === "pending" ||
+      (!Number.isNaN(lastSaidAt) && cut.at > lastSaidAt));
 
   // The same object while the labels read the same, so rows stay memoized.
   const sectionLabelsRef = useRef(subAgentSectionLabels);
@@ -355,21 +398,34 @@ export const CopilotTranscript = memo(function CopilotTranscript({
         {drawnRows.map((row, drawnIndex) => {
           if (row.kind === "pending") {
             return (
-              <PendingUserMessage
-                key="pending-send"
-                meetsAbove={row.meetsAbove}
-                meetsBelow={row.meetsBelow}
-                parts={pendingParts}
-                stackClassName={row.stackClassName}
-                surface={surface}
-                text={pendingText}
-              />
+              <Fragment key="pending-send">
+                {row.chapterDividerClassName !== undefined && chapter ? (
+                  <ChapterBreakDivider
+                    chapter={chapter}
+                    className={row.chapterDividerClassName || undefined}
+                  />
+                ) : null}
+                <PendingUserMessage
+                  meetsAbove={row.meetsAbove}
+                  meetsBelow={row.meetsBelow}
+                  parts={pendingParts}
+                  stackClassName={row.stackClassName}
+                  surface={surface}
+                  text={pendingText}
+                />
+              </Fragment>
             );
           }
           const isLastMessage = row.raw.id === lastMessageId;
           const streaming = status === "streaming" && isLastMessage;
           return (
             <TranscriptMessageRow
+              chapter={
+                row.chapterDividerClassName !== undefined && chapter
+                  ? chapter
+                  : undefined
+              }
+              chapterDividerClassName={row.chapterDividerClassName}
               dateDividerClassName={row.dateDividerClassName}
               deferPaint={
                 !streaming &&
@@ -400,6 +456,12 @@ export const CopilotTranscript = memo(function CopilotTranscript({
             />
           );
         })}
+        {trailingChapter && chapter ? (
+          <ChapterBreakDivider chapter={chapter} className="py-3" />
+        ) : null}
+        {showCut && cut ? (
+          <ChapterCutStatus className="py-3" state={cut.state} />
+        ) : null}
         {showTrailingSandboxConfirm ? (
           <CopilotTranscriptSandboxInterruptInline open={openInterrupt} />
         ) : null}

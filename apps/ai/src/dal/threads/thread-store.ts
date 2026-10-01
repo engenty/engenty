@@ -1058,6 +1058,29 @@ export function createThreadStore(source: DbSource) {
       return ((data ?? []) as ThreadCompactionRow[]).map((row) => ({ ...row }));
     },
 
+    /**
+     * The key and name each space has now — a chapter keeps only the id and
+     * the key its turns' URL showed (none for a desk turn).
+     */
+    async listSpaceLabels(params: {
+      spaceIds: readonly string[];
+      tenantId: string;
+    }): Promise<{ id: string; key: string; name: string }[]> {
+      if (params.spaceIds.length === 0) {
+        return [];
+      }
+      const { data, error } = await forTenant(params.tenantId)
+        .schema("core")
+        .from("spaces")
+        .select("id, key, name")
+        .eq("tenant_id", params.tenantId)
+        .in("id", [...params.spaceIds]);
+      if (error) {
+        throw new Error(`spaces select: ${error.message}`);
+      }
+      return (data ?? []) as { id: string; key: string; name: string }[];
+    },
+
     async getCompaction(params: {
       id: string;
       tenantId: string;

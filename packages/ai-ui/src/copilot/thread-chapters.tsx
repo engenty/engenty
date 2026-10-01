@@ -4,10 +4,10 @@
 //
 // `ThreadChaptersList` is the list itself: newest first, each chapter by
 // when it was and what it was about, with the spaces it touched; and
-// "Compact now" at the top. `ThreadChaptersMenu` puts that list behind one
+// "New chapter" at the top — the same cut as `/chapter`. `ThreadChaptersMenu` puts that list behind one
 // icon in the desk's action row — the same icon on the copilot's river and
 // on a specialist's desk. `ThreadChapterCard` is one chapter opened
-// (`?chapter=<id>`) — the summary — above the transcript. What a chapter
+// (`?chapter=<id>`) — the summary, in a dialog over the transcript. What a chapter
 // found worth keeping is in memory, not on the chapter. Outside a space the copilot's page also hangs the list in its
 // own column.
 
@@ -15,16 +15,22 @@ import { useTranslation } from "@engenty/i18n/ui";
 import {
   Button,
   cn,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
   Popover,
   PopoverContent,
   PopoverTrigger,
   topbarIconButtonClassName,
 } from "@engenty/ui-core";
-import { ListClock, Scissors, X } from "lucide-react";
+import { ListClock, Scissors } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   formatThreadChapterRange,
+  isNothingNewToCut,
   THREAD_CHAPTER_QUERY,
   type ThreadChapter,
   useCompactThreadMutation,
@@ -77,7 +83,9 @@ function ChapterSpaces({ chapter }: { chapter: ThreadChapter }) {
   }
   return (
     <span className="min-w-0 truncate">
-      {chapter.spaces.map((space) => space.key ?? space.id).join(" · ")}
+      {chapter.spaces
+        .map((space) => space.name ?? space.key ?? space.id)
+        .join(" · ")}
     </span>
   );
 }
@@ -96,8 +104,7 @@ export function ThreadChaptersList({
   const rangeLabel = useChapterRangeLabel(query.data?.time_zone);
   const { chapterId: openId, open } = useOpenChapter();
   const chapters = query.data?.chapters ?? [];
-  const nothingNew =
-    compact.isError && /409|nothingToCompact/.test(String(compact.error));
+  const nothingNew = compact.isError && isNothingNewToCut(compact.error);
 
   return (
     <div className="flex min-w-0 flex-col gap-1" data-testid="thread-chapters">
@@ -114,7 +121,9 @@ export function ThreadChaptersList({
           variant="ghost"
         >
           <Scissors aria-hidden className="size-3.5" />
-          {compact.isPending ? t("river.compacting") : t("river.compactNow")}
+          {compact.isPending
+            ? t("river.closingChapter")
+            : t("river.newChapter")}
         </Button>
       </div>
       {nothingNew ? (
@@ -194,9 +203,8 @@ export function ThreadChaptersMenu({ threadId }: { threadId: string | null }) {
   );
 }
 
-/** One chapter opened: what was discussed. */
+/** One chapter opened: what was discussed — a dialog over the conversation. */
 export function ThreadChapterCard({ threadId }: { threadId: string | null }) {
-  const { t } = useTranslation("ai-ui");
   const query = useThreadChaptersQuery(threadId);
   const rangeLabel = useChapterRangeLabel(query.data?.time_zone);
   const { chapterId, close } = useOpenChapter();
@@ -204,40 +212,33 @@ export function ThreadChapterCard({ threadId }: { threadId: string | null }) {
     () => query.data?.chapters.find((row) => row.id === chapterId) ?? null,
     [chapterId, query.data]
   );
-  if (!(chapterId && chapter)) {
-    return null;
-  }
   return (
-    <section
-      aria-label={chapter.title}
-      className="mx-auto mt-3 w-full max-w-3xl shrink-0 rounded-[12px] border border-border-soft bg-card px-4 py-3 shadow-xs"
-      data-testid="thread-chapter-card"
+    <Dialog
+      onOpenChange={(open) => {
+        if (!open) {
+          close();
+        }
+      }}
+      open={Boolean(chapterId && chapter)}
     >
-      <div className="flex items-start gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2 text-muted-foreground text-xs">
-            <span>{rangeLabel(chapter)}</span>
-            <span>·</span>
-            <ChapterSpaces chapter={chapter} />
-          </div>
-          <h2 className="mt-0.5 font-semibold text-base leading-snug">
-            {chapter.title}
-          </h2>
-        </div>
-        <Button
-          aria-label={t("river.backToNow")}
-          className="size-7 shrink-0"
-          onClick={close}
-          size="icon"
-          type="button"
-          variant="ghost"
+      {chapter ? (
+        <DialogContent
+          className="sm:max-w-xl"
+          data-testid="thread-chapter-card"
         >
-          <X aria-hidden className="size-4" />
-        </Button>
-      </div>
-      <p className="mt-2 whitespace-pre-line text-sm leading-relaxed">
-        {chapter.summary}
-      </p>
-    </section>
+          <DialogHeader>
+            <DialogDescription className="flex flex-wrap items-center gap-2 text-xs">
+              <span>{rangeLabel(chapter)}</span>
+              <span>·</span>
+              <ChapterSpaces chapter={chapter} />
+            </DialogDescription>
+            <DialogTitle>{chapter.title}</DialogTitle>
+          </DialogHeader>
+          <p className="whitespace-pre-line text-sm leading-relaxed">
+            {chapter.summary}
+          </p>
+        </DialogContent>
+      ) : null}
+    </Dialog>
   );
 }

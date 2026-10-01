@@ -33,6 +33,7 @@ export function CopilotPanelContent({
   agentDebugPayload,
   autoScrollKey,
   awaitingInterrupt = false,
+  chapterBreak = null,
   composerFocusKey,
   openInterrupt = null,
   title = "Enhance",
@@ -326,6 +327,7 @@ export function CopilotPanelContent({
                 >
                   <CopilotTranscript
                     awaitingInterrupt={awaitingInterrupt}
+                    chapterBreak={chapterBreak}
                     containerClassName={cn(
                       transcriptContainerClassName,
                       "motion-safe:transition-opacity motion-safe:duration-200 motion-safe:ease-out"

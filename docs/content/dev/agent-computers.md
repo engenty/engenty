@@ -225,6 +225,14 @@ comes back with the answer), `browser_hand_over` switches it without waiting —
 `to: "person"` to let them browse, `to: "agent"` once they said they are done.
 The desk opens the pane on the first `browser_*` call of a run.
 
+**Logins are a guided form, not a hand-over.** For anything the person types
+into the page — email, password, one-time code — the agent calls
+`browser_request_credentials`: the card shows the page with the fields marked
+and a form, and the values go straight into the page, never to the model. A
+login over several pages is one card per page. Handing the window over
+(`browser_request_user`) is for what is not a field: captchas, passkey or phone
+prompts, consents, or a guided form that failed twice.
+
 **Experimental: the fast loop.** With `ENGENTY_BROWSER_FAST_LOOP=true`
 (platform-configurable) the same toolset gains `browser_run_fast`. Jev is
 reached through the Vercel AI Gateway (`typesafe-ai/jev`, on the gateway key

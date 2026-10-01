@@ -216,10 +216,9 @@ export function ProjectDetailPage() {
     [visibleTabs, effectiveActiveTab]
   );
 
-  // The sidebar belongs to the tab: project settings beside the planning
-  // tabs, the page list beside notes; contributed tabs bring none.
-  const hasSettingsSidebar =
-    effectiveActiveTab === "planning" || effectiveActiveTab === "timeplan";
+  // The sidebar belongs to the tab: project settings beside the overview,
+  // the page list beside notes; the Gantt and contributed tabs bring none.
+  const hasSettingsSidebar = effectiveActiveTab === "planning";
   const tabSidebar = (() => {
     if (hasSettingsSidebar) {
       return {
@@ -463,17 +462,13 @@ export function ProjectDetailPage() {
     activeContributedTab || effectiveActiveTab === "timeplan"
   );
 
-  // Contributed tabs (e.g. the files manager) are workspace tools — let them
-  // use the full content width instead of the narrow reading column used by
-  // the native tabs. The Gantt is the same kind of surface: more width means
-  // more visible weeks. An open inline sidebar widens the row to the header's
-  // 6xl, so the reading column keeps roughly its measure beside it. Notes
-  // span the header's width so the page lines up under the title.
+  // Workspace tools (the Gantt, contributed tabs like files and artifacts)
+  // span the wide header's 6xl so they line up under the cover. An open
+  // inline sidebar widens the row to the same 6xl, so the reading column
+  // keeps roughly its measure beside it. Notes span the header's width so
+  // the page lines up under the title.
   const rowWidth = () => {
-    if (wideTab) {
-      return "max-w-[100rem]";
-    }
-    if (sidebarInlineOpen) {
+    if (wideTab || sidebarInlineOpen) {
       return "max-w-6xl";
     }
     return effectiveActiveTab === "notes" ? "max-w-5xl" : "max-w-3xl";
@@ -672,7 +667,7 @@ export function ProjectDetailPage() {
       />
       <div className="min-h-0 flex-1 overflow-y-auto">
         {hasSettingsSidebar ? (
-          // Settings sit beside the planning tabs as the offer draft's do: an
+          // Settings sit beside the overview as the offer draft's do: an
           // inline column when there is room, an overlay sheet when not.
           <DocSidebarLayout
             className={rowClassName}

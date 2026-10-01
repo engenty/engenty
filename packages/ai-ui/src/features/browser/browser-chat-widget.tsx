@@ -31,10 +31,10 @@ export type ScreenshotPreview = Extract<
   { kind: "browser_screenshot" }
 >;
 
-/** What a chat widget draws; a login form is its own card. */
+/** What a chat widget draws; a login form or secret form is its own card. */
 export type BrowserViewPreview = Exclude<
   AgUiBrowserPreview,
-  { kind: "browser_credentials" }
+  { kind: "browser_credentials" } | { kind: "secret_request" }
 >;
 
 function targetOf(preview: BrowserViewPreview): BrowserTarget {

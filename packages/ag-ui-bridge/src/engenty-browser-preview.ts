@@ -10,6 +10,9 @@
  *   client draws them over the image with that viewBox.
  * - `browser_credentials`: a login form for fields on the page. What is typed
  *   goes to the fill route under `request_id`, never into the run.
+ * - `secret_request`: a token or password a host tool needs (e.g. git_remote),
+ *   for `target`. What is typed goes to the secrets route under `request_id`,
+ *   never into the run.
  */
 
 export type AgUiBrowserAnnotationShape =
@@ -76,6 +79,15 @@ export type AgUiBrowserPreview =
       origin: string;
       request_id: string;
       screenshot?: AgUiBrowserFrame;
+    })
+  | (AgUiBrowserWindowRef & {
+      fields: AgUiBrowserCredentialField[];
+      /** The choice that resumes the run once the secrets route succeeded. */
+      filled_choice_id: string;
+      kind: "secret_request";
+      request_id: string;
+      /** What the secret is for, e.g. the repository URL. */
+      target: string;
     });
 
 const SHAPES = new Set<string>(["arrow", "box", "circle", "highlight"]);
@@ -224,6 +236,24 @@ export function readAgUiBrowserPreview(
       request_id: requestId,
       ...(screenshot ? { screenshot } : {}),
       space_id: spaceId,
+    };
+  }
+  if (r.kind === "secret_request") {
+    const requestId = readString(r.request_id);
+    const target = readString(r.target);
+    const filledChoiceId = readString(r.filled_choice_id);
+    const fields = readCredentialFields(r.fields);
+    if (!(requestId && target && filledChoiceId && fields.length > 0)) {
+      return null;
+    }
+    return {
+      agent_id: agentId,
+      fields,
+      filled_choice_id: filledChoiceId,
+      kind: "secret_request",
+      request_id: requestId,
+      space_id: spaceId,
+      target,
     };
   }
   return null;

@@ -344,6 +344,11 @@
     "reflected_other": "Remembered up to here · condensed · {{count}} observations",
     "title": "Remembered from above"
   },
+  "chapterBreak": {
+    "closing": "Closing the chapter…",
+    "failed": "The chapter could not be closed.",
+    "label": "End of chapter · {{title}}"
+  },
   "agentSurface": {
     "title": "Surfaces",
     "description": "Where this Engenty may act besides its desk: the person's screen while they chat with it, and remote channels as itself.",
@@ -414,6 +419,7 @@
     "brand": "engenty",
     "commands": {
       "agent": "Open another agent's desk in this Space (also /engenty, /bot)",
+      "chapter": "Close this chapter: fold what came before and start fresh",
       "context": "Show what the agent sees in this chat",
       "copilot": "Open your copilot, or send it the message you type after this",
       "effort": "Switch the next turns to Normal or Extra",
@@ -2159,7 +2165,8 @@
     "thinking": "Thinking…",
     "workedFor": "Worked for {{seconds}}s",
     "usedTools_one": "Used {{count}} tool",
-    "usedTools_other": "Used {{count}} tools"
+    "usedTools_other": "Used {{count}} tools",
+    "showOlder": "Show older messages"
   },
   "statusTicker": {
     "collapseSteps": "Hide recent steps",
@@ -2348,8 +2355,8 @@
   },
   "river": {
     "history": "History",
-    "compactNow": "Compact now",
-    "compacting": "Compacting…",
+    "newChapter": "New chapter",
+    "closingChapter": "Closing…",
     "nothingToCompact": "Nothing new since the last entry.",
     "empty": "No history yet. The conversation is summarized every day and every week, or now, when you ask.",
     "weekOf": "Week of {{date}}",
@@ -2606,6 +2613,25 @@
       "look_other": "{{count}} pages read",
       "act_one": "{{count}} browser action",
       "act_other": "{{count}} browser actions"
+    }
+  },
+  "secretRequest": {
+    "for": "Used on the host for",
+    "private": "The Engenty never sees what you enter. It is kept in memory for this conversation only, and forgotten after 8 hours or a restart.",
+    "usernameHint": "Optional for GitHub",
+    "field": {
+      "username": "Username",
+      "password": "Token or password"
+    },
+    "submit": "Use it",
+    "submitting": "Saving…",
+    "decline": "Not now",
+    "entered": "Entered",
+    "errors": {
+      "not_found": "This request has expired. Ask the Engenty again.",
+      "expired": "This request has expired. Ask the Engenty again.",
+      "missing_value": "Enter the token first.",
+      "failed": "Saving failed. Try again."
     }
   }
 }

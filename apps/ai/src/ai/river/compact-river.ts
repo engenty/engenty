@@ -24,7 +24,7 @@ import {
   resolveChatModelId,
 } from "@engenty/ai-core";
 import { createLogger } from "@engenty/telemetry";
-import { generateText } from "ai";
+import { generateText, Output } from "ai";
 import { z } from "zod";
 import type { MemoryEntryStore } from "../../dal/memory/index.js";
 import type { ThreadStore } from "../../dal/threads/index.js";
@@ -188,19 +188,6 @@ export function buildChapterTranscript(
   return { spaces: [...spaces.values()], text, userTurns };
 }
 
-function parseChapterOutput(raw: string) {
-  const start = raw.indexOf("{");
-  const end = raw.lastIndexOf("}");
-  if (start === -1 || end <= start) {
-    return null;
-  }
-  try {
-    return chapterOutputSchema.parse(JSON.parse(raw.slice(start, end + 1)));
-  } catch {
-    return null;
-  }
-}
-
 /** Where a chapter's facts go: the keys it may write, and the store. */
 export interface ChapterMemory {
   keys: MemoryKeys;
@@ -265,8 +252,10 @@ async function rememberFromChapter(input: {
 
 /**
  * Cut one chapter over [start, end). Null when the stretch holds no turn of
- * the person's — an empty day is not a chapter — or when the model gave
- * nothing usable, in which case nothing is kept and the stretch stays open.
+ * the person's — an empty day is not a chapter. Throws when no chapter could
+ * be written (no gateway, or the model gave nothing usable): nothing is kept
+ * and the stretch stays open, and a cut asked for says it failed rather than
+ * that there was nothing to cut.
  */
 export async function compactRiver(
   input: CompactRiverInput
@@ -335,7 +324,7 @@ export async function compactRiver(
   }
   if (!process.env.AI_GATEWAY_API_KEY?.trim()) {
     logger.warn("river chapter skipped — no AI gateway key", { threadId });
-    return null;
+    throw new Error("river chapter skipped — no AI gateway key");
   }
   const model =
     input.modelId?.trim() || resolveChatModelId({ purpose: "fast_text" });
@@ -351,14 +340,15 @@ export async function compactRiver(
   const keptLines = Object.values(kept)
     .flat()
     .map((row) => `- ${row.body}`);
-  let output: z.infer<typeof chapterOutputSchema> | null = null;
+  let output: z.infer<typeof chapterOutputSchema>;
   try {
-    const { text } = await generateText({
+    const result = await generateText({
       instructions: chapterInstructions(
         Object.keys(memoryKeys) as MemoryScope[]
       ),
       maxOutputTokens: 1200,
       model,
+      output: Output.object({ schema: chapterOutputSchema }),
       prompt: [
         `Stretch: ${formatChapterRange({ end: input.end, kind: input.kind, start: input.start, timeZone: input.timeZone })}`,
         source.spaces.length > 0
@@ -372,7 +362,7 @@ export async function compactRiver(
       ].join("\n"),
       temperature: 0.2,
     });
-    output = parseChapterOutput(text);
+    output = result.output;
   } catch (error) {
     logger.warn("river chapter generation failed", {
       error: error instanceof Error ? error.message : String(error),
@@ -380,14 +370,7 @@ export async function compactRiver(
       model,
       threadId,
     });
-    return null;
-  }
-  if (!output) {
-    logger.warn("river chapter output unusable", {
-      kind: input.kind,
-      threadId,
-    });
-    return null;
+    throw error;
   }
   await rememberFromChapter({
     kept,
@@ -449,6 +432,8 @@ export async function ensureScheduledChapters(input: {
         ? -1
         : 1
   )) {
+    // A range that could not be cut stays open for the next read (its
+    // failure is logged); the list is still answered with what exists.
     const row = await compactRiver({
       end: range.end,
       kind: range.kind,
@@ -460,7 +445,7 @@ export async function ensureScheduledChapters(input: {
       threadId,
       timeZone: input.timeZone,
       userId: input.userId,
-    });
+    }).catch(() => null);
     if (row) {
       cut.push(row);
     }

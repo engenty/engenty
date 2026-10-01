@@ -4,6 +4,22 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.2.34] - 2026-10-01
+- ADDED **[ai-ui]** /chapter command folds the stream at the newest chapter
+- FIXED **[ui]** Finishing the setup wizard no longer loops back to /welcome
+
+## [0.2.33] - 2026-10-01
+- ADDED **[ai-ui]** /chapter command folds the stream at the newest chapter
+
+## [0.2.32] - 2026-10-01
+- ADDED **[ai]** Git_remote reaches private repositories with a token the agent never sees
+- FIXED **[ai-ui]** Chapters show their spaces by name
+- FIXED **[ai-ui]** Opened chapter floats below the desk header, not under it
+- FIXED **[projects]** Zeitplanung tab at the header's width
+- FIXED **[projects]** Files and artifacts tabs centered at the header's width
+- FIXED **[projects]** No settings sidebar on the Zeitplanung tab
+- FIXED **[ai]** Default browser logins to the guided form instead of handing the window over
+
 ## [0.2.31] - 2026-09-30
 - ADDED **[ui]** Space title edits inline, add-cover beside the title, team popover and image covers in the space header
 - ADDED **[files]** Space cover media routes for upload, Unsplash and AI images

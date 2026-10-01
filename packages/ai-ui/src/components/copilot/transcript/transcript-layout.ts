@@ -1,6 +1,6 @@
 // One pass over the transcript's rows: everything a row needs from the rows
-// around it — bubble clusters, the sender name, the gap above it, date and
-// memory lines — so a row renders from its own descriptor alone.
+// around it — bubble clusters, the sender name, the gap above it, chapter,
+// date and memory lines — so a row renders from its own descriptor alone.
 
 import type { AgentTurnMessageLike } from "@engenty/ag-ui-bridge";
 import { cn } from "@engenty/ui-core";
@@ -19,6 +19,8 @@ import { needsDateDivider } from "./transcript-date-divider.js";
 export type TranscriptMessage = AgentTurnMessageLike & { id: string };
 
 interface TranscriptRowBase {
+  /** Class of the chapter line above the row; undefined = no chapter line. */
+  chapterDividerClassName: string | undefined;
   meetsAbove: boolean;
   meetsBelow: boolean;
   /** Spacing and stacking classes for the row's outer element. */
@@ -70,6 +72,12 @@ function rowEdgesOf(breaks: ChatBubbleBreaks, pending: boolean): RowEdges {
 }
 
 export function layoutTranscriptRows(input: {
+  /**
+   * Row index (among `messages`) the chapter line sits above — above the
+   * pending bubble when that comes first there. `messages.length` = after the
+   * last message. Null = none.
+   */
+  chapterBreakIndex: number | null;
   /** Row index (among `messages`) the memory line sits above; null = none. */
   memoryBreakIndex: number | null;
   messages: readonly TranscriptMessage[];
@@ -82,17 +90,36 @@ export function layoutTranscriptRows(input: {
     input;
   const pendingAt = showPending ? input.pendingInsertIndex : -1;
   const rows: (
-    | { kind: "pending" }
-    | { kind: "message"; filteredIndex: number; raw: TranscriptMessage }
+    | { chapterAbove: boolean; kind: "pending" }
+    | {
+        chapterAbove: boolean;
+        filteredIndex: number;
+        kind: "message";
+        raw: TranscriptMessage;
+      }
   )[] = [];
+  // The chapter line goes above the first row drawn at its index.
+  let chapterPlaced = false;
+  const chapterAt = (at: number) => {
+    if (chapterPlaced || at !== input.chapterBreakIndex) {
+      return false;
+    }
+    chapterPlaced = true;
+    return true;
+  };
   messages.forEach((raw, filteredIndex) => {
     if (filteredIndex === pendingAt) {
-      rows.push({ kind: "pending" });
+      rows.push({ chapterAbove: chapterAt(filteredIndex), kind: "pending" });
     }
-    rows.push({ filteredIndex, kind: "message", raw });
+    rows.push({
+      chapterAbove: chapterAt(filteredIndex),
+      filteredIndex,
+      kind: "message",
+      raw,
+    });
   });
   if (showPending && pendingAt >= messages.length) {
-    rows.push({ kind: "pending" });
+    rows.push({ chapterAbove: chapterAt(messages.length), kind: "pending" });
   }
 
   const count = rows.length;
@@ -105,12 +132,15 @@ export function layoutTranscriptRows(input: {
     row.kind === "pending" ? "user" : chatSpeakerKey(row.raw)
   );
 
-  // Where bubbles part: a memory line, a clip or card between two rows, a
-  // date line.
+  // Where bubbles part: a chapter or memory line, a clip or card between two
+  // rows, a date line.
   const barriers = new Set<number>();
   const dateDividers = new Set<number>();
   let previousMessage: TranscriptMessage | null = null;
   rows.forEach((row, index) => {
+    if (row.chapterAbove) {
+      barriers.add(index);
+    }
     if (row.kind !== "message") {
       return;
     }
@@ -188,6 +218,12 @@ export function layoutTranscriptRows(input: {
           }) ?? undefined)
         : undefined;
     let previousKind: ChatRowKind | null = previousEdges?.bottom ?? null;
+    let chapterDividerClassName: string | undefined;
+    if (row.chapterAbove) {
+      // "" keeps the line (it has no gap class) apart from "no line".
+      chapterDividerClassName = gapAfter(previousKind, "divider") ?? "";
+      previousKind = "divider";
+    }
     let memoryDividerClassName: string | undefined;
     let dateDividerClassName: string | undefined;
     let hasMemoryDivider = false;
@@ -210,6 +246,7 @@ export function layoutTranscriptRows(input: {
         : undefined;
     if (row.kind === "pending") {
       layout.push({
+        chapterDividerClassName,
         kind: "pending",
         meetsAbove: cluster.meetsAbove,
         meetsBelow: cluster.meetsBelow,
@@ -217,6 +254,7 @@ export function layoutTranscriptRows(input: {
       });
     } else {
       layout.push({
+        chapterDividerClassName,
         // "" keeps the line (it has no gap class) apart from "no line".
         dateDividerClassName: hasDateDivider
           ? (dateDividerClassName ?? "")

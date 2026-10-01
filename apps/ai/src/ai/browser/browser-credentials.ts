@@ -201,7 +201,7 @@ const fieldSchema = z.object({
 });
 
 const DESCRIPTION =
-  "Ask the person to enter a login — username, password, one-time code — into fields on your current page, WITHOUT you seeing it. The chat shows a screenshot with the fields marked, the site's address, and a form; what they type goes straight into the page, never to you. Give each field's ref from your latest browser_snapshot, and `submit_ref` to press the sign-in button afterwards. WAITS for them. Never ask for a password or code in plain chat.";
+  "THE way to get a login into a page: ask the person to enter a username, email, password, one-time code or any other value into fields on your current page, WITHOUT you seeing it. Use it before anything else — do not hand the window over (browser_request_user, browser_hand_over) for a login. The chat shows a screenshot with the fields marked, the site's address, and a form; what they type goes straight into the page, never to you. Give each field's ref from your latest browser_snapshot, and `submit_ref` to press the sign-in or next button afterwards. A login spread over several pages (email, then password, then code) is one call per page: snapshot, ask for that page's fields, repeat. WAITS for them. Never ask for a password or code in plain chat.";
 
 export function createCredentialsRequestTool(input: {
   identity: BrowserWindowIdentity;

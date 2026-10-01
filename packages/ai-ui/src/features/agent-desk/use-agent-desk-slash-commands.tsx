@@ -13,6 +13,10 @@ import {
   HOST_MESSAGE_HANDOFF_STATE,
   writePendingHostMessage,
 } from "../../copilot/host-message-handoff.js";
+import {
+  useCompactThreadMutation,
+  useThreadChaptersQuery,
+} from "../../copilot/thread-chapters-api.js";
 import { useChatSlashCommands } from "../../hooks/use-chat-slash-commands.js";
 import {
   baseChatModePick,
@@ -87,6 +91,9 @@ export function matchDeskAgent(
  *   hosts it (`onOpenPanel`); the drawer and a room have none.
  * - `/context`, `/usage` open the same dialogs the composer's usage meter
  *   does, for the bound thread — a chat not yet sent has neither.
+ * - `/chapter` closes the chapter: the same cut as "New chapter" in the
+ *   history, only where the thread has chapters (the river, a desk line, a
+ *   DM). The transcript folds what came before it.
  * - `/effort normal|extra` sets this chat's pick, like the composer's pill.
  * - `/agent <name>` (also `/engenty`, `/bot`) is a Space desk's: another
  *   agent's desk.
@@ -118,6 +125,11 @@ export function useAgentDeskSlashCommands(input: {
   const { agentSwitch, hostKey, onOpenPanel, threadId } = input;
   const navigate = useNavigate();
   const location = useLocation();
+  // Chapters answer only for a thread that has them; the list is the probe.
+  const chaptered = useThreadChaptersQuery(threadId).isSuccess;
+  const cutChapter = useCompactThreadMutation(threadId);
+  const cutChapterPending = cutChapter.isPending;
+  const cutChapterNow = cutChapter.mutate;
   // `/copilot [message]`: the person's copilot for the place they stand on,
   // the message handed over the way a module page's "ask the copilot" does.
   const onCopilotDesk = input.agentScope === "personal";
@@ -182,6 +194,19 @@ export function useAgentDeskSlashCommands(input: {
           run: () => setDialog("usage"),
         }
       );
+      if (chaptered) {
+        commands.push({
+          command: "chapter",
+          description: t("agentDesk.commands.chapter"),
+          group: "Core",
+          kind: "ui",
+          run: () => {
+            if (!cutChapterPending) {
+              cutChapterNow();
+            }
+          },
+        });
+      }
     }
     // Normal / Extra only: Custom needs a model, which is what the flyout is
     // for. The pick is this chat's, like the composer's.
@@ -235,7 +260,17 @@ export function useAgentDeskSlashCommands(input: {
       });
     }
     return commands;
-  }, [agentSwitch, hostKey, onOpenPanel, openCopilot, t, threadId]);
+  }, [
+    agentSwitch,
+    chaptered,
+    cutChapterNow,
+    cutChapterPending,
+    hostKey,
+    onOpenPanel,
+    openCopilot,
+    t,
+    threadId,
+  ]);
 
   const slashCommands = useChatSlashCommands({
     agentId: input.agentId,

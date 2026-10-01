@@ -161,7 +161,7 @@ function createRequestUserTool(input: {
   return createTool({
     id: BROWSER_REQUEST_USER_TOOL_ID,
     description:
-      "Hand your browser window to the person and WAIT: use when a page needs something only the person can give — a login, a one-time code, a captcha, a consent — or when you are unsure a click is what they want. Say in `reason` what they should do. The window opens for them with the controls already theirs; the tool returns once they hand it back, and the controls are yours again. Then take a fresh browser_snapshot before continuing.",
+      "Hand your browser window to the person and WAIT. NOT for a login, password, one-time code or any other value they type into a field — that is browser_request_credentials, always first. Use this only for what is not a field to fill: a captcha, a passkey or phone prompt, a consent only they can give, a choice you are unsure they want — or after browser_request_credentials failed twice on the same page. Say in `reason` what they should do. The window opens for them with the controls already theirs; the tool returns once they hand it back, and the controls are yours again. Then take a fresh browser_snapshot before continuing.",
     inputSchema: z.object({
       reason: z
         .string()
@@ -257,7 +257,7 @@ function createHandOverTool(input: {
   return createTool({
     id: BROWSER_HAND_OVER_TOOL_ID,
     description:
-      'Switch who drives your browser window, without waiting. `to: "person"` gives the page to the person in the chat (the window opens with the controls theirs) — say in `note` what they can do there. `to: "agent"` takes the controls back, only after the person said they are done. To hand over AND wait for them, use browser_request_user instead.',
+      'Switch who drives your browser window, without waiting. `to: "person"` gives the page to the person in the chat (the window opens with the controls theirs) — say in `note` what they can do there. Never to get a login or code typed: ask for those with browser_request_credentials. `to: "agent"` takes the controls back, only after the person said they are done. To hand over AND wait for them, use browser_request_user instead.',
     inputSchema: z.object({
       note: z
         .string()

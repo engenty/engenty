@@ -17,7 +17,11 @@ export const BROWSER_SHOW_TOOL_NAME = "browser_show";
 export function BrowserShowToolCallCard(props: ToolCallCardProps) {
   const output = asRecord(props.output);
   const preview = readAgUiBrowserPreview(output?.browser_view);
-  if (!preview || preview.kind === "browser_credentials") {
+  if (
+    !preview ||
+    preview.kind === "browser_credentials" ||
+    preview.kind === "secret_request"
+  ) {
     return <DecisionArtifactToolCallCard {...props} />;
   }
   const caption =

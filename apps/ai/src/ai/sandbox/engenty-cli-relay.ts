@@ -46,7 +46,10 @@ interface Ticket {
 const relays = new Map<string, Promise<Relay>>();
 const tickets = new Map<string, Ticket>();
 
-async function runningContainerId(sandboxId: string): Promise<string | null> {
+/** The running container behind a Mastra sandbox id, or null. */
+export async function runningContainerId(
+  sandboxId: string
+): Promise<string | null> {
   const { stdout } = await execFileAsync("docker", [
     "ps",
     "-q",

@@ -2,7 +2,7 @@
 
 // The top of a paged transcript. A thread is meant to outlive its compaction,
 // so the lane opens on the newest page and the rest stays on the server until
-// someone scrolls up for it.
+// someone scrolls up for it. Folded at a chapter, the top unfolds first.
 
 import { useTranslation } from "@engenty/i18n/ui";
 import { Button } from "@engenty/ui-core";
@@ -33,6 +33,23 @@ export function TranscriptLoadOlder(props: {
         {props.olderMessages.isLoading
           ? t("transcript.loadingOlder")
           : t("transcript.loadOlder")}
+      </Button>
+    </div>
+  );
+}
+
+/**
+ * The top of a transcript folded at its chapter (`/chapter`): the turns
+ * before it are loaded or on the server, and one click brings them back —
+ * paging with "Load older" takes over from there.
+ */
+export function TranscriptShowOlder(props: { onShow: () => void }) {
+  const { t } = useTranslation("ai-ui");
+  return (
+    <div className="flex justify-center py-1">
+      <Button onClick={props.onShow} size="sm" type="button" variant="ghost">
+        <History aria-hidden className="mr-1.5 size-4" />
+        {t("transcript.showOlder")}
       </Button>
     </div>
   );

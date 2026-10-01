@@ -31,8 +31,12 @@ import type { CopilotPanelContentProps } from "../../components/copilot/panel/co
 import { ThreadContextPane } from "../../components/copilot/thread-context/thread-context-pane.js";
 import { ChatDeskAgentProvider } from "../../components/copilot/transcript/chat-agent-face.js";
 import { formatCopilotThreadCopyText } from "../../components/copilot/transcript/copilot-thread-copy.js";
-import { TranscriptLoadOlder } from "../../components/copilot/transcript/transcript-load-older.js";
+import {
+  TranscriptLoadOlder,
+  TranscriptShowOlder,
+} from "../../components/copilot/transcript/transcript-load-older.js";
 import { registerCopilotComposerDraftSetter } from "../../copilot/copilot-composer-draft-intent.js";
+import { useTranscriptChapterBreak } from "../../copilot/use-transcript-chapter-break.js";
 import { isThreadWritableByViewer } from "../../threads/thread-write-access.js";
 import { TEMPORARY_ENGENTY_THREAD_ID_PREFIX } from "../../threads/use-engenty-threads.js";
 import { useBrowserWorkOpensPane } from "../browser/browser-work-opens-pane.js";
@@ -210,6 +214,9 @@ export function AgentDeskChatPanel(props: {
     () => props.agentSkills.map((skill) => skill.id),
     [props.agentSkills]
   );
+  // A chaptered thread starts over at its newest `/chapter`: the transcript
+  // folds what came before, and the top of the lane unfolds it.
+  const { chapterBreak, showOlder } = useTranscriptChapterBreak(host.threadId);
   const { dialogs: slashDialogs, slashCommands } = useAgentDeskSlashCommands({
     agentId: props.agentId,
     agentScope: props.agentScope ?? null,
@@ -483,6 +490,7 @@ export function AgentDeskChatPanel(props: {
     ...chatLanePanelBaseProps(tc),
     autoScrollKey: host.threadId ?? host.threadResetKey,
     awaitingInterrupt: host.awaitingInterrupt,
+    chapterBreak,
     composerFocusKey: `${host.threadResetKey}:${props.composerFocusToken ?? 0}`,
     composerLeadingControl: props.composerLeadingControl,
     composerOverride,
@@ -601,7 +609,11 @@ export function AgentDeskChatPanel(props: {
           />
         ) : null}
         {props.scrollHeader}
-        <TranscriptLoadOlder olderMessages={props.olderMessages} />
+        {chapterBreak.collapsed ? (
+          <TranscriptShowOlder onShow={showOlder} />
+        ) : (
+          <TranscriptLoadOlder olderMessages={props.olderMessages} />
+        )}
       </>
     ),
     transcriptFooter: spaceId ? (

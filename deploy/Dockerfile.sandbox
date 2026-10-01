@@ -95,6 +95,10 @@ RUN useradd --create-home --home-dir /opt/sandbox --uid 1000 sandbox \
 RUN git config --system user.name "engenty agent" \
   && git config --system user.email "agent@engenty.local" \
   && git config --system --add safe.directory '*'
+# Nobody can answer git's password prompt here: a private remote fails at once
+# instead of hanging until the command times out. The git_remote tool reaches
+# private remotes with a token the person enters on a card.
+ENV GIT_TERMINAL_PROMPT=0
 
 # No browser here. A CLI that opens one to sign in gets this instead: the URL
 # is printed to stderr for the agent to hand to the person (browser_sign_in),

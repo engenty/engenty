@@ -54,6 +54,7 @@ import {
 } from "../registry/index.js";
 import { resolveAlterEgo } from "../rooms/alter-ego.js";
 import { noteHumanTurnInRoom } from "../rooms/deliver.js";
+import { createGitRemoteTools } from "../sandbox/git-remote-tool.js";
 import type { EngentySandboxProvider } from "../sandbox/sandbox-provider.js";
 import { destroyRunSandboxes } from "../sandbox/sandbox-run-teardown.js";
 import { registerActiveThreadRun } from "../sessions/active-thread-runs.js";
@@ -562,6 +563,12 @@ export async function startConversationRun(
       ...rootDelegation.extraTools,
       ...memoryTools,
       ...browserTools,
+      ...createGitRemoteTools({
+        agentId: input.agentId,
+        spaceId: resolvedRunSpace(spaceResolution)?.spaceId,
+        tenantId: input.scope.tenantId,
+        workspace: input.workspace,
+      }),
     };
     const agent = await assembleDynamicAgent(input.registry, input.agentId, {
       extraTools,
