@@ -205,6 +205,14 @@ async function resolveAnswererSpace(
  * the continuation settles as a failure rather than a run stuck on
  * `requires_action`.
  */
+/**
+ * Runs with a resume in progress in this process. A gate answered twice (two
+ * surfaces showing it, a double click) used to start a second `run.resume()`
+ * that failed with "This workflow run was not suspended" — and its failure
+ * settled the run as failed while the first resume was still researching.
+ */
+const resumesInFlight = new Set<string>();
+
 function continueInBackground(input: {
   continue: () => Promise<GraphRunOutcome>;
   initiatorUserId: string | null;
@@ -1273,6 +1281,11 @@ export function registerWorkflowRoutes(
       return ctx.response;
     }
     const runId = c.req.param("runId");
+    if (resumesInFlight.has(runId)) {
+      return c.json({ error: "workflows.runNotParked" }, 409);
+    }
+    resumesInFlight.add(runId);
+    let handedOff = false;
     try {
       const body = (await c.req.json().catch(() => ({}))) as Record<
         string,
@@ -1317,6 +1330,11 @@ export function registerWorkflowRoutes(
       // An approval step answers for the calls the run parked with — read
       // from the run, never from the request body.
       const snapshot = await readGraphRunSnapshot({ runId, version });
+      // Only a parked run takes an answer: a second answer to a gate that
+      // already moved on is refused here, not failed inside the run.
+      if (snapshot?.status !== "suspended") {
+        return c.json({ error: "workflows.runNotParked" }, 409);
+      }
       const pendingCalls =
         snapshot?.gate?.kind === "operation_approval"
           ? (snapshot.gate.pending_calls ?? [])
@@ -1349,13 +1367,15 @@ export function registerWorkflowRoutes(
           version,
           ...stepTarget(body),
         });
+      handedOff = true;
       continueInBackground({
         // The approver's bearer rides the resume in memory, so the replay can
         // answer core's own request for the calls they allowed.
         continue: () =>
-          pendingCalls.length > 0 && approved && accessToken
+          (pendingCalls.length > 0 && approved && accessToken
             ? resumeAnswererAls.run({ accessToken }, resume)
-            : resume(),
+            : resume()
+          ).finally(() => resumesInFlight.delete(runId)),
         initiatorUserId: ctx.scope.userId ?? null,
         request,
         runId,
@@ -1371,6 +1391,10 @@ export function registerWorkflowRoutes(
         "workflows.internalError",
         err
       );
+    } finally {
+      if (!handedOff) {
+        resumesInFlight.delete(runId);
+      }
     }
   });
 
