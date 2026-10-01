@@ -135,7 +135,13 @@ window.addEventListener("message", (event) => {
     const entry = pending.get(msg.id);
     pending.delete(msg.id);
     if (msg.error) entry.reject(new Error(msg.error.message || "app bridge call failed"));
-    else entry.resolve(msg.result);
+    // The host answers a tool call result; the operation's own answer is its
+    // structuredContent.
+    else entry.resolve(
+      msg.result && msg.result.structuredContent !== undefined
+        ? msg.result.structuredContent
+        : msg.result,
+    );
     return;
   }
   if (msg.method === "ui/notifications/tool-result") {
