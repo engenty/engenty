@@ -6,6 +6,7 @@ import {
   AGENT_LIVE_ACTIVITY_POLL_MS,
   agentLiveActivityByAgent,
   agentLiveActivityPollMs,
+  agentLiveRunFor,
 } from "./use-agent-live-activity.js";
 
 function run(overrides: Partial<AiAgentRunSummary>): AiAgentRunSummary {
@@ -108,5 +109,38 @@ describe("agentLiveActivityPollMs", () => {
     expect(agentLiveActivityPollMs([])).toBe(
       staggerPollMs(AGENT_LIVE_ACTIVITY_IDLE_POLL_MS, "agent-live-activity")
     );
+  });
+});
+
+describe("agentLiveRunFor", () => {
+  it("counts from the oldest conversation still working, not from a run it moved past", () => {
+    const runs = [
+      run({
+        id: "a",
+        started_at: "2026-09-09T12:05:00.000Z",
+        thread_id: "th1",
+      }),
+      // Superseded in th1: still "running" on paper, but th1 moved on.
+      run({
+        id: "stale",
+        started_at: "2026-09-09T11:00:00.000Z",
+        thread_id: "th1",
+      }),
+      run({
+        id: "b",
+        started_at: "2026-09-09T12:01:00.000Z",
+        thread_id: "th2",
+      }),
+      run({
+        agent_id: "other",
+        id: "c",
+        started_at: "2026-09-09T10:00:00.000Z",
+        thread_id: "th3",
+      }),
+    ];
+    expect(agentLiveRunFor(runs, "manager")).toEqual({
+      activity: "working",
+      since: "2026-09-09T12:01:00.000Z",
+    });
   });
 });

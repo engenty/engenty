@@ -52,6 +52,7 @@ import {
   workflowKeys,
 } from "../workflow-canvas/workflow-queries.js";
 import { conversationEngagement } from "./agent-desk-url.js";
+import { formatElapsed, useNow } from "./elapsed.js";
 import { agentDeskKeys } from "./use-agent-desk-feed.js";
 import { useAgentRoutineActivity } from "./use-agent-routine-activity.js";
 
@@ -148,19 +149,6 @@ function combinedStepState(states: StepState[]): StepState {
   return states.some((s) => s === "done") ? "running" : "idle";
 }
 
-/** `12s`, `4m 05s`, `1h 02m` — how long the run has been at it. */
-function formatElapsed(ms: number): string {
-  const seconds = Math.max(0, Math.floor(ms / 1000));
-  if (seconds < 60) {
-    return `${seconds}s`;
-  }
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) {
-    return `${minutes}m ${String(seconds % 60).padStart(2, "0")}s`;
-  }
-  return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}m`;
-}
-
 /**
  * What the run is doing right now, in words — from the step's latest tool
  * call. Never a tool name: a call without a phrase of its own reads as
@@ -206,19 +194,6 @@ function describeRunActivity(
     default:
       return t(`${key}.working`);
   }
-}
-
-/** A clock that ticks once a second while `active`. */
-function useNow(active: boolean): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!active) {
-      return;
-    }
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, [active]);
-  return now;
 }
 
 export function AgentDeskRunActivity(props: {

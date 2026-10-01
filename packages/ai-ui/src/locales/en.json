@@ -535,7 +535,8 @@
     "status": {
       "idle": "Idle",
       "waiting": "Waiting for someone",
-      "working": "Working"
+      "working": "Working",
+      "workingFor": "Working · {{elapsed}}"
     },
     "room": {
       "add": "Add",

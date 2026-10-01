@@ -35,6 +35,8 @@ import {
   useChatVisibilityCopy,
 } from "../../components/copilot/chat-visibility.js";
 import { AgentModuleBadge } from "../agents-workspace/agent-badges.js";
+import { formatElapsed, useNow } from "./elapsed.js";
+import { useAgentLiveRun } from "./use-agent-live-activity.js";
 
 /** Where the agent stands in the Space's team, by display name. */
 export interface AgentDeskRelation {
@@ -53,7 +55,7 @@ export interface AgentDeskHeaderProps {
   /** What the open conversation is; absent while no thread is bound. */
   chatKind?: ChatKind | null;
   collapsed: boolean;
-  /** The host the chat runs under — the compact row's status dot reads it. */
+  /** The host the chat runs under — the status reads its stream. */
   hostKey?: string;
   /** When the open conversation last moved — the band's right edge. */
   lastActivityAt?: string | null;
@@ -139,34 +141,78 @@ function RelationLine({
   );
 }
 
-/** A dot the colour of the run: working, waiting on someone, idle. */
-function StatusDot({ hostKey }: { hostKey?: string }) {
+/**
+ * Working, waiting on someone, idle — what this tab streams merged with the
+ * agent's runs on the server. A job handed over from another desk never
+ * streams here, so the stream alone read "idle" while the sidebar row said
+ * "working". While it works the line counts up, so a long job reads as busy,
+ * not stuck.
+ */
+function AgentStatus({
+  agentId,
+  hostKey,
+  showIdle,
+}: {
+  agentId: string;
+  hostKey?: string;
+  /** The band keeps an idle dot; the full header says nothing while idle. */
+  showIdle: boolean;
+}) {
   const { t } = useTranslation("ai-ui");
   const host = useOptionalAgentHostByKey(hostKey);
-  if (!host) {
+  const live = useAgentLiveRun(agentId);
+  const streaming =
+    host?.status === "streaming" || host?.status === "submitted";
+  const asking = Boolean(host?.awaitingInterrupt);
+  const working = streaming || (!asking && live?.activity === "working");
+  const waiting = !working && (asking || live?.activity === "needs_input");
+  const startedAt = working && live?.since ? Date.parse(live.since) : null;
+  const now = useNow(startedAt !== null);
+  if (!(host || live)) {
     return null;
   }
-  const working = host.status === "streaming" || host.status === "submitted";
-  const waiting = host.awaitingInterrupt;
+  if (!(working || waiting || showIdle)) {
+    return null;
+  }
   const label = working
-    ? t("agentDesk.status.working")
+    ? startedAt === null
+      ? t("agentDesk.status.working")
+      : t("agentDesk.status.workingFor", {
+          elapsed: formatElapsed(now - startedAt),
+        })
     : waiting
       ? t("agentDesk.status.waiting")
       : t("agentDesk.status.idle");
   return (
     <span
-      aria-label={label}
       className={cn(
-        "size-2 shrink-0 rounded-full",
+        "inline-flex shrink-0 items-center gap-1.5 text-[11px] leading-none",
         working
-          ? "animate-pulse bg-primary"
+          ? "text-primary"
           : waiting
-            ? "bg-amber-500"
-            : "bg-emerald-500/70"
+            ? "text-amber-600 dark:text-amber-400"
+            : "text-muted-foreground"
       )}
-      role="img"
+      data-testid="agent-desk-status"
       title={label}
-    />
+    >
+      <span
+        aria-hidden
+        className={cn(
+          "size-2 shrink-0 rounded-full",
+          working
+            ? "animate-pulse bg-primary"
+            : waiting
+              ? "bg-amber-500"
+              : "bg-emerald-500/70"
+        )}
+      />
+      {working || waiting ? (
+        <span className="tabular-nums">{label}</span>
+      ) : (
+        <span className="sr-only">{label}</span>
+      )}
+    </span>
   );
 }
 
@@ -209,7 +255,7 @@ function CompactHeader(props: AgentDeskHeaderProps) {
       topbarClearance={props.topbarClearance !== false}
       visibility={props.visibility}
     >
-      <StatusDot hostKey={props.hostKey} />
+      <AgentStatus agentId={props.agent.id} hostKey={props.hostKey} showIdle />
     </ChatVisibilityBand>
   );
 }
@@ -242,6 +288,11 @@ function VisibilityLine(props: AgentDeskHeaderProps) {
           {copy.readers}
         </span>
       )}
+      <AgentStatus
+        agentId={props.agent.id}
+        hostKey={props.hostKey}
+        showIdle={false}
+      />
     </div>
   );
 }

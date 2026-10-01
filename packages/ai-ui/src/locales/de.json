@@ -535,7 +535,8 @@
     "status": {
       "idle": "Bereit",
       "waiting": "Wartet auf jemanden",
-      "working": "Arbeitet"
+      "working": "Arbeitet",
+      "workingFor": "Arbeitet · {{elapsed}}"
     },
     "room": {
       "add": "Hinzufügen",

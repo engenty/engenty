@@ -14,6 +14,7 @@ import {
   staggeredRefetchInterval,
   useQuery,
 } from "@engenty/query-client";
+import { useCallback } from "react";
 import type { AiAgentRunSummary } from "../../lib/admin/ai-runtime-types.js";
 import { listTenantRuns } from "../../lib/runtime/runs-api.js";
 
@@ -44,6 +45,27 @@ function runOrder(run: AiAgentRunSummary): number {
 }
 
 /**
+ * The newest run in each lane. A lane is one agent in one conversation; a run
+ * with no thread is its own lane: nothing later can speak for it.
+ */
+function newestRunPerLane(
+  runs: readonly AiAgentRunSummary[]
+): Iterable<AiAgentRunSummary> {
+  const newestByLane = new Map<string, AiAgentRunSummary>();
+  for (const run of runs) {
+    if (!run.agent_id) {
+      continue;
+    }
+    const lane = `${run.agent_id}\u0000${run.thread_id ?? run.id}`;
+    const seen = newestByLane.get(lane);
+    if (!seen || runOrder(run) > runOrder(seen)) {
+      newestByLane.set(lane, run);
+    }
+  }
+  return newestByLane.values();
+}
+
+/**
  * One state per agent, from the NEWEST run in each of its conversations.
  *
  * A parked run is never cleared: `requires_action` is how a run ends when it
@@ -61,22 +83,8 @@ function runOrder(run: AiAgentRunSummary): number {
 export function agentLiveActivityByAgent(
   runs: readonly AiAgentRunSummary[]
 ): Map<string, AgentLiveActivity> {
-  // A lane is one agent in one conversation. A run with no thread is its own
-  // lane: nothing later can speak for it.
-  const newestByLane = new Map<string, AiAgentRunSummary>();
-  for (const run of runs) {
-    if (!run.agent_id) {
-      continue;
-    }
-    const lane = `${run.agent_id}\u0000${run.thread_id ?? run.id}`;
-    const seen = newestByLane.get(lane);
-    if (!seen || runOrder(run) > runOrder(seen)) {
-      newestByLane.set(lane, run);
-    }
-  }
-
   const byAgent = new Map<string, AgentLiveActivity>();
-  for (const run of newestByLane.values()) {
+  for (const run of newestRunPerLane(runs)) {
     if (NEEDS_INPUT_STATUS.has(run.status)) {
       byAgent.set(run.agent_id, "needs_input");
       continue;
@@ -101,10 +109,52 @@ export function agentLiveActivityPollMs(
   );
 }
 
-export function useAgentLiveActivityMap(
-  enabled = true
-): ReadonlyMap<string, AgentLiveActivity> {
-  const query = useQuery({
+/** One agent's live state, and since when it has been working. */
+export interface AgentLiveRun {
+  activity: AgentLiveActivity;
+  /** Start of the oldest lane still working; null while it waits. */
+  since: string | null;
+}
+
+/**
+ * The same fold, asked about one agent — what its desk header needs. A desk
+ * only streams the runs it started itself: a job handed over from another
+ * desk runs on the server, so without the feed the header read "idle" while
+ * the sidebar row said "working".
+ */
+export function agentLiveRunFor(
+  runs: readonly AiAgentRunSummary[],
+  agentId: string
+): AgentLiveRun | null {
+  const activity = agentLiveActivityByAgent(runs).get(agentId);
+  if (!activity) {
+    return null;
+  }
+  if (activity === "needs_input") {
+    return { activity, since: null };
+  }
+  let since: AiAgentRunSummary | null = null;
+  for (const run of newestRunPerLane(runs)) {
+    if (
+      run.agent_id === agentId &&
+      WORKING_STATUS.has(run.status) &&
+      (!since || runOrder(run) < runOrder(since))
+    ) {
+      since = run;
+    }
+  }
+  return {
+    activity,
+    since: since ? (since.started_at ?? since.created_at) : null,
+  };
+}
+
+/** The tenant's run feed — one query, however many rows and headers read it. */
+function useLiveRunFeed<T>(
+  enabled: boolean,
+  select: (runs: readonly AiAgentRunSummary[]) => T
+) {
+  return useQuery({
     enabled,
     queryFn: ({ signal }) => listTenantRuns({ limit: FEED_LIMIT, signal }),
     queryKey: ["ai", "agent-runs", "live-activity"],
@@ -114,8 +164,14 @@ export function useAgentLiveActivityMap(
         (query.state.data as { runs?: AiAgentRunSummary[] } | undefined)?.runs
       ),
     refetchIntervalInBackground: false,
-    select: (data) => agentLiveActivityByAgent(data.runs),
+    select: (data) => select(data.runs),
   });
+}
+
+export function useAgentLiveActivityMap(
+  enabled = true
+): ReadonlyMap<string, AgentLiveActivity> {
+  const query = useLiveRunFeed(enabled, agentLiveActivityByAgent);
   return query.data ?? EMPTY_ACTIVITY;
 }
 
@@ -127,4 +183,16 @@ export function useAgentLiveActivity(
 ): AgentLiveActivity | null {
   const byAgent = useAgentLiveActivityMap(Boolean(agentId));
   return agentId ? (byAgent.get(agentId) ?? null) : null;
+}
+
+/** One agent's live state with its start — the desk header's status. */
+export function useAgentLiveRun(
+  agentId: string | null | undefined
+): AgentLiveRun | null {
+  const select = useCallback(
+    (runs: readonly AiAgentRunSummary[]) =>
+      agentId ? agentLiveRunFor(runs, agentId) : null,
+    [agentId]
+  );
+  return useLiveRunFeed(Boolean(agentId), select).data ?? null;
 }
