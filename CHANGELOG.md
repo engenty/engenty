@@ -4,6 +4,9 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.2.35] - 2026-10-01
+- FIXED **[deploy]** Version app-host actors so a deploy drains them
+
 ## [0.2.34] - 2026-10-01
 - ADDED **[ai-ui]** /chapter command folds the stream at the newest chapter
 - FIXED **[ui]** Finishing the setup wizard no longer loops back to /welcome

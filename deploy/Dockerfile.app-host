@@ -146,6 +146,11 @@ ENV HOME=/data
 # Outside dev RivetKit does not spawn its local engine on its own: without this
 # the registry logs `endpoint_not_configured` and no Apps run.
 ENV RIVET_RUN_ENGINE=1
+# The actor version (an integer that must rise each deploy): actors started by
+# an older build are drained instead of cut off when the new one comes up.
+# build-images.yml passes the workflow run number; local builds stay at 1.
+ARG RIVET_ENVOY_VERSION=1
+ENV RIVET_ENVOY_VERSION=${RIVET_ENVOY_VERSION}
 # uid 1000 is the space computer's `sandbox` user. Both containers write the
 # same App directories on /opt/engenty/spaces (source and /data), so they must
 # be the same uid — files one creates the other must edit. Existing volumes

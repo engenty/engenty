@@ -1,7 +1,19 @@
 [
   {
+    "version": "v0.2.35",
+    "timestamp": 1790846795,
+    "commits": [
+      {
+        "id": "5af4601",
+        "message": "version app-host actors so a deploy drains them",
+        "group": "Fixed",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.2.34",
-    "timestamp": 1790844662,
+    "timestamp": 1790844665,
     "commits": [
       {
         "id": "50db478",
