@@ -183,13 +183,20 @@ export function BridgedFrame({
             content: Array<{ type: "text"; text: string }>;
           };
         }
+        if (typeof result === "string") {
+          return { content: [{ type: "text" as const, text: result }] };
+        }
+        // An object answer (table rows, a stored value) travels as
+        // structuredContent. Replying "ok" alone dropped it: an App reading its
+        // table saw no rows and a data.get read undefined.
         return {
           content: [
             {
               type: "text" as const,
-              text: typeof result === "string" ? result : "ok",
+              text: result === undefined ? "ok" : JSON.stringify(result),
             },
           ],
+          ...(isRecord(result) ? { structuredContent: result } : {}),
         };
       };
       next.onopenlink = async (params) => {
