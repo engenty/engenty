@@ -284,7 +284,8 @@ export async function runInteractiveViaMastraAgent(params: {
     // moderation, context overflow); every other message passes as-is.
     outcome.runError = formatAgentStreamFailureMessage(rawError);
   }
-  if (!outcome.runError) {
+  // A turn parked on an interrupt ends on a tool step on purpose.
+  if (!(outcome.runError || outcome.suspended)) {
     const failure = await readMastraStreamFailure(readStream(), {
       hasAssistantText: params.accumulator.hasAssistantText,
       tripwire: readTripwireChunk(),

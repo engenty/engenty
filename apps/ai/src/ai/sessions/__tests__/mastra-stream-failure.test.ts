@@ -15,7 +15,7 @@ import {
 } from "../mastra-stream-failure.js";
 
 describe("silent finishes are named", () => {
-  it("names the step cap landing on a step that still wanted tools", async () => {
+  it("names the step cap landing on a step that still wanted tools, even after progress text", async () => {
     await expect(
       readMastraStreamFailure({ finishReason: "tool-calls" })
     ).resolves.toEqual(new Error(AGENT_THREADS_STEP_LIMIT_REACHED));
@@ -24,7 +24,7 @@ describe("silent finishes are named", () => {
         { finishReason: "tool-calls" },
         { hasAssistantText: true }
       )
-    ).resolves.toBeNull();
+    ).resolves.toEqual(new Error(AGENT_THREADS_STEP_LIMIT_REACHED));
   });
 
   it("names a clean stop with nothing written", async () => {

@@ -283,7 +283,8 @@ export async function resumeViaMastraAgent(params: {
   if (rawError) {
     outcome.streamError = formatAgentStreamFailureMessage(rawError);
   }
-  if (!outcome.streamError) {
+  // A turn parked again on an interrupt ends on a tool step on purpose.
+  if (!(outcome.streamError || outcome.suspendedAgain)) {
     const failure = await readMastraStreamFailure(readStream(), {
       hasAssistantText: params.accumulator.hasAssistantText,
       tripwire: readTripwireChunk(),

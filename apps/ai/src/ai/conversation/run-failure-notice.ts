@@ -37,8 +37,8 @@ const NOTICES: Record<string, { de: string; en: string }> = {
     en: "The model took too long to respond, so I stopped. Send the message again, or split the task into smaller steps.",
   },
   [AGENT_THREADS_STEP_LIMIT_REACHED]: {
-    de: "Ich habe die maximale Anzahl an Arbeitsschritten für diese Runde erreicht, bevor ich antworten konnte. Schreib „weiter“, um fortzufahren, oder verkleinere die Aufgabe.",
-    en: "I reached the step limit for this turn before I could write a reply. Say “continue” to carry on, or narrow the task.",
+    de: "Ich habe die maximale Anzahl an Arbeitsschritten für diese Runde erreicht und mittendrin gestoppt. Schreib „weiter“, um fortzufahren, oder verkleinere die Aufgabe.",
+    en: "I reached the step limit for this turn and stopped mid-task. Say “continue” to carry on, or narrow the task.",
   },
   [AGENT_THREADS_EMPTY_REPLY]: {
     de: "Ich habe diese Runde ohne Antwort beendet. Sende die Nachricht erneut oder formuliere die Frage konkreter.",

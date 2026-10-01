@@ -219,6 +219,13 @@ export async function readMastraStreamFailure(
         : AGENT_THREADS_GUARDRAIL_TRIPPED
     );
   }
+  // The step cap (`maxSteps`) stopped the loop while the last step still
+  // wanted tools: Mastra ran those calls and ended. Named even after progress
+  // text ("Jetzt noch prüfen:") — that text promises a next step that never
+  // comes, so the turn read as finished when it was cut off.
+  if (finishReason === "tool-calls") {
+    return new Error(AGENT_THREADS_STEP_LIMIT_REACHED);
+  }
   // "length" and "content-filter" end the agent loop mid-turn without an error:
   // Mastra executes the step's already-emitted tool calls and stops, so the run
   // reports completed with no final text — a silence indistinguishable from
@@ -229,11 +236,6 @@ export async function readMastraStreamFailure(
     }
     if (finishReason === "content-filter") {
       return new Error(AGENT_THREADS_CONTENT_FILTERED);
-    }
-    // The step cap (`maxSteps`) stopped the loop while the last step still
-    // wanted tools: Mastra ran those calls and ended — no reply.
-    if (finishReason === "tool-calls") {
-      return new Error(AGENT_THREADS_STEP_LIMIT_REACHED);
     }
     // The model stopped on its own with nothing to show. The empty-reply
     // completion scorer already gave it one more step before this is reached.
