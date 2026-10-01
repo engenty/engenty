@@ -169,7 +169,8 @@ just `pnpm dev`, but `engenty db …`, snapshots, and a bare `docker` too.
 
 `engenty setup` runs the `env init` wizard when `.env.local` is missing:
 
-- Pick optional features (the **AI copilot** is recommended/checked by default).
+- Pick optional features.
+- Pick the LLM providers to set up (at least one — Vercel AI Gateway, OpenRouter, Opper, OpenAI, Anthropic); the wizard asks for each picked key.
 - Secrets like `ENGENTY_SECURITY_JWT_SECRET` are generated locally.
 - The Supabase URLs and keys are read from `supabase status` — always, never
   from a template default. The wizard refuses to write them when the stack

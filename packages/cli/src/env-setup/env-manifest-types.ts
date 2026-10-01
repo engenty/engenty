@@ -90,6 +90,11 @@ export interface EnvVarSpec {
   /** Section header in templates and wizard grouping. Groups render in manifest order. */
   group: string;
   key: string;
+  /**
+   * Marks the var as one model gateway's credential. Each is optional on its
+   * own, but at least one must be set — the wizard always asks which.
+   */
+  llmProvider?: { hint: string; label: string };
   obtain: ObtainStrategy;
   required: EnvRequirementByScope;
   scopes: readonly EnvScope[];

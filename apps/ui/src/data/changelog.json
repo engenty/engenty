@@ -1,7 +1,19 @@
 [
   {
+    "version": "v0.2.36",
+    "timestamp": 1790851478,
+    "commits": [
+      {
+        "id": "9cd1ac5",
+        "message": "ask for LLM providers as a required env init step",
+        "group": "Added",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.2.35",
-    "timestamp": 1790846795,
+    "timestamp": 1790846800,
     "commits": [
       {
         "id": "5af4601",

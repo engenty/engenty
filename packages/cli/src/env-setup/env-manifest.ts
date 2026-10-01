@@ -468,6 +468,112 @@ export const CORE_ENV_MANIFEST: EnvVarSpec[] = [
     secret: false,
   },
 
+  // ── LLM providers ── one is needed; the same keys the first-run wizard
+  // (AI provider step) and the core `ai_provider` setup check know.
+  {
+    configurable: "platform",
+    description:
+      "Vercel AI Gateway API key — chat, embeddings, images and transcription; one key for every model.",
+    group: "LLM providers",
+    key: "AI_GATEWAY_API_KEY",
+    llmProvider: {
+      hint: "chat, embeddings, images, transcription — one key for every model",
+      label: "Vercel AI Gateway",
+    },
+    obtain: {
+      instructions: [
+        "1. Open the Vercel dashboard → AI Gateway → API keys",
+        "2. Create a key and copy it",
+      ],
+      kind: "provider",
+      url: "https://vercel.com/d?to=/[team]/~/ai/api-keys",
+    },
+    required: "optional",
+    scopes: ["root", "deploy"],
+    secret: true,
+  },
+  {
+    configurable: "platform",
+    description:
+      "OpenRouter API key — chat models. Bind roles to OpenRouter models in Settings → AI models; search and voice still need the Vercel AI Gateway.",
+    group: "LLM providers",
+    key: "OPENROUTER_API_KEY",
+    llmProvider: {
+      hint: "chat models only",
+      label: "OpenRouter",
+    },
+    obtain: {
+      instructions: [
+        "1. Open https://openrouter.ai/settings/keys",
+        "2. Create a key and copy it",
+      ],
+      kind: "provider",
+      url: "https://openrouter.ai/settings/keys",
+    },
+    required: "optional",
+    scopes: ["root", "deploy"],
+    secret: true,
+  },
+  {
+    configurable: "platform",
+    description:
+      "Opper API key — EU-hosted, OpenAI-compatible gateway. Chat models only; its catalog is listed once the key is set.",
+    group: "LLM providers",
+    key: "OPPER_API_KEY",
+    llmProvider: {
+      hint: "EU-hosted, chat models only",
+      label: "Opper",
+    },
+    obtain: {
+      instructions: [
+        "1. Open https://platform.opper.ai → API keys",
+        "2. Create a key and copy it",
+      ],
+      kind: "provider",
+      url: "https://platform.opper.ai",
+    },
+    required: "optional",
+    scopes: ["root", "deploy"],
+    secret: true,
+  },
+  {
+    configurable: "platform",
+    description:
+      "OpenAI API key — OpenAI chat models directly; also powers realtime voice.",
+    group: "LLM providers",
+    key: "OPENAI_API_KEY",
+    llmProvider: {
+      hint: "direct, OpenAI chat models",
+      label: "OpenAI",
+    },
+    obtain: {
+      instructions: ["Create a key under API keys in the OpenAI platform."],
+      kind: "provider",
+      url: "https://platform.openai.com/api-keys",
+    },
+    required: "optional",
+    scopes: ["root", "deploy"],
+    secret: true,
+  },
+  {
+    configurable: "platform",
+    description: "Anthropic API key — Claude models directly.",
+    group: "LLM providers",
+    key: "ANTHROPIC_API_KEY",
+    llmProvider: {
+      hint: "direct, Claude models",
+      label: "Anthropic",
+    },
+    obtain: {
+      instructions: ["Create a key under API keys in the Anthropic console."],
+      kind: "provider",
+      url: "https://console.anthropic.com/settings/keys",
+    },
+    required: "optional",
+    scopes: ["root", "deploy"],
+    secret: true,
+  },
+
   // ── engenty Apps (tenant-authored apps) ──
   {
     description:

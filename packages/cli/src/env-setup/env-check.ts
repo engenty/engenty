@@ -1,6 +1,7 @@
 import {
   diffScope,
   type EnvVarStatus,
+  missingLlmProviders,
   requiredGaps,
   type ScopeReport,
 } from "./env-diff.js";
@@ -125,6 +126,10 @@ function summaryLine(report: ScopeReport): string {
       optionalUnset++;
     }
   }
+  // No LLM provider key is one more gap, though each key alone is optional.
+  if (missingLlmProviders(report).length > 0) {
+    problems++;
+  }
   const parts = [green(`✓ ${ok} ok`)];
   if (problems > 0) {
     parts.push(red(`✗ ${problems} need attention`));
@@ -187,6 +192,12 @@ export function renderScopeReport(
   }
 
   const lines = [header, formatTable(rows), "", summaryLine(report)];
+  const providers = missingLlmProviders(report);
+  if (providers.length > 0) {
+    lines.push(
+      `  ${red("✗ No LLM provider key set")} ${dim(`— set one of ${providers.map((spec) => spec.key).join(", ")} (pnpm engenty env init)`)}`
+    );
+  }
   if (report.extras.length > 0) {
     lines.push(
       `  ${dim(`extra keys (not in manifest, left untouched): ${report.extras.join(", ")}`)}`

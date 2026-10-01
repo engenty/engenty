@@ -22,47 +22,10 @@
   "env": {
     "feature": {
       "id": "ai",
-      "label": "AI copilot (Vercel AI Gateway)",
-      "description": "Copilot agents and AI tooling (apps/ai)",
-      "recommended": true
+      "label": "AI extras",
+      "description": "Voice (Mistral + ElevenLabs), xAI, semantic recall, gateway model sync"
     },
     "vars": [
-      {
-        "description": "Vercel AI Gateway API key — required for the copilot (apps/ai). Create at https://vercel.com/d?to=/[team]/~/ai/api-keys",
-        "feature": "ai",
-        "group": "AI",
-        "key": "AI_GATEWAY_API_KEY",
-        "configurable": "platform",
-        "obtain": {
-          "kind": "provider",
-          "instructions": [
-            "1. Open the Vercel dashboard → AI Gateway → API keys",
-            "2. Create a key and copy it"
-          ],
-          "url": "https://vercel.com/docs/ai-gateway"
-        },
-        "required": "feature",
-        "scopes": ["root", "deploy"],
-        "secret": true
-      },
-      {
-        "description": "OpenRouter API key — optional second model gateway. Set it to bind roles to OpenRouter models in Settings → AI models; Vercel-bound roles keep using AI_GATEWAY_API_KEY.",
-        "feature": "ai",
-        "group": "AI",
-        "key": "OPENROUTER_API_KEY",
-        "configurable": "platform",
-        "obtain": {
-          "kind": "provider",
-          "instructions": [
-            "1. Open https://openrouter.ai/settings/keys",
-            "2. Create a key and copy it"
-          ],
-          "url": "https://openrouter.ai/docs/api-reference/authentication"
-        },
-        "required": "optional",
-        "scopes": ["root", "deploy"],
-        "secret": true
-      },
       {
         "description": "Enable apps/ai to refresh the Gateway model catalog from Vercel AI Gateway on a schedule.",
         "defaultValue": "true",
@@ -90,24 +53,6 @@
         "secret": false
       },
       {
-        "description": "Opper API key — a third model gateway (OpenAI-compatible, EU-hosted). Chat models only; its catalog is listed once the key is set.",
-        "feature": "ai",
-        "group": "AI",
-        "key": "OPPER_API_KEY",
-        "configurable": "platform",
-        "obtain": {
-          "kind": "provider",
-          "instructions": [
-            "1. Open https://platform.opper.ai → API keys",
-            "2. Create a key and copy it"
-          ],
-          "url": "https://docs.opper.ai"
-        },
-        "required": "optional",
-        "scopes": ["root", "deploy"],
-        "secret": true
-      },
-      {
         "description": "SpaceX AI (xAI) API key — reaches Grok models directly as a model gateway (chat models).",
         "feature": "ai",
         "group": "AI",
@@ -120,40 +65,6 @@
             "2. Create a key and copy it"
           ],
           "url": "https://console.x.ai"
-        },
-        "required": "optional",
-        "scopes": ["root", "deploy"],
-        "secret": true
-      },
-      {
-        "description": "OpenAI API key — reaches OpenAI directly as a model gateway (chat models) and powers realtime voice.",
-        "feature": "ai",
-        "group": "AI",
-        "key": "OPENAI_API_KEY",
-        "configurable": "platform",
-        "obtain": {
-          "kind": "provider",
-          "instructions": [
-            "Create a key under API keys in the OpenAI platform."
-          ],
-          "url": "https://platform.openai.com/api-keys"
-        },
-        "required": "optional",
-        "scopes": ["root", "deploy"],
-        "secret": true
-      },
-      {
-        "description": "Anthropic API key — reaches Anthropic directly as a model gateway (chat models).",
-        "feature": "ai",
-        "group": "AI",
-        "key": "ANTHROPIC_API_KEY",
-        "configurable": "platform",
-        "obtain": {
-          "kind": "provider",
-          "instructions": [
-            "Create a key under API keys in the Anthropic console."
-          ],
-          "url": "https://console.anthropic.com/settings/keys"
         },
         "required": "optional",
         "scopes": ["root", "deploy"],

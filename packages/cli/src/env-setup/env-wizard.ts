@@ -17,7 +17,12 @@ import {
 import { resolveSupabaseCliBin } from "../db/supabase-cli-bin.js";
 import { isInteractiveTerminal } from "../select-loop.js";
 import { needsAttention, renderScopeReport } from "./env-check.js";
-import { diffScope, generatableGaps, type ScopeReport } from "./env-diff.js";
+import {
+  diffScope,
+  generatableGaps,
+  missingLlmProviders,
+  type ScopeReport,
+} from "./env-diff.js";
 import { renderExampleFile } from "./env-example-render.js";
 import {
   type EnvDocument,
@@ -54,6 +59,8 @@ const CANCELLED = Symbol("cancelled");
 interface WizardState {
   docs: Map<EnvScope, EnvDocument>;
   features: Set<string>;
+  /** Keys of the LLM providers picked in the wizard — at least one. */
+  llmProviders: Set<string>;
   scopes: EnvScope[];
   /** No TTY: take every default and skip the prompts instead of hanging on them. */
   unattended: boolean;
@@ -144,7 +151,7 @@ async function selectFeatures(
   const preselected = features
     .filter(
       (feature) =>
-        // Recommended features (e.g. the AI copilot) start checked on a fresh
+        // Recommended features start checked on a fresh
         // setup; anything already configured stays checked too.
         feature.recommended === true ||
         specsFor(state).some(
@@ -174,6 +181,51 @@ async function selectFeatures(
     return CANCELLED;
   }
   state.features = new Set(picked);
+  return;
+}
+
+/**
+ * Not an optional feature: without a model gateway key the copilot cannot
+ * answer. Ask which providers to set up — keys already set stay checked, a
+ * fresh setup starts on the first (Vercel AI Gateway) — and let
+ * promptProviderVars ask for each picked key.
+ */
+async function selectLlmProviders(
+  state: WizardState
+): Promise<typeof CANCELLED | undefined> {
+  const providers = specsFor(state).filter(({ spec }) => spec.llmProvider);
+  const keys = [...new Set(providers.map(({ spec }) => spec.key))];
+  if (keys.length === 0) {
+    return;
+  }
+  const configured = keys.filter((key) =>
+    providers.some(
+      ({ scope, spec }) => spec.key === key && !needsValue(state, scope, spec)
+    )
+  );
+  const initialValues = configured.length > 0 ? configured : [keys[0]];
+  if (state.unattended) {
+    state.llmProviders = new Set(configured);
+    return;
+  }
+  const picked = await multiselect({
+    initialValues,
+    message:
+      "Which LLM providers do you want to set up? (at least one · space to toggle)",
+    options: keys.map((key) => {
+      const spec = providers.find((entry) => entry.spec.key === key)?.spec;
+      return {
+        hint: spec?.llmProvider?.hint,
+        label: spec?.llmProvider?.label ?? key,
+        value: key,
+      };
+    }),
+    required: true,
+  });
+  if (isCancel(picked)) {
+    return CANCELLED;
+  }
+  state.llmProviders = new Set(picked);
   return;
 }
 
@@ -484,8 +536,9 @@ async function promptProviderVars(
   const pending = specsFor(state).filter(
     ({ scope, spec }) =>
       (spec.obtain.kind === "provider" || spec.obtain.kind === "manual") &&
-      spec.feature !== undefined &&
-      isActive(state, spec) &&
+      (spec.llmProvider
+        ? state.llmProviders.has(spec.key)
+        : spec.feature !== undefined && isActive(state, spec)) &&
       needsValue(state, scope, spec)
   );
 
@@ -522,8 +575,11 @@ async function promptProviderVars(
     if (value === "") {
       // Skipping is fine; pretending it changes nothing is not. Name what
       // stays off and where the value can be set later.
+      const staysOff = spec.llmProvider
+        ? `${spec.llmProvider.label} models are`
+        : `${spec.feature ? `"${featureLabel(state, spec.feature)}"` : "what depends on it"} stays`;
       note(
-        `${spec.key} skipped — ${spec.feature ? `"${featureLabel(state, spec.feature)}"` : "what depends on it"} stays off until it is set.\nLater: pnpm engenty env edit ${spec.key}${spec.configurable === "platform" ? ", or in the app under Setup → Platform settings" : ""}.`,
+        `${spec.key} skipped — ${staysOff} off until it is set.\nLater: pnpm engenty env edit ${spec.key}${spec.configurable === "platform" ? ", or in the app under Setup → Platform settings" : ""}.`,
         "Skipped"
       );
       continue;
@@ -572,6 +628,9 @@ function finalReport(state: WizardState): {
         blocking++;
       }
     }
+    if (missingLlmProviders(report).length > 0) {
+      browser.push("an LLM provider key");
+    }
     sections.push(renderScopeReport(state.workspaceRoot, report));
   }
   return { blocking, browser, text: sections.join("\n\n") };
@@ -602,6 +661,7 @@ export async function runEnvInitWizard(
   const state: WizardState = {
     docs: new Map(),
     features: new Set(),
+    llmProviders: new Set(),
     scopes,
     unattended: !isInteractiveTerminal(),
     workspaceRoot: resolveWorkspaceRoot(),
@@ -614,6 +674,7 @@ export async function runEnvInitWizard(
 
   const steps = [
     selectFeatures,
+    selectLlmProviders,
     applyManifestDefaultsStep,
     generateSecrets,
     harvestSupabase,

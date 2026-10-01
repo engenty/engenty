@@ -100,6 +100,18 @@ export function requiredGaps(report: ScopeReport): EnvVarReport[] {
   );
 }
 
+/**
+ * The LLM provider keys of this scope when none of them is usable — the
+ * one-of requirement no single var can express. Empty when one is set.
+ */
+export function missingLlmProviders(report: ScopeReport): EnvVarSpec[] {
+  const providers = report.vars.filter((entry) => entry.spec.llmProvider);
+  if (providers.some((entry) => entry.status === "ok")) {
+    return [];
+  }
+  return providers.map((entry) => entry.spec);
+}
+
 /** Generate-kind vars that are currently unset/unusable. */
 export function generatableGaps(report: ScopeReport): EnvVarReport[] {
   return report.vars.filter(
