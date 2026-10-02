@@ -4,6 +4,19 @@ All notable changes to Engenty. Generated from [Conventional Commits](https://ww
 by [git-cliff](https://git-cliff.org) via `pnpm release`. Pre-`1.0`: a **minor**
 bump is a notable or breaking change, **patch** is fixes and small features.
 
+## [0.2.37] - 2026-10-02
+- ADDED **[ai]** Enter steers a message into the running turn, attachments included
+- ADDED **[ai]** Restart, step timeout and memory setting for the Space browser
+- ADDED **[ai-ui]** Link hand-offs while the colleague works and describe its progress in words
+- ADDED **[ai-ui]** Show live run status with elapsed time in the agent desk header
+- FIXED **[ui]** List a wizard on a Space home only where its owner is mounted
+- FIXED **[engenty-apps]** Resolve bridge calls to the operation's structuredContent
+- FIXED **[ai-ui]** Hand an App's tool call answer back instead of "ok"
+- FIXED **[ai]** Ask for a workflow review only when the version stays a draft
+- FIXED **[ai]** Refuse a second answer to a workflow gate instead of failing the run
+- FIXED **[ai]** Name the step limit even when the turn already wrote progress text
+- FIXED **[ai-ui]** Keep a resumed run to one writer so its text does not interleave
+
 ## [0.2.36] - 2026-10-01
 - ADDED **[cli]** Ask for LLM providers as a required env init step
 

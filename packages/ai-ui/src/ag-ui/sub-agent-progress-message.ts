@@ -82,9 +82,40 @@ function seedTranscriptPartsFromToolCalls(message: Message): unknown[] {
   return parts;
 }
 
+/**
+ * The pair room a colleague answers in, as the progress event names it. It
+ * rides on the row's input in the result's own field names, so the hand-off
+ * row links there while the colleague still works — the result that used to
+ * be the only carrier lands when the call returns.
+ */
+export interface SubAgentProgressRoom {
+  childThreadId: string;
+  roomHostAgentId?: string | null;
+  spaceId?: string | null;
+}
+
+function roomInput(
+  room: SubAgentProgressRoom | null | undefined
+): Record<string, string> {
+  if (!room) {
+    return {};
+  }
+  return {
+    child_thread_id: room.childThreadId,
+    ...(room.roomHostAgentId
+      ? { room_host_agent_id: room.roomHostAgentId }
+      : {}),
+    ...(room.spaceId ? { space_id: room.spaceId } : {}),
+  };
+}
+
 function appendProgressToTranscriptParts(
   parts: unknown[],
-  input: { line: string; toolCallId: string }
+  input: {
+    line: string;
+    room?: SubAgentProgressRoom | null;
+    toolCallId: string;
+  }
 ): unknown[] {
   return parts.map((item) => {
     if (!(isRecord(item) && isAssistantDynamicToolPart(item))) {
@@ -103,7 +134,12 @@ function appendProgressToTranscriptParts(
         : []),
       input.line,
     ];
-    return { ...item, progressLines };
+    const room = roomInput(input.room);
+    if (Object.keys(room).length === 0) {
+      return { ...item, progressLines };
+    }
+    const itemInput = isRecord(item.input) ? item.input : {};
+    return { ...item, input: { ...room, ...itemInput }, progressLines };
   });
 }
 
@@ -179,11 +215,12 @@ export function adoptSubAgentPlaceholder(
 function openingPart(input: {
   agentId: string;
   line: string;
+  room?: SubAgentProgressRoom | null;
   toolCallId: string;
   toolName: string;
 }): Record<string, unknown> {
   return {
-    input: { agent_id: input.agentId },
+    input: { agent_id: input.agentId, ...roomInput(input.room) },
     progressLines: [input.line],
     state: "input-available",
     toolCallId: input.toolCallId,
@@ -198,6 +235,7 @@ export function appendSubAgentProgressToAgUiMessages(
     agentId?: string | null;
     line: string;
     messageId?: string | null;
+    room?: SubAgentProgressRoom | null;
     toolCallId: string;
     toolName?: string | null;
   }
@@ -219,6 +257,7 @@ export function appendSubAgentProgressToAgUiMessages(
       : openingPart({
           agentId,
           line: input.line,
+          room: input.room,
           toolCallId: input.toolCallId,
           toolName,
         });

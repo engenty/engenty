@@ -27,12 +27,13 @@ describe("AgentMessageToolCallCard", () => {
   it("shows only the newest progress line while the hand-off runs", () => {
     const { rerender } = renderCard({
       input: { agent_id: "tim", message: "Your turn." },
-      progressLines: ["Running table_read", "Running table_write"],
+      progressLines: ["Running web_search", "Running artifact_read"],
       state: "running",
     });
 
+    // In words, never the tool id.
     expect(screen.getByTestId("agent-message-progress").textContent).toBe(
-      "Running table_write"
+      "agentDesk.activity.now.reading"
     );
 
     rerender(
@@ -41,7 +42,7 @@ describe("AgentMessageToolCallCard", () => {
           <AgentMessageToolCallCard
             input={{ agent_id: "tim", message: "Your turn." }}
             output={{ agent: "Tim", agent_id: "tim", ok: true, result: "x→5" }}
-            progressLines={["Running table_write"]}
+            progressLines={["Running artifact_read"]}
             state="completed"
             toolName="message_agent"
           />

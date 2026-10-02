@@ -32,6 +32,10 @@ import {
   ROOM_PAUSED_KEY,
   ROOM_PURPOSE_KEY,
 } from "../rooms/room-turns.js";
+import {
+  STEERED_MESSAGE_KEY,
+  type SteeredMessageMetadata,
+} from "../sessions/active-thread-runs.js";
 import { speakerUserIdFromMastraMessage } from "../sessions/speaker-turn-processor.js";
 import { TOOL_APPROVAL_GRANTS_ONCE_METADATA_KEY } from "../sessions/tool-approval-grants.js";
 import type { AiScopeCredential } from "../sessions/types.js";
@@ -659,8 +663,12 @@ export class EngentySessionMemoryStorage extends ObservationalMemoryDelegatingSt
       const attributedUserId = scopeAttributionUserId(this.#scope);
       // Shared rooms key Mastra resourceId on the Space (or thread). That is
       // not a user id (FK to core.users) — persist the authenticated speaker.
-      const authorUserId =
-        role === "user" && attributedUserId
+      // A message a person put into this run while it was answering
+      // (active-thread-runs.ts). Its row is written from what it carries.
+      const steered = role === "user" ? steeredMessageOf(message) : null;
+      const authorUserId = steered
+        ? (steered.author_user_id ?? null)
+        : role === "user" && attributedUserId
           ? speakerUserIdFromMastraMessage(message, attributedUserId, {
               ...(this.#spaceId ? { spaceId: this.#spaceId } : {}),
             })
@@ -672,7 +680,12 @@ export class EngentySessionMemoryStorage extends ObservationalMemoryDelegatingSt
       // those (the durable part references the storage key instead; inline
       // base64 would bloat the DB and re-enter every future prompt via recall).
       let parts = message.content.parts as unknown[];
-      if (
+      if (steered) {
+        parts = [
+          ...(steered.text ? [{ text: steered.text, type: "text" }] : []),
+          ...(steered.attachment_parts ?? []),
+        ];
+      } else if (
         role === "user" &&
         !this.#userAttachmentsSaved &&
         this.#userAttachmentParts.length > 0
@@ -707,11 +720,22 @@ export class EngentySessionMemoryStorage extends ObservationalMemoryDelegatingSt
           ? rows.find((row) => userSignalIdOfRow(row) === signalId)
           : undefined;
       }
+      // A steered message keeps the client's id — a re-save (a snapshot
+      // resume) lands on the row the first flush wrote.
+      if (!existing && steered) {
+        existing = rows.find((row) => row.id === steered.message_id);
+      }
 
       // Artifact-resume nudges ("Approved: you may now run …") must reach the
       // model via sendMessage but must not land as a user bubble. History user
-      // rows still re-save through `existing` above.
-      if (!existing && role === "user" && !this.#persistCurrentUserTurn) {
+      // rows still re-save through `existing` above. A steered message is a
+      // person's own words — it lands even on a turn whose prompt does not.
+      if (
+        !existing &&
+        role === "user" &&
+        !this.#persistCurrentUserTurn &&
+        !steered
+      ) {
         messages.push(message);
         continue;
       }
@@ -720,9 +744,9 @@ export class EngentySessionMemoryStorage extends ObservationalMemoryDelegatingSt
       // the durable row matches what the run stream and every lane render.
       // History user messages loaded from our own rows hit `existing` above
       // and are untouched.
-      let insertId = stableId;
+      let insertId = steered ? steered.message_id : stableId;
       if (
-        !existing &&
+        !(existing || steered) &&
         role === "user" &&
         this.#userMessageId &&
         (this.#userMessageIdConsumedBy === null ||
@@ -998,6 +1022,27 @@ export function userSignalId(message: MastraDBMessage): string | null {
   return typeof id === "string" && id ? id : null;
 }
 
+/** What a steered user signal carries for its row (active-thread-runs.ts). */
+function steeredMessageOf(
+  message: MastraDBMessage
+): SteeredMessageMetadata | null {
+  const steered = (
+    message.content as
+      | { metadata?: { signal?: { metadata?: Record<string, unknown> } } }
+      | undefined
+  )?.metadata?.signal?.metadata?.[STEERED_MESSAGE_KEY] as
+    | Partial<SteeredMessageMetadata>
+    | undefined;
+  const id = steered?.message_id;
+  return typeof id === "string" && UUID_PATTERN.test(id)
+    ? {
+        ...steered,
+        message_id: id,
+        text: typeof steered?.text === "string" ? steered.text : "",
+      }
+    : null;
+}
+
 /**
  * The same identity as persisted on one of our rows.
  *
@@ -1232,14 +1277,14 @@ function mastraRoleToSessionRole(
  * A conversation user turn arrives as a Mastra **signal** message — `sendMessage`
  * wraps it as a `type: 'user'` signal (role `"signal"`, with the signal kind in
  * `content.metadata.signal.type`). Persist it as a real user turn (role `"user"` +
- * author) so the chat renders it. Without this it falls into the generic
- * signal→system mapping and the user's message vanishes from the UI.
+ * author) so the chat renders it. Without this it is stored as a `signal` row,
+ * which the transcript hides, and the user's message vanishes from the UI.
  *
- * Explicit signal policy (Mastra 1.52 MastraDBMessage shape):
+ * Signal policy:
  * - `signal.type === "user"` → store as visible user turn
- * - other signals (state / notification / schedule / control) → store as
- *   `system` (not dropped): the model may need the reminder, and the chat UI
- *   already hides system rows from the main transcript
+ * - other signals (state / notification / schedule / control) → keep role
+ *   `signal` (see `mastraRoleToSessionRole`): Mastra rebuilds them by role, and
+ *   the transcript excludes `signal` rows
  */
 function isUserMessageSignal(message: MastraDBMessage): boolean {
   if (message.role !== "signal") {

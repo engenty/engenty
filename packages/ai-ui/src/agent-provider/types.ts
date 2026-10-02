@@ -34,6 +34,11 @@ export type EngentyAgentStatus = "ready" | "submitted" | "streaming" | "error";
 export interface SubmitMessageOptions {
   /** Uploaded photo/file attachments carried on the user turn (AG-UI content parts). */
   attachments?: ChatAttachmentPart[];
+  /**
+   * While a run is answering: wait for it to finish (Mod+Enter) instead of
+   * joining it. Read by the composer only — never sent with the message.
+   */
+  queue?: boolean;
   /** Typed @-mention references (ObjectRefs) carried on the user turn. */
   refs?: ChatReferenceItem[];
   /** Per-send agent override resolved from an `@mention` in the composer. */

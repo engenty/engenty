@@ -355,6 +355,15 @@ export function createMessageAgentTool(
           toolCallId,
           toolName: MESSAGE_AGENT_TOOL_ID,
           ...(pairThreadId ? { childThreadId: pairThreadId } : {}),
+          ...(pairThread && spaceId
+            ? {
+                pairRoom: {
+                  hostAgentId: pairThread.agentId,
+                  spaceId,
+                  threadId: pairThread.id,
+                },
+              }
+            : {}),
         });
         if (result.ok === true && pairThread && spaceId) {
           // The desk that received "Message from …" now shows what its

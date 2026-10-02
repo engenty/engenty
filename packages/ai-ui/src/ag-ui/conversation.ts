@@ -583,6 +583,7 @@ export function reduceEngentyAgUiConversationEvent(
         return { ...current, events: [...current.events, event] };
       }
       const messageId = value ? getString(value.messageId) : null;
+      const childThreadId = value ? getString(value.childThreadId) : null;
       return {
         ...current,
         events: [...current.events, event],
@@ -590,6 +591,15 @@ export function reduceEngentyAgUiConversationEvent(
           agentId: value ? getString(value.agentId) : null,
           line,
           messageId,
+          room: childThreadId
+            ? {
+                childThreadId,
+                roomHostAgentId: value
+                  ? getString(value.roomHostAgentId)
+                  : null,
+                spaceId: value ? getString(value.spaceId) : null,
+              }
+            : null,
           toolCallId,
           toolName: value ? getString(value.toolName) : null,
         }),

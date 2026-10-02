@@ -52,7 +52,10 @@ describe("useChatLaneComposer while a run is in flight", () => {
       result.current.submitMessage("Tom, say the move number.");
     });
 
-    expect(steer).toHaveBeenCalledWith("Tom, say the move number.", undefined);
+    expect(steer).toHaveBeenCalledWith(
+      "Tom, say the move number.",
+      expect.anything()
+    );
     expect(agentHost.cancel).not.toHaveBeenCalled();
     expect(agentHost.submitMessage).not.toHaveBeenCalled();
     expect(result.current.queue.queued).toEqual([]);
@@ -74,7 +77,7 @@ describe("useChatLaneComposer while a run is in flight", () => {
     ]);
   });
 
-  it("still queues behind this window's own run", async () => {
+  it("steers into this window's own run too, and never cancels it", async () => {
     const steer = vi.fn(async () => true);
     const agentHost = host({ attachedRunId: null, steer });
     const { result } = render(agentHost, "streaming");
@@ -83,10 +86,59 @@ describe("useChatLaneComposer while a run is in flight", () => {
       result.current.submitMessage("mine");
     });
 
+    expect(steer).toHaveBeenCalledWith("mine", expect.anything());
+    expect(agentHost.cancel).not.toHaveBeenCalled();
+    expect(result.current.queue.queued).toEqual([]);
+  });
+
+  it("Mod+Enter waits for the run instead of joining it", async () => {
+    const steer = vi.fn(async () => true);
+    const agentHost = host({ attachedRunId: null, steer });
+    const { result } = render(agentHost, "streaming");
+
+    await act(async () => {
+      result.current.submitMessage("after this", { queue: true });
+    });
+
+    expect(steer).not.toHaveBeenCalled();
+    expect(agentHost.cancel).not.toHaveBeenCalled();
+    expect(result.current.queue.queued.map((row) => row.text)).toEqual([
+      "after this",
+    ]);
+  });
+
+  it("a turn for another agent waits instead of joining this agent's run", async () => {
+    const steer = vi.fn(async () => true);
+    const agentHost = host({ attachedRunId: null, steer });
+    const { result } = render(agentHost, "streaming");
+
+    await act(async () => {
+      result.current.submitMessage("over to you", {
+        requestedAgentId: "agent-b",
+      });
+    });
+
     expect(steer).not.toHaveBeenCalled();
     expect(result.current.queue.queued.map((row) => row.text)).toEqual([
-      "mine",
+      "over to you",
     ]);
+  });
+
+  it("send now on a queued message steers it instead of stopping the run", async () => {
+    const steer = vi.fn(async () => true);
+    const agentHost = host({ attachedRunId: null, steer });
+    const { result } = render(agentHost, "streaming");
+    await act(async () => {
+      result.current.submitMessage("later", { queue: true });
+    });
+
+    await act(async () => {
+      result.current.queue.sendNow(result.current.queue.queued[0]!.id);
+    });
+
+    expect(steer).toHaveBeenCalledWith("later", expect.anything());
+    expect(agentHost.cancel).not.toHaveBeenCalled();
+    expect(agentHost.submitMessage).not.toHaveBeenCalled();
   });
 });
 

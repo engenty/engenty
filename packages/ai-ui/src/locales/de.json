@@ -412,6 +412,7 @@
         "webFetch": "Liest {{source}}",
         "writing": "Schreibt „{{title}}“",
         "writingUntitled": "Schreibt ein Dokument",
+        "buildingApp": "Baut die App",
         "reading": "Liest ein Dokument",
         "guide": "Liest eine Anleitung",
         "noting": "Macht sich eine Notiz",

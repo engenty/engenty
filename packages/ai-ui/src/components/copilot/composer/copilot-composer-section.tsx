@@ -329,8 +329,23 @@ export function CopilotComposerSection({
     [t]
   );
 
+  // Mod+Enter submits like Enter but asks to wait for a running turn instead
+  // of joining it. The textarea's own Enter handling submits the form; the
+  // key handler only marks which of the two this submit is.
+  const queueIntentRef = useRef(false);
+  const markQueueIntent = useCallback(
+    (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (event.key === "Enter" && !event.shiftKey) {
+        queueIntentRef.current = event.metaKey || event.ctrlKey;
+      }
+    },
+    []
+  );
+
   const handleSubmit = useCallback(
     async (message: PromptInputMessage) => {
+      const queue = queueIntentRef.current;
+      queueIntentRef.current = false;
       let text = message.text?.trim() ?? "";
       const files = message.files ?? [];
       if (!text && files.length === 0) {
@@ -409,6 +424,7 @@ export function CopilotComposerSection({
       }
 
       submitMessage(text, {
+        ...(queue ? { queue } : {}),
         ...(resolved.requestedAgentId
           ? { requestedAgentId: resolved.requestedAgentId }
           : {}),
@@ -472,8 +488,11 @@ export function CopilotComposerSection({
       if (!event.defaultPrevented) {
         slash.handleSlashKeyDown(event);
       }
+      if (!event.defaultPrevented) {
+        markQueueIntent(event);
+      }
     },
-    [mention, slash]
+    [markQueueIntent, mention, slash]
   );
 
   // One-row dock: when the textarea wraps to multiple lines, the +/- send
@@ -797,6 +816,7 @@ export function CopilotComposerSection({
           <PromptInputTextarea
             className="min-h-[88px]"
             onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={markQueueIntent}
             placeholder={composerPlaceholder}
           />
         </PromptInputBody>

@@ -16,6 +16,7 @@
  */
 import type { RunAgentInput } from "@engenty/ag-ui-bridge";
 import { getEngentyCoreBaseUrlFromEnv } from "../../ai/core-http-client.js";
+import type { SteerContentPart } from "../../ai/sessions/active-thread-runs.js";
 import { createEngentyCoreFileStorageClient } from "../../ai/workspace/core-file-storage-client.js";
 import {
   extractedMarkdownSidecarKey,
@@ -650,4 +651,26 @@ export async function resolveTieredAttachments(params: {
     ],
     modelAttachments,
   };
+}
+
+/**
+ * A resolution as message parts, for a message steered into a running run:
+ * the run's context is already set, so the document manifest travels as text
+ * in the message itself, next to the image files.
+ */
+export function tieredAttachmentsAsMessageParts(
+  resolution: TieredAttachmentResolution
+): SteerContentPart[] {
+  return [
+    ...resolution.contextEntries.map((entry) => ({
+      text: entry.value,
+      type: "text" as const,
+    })),
+    ...resolution.modelAttachments.map((file) => ({
+      data: file.data,
+      mediaType: file.mediaType,
+      type: "file" as const,
+      ...(file.filename ? { filename: file.filename } : {}),
+    })),
+  ];
 }

@@ -1403,6 +1403,10 @@ export function useEngentyAgUiAppsAiSession(
         return;
       }
       resumeInFlightRef.current = true;
+      // A resume streams into the lane exactly like a send: run recovery must
+      // see it in flight, or the realtime "running" for the resumed run
+      // attaches a second writer to the same message.
+      submitInFlightRef.current = true;
       abortRef.current?.abort();
       const abortController = new AbortController();
       abortRef.current = abortController;
@@ -1458,7 +1462,10 @@ export function useEngentyAgUiAppsAiSession(
         abortController,
         runInput,
         threadId,
-      }).finally(drainNextResume);
+      }).finally(() => {
+        submitInFlightRef.current = false;
+        drainNextResume();
+      });
     },
     [drainNextResume, options, resolveActiveThreadId, runThreadStream]
   );
@@ -1644,8 +1651,9 @@ export function useEngentyAgUiAppsAiSession(
   }, [clearPendingSend, options.threadId]);
 
   /**
-   * A person's words into the run already answering on this thread. Posts a
-   * steer-only run; the server puts the text into the live loop and answers
+   * A person's message into the run already answering on this thread — this
+   * window's own turn or one it attached to. Posts a steer-only run; the
+   * server puts the text and attachments into the live loop and answers
    * a finished run, or 409 when the loop ended first — then the caller
    * sends the message the ordinary way. Resolves true when steered.
    */
@@ -1653,7 +1661,13 @@ export function useEngentyAgUiAppsAiSession(
     async (text: string, opts?: SubmitMessageOptions): Promise<boolean> => {
       const trimmed = text.trim();
       const threadId = resolveActiveThreadId();
-      if (!(trimmed && threadId && options.isTransportReady)) {
+      if (
+        !(
+          (trimmed || opts?.attachments?.length) &&
+          threadId &&
+          options.isTransportReady
+        )
+      ) {
         return false;
       }
       const userMessage = createUserMessage(
@@ -1701,7 +1715,7 @@ export function useEngentyAgUiAppsAiSession(
         // The words are in the loop and on the thread; show them here now.
         conversation.appendUserMessage(userMessage);
         messagesRef.current = [...messagesRef.current, userMessage];
-        logCopilotChatNew("steered into attached run", {
+        logCopilotChatNew("steered into running run", {
           runId: attachedRunId,
           threadId,
         });

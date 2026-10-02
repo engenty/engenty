@@ -38,7 +38,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { resolveAgentDisplayName } from "../../ag-ui/resolve-transcript-tool-display.js";
 import { MessageResponse } from "../../components/presentation.js";
-import type { WorkflowRunActivity } from "../../hooks/use-workflow-run-status.js";
 import {
   type ActionRunPhase,
   useWorkflowRunStatus,
@@ -52,6 +51,7 @@ import {
   workflowKeys,
 } from "../workflow-canvas/workflow-queries.js";
 import { conversationEngagement } from "./agent-desk-url.js";
+import { describeToolActivity } from "./describe-tool-activity.js";
 import { formatElapsed, useNow } from "./elapsed.js";
 import { agentDeskKeys } from "./use-agent-desk-feed.js";
 import { useAgentRoutineActivity } from "./use-agent-routine-activity.js";
@@ -149,53 +149,6 @@ function combinedStepState(states: StepState[]): StepState {
   return states.some((s) => s === "done") ? "running" : "idle";
 }
 
-/**
- * What the run is doing right now, in words — from the step's latest tool
- * call. Never a tool name: a call without a phrase of its own reads as
- * "working".
- */
-function describeRunActivity(
-  activity: WorkflowRunActivity,
-  t: (key: string, values?: Record<string, string>) => string
-): string {
-  const { args, toolName } = activity;
-  const key = "agentDesk.activity.now";
-  switch (toolName) {
-    case "web_search":
-      return args.query
-        ? t(`${key}.webSearch`, { query: args.query })
-        : t(`${key}.working`);
-    case "web_fetch": {
-      let source = args.url ?? "";
-      try {
-        source = new URL(source).hostname.replace(/^www\./, "");
-      } catch {
-        // not a URL — say it as given
-      }
-      return source ? t(`${key}.webFetch`, { source }) : t(`${key}.working`);
-    }
-    case "artifact_write":
-      return args.title
-        ? t(`${key}.writing`, { title: args.title })
-        : t(`${key}.writingUntitled`);
-    case "artifact_read":
-    case "show_artifact":
-      return t(`${key}.reading`);
-    case "skill":
-    case "skill_search":
-      return t(`${key}.guide`);
-    case "memory_note":
-    case "working_memory_set":
-      return t(`${key}.noting`);
-    case "engenty_tools_search":
-    case "engenty_tools_discover":
-    case "engenty_tools_modules":
-      return t(`${key}.lookingUp`);
-    default:
-      return t(`${key}.working`);
-  }
-}
-
 export function AgentDeskRunActivity(props: {
   agentId: string;
   locale: string;
@@ -243,7 +196,7 @@ export function AgentDeskRunActivity(props: {
   const phase = state?.phase ?? null;
   const doingNow =
     phase === "running" && state?.activity
-      ? describeRunActivity(state.activity, t)
+      ? describeToolActivity(state.activity, t)
       : null;
   const gate = snapshot?.gate ?? null;
   // Parked with no gate is a review hold (`report: ask`): the fire finished

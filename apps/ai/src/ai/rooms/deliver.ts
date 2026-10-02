@@ -27,6 +27,7 @@ import { runDelegatedConversation } from "../conversation/delegate-run.js";
 import { buildHeadlessWorkspace } from "../jobs/headless-workspace.js";
 import { resolveTaskJobServiceScope } from "../jobs/task-job-scope.js";
 import type { AiRegistry, RuntimeModelConfig } from "../registry/index.js";
+import { noteThreadRunStarting } from "../sessions/active-thread-runs.js";
 import {
   resolveRunSpaceById,
   toolsSpaceFromResolution,
@@ -343,6 +344,9 @@ async function runRoomTurn(input: RoomTurnInput): Promise<void> {
   // The thread says a turn is on: the desk attaches to it (and steers a
   // person's words into it instead of starting a turn beside it), and a
   // person's own lane waits for it. Same marker the chat lane sets.
+  // From the marker on, a person's words wait for this turn's loop instead
+  // of queueing behind it while the agent is still being assembled.
+  const releaseStarting = noteThreadRunStarting(room.id);
   await input.store.setThreadStatus({
     status: "running",
     tenantId: room.tenant_id,
@@ -364,7 +368,7 @@ async function runRoomTurn(input: RoomTurnInput): Promise<void> {
     store: input.store,
     ...(ws?.workspace ? { workspace: ws.workspace } : {}),
     ...(ws?.sandboxProvider ? { sandboxProvider: ws.sandboxProvider } : {}),
-  });
+  }).finally(releaseStarting);
   // Another run may have started on the thread meanwhile (a person's live
   // turn); its own end writes the status then, so this one leaves it alone.
   if (

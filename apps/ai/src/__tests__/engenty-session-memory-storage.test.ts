@@ -730,6 +730,98 @@ describe("EngentySessionMemoryStorage", () => {
     expect(list.get.all.ui().at(-1)?.role).toBe("user");
   });
 
+  it("persists a steered message in flush order, as its sender, with storage-key attachments — once", async () => {
+    // A person's message put into a running room turn: the room's own
+    // prompt is not persisted, the steered message is. Mastra hands it over
+    // with the image as inline base64 and the model-only attachment
+    // manifest; the row keeps the person's words and the storage key only.
+    const steeredId = "44444444-4444-4444-8444-444444444444";
+    const colleagueId = "00000000-0000-4000-8000-000000000009";
+    const imagePart = {
+      metadata: { engenty_attachment: { storage_key: "t/uploads/cat.png" } },
+      type: "image",
+    };
+    const rows: ThreadMessageRow[] = [];
+    const store = makeStore({
+      appendMessage: vi.fn(async (input) => {
+        const existing = rows.find((row) => row.id === input.id);
+        if (existing) {
+          return { message: existing };
+        }
+        const row: ThreadMessageRow = {
+          author_user_id: input.authorUserId ?? null,
+          created_at: "2026-05-17T00:00:02.000Z",
+          id: input.id ?? messageId,
+          parts: input.parts as ThreadMessageRow["parts"],
+          role: input.role,
+          tenant_id: tenantId,
+          thread_id: input.threadId,
+        };
+        rows.push(row);
+        return { message: row };
+      }),
+      listMessagesOrdered: vi.fn(async () => [...rows]),
+    });
+    const storage = createEngentySessionMemoryStorage({
+      agentId: "engenty.copilot",
+      persistCurrentUserTurn: false,
+      scope: { tenantId, userId },
+      store,
+    });
+    const answerSoFar = {
+      id: "66666666-6666-4666-8666-666666666666",
+      role: "assistant",
+      createdAt: new Date("2026-05-17T00:00:01.000Z"),
+      threadId,
+      resourceId: userId,
+      content: { format: 2, parts: [{ type: "text", text: "Here is…" }] },
+    };
+    const steeredSignal = {
+      id: "55555555-5555-4555-8555-555555555555",
+      role: "signal",
+      createdAt: new Date("2026-05-17T00:00:02.000Z"),
+      threadId,
+      resourceId: userId,
+      content: {
+        format: 2,
+        parts: [
+          { type: "text", text: "and this one?" },
+          { type: "text", text: "The user attached these files: …" },
+          { type: "file", data: "iVBORw0KGgo=", mimeType: "image/png" },
+        ],
+        metadata: {
+          signal: {
+            id: "s-steer",
+            metadata: {
+              engenty_steered: {
+                attachment_parts: [imagePart],
+                author_user_id: colleagueId,
+                message_id: steeredId,
+                text: "and this one?",
+              },
+            },
+            type: "user",
+          },
+        },
+      },
+    };
+
+    await storage.saveMessages({
+      messages: [answerSoFar, steeredSignal] as never,
+    });
+    // A snapshot resume saves the same turn again.
+    await storage.saveMessages({ messages: [steeredSignal] as never });
+
+    expect(rows.map((row) => row.id)).toEqual([answerSoFar.id, steeredId]);
+    const steeredRow = rows[1]!;
+    expect(steeredRow.role).toBe("user");
+    expect(steeredRow.author_user_id).toBe(colleagueId);
+    expect(steeredRow.parts).toEqual([
+      { type: "text", text: "and this one?" },
+      imagePart,
+    ]);
+  });
+
   it("passes through messages for Mastra internal workflow threads", async () => {
     const store = makeStore();
     const storage = createEngentySessionMemoryStorage({

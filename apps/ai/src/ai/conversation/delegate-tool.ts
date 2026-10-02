@@ -39,6 +39,28 @@ import { runDelegatedConversation } from "./delegate-run.js";
 
 const logger = createLogger({ name: "delegate-tool" });
 
+/** Who is working on a progress line, and where its answer lands. */
+export interface DelegationProgressOrigin {
+  agentId: string;
+  /**
+   * The pair room the colleague answers in, while it still works — so the
+   * hand-off row links there before the call returns (only its result named
+   * the room until now). Absent for a throwaway delegation thread.
+   */
+  childThreadId?: string;
+  /** Whose desk the pair room sits on. */
+  roomHostAgentId?: string;
+  spaceId?: string;
+  toolName: string;
+}
+
+/** The pair room a hand-off answers in: its thread, host desk and Space. */
+export interface DelegationPairRoom {
+  hostAgentId: string;
+  spaceId: string;
+  threadId: string;
+}
+
 export interface DelegationToolDeps {
   abortSignal?: AbortSignal;
   /**
@@ -66,7 +88,7 @@ export interface DelegationToolDeps {
      * works there is no row for these lines to land on — the transcript can
      * draw one from this.
      */
-    origin?: { agentId: string; toolName: string }
+    origin?: DelegationProgressOrigin
   ) => void;
   /**
    * The PARENT run id — stamped onto the child's `ai.agent_run.metadata` so
@@ -120,6 +142,8 @@ interface DelegatedRunStart {
   /** The thread the child's transcript lands on. */
   childThreadId: string;
   onApprovalRequired?: EngentyToolsRunContext["onApprovalRequired"];
+  /** The pair room the child answers in, named on its progress lines. */
+  pairRoom?: DelegationPairRoom;
   toolCallId: string;
   /** The delegating tool as the transcript names it (`message_agent`, `agent-…`). */
   toolName: string;
@@ -177,6 +201,13 @@ async function startDelegatedRun(
       deps.onProgress(input.toolCallId, line, {
         agentId: input.agentId,
         toolName: input.toolName,
+        ...(input.pairRoom
+          ? {
+              childThreadId: input.pairRoom.threadId,
+              roomHostAgentId: input.pairRoom.hostAgentId,
+              spaceId: input.pairRoom.spaceId,
+            }
+          : {}),
       }),
   });
 }
@@ -224,6 +255,8 @@ export async function runDelegatedSpecialist(
      * answer gets a throwaway thread of its own.
      */
     childThreadId?: string;
+    /** The pair room behind `childThreadId`, named on progress lines. */
+    pairRoom?: DelegationPairRoom;
     /** The delegating tool's own execution context — the parent's HITL seam. */
     context?: ToolRequestContextCarrier<ToolApprovalSuspendPayload>;
     toolCallId: string;

@@ -24,6 +24,7 @@ import {
   isAppsAiRunInFlightStatus,
   isCopilotRunRecoveryEnabled,
   isTerminalRunWithPotentialUnflushedText,
+  mayAttachRecoveredRun,
   partitionSnapshotForRunAttach,
   pickLatestInFlightAppsAiRun,
   pickLatestTerminalAppsAiRun,
@@ -291,11 +292,18 @@ export function useAppsAiActiveRunRecovery(
         handedRun && isAppsAiRunInFlightStatus(handedRun.status)
           ? handedRun
           : pickLatestInFlightAppsAiRun(runsResult.runs);
-      if (inFlightRun && inFlightRun.id === options.activeRunIdRef?.current) {
-        // This window's own POST stream is delivering these events already
+      if (
+        inFlightRun &&
+        !mayAttachRecoveredRun({
+          localRunId: options.activeRunIdRef?.current,
+        })
+      ) {
+        // This window's own POST stream is delivering into the lane already
         // (seen live: an artifact auto-resume attached to itself and every
-        // text delta rendered twice).
+        // text delta rendered twice; an approval resume interleaved two
+        // streams). The terminal sync heals the transcript after it ends.
         logCopilotChatNew("run recovery skipped: locally streamed run", {
+          localRunId: options.activeRunIdRef?.current ?? null,
           runId: inFlightRun.id,
           threadId,
         });

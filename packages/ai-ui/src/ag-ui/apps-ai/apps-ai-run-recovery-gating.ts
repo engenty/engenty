@@ -27,6 +27,19 @@ export function isAppsAiRunInFlightStatus(
   return status === "queued" || status === "running";
 }
 
+/**
+ * Whether recovery may attach to the run it found. Never while this window's
+ * own POST stream still feeds the lane — whatever run that is: two writers
+ * into one lane message weave their deltas into each other (seen live after
+ * an approval resume: "AppApp C Coder hat die Diagnoder hat …").
+ */
+export function mayAttachRecoveredRun(input: {
+  /** Run this window streams via its own POST, null when none. */
+  localRunId: string | null | undefined;
+}): boolean {
+  return !input.localRunId;
+}
+
 /** Newest in-flight run when `getAiSessionRuns` returns oldest-first rows. */
 export function pickLatestInFlightAppsAiRun(
   runs: readonly AiAgentRunSummary[]

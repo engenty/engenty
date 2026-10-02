@@ -7,8 +7,7 @@ import type { SubmitMessageOptions } from "../agent-provider/types.js";
 // The copilot composer otherwise locks during a run; this lets the user keep
 // typing — messages queue and auto-send one at a time as each run finishes
 // (queue-after). The queue is reorderable, deletable, and any entry can be sent
-// immediately: `submit` STOPS the current run for real (server abort, as if the
-// user clicked Stop) and then sends, so "send now" = stop current + send.
+// immediately through `sendNow` (the composer puts it into the running loop).
 
 export interface QueuedCopilotMessage {
   id: string;
@@ -24,6 +23,8 @@ export interface UseCopilotMessageQueueParams {
   // interrupt is open the run is paused for the user, not finished, so sending
   // the next turn would cut across the pending approval.
   blocked?: boolean;
+  /** "Send now" on one entry; defaults to `submit`. */
+  sendNow?: (text: string, options?: SubmitMessageOptions) => void;
   // The run status driving the auto-drain: a "ready" transition sends the head.
   status: CopilotRunStatus;
   // Submit a message as a real run. MUST stop any in-flight run first — a real
@@ -50,7 +51,7 @@ export interface CopilotMessageQueue {
   remove: (id: string) => void;
   /** Move `fromId` to `toId`'s position (drag-and-drop reorder). */
   reorder: (fromId: string, toId: string) => void;
-  /** Send a queued message NOW (aborts the current run); the rest stay queued. */
+  /** Send a queued message NOW; the rest stay queued. */
   sendNow: (id: string) => void;
 }
 
@@ -68,6 +69,8 @@ export function useCopilotMessageQueue(
   // Latest values via refs so the callbacks/effect stay stable.
   const submitRef = useRef(params.submit);
   submitRef.current = params.submit;
+  const sendNowRef = useRef(params.sendNow ?? params.submit);
+  sendNowRef.current = params.sendNow ?? params.submit;
   const queuedRef = useRef(queued);
   queuedRef.current = queued;
   // Guards a single drain while status is still "ready" before `submit` flips it.
@@ -147,8 +150,7 @@ export function useCopilotMessageQueue(
       return;
     }
     setQueued((q) => q.filter((m) => m.id !== id));
-    // submit() aborts any in-flight run → "send now" = stop current + send.
-    submitRef.current(msg.text, msg.options);
+    sendNowRef.current(msg.text, msg.options);
   }, []);
 
   // Auto-drain: when the thread returns to "ready" with messages queued, send the

@@ -8,9 +8,10 @@
 // member and links the room on its host's desk.
 //
 // While an `ask` is in flight the row carries the colleague's newest progress
-// line, because that stretch is most of the wall-clock time and a bare
-// "Thinking …" says nothing about it. Newest line only — the full log stays
-// in the colleague's own thread.
+// line, in words rather than tool ids, because that stretch is most of the
+// wall-clock time and a bare "Thinking …" says nothing about it. Newest line
+// only — the full log stays in the colleague's own thread, which the row
+// links to from the first progress line on.
 
 import {
   conversationEngagement,
@@ -29,6 +30,7 @@ import {
   DelegatedArtifactRow,
   readDelegatedArtifactIds,
 } from "../../../artifacts/delegated-artifact-row.js";
+import { describeProgressLine } from "../../../features/agent-desk/describe-tool-activity.js";
 import {
   listHireSpaces,
   spaceAgentDeskPath,
@@ -96,7 +98,12 @@ export function AgentMessageToolCallCard({
 }: ToolCallCardProps) {
   const { t } = useTranslation("ai-ui");
   const { currentSpace } = useWorkspaceContext();
-  const outSpaceId = readString(readRecord(output)?.space_id);
+  // While the colleague works the call has no result yet: the room it
+  // answers in rides on the input, put there by its progress lines.
+  const inputRecord = readRecord(input) ?? {};
+  const outSpaceId =
+    readString(readRecord(output)?.space_id) ??
+    readString(inputRecord.space_id);
   // The thread's Space when it is not the page's — the copilot's own page
   // stands in none, and a link without a Space fell back to the sub-run view.
   const needsSpaceLookup = Boolean(
@@ -112,7 +119,7 @@ export function AgentMessageToolCallCard({
   useAgentDisplayNamesVersion();
   const out = (readRecord(output) ?? {}) as MessageAgentOutput;
   const agentId =
-    readString(out.agent_id) ?? readString(readRecord(input)?.agent_id) ?? "";
+    readString(out.agent_id) ?? readString(inputRecord.agent_id) ?? "";
   // `message_agent` writes the colleague's name into the output, but falls
   // back to the bare id when the registry could not resolve the agent at run
   // time. A name loaded since then beats that stored id.
@@ -124,10 +131,14 @@ export function AgentMessageToolCallCard({
         ? resolveAgentDisplayName(agentId)
         : (storedName ?? "");
   const kind = resolveAgentEngenty(agentId, readString(out.agent_engenty));
-  const childThreadId = readString(out.child_thread_id);
+  const childThreadId =
+    readString(out.child_thread_id) ?? readString(inputRecord.child_thread_id);
   const members = readMembers(out.members);
   // A room lives on its host's desk, which for an opened room is the sender.
-  const deskAgentId = readString(out.room_host_agent_id) ?? agentId;
+  const deskAgentId =
+    readString(out.room_host_agent_id) ??
+    readString(inputRecord.room_host_agent_id) ??
+    agentId;
   const failed =
     state === "error" || Boolean(errorText?.trim()) || out.ok === false;
   const running =
@@ -135,7 +146,8 @@ export function AgentMessageToolCallCard({
     output === undefined &&
     (state === "running" || state === "pending");
   const failureText = errorText?.trim() || readString(out.message) || undefined;
-  const liveLine = running ? (readString(progressLines?.at(-1)) ?? null) : null;
+  const newestLine = running ? readString(progressLines?.at(-1)) : null;
+  const liveLine = newestLine ? describeProgressLine(newestLine, t) : null;
   // What the colleague made while answering. Its own Write card is in the
   // pair thread; the person is here, so the deliverable is offered here.
   const artifactIds = failed ? [] : readDelegatedArtifactIds(output);
@@ -197,7 +209,9 @@ export function AgentMessageToolCallCard({
       data-testid="agent-message-row"
       title={failureText}
     >
-      {href && !running ? (
+      {/* Linked while it runs too: the colleague's thread is where the
+          work is visible, and that stretch is when people want to look. */}
+      {href ? (
         <Link className={cn(rowClassName, "hover:bg-muted/60")} to={href}>
           {body}
         </Link>

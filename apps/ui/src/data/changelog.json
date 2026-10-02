@@ -1,7 +1,79 @@
 [
   {
+    "version": "v0.2.37",
+    "timestamp": 1790923783,
+    "commits": [
+      {
+        "id": "e4cba0e",
+        "message": "Enter steers a message into the running turn, attachments included",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "9221e35",
+        "message": "list a wizard on a Space home only where its owner is mounted",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "26bef30",
+        "message": "resolve bridge calls to the operation's structuredContent",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "8532092",
+        "message": "hand an App's tool call answer back instead of \"ok\"",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "ee56dd5",
+        "message": "ask for a workflow review only when the version stays a draft",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "8052cbc",
+        "message": "refuse a second answer to a workflow gate instead of failing the run",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "c490191",
+        "message": "name the step limit even when the turn already wrote progress text",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "6fdba24",
+        "message": "restart, step timeout and memory setting for the Space browser",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "f6be993",
+        "message": "keep a resumed run to one writer so its text does not interleave",
+        "group": "Fixed",
+        "breaking": false
+      },
+      {
+        "id": "2a41e79",
+        "message": "link hand-offs while the colleague works and describe its progress in words",
+        "group": "Added",
+        "breaking": false
+      },
+      {
+        "id": "921c598",
+        "message": "show live run status with elapsed time in the agent desk header",
+        "group": "Added",
+        "breaking": false
+      }
+    ]
+  },
+  {
     "version": "v0.2.36",
-    "timestamp": 1790851478,
+    "timestamp": 1790851483,
     "commits": [
       {
         "id": "9cd1ac5",

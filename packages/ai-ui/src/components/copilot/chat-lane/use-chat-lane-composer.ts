@@ -6,11 +6,12 @@ import {
 } from "@engenty/ag-ui-bridge";
 import { useAgentUiFrontendToolExecutor } from "@engenty/app-shell";
 import type { Dispatch, SetStateAction } from "react";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { isInterruptResolvedLocally } from "../../../ag-ui/apps-ai/use-engenty-ag-ui-apps-ai-session.js";
 import type {
   AgentHost,
   SubmitMessage,
+  SubmitMessageOptions,
 } from "../../../agent-provider/types.js";
 import { approveCopilotOpenInterrupt } from "../../../copilot/approve-copilot-open-interrupt.js";
 import { useCopilotComposerDraftRecovery } from "../../../copilot/use-copilot-composer-draft-recovery.js";
@@ -130,27 +131,53 @@ export function useChatLaneComposer(
     params.openInterruptFromSession,
   ]);
 
-  // "Send now" / auto-drain submit. When a run is still in flight, STOP it for
-  // real first — `host.cancel()` does what the Stop button does (local abort +
-  // server `abortRunStream`), whereas `host.submitMessage` only detaches the
-  // local stream and leaves the server run burning tokens. When idle (auto-drain
-  // after a run finished) the stop is a no-op and we just send.
+  // Auto-drain submit, and the fallback when a message could not be steered.
+  // When a run is still in flight, STOP it for real first — `host.cancel()`
+  // does what the Stop button does (local abort + server `abortRunStream`),
+  // whereas `host.submitMessage` only detaches the local stream and leaves the
+  // server run burning tokens. When idle (auto-drain after a run finished) the
+  // stop is a no-op and we just send. Status is read live: a steer that came
+  // back unaccepted may land after the run already ended.
+  const statusRef = useRef(status);
+  statusRef.current = status;
   const stopAndSubmit = useCallback<SubmitMessage>(
     (text, options) => {
       // A run this window merely attached to is someone else's turn: leave it
       // running and send — the server steers or, if it just ended, starts.
-      if (status !== "ready" && !host.attachedRunId) {
+      if (statusRef.current !== "ready" && !host.attachedRunId) {
         host.cancel();
       }
       host.submitMessage(text, options);
     },
-    [host.attachedRunId, host.cancel, host.submitMessage, status]
+    [host.attachedRunId, host.cancel, host.submitMessage]
+  );
+
+  // "Send now" on a queued message: into the running loop, like Enter. Only
+  // when the loop will not take it does it stop the run and send.
+  const steerOrStopAndSubmit = useCallback<SubmitMessage>(
+    (text, options) => {
+      if (
+        statusRef.current === "ready" ||
+        !host.steer ||
+        joinsAnotherAgent(options)
+      ) {
+        stopAndSubmit(text, options);
+        return;
+      }
+      void host.steer(text, options).then((steered) => {
+        if (!steered) {
+          stopAndSubmit(text, options);
+        }
+      });
+    },
+    [host.steer, stopAndSubmit]
   );
 
   const queue = useCopilotMessageQueue({
     // An open approval interrupt pauses the run for the user — don't auto-drain
     // the next turn across a pending approval.
     blocked: host.awaitingInterrupt,
+    sendNow: steerOrStopAndSubmit,
     status,
     submit: stopAndSubmit,
     threadId: threadKey,
@@ -174,29 +201,28 @@ export function useChatLaneComposer(
         return;
       }
       draftRecovery.clearDraft();
+      const { queue: waitForRun, ...sendOptions } = options ?? {};
       if (status !== "ready") {
-        // A run this window did not start is answering here: put the words
-        // into it (Grok Bot: a direct message redirects the current turn).
-        // If it ended before they landed, they queue as before.
-        if (host.attachedRunId && host.steer) {
-          void host.steer(trimmed, options).then((steered) => {
+        // Enter: the message goes INTO the running loop — this window's own
+        // turn or one it attached to — and the agent reads it at its next
+        // step. If the loop ended before it landed, it queues as before.
+        // Mod+Enter (or a turn for another agent): wait for the run to finish.
+        if (!waitForRun && host.steer && !joinsAnotherAgent(sendOptions)) {
+          void host.steer(trimmed, sendOptions).then((steered) => {
             if (!steered) {
-              queue.enqueue(trimmed, options);
+              queue.enqueue(trimmed, sendOptions);
             }
           });
           return;
         }
-        // This window's own run is in flight — queue this turn instead of
-        // interrupting it.
-        queue.enqueue(trimmed, options);
+        queue.enqueue(trimmed, sendOptions);
         return;
       }
-      host.submitMessage(trimmed, options);
+      host.submitMessage(trimmed, sendOptions);
     },
     [
       dockedGate,
       draftRecovery.clearDraft,
-      host.attachedRunId,
       host.steer,
       host.submitMessage,
       queue.enqueue,
@@ -280,4 +306,9 @@ export function useChatLaneComposer(
     stopAndClearQueue,
     submitMessage,
   };
+}
+
+/** A turn for another agent (an @-mention) cannot join this agent's loop. */
+function joinsAnotherAgent(options?: SubmitMessageOptions): boolean {
+  return Boolean(options?.requestedAgentId);
 }

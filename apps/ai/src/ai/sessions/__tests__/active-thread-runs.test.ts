@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   getActiveThreadRun,
+  noteThreadRunStarting,
   registerActiveThreadRun,
   resetActiveThreadRunsForTests,
   steerActiveThreadRun,
@@ -45,6 +46,27 @@ describe("active thread runs", () => {
     expect(await steerActiveThreadRun({ text: "hi", threadId: "t2" })).toEqual({
       steered: false,
     });
+  });
+
+  it("a message sent while the turn is still starting reaches its loop", async () => {
+    noteThreadRunStarting("t4");
+    const steering = steerActiveThreadRun({
+      text: "only Tyrol",
+      threadId: "t4",
+    });
+    const agent = agentAccepting("deliver");
+    registerActiveThreadRun("t4", { agent, resourceId: "r", runId: "run-4" });
+
+    expect(await steering).toEqual({ runId: "run-4", steered: true });
+    expect(agent.sendMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it("a turn that never started releases a waiting message to the queue", async () => {
+    const release = noteThreadRunStarting("t5");
+    const steering = steerActiveThreadRun({ text: "hi", threadId: "t5" });
+    release();
+
+    expect(await steering).toEqual({ steered: false });
   });
 
   it("a release only clears its own registration", () => {

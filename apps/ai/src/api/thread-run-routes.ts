@@ -49,7 +49,11 @@ import type { AiService } from "../ai/index.js";
 import type { AiRegistry } from "../ai/registry/index.js";
 import { noteHumanTurnInRoom } from "../ai/rooms/deliver.js";
 import { persistSecretsGoalGrant } from "../ai/secrets-goal-grant.js";
-import { steerActiveThreadRun } from "../ai/sessions/active-thread-runs.js";
+import {
+  hasActiveOrStartingThreadRun,
+  noteThreadRunStarting,
+  steerActiveThreadRun,
+} from "../ai/sessions/active-thread-runs.js";
 import {
   loadAgentApprovalGrants,
   persistAgentApprovalGrants,
@@ -87,7 +91,11 @@ import {
   withToolApprovalGrantOnce,
 } from "../ai/sessions/tool-approval-grants.js";
 import { resolveDecisionResumeChoice } from "../ai/sessions/transcript.js";
-import { type AiSessionScope, scopeAccessToken } from "../ai/sessions/types.js";
+import {
+  type AiSessionScope,
+  scopeAccessToken,
+  scopeAttributionUserId,
+} from "../ai/sessions/types.js";
 import { createSkillStorage } from "../ai/skills/skill-storage.js";
 import { createEngentyCoreFileStorageClient } from "../ai/workspace/core-file-storage-client.js";
 import { AI_BASE_PATH } from "../config/constants.js";
@@ -96,6 +104,7 @@ import { resolveThreadInterruptNotifications } from "../notifications/thread-int
 import {
   latestUserAttachmentParts,
   resolveTieredAttachments,
+  tieredAttachmentsAsMessageParts,
 } from "./attachments/tiered-attachments.js";
 import { invokeChatAction } from "./chat-action-invocation.js";
 import type { AgUiDebugEventBus } from "./copilotkit-debug-events.js";
@@ -980,24 +989,40 @@ export function registerThreadRunRoutes(
       // waiting behind it (PLAN-agent-rooms.md R3). Mastra takes the message
       // as the loop's next input; this response is a finished run that says
       // where the words went.
-      if (hsPrompt.trim()) {
+      const hsSteerAttachmentParts = latestUserAttachmentParts(body.data);
+      if (hsPrompt.trim() || hsSteerAttachmentParts.length > 0) {
+        const steeredMessageId = latestUserMessageId(body.data);
+        // Attachments reach the loop like a fresh turn's would: images as
+        // files, documents as their extracted text. Resolved only when there
+        // is a loop to put them in — a plain send resolves its own below.
+        const hsSteerParts =
+          hsSteerAttachmentParts.length > 0 &&
+          hasActiveOrStartingThreadRun(threadId)
+            ? tieredAttachmentsAsMessageParts(
+                await resolveTieredAttachments({
+                  accessToken: scopeAccessToken(scope.scope),
+                  coreBaseUrl: opts.coreBaseUrl,
+                  input: body.data,
+                })
+              )
+            : [];
         const steered = await steerActiveThreadRun({
-          text: hsPrompt,
+          // The run writes the row when it flushes, in order after what it
+          // said before the message arrived — a row written here would sort
+          // ahead of the very turn it answers into.
+          durable: steeredMessageId
+            ? {
+                attachment_parts: hsSteerAttachmentParts,
+                author_user_id: scopeAttributionUserId(scope.scope),
+                message_id: steeredMessageId,
+                text: hsPrompt.trim(),
+              }
+            : null,
+          parts: hsSteerParts,
+          text: hsPrompt.trim(),
           threadId,
         });
         if (steered.steered) {
-          // The loop has the words; the thread must too. A room turn persists
-          // no user rows of its own (its prompt is a wake line), so the
-          // steered turn is written here, under the id the client gave it.
-          const steeredMessageId = latestUserMessageId(body.data);
-          await conversationStore.appendMessage({
-            authorUserId: scope.scope.userId,
-            ...(steeredMessageId ? { id: steeredMessageId } : {}),
-            parts: [{ text: hsPrompt, type: "text" }],
-            role: "user",
-            tenantId: scope.scope.tenantId,
-            threadId,
-          });
           await noteHumanTurnInRoom({
             scope: scope.scope,
             store: conversationStore,
@@ -1018,6 +1043,9 @@ export function registerThreadRunRoutes(
           return c.json({ error: "agent_threads.notSteerable" }, 409);
         }
       }
+      // From here this request starts the thread's turn. A message steered
+      // in before its loop is up waits for it rather than queueing behind it.
+      const releaseStarting = noteThreadRunStarting(threadId);
       // Operation ids approved earlier in this chat — the execute-boundary gate
       // skips them.
       let hsApprovalGrants = readToolApprovalGrants(session.metadata);
@@ -1372,9 +1400,11 @@ export function registerThreadRunRoutes(
         ...(hsWorkspaces.workspace
           ? { workspace: hsWorkspaces.workspace }
           : {}),
-      }).catch((err) => {
-        console.error("conversation run failed", err);
-      });
+      })
+        .catch((err) => {
+          console.error("conversation run failed", err);
+        })
+        .finally(releaseStarting);
     } else {
       // Chat runs on the single conversation substrate; reaching here means a
       // prerequisite (registry/store) is missing.
