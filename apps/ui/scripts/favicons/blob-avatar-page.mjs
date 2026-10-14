@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC-BY-4.0
 // Faithful standalone reproduction of the in-app BlobAvatar
 // (packages/ui-core/src/components/blob-avatar). Colors, silhouettes, eye
 // geometry, accents and keyframes are copied verbatim from source. All motion

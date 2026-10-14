@@ -1,0 +1,34 @@
+# engenty figures
+
+SPDX-License-Identifier: CC-BY-4.0
+
+Copyright 2026 - Thru The Heart Creative GmbH - Matthias Platzer
+
+The engenty figures — the one-eyed characters of engenty, in every kind and rendering, with
+their shapes, colours, eyes and accessories — are licensed under the Creative Commons
+Attribution 4.0 International licence (CC BY 4.0):
+https://creativecommons.org/licenses/by/4.0/legalcode
+
+You may use, copy, change and share them, commercially too, free of charge and without
+royalties, as long as you give credit, for example:
+
+    engenty figures © Thru The Heart Creative GmbH - Matthias Platzer, CC BY 4.0, engenty.ai
+
+These files describe what the figures look like and are under CC BY 4.0:
+
+- packages/ui-core/src/components/engenty/engenty.tsx, colors.ts, forms.ts, goggles.tsx, logo.tsx
+- packages/ui-core/src/components/blob-avatar/blob-avatar.tsx, blob-eye.tsx, blob-accents.tsx,
+  blob-state-layers.tsx
+- apps/ui/scripts/favicons/blob-avatar-page.mjs
+- apps/ui/public/favicon.*, apps/ui/public/apple-touch-icon.png, apps/ui/public/icon-*.png,
+  apps/docs/public/favicon.svg
+
+The figures are under CC BY 4.0 wherever else they appear in this repository too; the code around
+them is under the Functional Source License.
+
+The code that renders, animates and deforms the figures (the fur and jelly renderers, their
+shaders, gaze, motion and the lobby) stays under the Functional Source License (LICENSE).
+
+CC BY 4.0 licenses copyright and similar rights, not trademark or patent rights (section
+2(b)(2)). Using the figures or the name engenty as your own brand, logo or mascot, or in a way
+that suggests engenty endorses you, is governed by TRADEMARKS.md.

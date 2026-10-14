@@ -91,7 +91,8 @@ function faviconSvg() {
   const right = bx + 56;
   const ex = bx + 16; // eye 24x24 centered in the 56x48 box
   const ey = by + 12;
-  return `<svg viewBox="0 0 ${STAGE} ${STAGE}" xmlns="http://www.w3.org/2000/svg">
+  return `<!-- SPDX-License-Identifier: CC-BY-4.0 -->
+<svg viewBox="0 0 ${STAGE} ${STAGE}" xmlns="http://www.w3.org/2000/svg">
   <title>Engenty</title>
   <style>
     .body{fill:#e0531b}.ring{fill:none;stroke:#fdfdfd;stroke-width:1.8}.pupil{fill:#fdfdfd}

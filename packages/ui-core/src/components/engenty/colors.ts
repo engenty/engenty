@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC-BY-4.0
 /**
  * Landing token fills, one per engenty kind.
  *

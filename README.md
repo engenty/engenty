@@ -226,3 +226,8 @@ not OSI open source.
 
 [FSL-1.1-MIT](./LICENSE) — free for any non-competing use, converting to MIT two
 years after each release.
+
+The engenty figures are free artwork under CC BY 4.0 ([LICENSE-FIGURES](./LICENSE-FIGURES)):
+use, change and share them, commercially too, with credit. The name and the figures as a brand
+are trademarks ([TRADEMARKS.md](./TRADEMARKS.md)): your own logo, mascot, advertising or
+merchandise with them needs permission.

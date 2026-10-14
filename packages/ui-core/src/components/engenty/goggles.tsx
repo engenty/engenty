@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: CC-BY-4.0
 // Old-school pilot goggles — brass-rimmed lens over the eye, leather strap
 // round the body — in the shared 0..120 space, so the same group sits on the
 // flat SVG engenty and, as an overlay, on the 3D one. The copilot wears them.
