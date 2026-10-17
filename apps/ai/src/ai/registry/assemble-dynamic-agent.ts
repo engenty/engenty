@@ -382,14 +382,16 @@ async function assembleDynamicAgentWithAncestors(
     }
   }
 
-  // Code Mode (read-only): one `execute_typescript` tool for bulk/aggregation
-  // tool orchestration in the workspace sandbox. Attached to root agents that
-  // (a) carry the engenty catalog meta-tools and (b) run WITH a workspace —
-  // the code-mode tool resolves its sandbox from `ctx.workspace.sandbox`.
+  // Code Mode: one `execute_typescript` tool for bulk/aggregation tool
+  // orchestration. Attached to root agents that carry the engenty catalog
+  // meta-tools. Programs run in-process in QuickJS, so an agent without a
+  // computer gets it too. An action's allow list must name it: that list is
+  // the action's guardrail.
   const attachCodeMode =
     attachMemory &&
-    options.workspace?.sandbox != null &&
-    ENGENTY_TOOL_EXECUTE_TOOL_ID in agentTools;
+    ENGENTY_TOOL_EXECUTE_TOOL_ID in agentTools &&
+    (!options.allowedToolIds ||
+      options.allowedToolIds.includes(engentyCodeModeTool.id));
   if (attachCodeMode) {
     agentTools[engentyCodeModeTool.id] =
       engentyCodeModeTool as unknown as MastraToolDefinition;

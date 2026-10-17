@@ -216,6 +216,9 @@ importers:
       '@mastra/pg':
         specifier: 1.25.0
         version: 1.25.0(@mastra/core@1.67.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.102(zod@4.6.5))(express@5.2.1)(rxjs@7.8.1)(zod@4.6.5))
+      '@mastra/quickjs':
+        specifier: 0.1.3
+        version: 0.1.3(@mastra/core@1.67.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.102(zod@4.6.5))(express@5.2.1)(rxjs@7.8.1)(zod@4.6.5))
       '@mastra/server':
         specifier: 1.67.0
         version: 1.67.0(@mastra/core@1.67.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.102(zod@4.6.5))(express@5.2.1)(rxjs@7.8.1)(zod@4.6.5))(zod@4.6.5)
@@ -6058,6 +6061,21 @@ packages:
     resolution: {integrity: sha512-VwGZqqjAWPICTmxUZnbpEfO60LhPWzquik+bmyXGY7pYRn6diEvCI5i6Ca+J6o2y4vS73HrpuMTo2dOvUevH8w==}
     engines: {node: '>=12'}
 
+  '@jitl/quickjs-ffi-types@0.31.0':
+    resolution: {integrity: sha512-1yrgvXlmXH2oNj3eFTrkwacGJbmM0crwipA3ohCrjv52gBeDaD7PsTvFYinlAnqU8iPME3LGP437yk05a2oejw==}
+
+  '@jitl/quickjs-wasmfile-debug-asyncify@0.31.0':
+    resolution: {integrity: sha512-YkdzQdr1uaftFhgEnTRjTTZHk2SFZdpWO7XhOmRVbi6CEVsH9g5oNF8Ta1q3OuSJHRwwT8YsuR1YzEiEIJEk6w==}
+
+  '@jitl/quickjs-wasmfile-debug-sync@0.31.0':
+    resolution: {integrity: sha512-8XvloaaWBONqcHXYs5tWOjdhQVxzULilIfB2hvZfS6S+fI4m2+lFiwQy7xeP8ExHmiZ7D8gZGChNkdLgjGfknw==}
+
+  '@jitl/quickjs-wasmfile-release-asyncify@0.31.0':
+    resolution: {integrity: sha512-uz0BbQYTxNsFkvkurd7vk2dOg57ElTBLCuvNtRl4rgrtbC++NIndD5qv2+AXb6yXDD3Uy1O2PCwmoaH0eXgEOg==}
+
+  '@jitl/quickjs-wasmfile-release-sync@0.31.0':
+    resolution: {integrity: sha512-hYduecOByj9AsAfsJhZh5nA6exokmuFC8cls39+lYmTCGY51bgjJJJwReEu7Ff7vBWaQCL6TeDdVlnp2WYz0jw==}
+
   '@jridgewell/gen-mapping@0.3.13':
     resolution: {integrity: sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA==}
 
@@ -6395,6 +6413,12 @@ packages:
     engines: {node: '>=22.13.0'}
     peerDependencies:
       '@mastra/core': '>=1.63.1-0 <2.0.0-0'
+
+  '@mastra/quickjs@0.1.3':
+    resolution: {integrity: sha512-ZRSDdCvVHAfQtB6t2xdpFmgaHbicZKJqEvR025q0tHb/4ZCYwg4apH1xxKUEbWPCewJ+kccGaAnQme+K3n8xYQ==}
+    engines: {node: '>=20.19.0'}
+    peerDependencies:
+      '@mastra/core': '>=1.55.0-0 <2.0.0-0'
 
   '@mastra/rag@2.6.3':
     resolution: {integrity: sha512-lS0rn07IE5+vVRK7xF/raOne9bDzN5iw1JgPqONcqyMENFlx6jNLoQ6MLgJdD+WM/ULVaHg/RFJBw/tqsQSiTQ==}
@@ -13449,6 +13473,13 @@ packages:
   quick-format-unescaped@4.0.4:
     resolution: {integrity: sha512-tYC1Q1hgyRuHgloV/YXs2w15unPVh8qfu/qCTfhTYamaw7fyhumKa2yGpdSo87vY32rIclj+4fWYQXUMs9EHvg==}
 
+  quickjs-emscripten-core@0.31.0:
+    resolution: {integrity: sha512-oQz8p0SiKDBc1TC7ZBK2fr0GoSHZKA0jZIeXxsnCyCs4y32FStzCW4d1h6E1sE0uHDMbGITbk2zhNaytaoJwXQ==}
+
+  quickjs-emscripten@0.31.0:
+    resolution: {integrity: sha512-K7Yt78aRPLjPcqv3fIuLW1jW3pvwO21B9pmFOolsjM/57ZhdVXBr51GqJpalgBlkPu9foAvhEAuuQPnvIGvLvQ==}
+    engines: {node: '>=16.0.0'}
+
   randombytes@2.1.0:
     resolution: {integrity: sha512-vYl3iOX+4CKUWuxGi9Ukhie6fsqXqS9FE2Zaic4tNFD2N2QQaXOMFbuKK4QmDHC0JO6B1Zp41J0LpT0oR68amQ==}
 
@@ -14404,6 +14435,10 @@ packages:
 
   ts-algebra@2.0.0:
     resolution: {integrity: sha512-FPAhNPFMrkwz76P7cdjdmiShwMynZYN6SgOujD1urY4oNm80Ou9oMdmbR45LotcKOXoy7wSmHkRFE6Mxbrhefw==}
+
+  ts-blank-space@0.6.2:
+    resolution: {integrity: sha512-hZjcHdHrveEKI67v8OzI90a1bizgoDkY7ekE4fH89qJhZgxvmjfBOv98aibCU7OpKbvV3R9p/qd3DrzZqT1cFQ==}
+    engines: {node: '>=18.0.0'}
 
   ts-dedent@2.3.0:
     resolution: {integrity: sha512-JfJeIHke7y2egdGGgRAvpCwYFUsHlM2gPcrVOxFkznt/4uzQ7HFmvE63iFHVLBJNDuyDOQgijDK/tXH/f6Msjg==}
@@ -16625,6 +16660,24 @@ snapshots:
 
   '@isaacs/ttlcache@2.1.5': {}
 
+  '@jitl/quickjs-ffi-types@0.31.0': {}
+
+  '@jitl/quickjs-wasmfile-debug-asyncify@0.31.0':
+    dependencies:
+      '@jitl/quickjs-ffi-types': 0.31.0
+
+  '@jitl/quickjs-wasmfile-debug-sync@0.31.0':
+    dependencies:
+      '@jitl/quickjs-ffi-types': 0.31.0
+
+  '@jitl/quickjs-wasmfile-release-asyncify@0.31.0':
+    dependencies:
+      '@jitl/quickjs-ffi-types': 0.31.0
+
+  '@jitl/quickjs-wasmfile-release-sync@0.31.0':
+    dependencies:
+      '@jitl/quickjs-ffi-types': 0.31.0
+
   '@jridgewell/gen-mapping@0.3.13':
     dependencies:
       '@jridgewell/sourcemap-codec': 1.6.0
@@ -17170,6 +17223,12 @@ snapshots:
       xxhash-wasm: 1.1.0
     transitivePeerDependencies:
       - pg-native
+
+  '@mastra/quickjs@0.1.3(@mastra/core@1.67.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.102(zod@4.6.5))(express@5.2.1)(rxjs@7.8.1)(zod@4.6.5))':
+    dependencies:
+      '@mastra/core': 1.67.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.102(zod@4.6.5))(express@5.2.1)(rxjs@7.8.1)(zod@4.6.5)
+      quickjs-emscripten: 0.31.0
+      ts-blank-space: 0.6.2
 
   '@mastra/rag@2.6.3(@mastra/core@1.67.0(@bufbuild/protobuf@2.12.0)(@grpc/grpc-js@1.14.4)(ai@7.0.102(zod@4.6.5))(express@5.2.1)(rxjs@7.8.1)(zod@4.6.5))(zod@4.6.5)':
     dependencies:
@@ -19898,7 +19957,7 @@ snapshots:
       obug: 2.1.3
       std-env: 4.1.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.6.1)(@vitest/coverage-v8@4.1.11)(happy-dom@20.14.5)(jsdom@26.1.0)(vite@8.3.0(@types/node@26.6.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.1))
+      vitest: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.6.1)(@vitest/coverage-v8@4.1.11)(happy-dom@20.14.5)(jsdom@26.1.0)(vite@8.3.0(@types/node@26.6.1)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.1))
 
   '@vitest/expect@4.1.11':
     dependencies:
@@ -24850,6 +24909,18 @@ snapshots:
 
   quick-format-unescaped@4.0.4: {}
 
+  quickjs-emscripten-core@0.31.0:
+    dependencies:
+      '@jitl/quickjs-ffi-types': 0.31.0
+
+  quickjs-emscripten@0.31.0:
+    dependencies:
+      '@jitl/quickjs-wasmfile-debug-asyncify': 0.31.0
+      '@jitl/quickjs-wasmfile-debug-sync': 0.31.0
+      '@jitl/quickjs-wasmfile-release-asyncify': 0.31.0
+      '@jitl/quickjs-wasmfile-release-sync': 0.31.0
+      quickjs-emscripten-core: 0.31.0
+
   randombytes@2.1.0:
     dependencies:
       safe-buffer: 5.2.1
@@ -26062,6 +26133,10 @@ snapshots:
   trough@2.2.0: {}
 
   ts-algebra@2.0.0: {}
+
+  ts-blank-space@0.6.2:
+    dependencies:
+      typescript: 6.0.3
 
   ts-dedent@2.3.0: {}
 

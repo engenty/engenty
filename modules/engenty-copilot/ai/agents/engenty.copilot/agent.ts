@@ -55,10 +55,8 @@ export const engentyCopilotAgentConfig: AgentConfig = {
   // when bound, `/space` (rw) and the read-only `/company`. The sandbox is the computer of
   // the Space the person stands in (`run` + the run's Space, see
   // `resolveRunSandboxLifecycle`), shared with that Space's agents and
-  // engenty.cli; `/home` is file tools only there. The sandbox powers Code Mode
-  // (`execute_typescript` — tool orchestration programs; reads run freely,
-  // gated writes need a grant via engenty_tools_preapprove first); the
-  // container starts lazily on first use, so idle chats pay nothing.
+  // engenty.cli; `/home` is file tools only there. The container starts
+  // lazily on first use, so idle chats pay nothing.
   // EXECUTE_COMMAND runs unapproved, like engenty.cli on the same computer —
   // a gate one delegation away from an ungated shell protects nothing.
   // Free-form CLI/code work stays delegated to engenty.cli (own report).

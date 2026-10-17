@@ -273,7 +273,7 @@ runtime rather than a per-language image split:
 | Prebaked | Why |
 | --- | --- |
 | `node` + `npm`/`npx` | the runtime a model assumes by default |
-| `bun` | TypeScript with no build step; Code Mode's runner |
+| `bun` | TypeScript with no build step |
 | `python3` + `uv` | from the base image, plus a fast installer |
 | `jq`, `git`, `curl` | what a model writes when post-processing JSON |
 | `zod` (both resolvers), `httpx`, `requests` | universal libs, so the common case needs no install |
@@ -329,9 +329,8 @@ run in the Space, while the tree is materialized as the run's principal. There
 | `none` (default for per-run sandboxes) | `none` | the agent's `workspace.sandbox.network` |
 | `egress` (default for the space computer) | `ENGENTY_SANDBOX_EGRESS_NETWORK` (default `bridge`); proxy env injected when `ENGENTY_SANDBOX_EGRESS_PROXY_URL` is set | the **Space** (`core.spaces.computer_network_tier`), host default `ENGENTY_SPACE_COMPUTER_NETWORK_TIER` |
 
-`none` is the default because the two things model code normally needs —
-Engenty tools and Code Mode's RPC — travel over stdio to the host, not over the
-network. The machine's tier is the Space's call and never the declaring agent's:
+`none` is the default because what model code normally needs — Engenty tools
+— travels over stdio to the host, not over the network. The machine's tier is the Space's call and never the declaring agent's:
 the machine's `HostConfig` is fixed by whoever creates it first, so a per-agent
 declaration would make its reach depend on run ordering. Without a proxy URL,
 `egress` still attaches to that Docker network and reaches whatever it can —
@@ -378,7 +377,7 @@ Reachable:
 - the filesystem it is given (the table above);
 - with `egress`: package registries and third-party APIs (through the proxy when
   one is configured);
-- the host, over stdio, for Code Mode `external_*` calls.
+- the host, over stdio, for `engenty tools` calls (below).
 
 **Not** reachable — and this is deliberate, not an oversight:
 
@@ -389,11 +388,12 @@ Reachable:
 
 ## How a program still calls Engenty
 
-Code Mode. The model writes one TypeScript program; it is staged in the
-sandbox's bind-mounted working directory and run with `bun`, and its
-`external_*` calls are framed back over stdout/stdin to host-side dispatch —
-the same `invokeTool` path as a chat tool call, with schema validation, run
-context and audit intact.
+Code Mode does not use the container. The model writes one TypeScript program
+and apps/ai runs it in-process in QuickJS compiled to WebAssembly
+(`@mastra/quickjs`): no files, network, process, timers or modules, a 64 MB heap
+and a fresh runtime per program. Its `external_*` calls go to host-side dispatch
+— the same `invokeTool` path as a chat tool call, with schema validation, run
+context and audit intact. An agent without a computer gets Code Mode too.
 
 The program sees exactly two tools:
 
@@ -408,12 +408,21 @@ write fails *into* the program with the recovery path: run
 `engenty_tools_preapprove` in chat, take the one card that grants the program's
 write set, re-run.
 
-`DockerCodeModeTransport` exists only because Mastra's shipped
-`StdioCodeModeTransport` stages programs on the **host**, a path that does not
-exist inside a container. It reads the host↔container path mapping from
-`DockerSandbox`'s `_volumes`/`_workingDir` fields — plain JS fields, not in the
-`.d.ts` — so re-verify it on every `@mastra` bump, and delete it when upstream
-becomes container-aware.
+Limits (`CODE_MODE_LIMITS` in `apps/ai/ai/tools/engenty-tools/code-mode.ts`):
+
+| Limit | Value |
+| --- | --- |
+| Tool calls per program | 100 |
+| Tool calls of all programs in one run | 300 |
+| Tool calls in flight per program | 4 |
+| Wall time per program | 120 s |
+| One tool answer entering a program | 200 000 characters |
+
+The answer cap is not only about cost: QuickJS 0.31 can abort while it frees a
+runtime that parsed a tool answer of ~1.6 MB. A program that fails that way
+comes back to the model as a tool error. QuickJS is an interpreter, 5–17× slower
+than V8 on compute-heavy loops — fine for programs that mostly await tools, not
+for number crunching.
 
 The shell. `engenty tools list|schema|call` is on every sandbox image
 (`deploy/sandbox/engenty.mjs`) and runs the same sandbox-gated execute as Code

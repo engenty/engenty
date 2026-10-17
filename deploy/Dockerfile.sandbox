@@ -9,10 +9,10 @@
 #
 # Both JS runtimes ship on purpose. A model writing JavaScript reaches for
 # `node`/`npm` first — that is what its training data is full of — and an image
-# without them turns every such script into a retry. `bun` is kept because Code
-# Mode's runner spawns it and because it runs TypeScript with no build step.
+# without them turns every such script into a retry. `bun` is kept because it
+# runs TypeScript with no build step.
 #   - node + npm/npx  → the runtime a model assumes by default
-#   - bun             → TypeScript with no build step; Code Mode's runner
+#   - bun             → TypeScript with no build step
 #   - python3         → from the base image
 #   - uv              → fast Python package manager
 #   - jq              → the shell tool models reach for on JSON

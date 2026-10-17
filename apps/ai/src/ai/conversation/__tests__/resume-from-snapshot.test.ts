@@ -201,8 +201,8 @@ describe("resume continues from the stored snapshot", () => {
 });
 
 // A resume assembles a BRAND-NEW agent, so without this the continuation has no
-// `ctx.workspace.sandbox` at all and execute_typescript plus the workspace
-// file/skill tools silently vanish. Same class of gap as the frontend-tool
+// `ctx.workspace.sandbox` at all and the workspace file/skill tools silently
+// vanish. Same class of gap as the frontend-tool
 // re-declaration next to it.
 describe("the snapshot lane rebuilds the run's workspace", () => {
   function makeWorkspace() {

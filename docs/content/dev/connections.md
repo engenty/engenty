@@ -47,7 +47,7 @@ approval gate, audit — works unchanged.
 (`CONNECTIONS_TOKEN_ENC_KEY`) in `module_connections.connections`, the
 encrypted columns are excluded from the `authenticated` column grant, and the
 only decryption path is the repo's `withFreshAccessToken` helper (which also
-transparently refreshes). Agents — chat, task jobs, and sandboxed Code Mode
+transparently refreshes). Agents — chat, task jobs, and Code Mode
 programs — call tools; the provider request is made host-side in core.
 
 ## Action groups and the static contract

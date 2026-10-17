@@ -41,8 +41,9 @@ preset and attaches a Mastra `Workspace` per run.
 | Sandbox | Yes | `lifecycle: "session"`, `requireApproval: true` (EXECUTE_COMMAND HITL); lazy start |
 | Vector/hybrid search | No | Not enabled on this agent |
 
-Free-form CLI/code work stays delegated to `engenty.cli` (own sandbox). Copilot
-sandbox powers Code Mode (`execute_typescript`) on the personal desk.
+Free-form CLI/code work stays delegated to `engenty.cli` (own sandbox). Code
+Mode (`execute_typescript`) does not use the sandbox: programs run in-process in
+QuickJS.
 
 ## Tools
 
